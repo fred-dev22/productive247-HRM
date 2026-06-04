@@ -1,0 +1,183 @@
+{
+  "nav": {
+    "app_name": "Productive 247 HRM",
+    "company": "Galana Petroleum Ltd",
+    "admin": "Administration",
+    "recruitment": "Recrutement",
+    "training": "Formation",
+    "payroll": "Paie",
+    "reports": "Rapports",
+    "my_space": "Mon espace",
+    "my_absences": "Mes absences",
+    "my_missions": "Mes missions",
+    "my_documents": "Mes documents",
+    "context_rh": "RH · GALANA",
+    "context_employee": "EMPLOYÉ · GALANA"
+  },
+  "topbar": {
+    "search_placeholder": "Rechercher...",
+    "language": "Langue",
+    "logout": "Se déconnecter"
+  },
+  "login": {
+    "title": "Connexion",
+    "subtitle": "Connectez-vous pour accéder à l'application",
+    "username": "Code utilisateur",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "role_label": "Type de compte",
+    "role_rh": "RH / Manager",
+    "role_employee": "Employé(e)",
+    "dev_only": "dev only",
+    "dev_note": "Le sélecteur de rôle est temporaire. En production, le rôle sera lu depuis le token JWT.",
+    "error_fields": "Veuillez remplir tous les champs."
+  },
+  "dashboard": {
+    "welcome": "Tableau de bord RH",
+    "welcome_employee": "Mon espace",
+    "greeting": "Bienvenue,",
+    "export": "Exporter",
+    "new_request": "Nouvelle demande",
+    "active_employees": "Employés actifs",
+    "this_month": "ce mois",
+    "pending": "En attente",
+    "to_process": "à traiter",
+    "approved_month": "Approuvés (mois)",
+    "leaves_absences": "congés / absences",
+    "absent_today": "Absents aujourd'hui",
+    "on_employees": "sur {count} employés"
+  },
+  "absence": {
+    "title": "Demandes d'absence",
+    "all": "Toutes",
+    "new": "Nouvelle demande d'absence",
+    "pending_title": "Demandes en attente",
+    "see_all": "Voir tout →",
+    "tabs": {
+      "pending": "En attente ({count})",
+      "approved": "Récents approuvés ({count})"
+    },
+    "types": {
+      "annual": "Congé annuel",
+      "sick": "Congé maladie",
+      "maternity": "Congé maternité",
+      "recovery": "Récupération",
+      "parental": "Assistance parentale",
+      "exceptional": "Permission exceptionnelle",
+      "remote": "Télétravail"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "pending": "En attente",
+      "approved": "Approuvé",
+      "rejected": "Refusé",
+      "cancelled": "Annulé"
+    },
+    "fields": {
+      "employee": "Employé",
+      "type": "Type d'absence",
+      "dates": "Dates",
+      "days": "Jours",
+      "submitted": "Soumis le",
+      "status": "Statut",
+      "actions": "Actions",
+      "reason": "Commentaire",
+      "reason_optional": "Commentaire (optionnel)",
+      "start_date": "Date de début",
+      "end_date": "Date de fin",
+      "working_days": "{count} jour(s) ouvrable(s)",
+      "balance": "Solde disponible : {count} jours",
+      "rejection_reason": "Motif de refus"
+    },
+    "actions": {
+      "approve": "✓ Approuver",
+      "reject": "✗ Refuser",
+      "cancel": "Annuler",
+      "view": "Voir →",
+      "submit": "Soumettre la demande",
+      "save_draft": "Enregistrer en brouillon",
+      "confirm_reject": "Confirmer le refus",
+      "reset_filters": "Réinitialiser les filtres",
+      "back": "Retour",
+      "new_leave": "Demander un congé"
+    },
+    "filters": {
+      "all_statuses": "Tous les statuts",
+      "all_types": "Tous les types",
+      "from": "Du",
+      "to": "Au",
+      "filter_by": "Filtrer par :"
+    },
+    "reject_modal": {
+      "title": "Refuser la demande de {name}",
+      "label": "Raison du refus *",
+      "placeholder": "Expliquez la raison du refus (minimum 10 caractères)...",
+      "error_empty": "La raison du refus est obligatoire",
+      "error_short": "La raison doit contenir au moins 10 caractères"
+    },
+    "empty": "Aucune demande trouvée",
+    "draft_saved": "Brouillon enregistré",
+    "balances_title": "Soldes individuels",
+    "calendar_title": "Calendrier",
+    "no_absence": "Aucune absence ce jour",
+    "my_requests": "Mes demandes récentes",
+    "history": "Historique →",
+    "select_employee": "-- Sélectionner un employé --",
+    "select_type": "-- Choisissez un type --",
+    "optional": "optionnel",
+    "scope_label": "Demandes :",
+    "per_page": "Par page",
+    "total": "{count} demande(s) total",
+    "employees_total": "{count} employé(s) total",
+    "columns_title": "COLONNES"
+  },
+  "validation": {
+    "required_type": "Veuillez choisir un type d'absence",
+    "required_start": "La date de début est obligatoire",
+    "required_end": "La date de fin est obligatoire",
+    "end_before_start": "La date de fin doit être après la date de début",
+    "required_employee": "Veuillez sélectionner un employé"
+  },
+  "pagination": {
+    "previous": "Précédent",
+    "next": "Suivant"
+  },
+  "balances": {
+    "title": "Soldes de congés",
+    "annual": "Congés annuels",
+    "recovery": "Récupération",
+    "sick": "Congé maladie",
+    "remote": "Télétravail",
+    "maternity": "Maternité",
+    "remaining": "restants",
+    "available": "disponible",
+    "used": "utilisés",
+    "acquired": "jours acquis",
+    "on": "sur {total} jours"
+  },
+  "sidebar": {
+    "dashboard": "Tableau de bord",
+    "overview": "Vue d'ensemble",
+    "leaves_absences": "Congés & Absences",
+    "requests": "Demandes",
+    "absences": "Absences",
+    "recovery": "Récupération",
+    "remote": "Télétravail",
+    "balances": "Soldes",
+    "administration": "Administration",
+    "employees": "Employés",
+    "entities": "Entités",
+    "missions": "Missions",
+    "expenses": "Notes de frais",
+    "contracts": "Contrats",
+    "reports": "Rapports",
+    "statistics": "Statistiques",
+    "org_chart": "Organigramme",
+    "my_space": "Mon espace",
+    "my_profile": "Mon profil",
+    "my_requests": "Mes demandes",
+    "leaves": "Congés",
+    "history": "Historique",
+    "my_planning": "Mon planning"
+  }
+}

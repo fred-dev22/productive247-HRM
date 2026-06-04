@@ -1,0 +1,183 @@
+{
+  "nav": {
+    "app_name": "Productive 247 HRM",
+    "company": "Galana Petroleum Ltd",
+    "admin": "Administration",
+    "recruitment": "Recruitment",
+    "training": "Training",
+    "payroll": "Payroll",
+    "reports": "Reports",
+    "my_space": "My Space",
+    "my_absences": "My Absences",
+    "my_missions": "My Missions",
+    "my_documents": "My Documents",
+    "context_rh": "HR · GALANA",
+    "context_employee": "EMPLOYEE · GALANA"
+  },
+  "topbar": {
+    "search_placeholder": "Search...",
+    "language": "Language",
+    "logout": "Sign out"
+  },
+  "login": {
+    "title": "Sign In",
+    "subtitle": "Sign in to access the application",
+    "username": "User code",
+    "password": "Password",
+    "submit": "Sign in",
+    "role_label": "Account type",
+    "role_rh": "HR / Manager",
+    "role_employee": "Employee",
+    "dev_only": "dev only",
+    "dev_note": "Role selector is temporary. In production, role will be read from JWT token.",
+    "error_fields": "Please fill in all fields."
+  },
+  "dashboard": {
+    "welcome": "HR Dashboard",
+    "welcome_employee": "My Space",
+    "greeting": "Welcome,",
+    "export": "Export",
+    "new_request": "New Request",
+    "active_employees": "Active employees",
+    "this_month": "this month",
+    "pending": "Pending",
+    "to_process": "to process",
+    "approved_month": "Approved (month)",
+    "leaves_absences": "leaves / absences",
+    "absent_today": "Absent today",
+    "on_employees": "out of {count} employees"
+  },
+  "absence": {
+    "title": "Absence Requests",
+    "all": "All",
+    "new": "New Absence Request",
+    "pending_title": "Pending Requests",
+    "see_all": "See all →",
+    "tabs": {
+      "pending": "Pending ({count})",
+      "approved": "Recently approved ({count})"
+    },
+    "types": {
+      "annual": "Annual Leave",
+      "sick": "Sick Leave",
+      "maternity": "Maternity Leave",
+      "recovery": "Recovery Time",
+      "parental": "Parental Assistance",
+      "exceptional": "Exceptional Permission",
+      "remote": "Remote Work"
+    },
+    "status": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "fields": {
+      "employee": "Employee",
+      "type": "Absence type",
+      "dates": "Dates",
+      "days": "Days",
+      "submitted": "Submitted on",
+      "status": "Status",
+      "actions": "Actions",
+      "reason": "Comment",
+      "reason_optional": "Comment (optional)",
+      "start_date": "Start date",
+      "end_date": "End date",
+      "working_days": "{count} working day(s)",
+      "balance": "Available balance: {count} days",
+      "rejection_reason": "Rejection reason"
+    },
+    "actions": {
+      "approve": "✓ Approve",
+      "reject": "✗ Reject",
+      "cancel": "Cancel",
+      "view": "View →",
+      "submit": "Submit request",
+      "save_draft": "Save as draft",
+      "confirm_reject": "Confirm rejection",
+      "reset_filters": "Reset filters",
+      "back": "Back",
+      "new_leave": "Request leave"
+    },
+    "filters": {
+      "all_statuses": "All statuses",
+      "all_types": "All types",
+      "from": "From",
+      "to": "To",
+      "filter_by": "Filter by:"
+    },
+    "reject_modal": {
+      "title": "Reject {name}'s request",
+      "label": "Rejection reason *",
+      "placeholder": "Explain the reason for rejection (minimum 10 characters)...",
+      "error_empty": "Rejection reason is required",
+      "error_short": "Reason must be at least 10 characters"
+    },
+    "empty": "No requests found",
+    "draft_saved": "Draft saved",
+    "balances_title": "Individual Balances",
+    "calendar_title": "Calendar",
+    "no_absence": "No absence this day",
+    "my_requests": "My recent requests",
+    "history": "History →",
+    "select_employee": "-- Select an employee --",
+    "select_type": "-- Choose a type --",
+    "optional": "optional",
+    "scope_label": "Requests:",
+    "per_page": "Per page",
+    "total": "{count} request(s) total",
+    "employees_total": "{count} employee(s) total",
+    "columns_title": "COLUMNS"
+  },
+  "validation": {
+    "required_type": "Please choose an absence type",
+    "required_start": "Start date is required",
+    "required_end": "End date is required",
+    "end_before_start": "End date must be after start date",
+    "required_employee": "Please select an employee"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "balances": {
+    "title": "Leave Balances",
+    "annual": "Annual Leave",
+    "recovery": "Recovery Time",
+    "sick": "Sick Leave",
+    "remote": "Remote Work",
+    "maternity": "Maternity",
+    "remaining": "remaining",
+    "available": "available",
+    "used": "used",
+    "acquired": "days acquired",
+    "on": "out of {total} days"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "overview": "Overview",
+    "leaves_absences": "Leaves & Absences",
+    "requests": "Requests",
+    "absences": "Absences",
+    "recovery": "Recovery",
+    "remote": "Remote Work",
+    "balances": "Balances",
+    "administration": "Administration",
+    "employees": "Employees",
+    "entities": "Entities",
+    "missions": "Missions",
+    "expenses": "Expenses",
+    "contracts": "Contracts",
+    "reports": "Reports",
+    "statistics": "Statistics",
+    "org_chart": "Org Chart",
+    "my_space": "My Space",
+    "my_profile": "My Profile",
+    "my_requests": "My Requests",
+    "leaves": "Leaves",
+    "history": "History",
+    "my_planning": "My Schedule"
+  }
+}

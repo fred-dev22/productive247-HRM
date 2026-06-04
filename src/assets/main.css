@@ -1,0 +1,35 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --p247-orange:       #FE5E00;
+  --p247-orange-light: #FAF1EF;
+  --p247-orange-dark:  #D94E00;
+  --p247-bg:           #F5F5F2;
+  --p247-white:        #FFFFFF;
+  --p247-text:         #1A1A18;
+  --p247-muted:        #6B6B68;
+  --p247-border:       rgba(0, 0, 0, 0.1);
+  --p247-success:      #2D7A3F;
+  --p247-success-bg:   #EAF4EC;
+  --p247-warning:      #8A5A0A;
+  --p247-warning-bg:   #FEF5E1;
+  --p247-danger:       #A32D2D;
+  --p247-danger-bg:    #FCEBEB;
+  --p247-info:         #185FA5;
+  --p247-info-bg:      #E6F1FB;
+  --p247-topbar-bg:    #1A1A1A;
+  --p247-topbar-text:  #FFFFFF;
+  --p247-navbar-bg:    #FFFFFF;
+  --p247-navbar-border: rgba(0, 0, 0, 0.08);
+}
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 15px;
+  background: var(--p247-bg);
+  color: var(--p247-text);
+}
