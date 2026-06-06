@@ -48,22 +48,26 @@
           {{ t('login.role_label') }}
           <span class="dev-badge">{{ t('login.dev_only') }}</span>
         </label>
-        <div class="role-row">
-          <div
-            class="role-opt"
-            :class="{ selected: selectedRole === 'rh' }"
-            @click="selectedRole = 'rh'"
-          >
-            <i class="ti ti-briefcase" aria-hidden="true"></i>
-            {{ t('login.role_rh') }}
-          </div>
-          <div
-            class="role-opt"
-            :class="{ selected: selectedRole === 'employee' }"
-            @click="selectedRole = 'employee'"
-          >
+        <div class="role-grid">
+          <div class="role-opt" :class="{ selected: selectedRole === 'employee' }" @click="selectedRole = 'employee'">
             <i class="ti ti-user" aria-hidden="true"></i>
-            {{ t('login.role_employee') }}
+            <div class="role-label">{{ t('login.role_employee') }}</div>
+            <div class="role-sub">Espace personnel uniquement</div>
+          </div>
+          <div class="role-opt" :class="{ selected: selectedRole === 'validator' }" @click="selectedRole = 'validator'">
+            <i class="ti ti-user-check" aria-hidden="true"></i>
+            <div class="role-label">Manager / Validateur</div>
+            <div class="role-sub">Espace perso + validation équipe</div>
+          </div>
+          <div class="role-opt" :class="{ selected: selectedRole === 'hr_admin' }" @click="selectedRole = 'hr_admin'">
+            <i class="ti ti-briefcase" aria-hidden="true"></i>
+            <div class="role-label">{{ t('login.role_rh') }}</div>
+            <div class="role-sub">Accès administration complet</div>
+          </div>
+          <div class="role-opt" :class="{ selected: selectedRole === 'hr_director' }" @click="selectedRole = 'hr_director'">
+            <i class="ti ti-crown" aria-hidden="true"></i>
+            <div class="role-label">RH Directeur</div>
+            <div class="role-sub">Accès complet + approbations direction</div>
           </div>
         </div>
       </div>
@@ -86,7 +90,7 @@ const { t }    = useI18n()
 const userCode     = ref('')
 const password     = ref('')
 const showPassword = ref(false)
-const selectedRole = ref<UserRole>('rh')
+const selectedRole = ref<UserRole>('hr_admin')
 const error        = ref('')
 
 function handleLogin() {
@@ -96,7 +100,7 @@ function handleLogin() {
   }
   error.value = ''
   auth.login(selectedRole.value, userCode.value)
-  router.push(selectedRole.value === 'rh' ? { name: 'rh' } : { name: 'employe' })
+  router.push(auth.isHRSide ? { name: 'rh' } : { name: 'employe' })
 }
 </script>
 
@@ -106,11 +110,11 @@ function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #FAF1EF;
+  background: var(--p247-orange-light);
 }
 
 .login-card {
-  background: #ffffff;
+  background: white;
   border-radius: 12px;
   padding: 40px;
   width: 100%;
@@ -125,21 +129,21 @@ function handleLogin() {
 }
 
 .logo-img {
-  height: 60px;
+  height: 56px;
   width: auto;
 }
 
 .login-title {
   font-size: 22px;
   font-weight: 700;
-  color: #1A1A18;
+  color: var(--color-text);
   text-align: center;
   margin-bottom: 8px;
 }
 
 .login-subtitle {
   font-size: 13px;
-  color: #6B6B68;
+  color: var(--color-text-muted);
   text-align: center;
   margin-bottom: 24px;
 }
@@ -152,7 +156,7 @@ function handleLogin() {
   display: block;
   font-size: 13px;
   font-weight: 500;
-  color: #1A1A18;
+  color: var(--color-text);
   margin-bottom: 6px;
 }
 
@@ -160,10 +164,10 @@ function handleLogin() {
   width: 100%;
   height: 48px;
   padding: 0 12px;
-  border: 1px solid #E0D8D6;
+  border: 1px solid var(--p247-border);
   border-radius: 8px;
   font-size: 14px;
-  background: #FAF1EF;
+  background: var(--p247-orange-light);
   color: var(--p247-text);
   outline: none;
   transition: border-color 0.15s, background 0.15s;
@@ -171,8 +175,8 @@ function handleLogin() {
 }
 
 .field input:focus {
-  border-color: #FE5E00;
-  background: #ffffff;
+  border-color: var(--p247-orange);
+  background: white;
 }
 
 .input-wrapper {
@@ -191,7 +195,7 @@ function handleLogin() {
   background: none;
   border: none;
   cursor: pointer;
-  color: #6B6B68;
+  color: var(--color-text-muted);
   padding: 0;
   display: flex;
   align-items: center;
@@ -199,7 +203,7 @@ function handleLogin() {
 }
 
 .eye-toggle:hover {
-  color: #1A1A18;
+  color: var(--color-text);
 }
 
 .error-msg {
@@ -214,7 +218,7 @@ function handleLogin() {
 .login-btn {
   width: 100%;
   height: 48px;
-  background: #FE5E00;
+  background: var(--p247-orange);
   color: white;
   border: none;
   border-radius: 8px;
@@ -234,7 +238,7 @@ function handleLogin() {
 }
 
 .login-btn:hover {
-  background: #D94E00;
+  background: var(--p247-orange-dark);
 }
 
 .dev-field {
@@ -250,8 +254,11 @@ function handleLogin() {
   margin-left: 6px;
 }
 
-.role-row {
-  display: flex;
+.role-row { display: flex; gap: 8px; }
+
+.role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
@@ -279,6 +286,10 @@ function handleLogin() {
   color: var(--p247-orange);
   font-weight: 500;
 }
+
+.role-label { font-size: 12px; font-weight: 600; margin-top: 4px; }
+.role-sub   { font-size: 10px; color: var(--p247-muted); margin-top: 2px; line-height: 1.3; }
+.role-opt.selected .role-sub { color: var(--p247-orange); opacity: 0.8; }
 
 @media (max-width: 480px) {
   .login-screen {

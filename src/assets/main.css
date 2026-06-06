@@ -5,31 +5,86 @@
 }
 
 :root {
-  --p247-orange:       #FE5E00;
-  --p247-orange-light: #FAF1EF;
-  --p247-orange-dark:  #D94E00;
-  --p247-bg:           #F5F5F2;
-  --p247-white:        #FFFFFF;
-  --p247-text:         #1A1A18;
-  --p247-muted:        #6B6B68;
-  --p247-border:       rgba(0, 0, 0, 0.1);
-  --p247-success:      #2D7A3F;
-  --p247-success-bg:   #EAF4EC;
-  --p247-warning:      #8A5A0A;
-  --p247-warning-bg:   #FEF5E1;
-  --p247-danger:       #A32D2D;
-  --p247-danger-bg:    #FCEBEB;
-  --p247-info:         #185FA5;
-  --p247-info-bg:      #E6F1FB;
-  --p247-topbar-bg:    #1A1A1A;
-  --p247-topbar-text:  #FFFFFF;
-  --p247-navbar-bg:    #FFFFFF;
-  --p247-navbar-border: rgba(0, 0, 0, 0.08);
+  /* ── Palette Galana ── */
+  --galana-green:        #006B3C;
+  --galana-green-dark:   #00522E;
+  --galana-green-xdark:  #004D2B;
+  --galana-green-light:  #E6F4ED;
+  --galana-green-mid:    #CCE9D9;
+
+  --galana-red:          #C8102E;
+  --galana-red-dark:     #A00D24;
+  --galana-red-light:    #FDECEA;
+
+  --galana-white:        #FFFFFF;
+
+  /* ── Couleurs sémantiques — UTILISER CES VARIABLES dans les composants ── */
+  --color-primary:       var(--galana-green);
+  --color-primary-dark:  var(--galana-green-dark);
+  --color-primary-light: var(--galana-green-light);
+  --color-primary-mid:   var(--galana-green-mid);
+
+  --color-accent:        var(--galana-red);
+  --color-accent-dark:   var(--galana-red-dark);
+  --color-accent-light:  var(--galana-red-light);
+
+  /* ── Surfaces ── */
+  --color-bg:            #F5F5F5;
+  --color-surface:       #FFFFFF;
+  --color-border:        rgba(0, 0, 0, 0.10);
+  --color-border-strong: rgba(0, 0, 0, 0.20);
+
+  /* ── Texte ── */
+  --color-text:          #1A1A1A;
+  --color-text-muted:    #6B6B68;
+  --color-text-light:    #9B9B98;
+
+  /* ── Statuts ── */
+  --color-success:       #006B3C;
+  --color-success-bg:    #E6F4ED;
+  --color-warning:       #8A5A0A;
+  --color-warning-bg:    #FEF5E1;
+  --color-danger:        #C8102E;
+  --color-danger-bg:     #FDECEA;
+  --color-info:          #185FA5;
+  --color-info-bg:       #E6F1FB;
+  --color-neutral:       #6B6B68;
+  --color-neutral-bg:    #F0F0EE;
+
+  /* ── Navigation ── */
+  --color-topbar-bg:     #1A1A1A;
+  --color-navbar-bg:     #FFFFFF;
+  --color-navbar-border: rgba(0, 0, 0, 0.08);
+
+  /* ── Aliases rétro-compat — pointer sur les nouvelles variables ── */
+  --p247-orange:         var(--color-primary);
+  --p247-orange-light:   var(--color-primary-light);
+  --p247-orange-dark:    var(--color-primary-dark);
+
+  --p247-bg:             var(--color-bg);
+  --p247-white:          var(--color-surface);
+  --p247-text:           var(--color-text);
+  --p247-muted:          var(--color-text-muted);
+  --p247-border:         var(--color-border);
+
+  --p247-success:        var(--color-success);
+  --p247-success-bg:     var(--color-success-bg);
+  --p247-warning:        var(--color-warning);
+  --p247-warning-bg:     var(--color-warning-bg);
+  --p247-danger:         var(--color-danger);
+  --p247-danger-bg:      var(--color-danger-bg);
+  --p247-info:           var(--color-info);
+  --p247-info-bg:        var(--color-info-bg);
+
+  --p247-topbar-bg:      var(--color-topbar-bg);
+  --p247-topbar-text:    #FFFFFF;
+  --p247-navbar-bg:      var(--color-navbar-bg);
+  --p247-navbar-border:  var(--color-navbar-border);
 }
 
 body {
   font-family: 'Segoe UI', sans-serif;
-  font-size: 15px;
-  background: var(--p247-bg);
-  color: var(--p247-text);
+  font-size: 14px;
+  background: var(--color-bg);
+  color: var(--color-text);
 }

@@ -2,7 +2,7 @@
   <div class="app-shell">
     <AppTopNav :user="auth.user" />
     <div class="main-layout">
-      <AppSidebar role="rh" />
+      <AppSidebar />
       <main class="content">
 
         <div class="page-header">
@@ -23,38 +23,60 @@
         <!-- KPIs -->
         <div class="kpi-row">
           <div class="kpi-card">
-            <div class="kpi-accent" style="background:#E6F1FB">
-              <i class="ti ti-users" style="color:#185FA5" aria-hidden="true"></i>
+            <div class="kpi-accent" style="background:var(--color-success-bg)">
+              <i class="ti ti-users" style="color:var(--p247-success)" aria-hidden="true"></i>
             </div>
             <div class="kpi-label">{{ t('dashboard.active_employees') }}</div>
             <div class="kpi-value">47</div>
             <div class="kpi-sub">+2 {{ t('dashboard.this_month') }}</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-accent" style="background:#FEF5E1">
-              <i class="ti ti-clock" style="color:#8A5A0A" aria-hidden="true"></i>
+            <div class="kpi-accent" style="background:var(--color-warning-bg)">
+              <i class="ti ti-clock" style="color:var(--color-warning)" aria-hidden="true"></i>
             </div>
             <div class="kpi-label">{{ t('dashboard.pending') }}</div>
             <div class="kpi-value">{{ pending.length }}</div>
             <div class="kpi-sub">{{ t('dashboard.to_process') }}</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-accent" style="background:#EAF4EC">
-              <i class="ti ti-check" style="color:#2D7A3F" aria-hidden="true"></i>
+            <div class="kpi-accent" style="background:var(--color-success-bg)">
+              <i class="ti ti-check" style="color:var(--p247-success)" aria-hidden="true"></i>
             </div>
             <div class="kpi-label">{{ t('dashboard.approved_month') }}</div>
             <div class="kpi-value">12</div>
             <div class="kpi-sub">{{ t('dashboard.leaves_absences') }}</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-accent" style="background:#FCEBEB">
-              <i class="ti ti-user-off" style="color:#A32D2D" aria-hidden="true"></i>
+            <div class="kpi-accent" style="background:var(--p247-orange-light)">
+              <i class="ti ti-user-off" style="color:var(--p247-orange)" aria-hidden="true"></i>
             </div>
             <div class="kpi-label">{{ t('dashboard.absent_today') }}</div>
             <div class="kpi-value">3</div>
             <div class="kpi-sub">{{ t('dashboard.on_employees', { count: 47 }) }}</div>
           </div>
         </div>
+
+        <!-- Structure organisationnelle -->
+        <router-link :to="{ name: 'entities' }" class="org-kpi-card">
+          <div class="org-kpi-left">
+            <div class="org-kpi-icon">
+              <i class="ti ti-sitemap"></i>
+            </div>
+            <div>
+              <div class="org-kpi-title">Structure organisationnelle</div>
+              <div class="org-kpi-sub">
+                {{ entityStore.approvedEntities.length }} entités approuvées ·
+                {{ entityStore.totalHeadcount }} employés rattachés
+              </div>
+            </div>
+          </div>
+          <div class="org-kpi-right">
+            <span v-if="entityStore.pendingEntities.length > 0" class="org-pending-badge">
+              {{ entityStore.pendingEntities.length }} en attente
+            </span>
+            <i class="ti ti-chevron-right org-kpi-arrow"></i>
+          </div>
+        </router-link>
 
         <!-- Demandes -->
         <div class="card" style="margin-bottom:12px">
@@ -64,7 +86,7 @@
               {{ t('absence.pending_title') }}
               <span class="badge-count">{{ pending.length }}</span>
             </div>
-            <router-link :to="{ name: 'rh-leaves' }" class="link-small">{{ t('absence.see_all') }}</router-link>
+            <router-link :to="{ name: 'rh-absences' }" class="link-small">{{ t('absence.see_all') }}</router-link>
           </div>
           <div class="tabs">
             <div class="tab" :class="{ active: tab === 'pending'  }" @click="tab = 'pending'">
@@ -227,7 +249,7 @@
             <div class="legend">
               <span class="leg"><span class="leg-dot" style="background:#B5D4F4"></span>{{ t('absence.types.annual') }}</span>
               <span class="leg"><span class="leg-dot" style="background:#FAC775"></span>{{ t('absence.types.remote') }}</span>
-              <span class="leg"><span class="leg-dot" style="background:#E8601C"></span>Aujourd'hui</span>
+              <span class="leg"><span class="leg-dot" style="background:var(--p247-orange)"></span>Aujourd'hui</span>
             </div>
           </div>
 
@@ -336,11 +358,13 @@ import { ref, computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AppSidebar, AppTopNav } from '../components'
 import { useAuthStore } from '../stores/auth'
-import { useLeavesStore } from '../stores/leaves'
+import { useAbsenceStore } from '../stores/absences'
+import { useEntityStore } from '../stores/entities'
 import type { LeaveRequest, LeaveStatus, LeaveType } from '../types'
 
-const auth   = useAuthStore()
-const leaves = useLeavesStore()
+const auth        = useAuthStore()
+const leaves      = useAbsenceStore()
+const entityStore = useEntityStore()
 const { t, locale } = useI18n()
 
 const today = new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US', {
@@ -656,11 +680,11 @@ function hideTooltip() { tooltip.visible = false }
 .req-detail { font-size: 12px; color: var(--p247-muted); }
 .status-pill { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
 .pill-pending  { background: var(--p247-warning-bg); color: var(--p247-warning); }
-.pill-approved { background: var(--p247-success-bg); color: var(--p247-success); }
+.pill-approved { background: var(--color-success-bg); color: var(--p247-success); }
 .pill-rejected { background: var(--p247-danger-bg);  color: var(--p247-danger);  }
 .action-btns { display: flex; gap: 4px; }
 .act-btn     { padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; }
-.act-approve { background: var(--p247-success-bg); color: var(--p247-success); }
+.act-approve { background: var(--color-success-bg); color: var(--p247-success); }
 .act-reject  { background: var(--p247-danger-bg);  color: var(--p247-danger);  }
 .act-view    { background: var(--p247-bg); color: var(--p247-muted); }
 
@@ -675,7 +699,7 @@ function hideTooltip() { tooltip.visible = false }
 .cal-day  { font-size: 12px; text-align: center; padding: 5px 2px; border-radius: 4px; cursor: pointer; color: var(--p247-text); position: relative; }
 .cal-day:hover   { background: var(--p247-bg); }
 .cal-day.today   { background: var(--p247-orange); color: white; font-weight: 600; }
-.cal-day.has-leave { background: #E6F1FB; color: #185FA5; font-weight: 500; }
+.cal-day.has-leave { background: var(--color-success-bg); color: var(--p247-success); font-weight: 500; }
 .cal-day.empty   { color: transparent; pointer-events: none; }
 .legend  { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
 .leg     { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--p247-muted); }
@@ -691,18 +715,18 @@ function hideTooltip() { tooltip.visible = false }
 .bal-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bal-table th {
   padding: 9px 10px; text-align: left; font-size: 12px; font-weight: 600;
-  color: var(--p247-text); background: #f5e3e0; border-bottom: 1px solid #e8c9c4;
+  color: var(--p247-text); background: var(--p247-orange-light); border-bottom: 1px solid rgba(200, 16, 46, 0.2);
   white-space: nowrap; cursor: pointer; user-select: none;
 }
-.bal-table th:hover { background: #f0d5d1; }
+.bal-table th:hover { background: var(--color-primary-light); }
 .bal-table td { padding: 8px 10px; border-bottom: 0.5px solid var(--p247-border); }
 .bal-table tbody tr:last-child td { border-bottom: none; }
-.bal-table tbody tr:hover td { background: #fdf5f4; }
+.bal-table tbody tr:hover td { background: var(--color-primary-light); }
 
 .th-inner  { display: flex; align-items: center; gap: 5px; }
-.th-drag   { color: #c9a09a; font-size: 11px; cursor: grab; }
+.th-drag   { color: var(--color-text-light); font-size: 11px; cursor: grab; }
 .th-sort   { margin-left: auto; font-size: 11px; }
-.sort-idle   { color: #c9a09a; }
+.sort-idle   { color: var(--color-text-light); }
 .sort-active { color: var(--p247-orange); }
 .bal-num { text-align: center; font-weight: 500; color: var(--p247-text); }
 .emp-cell { display: flex; align-items: center; gap: 6px; }
@@ -735,6 +759,30 @@ function hideTooltip() { tooltip.visible = false }
 .pag-arrow { color: var(--p247-muted); }
 
 /* Modale */
+/* ── Org KPI card ── */
+.org-kpi-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--p247-white); border: 0.5px solid var(--p247-border);
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;
+  text-decoration: none; color: var(--p247-text);
+  cursor: pointer; transition: box-shadow .15s, border-color .15s;
+}
+.org-kpi-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); border-color: rgba(200, 16, 46, 0.2); }
+.org-kpi-left { display: flex; align-items: center; gap: 12px; }
+.org-kpi-icon {
+  width: 38px; height: 38px; border-radius: 8px;
+  background: var(--p247-orange-light); color: var(--p247-orange);
+  display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+}
+.org-kpi-title { font-size: 14px; font-weight: 600; }
+.org-kpi-sub   { font-size: 12px; color: var(--p247-muted); margin-top: 2px; }
+.org-kpi-right { display: flex; align-items: center; gap: 8px; }
+.org-pending-badge {
+  background: var(--p247-danger-bg); color: var(--p247-danger);
+  font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px;
+}
+.org-kpi-arrow { color: var(--p247-muted); font-size: 16px; }
+
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .modal-card--lg { width: 520px; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; }

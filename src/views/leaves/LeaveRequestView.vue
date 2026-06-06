@@ -260,7 +260,7 @@ function handleSubmit() {
 .form-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
 
 .toast {
-  background: var(--p247-success-bg); color: var(--p247-success);
+  background: var(--color-success-bg); color: var(--p247-success);
   font-size: 12px; font-weight: 500;
   padding: 8px 12px; border-radius: 6px;
   display: flex; align-items: center; gap: 6px;

@@ -1,10 +1,18 @@
-export type UserRole = 'rh' | 'employee'
+export type UserRole =
+  | 'employee'      // employé simple — espace perso uniquement
+  | 'validator'     // manager/validateur N+x — espace perso + à valider
+  | 'hr_admin'      // HR Administrator — accès admin complet
+  | 'hr_director'   // HR Director — accès admin + approbations direction
 
 export interface AuthUser {
-  name: string
-  initials: string
-  role: UserRole
-  email: string
+  id:              string
+  name:            string
+  initials:        string
+  role:            UserRole
+  email:           string
+  entityId?:       string
+  entityName?:     string
+  validatorLevel?: 1 | 2 | 3 | 4
 }
 
 export type LeaveStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'cancelled'
@@ -15,6 +23,8 @@ export type LeaveType =
   | 'Congé maternité'
   | 'Récupération'
   | 'Télétravail'
+  | 'Assistance parentale'
+  | 'Permission exceptionnelle'
 
 export interface LeaveRequest {
   id: number
@@ -80,4 +90,62 @@ export interface RemoteWorkRequest {
   status: RemoteStatus
   rejectionReason?: string
   submittedAt: string
+}
+
+// ── Entities ─────────────────────────────────────────────────
+export type EntityStatus = 'draft' | 'pending_approval' | 'approved' | 'inactive'
+export type EntityType   = 'direction' | 'department' | 'service'
+
+export interface ValidatorPool {
+  level:              1 | 2 | 3 | 4
+  employeeId?:        string
+  validatorName:      string
+  validatorInitials:  string
+  validatorColor:     string
+}
+
+// ── Employees ─────────────────────────────────────────────────
+export type EmployeeStatus = 'active' | 'trial' | 'onleave' | 'inactive'
+export type ContractType   = 'CDI' | 'CDD' | 'Stage' | 'Freelance'
+
+export interface Employee {
+  id:           string
+  code:         string
+  firstName:    string
+  lastName:     string
+  name:         string
+  initials:     string
+  avatarBg:     string
+  avatarText:   string
+  role:         UserRole
+  jobTitle:     string
+  entityId:     string | null
+  entityName?:  string
+  email?:       string
+  phone?:       string
+  hireDate:     string
+  contractType: ContractType
+  status:       EmployeeStatus
+  managerId?:   string
+}
+
+export interface Entity {
+  id:               string
+  code:             string
+  name:             string
+  type:             EntityType
+  parentId:         string | null
+  legalIdentifier?: string
+  address?:         string
+  phone?:           string
+  email?:           string
+  responsibleName?: string
+  responsibleId?:   string
+  headcount:        number
+  status:           EntityStatus
+  validatorPools:   ValidatorPool[]
+  createdAt:        string
+  submittedAt?:     string
+  approvedAt?:      string
+  children?:        Entity[]
 }

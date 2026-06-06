@@ -491,7 +491,7 @@ function statusLabel(s: LeaveStatus): string {
   cursor: pointer; font-size: 14px; transition: all .12s; position: relative;
 }
 .tb-icon-btn:hover { background: var(--p247-bg); color: var(--p247-text); }
-.tb-icon-btn.active { background: #f5e3e0; color: var(--p247-orange); border-color: #e8c9c4; }
+.tb-icon-btn.active { background: var(--p247-orange-light); color: var(--p247-orange); border-color: rgba(200, 16, 46, 0.2); }
 
 /* ── Body wrap ───────────────────────────────────────────── */
 .table-body-wrap { display: flex; position: relative; }
@@ -510,7 +510,7 @@ function statusLabel(s: LeaveStatus): string {
 .fp-presets { display: flex; flex-direction: column; gap: 1px; }
 .fp-preset  { font-size: 13px; color: var(--p247-text); padding: 6px 8px; border-radius: 5px; cursor: pointer; }
 .fp-preset:hover { background: var(--p247-bg); }
-.fp-preset.active { color: var(--p247-orange); font-weight: 500; background: #fdf5f4; }
+.fp-preset.active { color: var(--p247-orange); font-weight: 500; background: var(--color-primary-light); }
 .fp-section-label { font-size: 11px; color: var(--p247-muted); font-weight: 500; margin-top: 4px; }
 .fp-field       { display: flex; flex-direction: column; gap: 4px; }
 .fp-field-label { font-size: 11px; color: var(--p247-muted); }
@@ -541,26 +541,26 @@ function statusLabel(s: LeaveStatus): string {
 .cols-label { flex: 1; font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .cols-check { accent-color: var(--p247-orange); }
 .cols-pin   { font-size: 11px; color: var(--p247-muted); background: var(--p247-bg); border: 0.5px solid var(--p247-border); border-radius: 4px; padding: 2px 7px; cursor: pointer; display: flex; align-items: center; gap: 3px; }
-.cols-pin.pinned { color: var(--p247-orange); background: #fdf5f4; border-color: #e8c9c4; }
+.cols-pin.pinned { color: var(--p247-orange); background: var(--color-primary-light); border-color: rgba(200, 16, 46, 0.2); }
 
 /* ── Table ───────────────────────────────────────────────── */
 .table-wrap { flex: 1; overflow-x: auto; }
 .table      { width: 100%; border-collapse: collapse; font-size: 13px; }
 .table th {
   padding: 10px 13px; text-align: left; font-size: 12px; font-weight: 600;
-  color: var(--p247-text); background: #f5e3e0;
-  border-bottom: 1px solid #e8c9c4; white-space: nowrap;
+  color: var(--p247-text); background: var(--p247-orange-light);
+  border-bottom: 1px solid rgba(200, 16, 46, 0.2); white-space: nowrap;
   cursor: pointer; user-select: none;
 }
-.table th:hover { background: #f0d5d1; }
+.table th:hover { background: var(--color-primary-light); }
 .th-inner { display: flex; align-items: center; gap: 5px; }
-.th-drag  { color: #c9a09a; font-size: 11px; cursor: grab; }
+.th-drag  { color: var(--color-text-light); font-size: 11px; cursor: grab; }
 .th-sort  { margin-left: auto; font-size: 11px; }
-.sort-idle   { color: #c9a09a; }
+.sort-idle   { color: var(--color-text-light); }
 .sort-active { color: var(--p247-orange); }
 .table td { padding: 10px 13px; border-bottom: 0.5px solid var(--p247-border); color: var(--p247-text); vertical-align: middle; }
 .table tbody tr:last-child td { border-bottom: none; }
-.table tbody tr:hover td { background: #fdf5f4; }
+.table tbody tr:hover td { background: var(--color-primary-light); }
 
 /* ── Cells ───────────────────────────────────────────────── */
 .emp-cell   { display: flex; align-items: center; gap: 8px; }
@@ -574,7 +574,7 @@ function statusLabel(s: LeaveStatus): string {
 /* ── Status pills ────────────────────────────────────────── */
 .status-pill  { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
 .pill-pending   { background: var(--p247-warning-bg); color: var(--p247-warning); }
-.pill-approved  { background: var(--p247-success-bg); color: var(--p247-success); }
+.pill-approved  { background: var(--color-success-bg); color: var(--p247-success); }
 .pill-rejected  { background: var(--p247-danger-bg);  color: var(--p247-danger); }
 .pill-cancelled { background: var(--p247-bg);         color: var(--p247-muted); }
 .pill-draft     { background: transparent; color: #555; border: 0.5px solid #bbb; }
@@ -582,7 +582,7 @@ function statusLabel(s: LeaveStatus): string {
 /* ── Actions ─────────────────────────────────────────────── */
 .action-btns { display: flex; gap: 4px; }
 .act-btn     { padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; white-space: nowrap; }
-.act-approve { background: var(--p247-success-bg); color: var(--p247-success); }
+.act-approve { background: var(--color-success-bg); color: var(--p247-success); }
 .act-reject  { background: var(--p247-danger-bg);  color: var(--p247-danger);  }
 .act-view    { background: var(--p247-bg);          color: var(--p247-muted);  }
 
