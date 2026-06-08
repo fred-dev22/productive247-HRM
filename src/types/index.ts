@@ -149,3 +149,75 @@ export interface Entity {
   approvedAt?:      string
   children?:        Entity[]
 }
+
+// ── Calendar ──────────────────────────────────────────────────
+export interface WorkingHours {
+  start:      string // "08:00"
+  end:        string // "17:30"
+  breakStart: string // "12:00"
+  breakEnd:   string // "14:00"
+}
+
+export interface WorkingDayConfig {
+  enabled: boolean
+  start:   string  // "08:00"
+  end:     string  // "17:30"
+}
+
+export interface WorkingDays {
+  monday:    WorkingDayConfig
+  tuesday:   WorkingDayConfig
+  wednesday: WorkingDayConfig
+  thursday:  WorkingDayConfig
+  friday:    WorkingDayConfig
+  saturday:  WorkingDayConfig
+  sunday:    WorkingDayConfig
+}
+
+export type HolidayType = 'annual' | 'ponctual' | 'selective'
+
+export interface Holiday {
+  id:          string
+  name:        string
+  date:        string        // "MM-DD" si annuel, "YYYY-MM-DD" si ponctuel
+  type:        HolidayType
+  isRecurring: boolean       // true = annuel, false = ponctuel
+}
+
+export interface LeaveRule {
+  type:             LeaveType
+  daysPerYear:      number
+  daysPerMonth?:    number
+  maxCarryOver:     number
+  requiresDocument: boolean
+  noticeDays:       number
+}
+
+export interface CompanyCalendar {
+  id:         string
+  workingDays: WorkingDays
+  breakStart: string  // "12:00" — commune à tous les jours
+  breakEnd:   string  // "14:00" — commune à tous les jours
+  holidays:   Holiday[]
+  leaveRules: LeaveRule[]
+  updatedAt:  string
+  updatedBy:  string
+}
+
+export interface EmployeeSchedule {
+  employeeId:          string
+  inheritsFromCompany: boolean
+  customWorkingDays?:  WorkingDays
+  scheduleNotes?:      string
+}
+
+export interface DayPlanning {
+  date:           string       // YYYY-MM-DD
+  isWorkingDay:   boolean
+  isHoliday:      boolean
+  holidayName?:   string
+  isAbsence:      boolean
+  absenceType?:   LeaveType
+  absenceStatus?: LeaveStatus
+  hours?:         WorkingHours
+}

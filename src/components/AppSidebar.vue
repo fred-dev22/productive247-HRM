@@ -16,9 +16,10 @@
         </SidebarSection>
 
         <SidebarSection :label="t('sidebar.administration')">
-          <SidebarItem icon="ti ti-users"     :label="t('sidebar.employees')" :to="{ name: 'rh-employees' }" />
-          <SidebarItem icon="ti ti-building"  :label="t('sidebar.entities')"  :to="{ name: 'entities' }" />
-          <SidebarItem icon="ti ti-plane"     :label="t('sidebar.missions')"  :to="{ name: 'rh-missions' }" />
+          <SidebarItem icon="ti ti-users"          :label="t('sidebar.employees')" :to="{ name: 'rh-employees' }" />
+          <SidebarItem icon="ti ti-building"       :label="t('sidebar.entities')"  :to="{ name: 'entities' }" />
+          <SidebarItem icon="ti ti-calendar-event" label="Calendrier"              :to="{ name: 'calendar' }" />
+          <SidebarItem icon="ti ti-plane"          :label="t('sidebar.missions')"  :to="{ name: 'rh-missions' }" />
           <SidebarItem icon="ti ti-receipt"   :label="t('sidebar.expenses')"  :to="{ name: 'rh-expenses' }" />
           <SidebarItem icon="ti ti-file-text" :label="t('sidebar.contracts')" :to="{ name: 'rh-contracts' }" />
         </SidebarSection>

@@ -53,6 +53,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
+    // ── Calendrier RH ────────────────────────────────────────────
+    {
+      path: '/rh/calendrier', name: 'calendar',
+      component: () => import('../views/calendar/CalendarView.vue'),
+      meta: { requiresAuth: true },
+    },
+
     // ── Entités ──────────────────────────────────────────────────
     {
       path: '/rh/entites', name: 'entities',
@@ -133,7 +140,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     { path: '/employe/profil',    name: 'employee-profile',   component: PH, meta: { requiresAuth: true, title: 'Mon Profil' } },
-    { path: '/employe/planning',  name: 'employee-planning',  component: PH, meta: { requiresAuth: true, title: 'Mon Planning' } },
+    {
+      path: '/employe/planning', name: 'employee-planning',
+      component: () => import('../views/employee/PlanningView.vue'),
+      meta: { requiresAuth: true },
+    },
     { path: '/employe/missions',  name: 'employee-missions',  component: PH, meta: { requiresAuth: true, title: 'Mes Missions' } },
     { path: '/employe/a-valider', name: 'employee-validator', component: PH, meta: { requiresAuth: true, title: 'Demandes à Valider' } },
     { path: '/employe/equipe',    name: 'employee-team',      component: PH, meta: { requiresAuth: true, title: 'Mon Équipe' } },

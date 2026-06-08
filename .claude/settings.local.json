@@ -11,7 +11,8 @@
       "Bash(npx vite *)",
       "Bash(curl -s http://localhost:5174)",
       "Bash(curl -s \"http://localhost:5174/src/components/entities/EntityTabsContent.vue\")",
-      "Bash(curl -s \"http://localhost:5174/src/views/entities/EntityListView.vue\")"
+      "Bash(curl -s \"http://localhost:5174/src/views/entities/EntityListView.vue\")",
+      "Bash(npm run *)"
     ]
   }
 }
