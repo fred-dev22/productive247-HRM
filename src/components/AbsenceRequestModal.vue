@@ -14,6 +14,17 @@
         <!-- ── Corps ── -->
         <div class="modal-body">
 
+            <!-- Champ 0 : Employé concerné (mode for-employee) -->
+          <div v-if="mode === 'for-employee'" class="field">
+            <label class="field-label">Employé concerné *</label>
+            <EmployeeSelector
+              :employees="employeeList"
+              v-model="selectedEmployeeId"
+              placeholder="Sélectionner un employé"
+            />
+            <div v-if="errors.employee" class="field-error">{{ errors.employee }}</div>
+          </div>
+
           <!-- Champ 1: Type d'absence -->
           <div class="field">
             <label class="field-label">{{ t('absence.fields.type') }} *</label>
@@ -184,7 +195,11 @@
             <i class="ti ti-device-floppy" aria-hidden="true"></i>
             {{ t('absence.actions.save_draft') }}
           </button>
-          <button class="btn btn-primary" @click="handleSubmit">
+          <button v-if="isSpecialType" class="btn btn-registered" @click="handleMarkRegistered">
+            <i class="ti ti-clipboard-check" aria-hidden="true"></i>
+            Marquer comme Enregistré
+          </button>
+          <button v-else class="btn btn-primary" @click="handleSubmit">
             <i class="ti ti-send" aria-hidden="true"></i>
             {{ t('absence.actions.submit') }}
           </button>
@@ -198,15 +213,20 @@
 <script setup lang="ts">
 import { reactive, ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import EmployeeSelector from './ui/EmployeeSelector.vue'
 import { useAbsenceStore }  from '../stores/absences'
 import { useCalendarStore } from '../stores/calendar'
+import { useEmployeeStore } from '../stores/employees'
 import { calculateEndDate, getWorkingDaysBetween, isWorkingDay } from '../utils/calendar'
 import type { LeaveType } from '../types'
 
-const props = defineProps<{
-  modelValue: boolean
+const props = withDefaults(defineProps<{
+  modelValue:   boolean
   initialType?: LeaveType | ''
-}>()
+  mode?:        'self' | 'for-employee'
+}>(), {
+  mode: 'self',
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -216,7 +236,18 @@ const emit = defineEmits<{
 
 const absenceStore  = useAbsenceStore()
 const calendarStore = useCalendarStore()
+const employeeStore = useEmployeeStore()
 const { t }         = useI18n()
+
+const selectedEmployeeId = ref('')
+
+const employeeList = computed(() =>
+  employeeStore.employees.map(e => ({
+    id: e.id, name: e.name,
+    avatarBg: e.avatarBg, avatarText: e.avatarText,
+    entityName: e.entityName,
+  }))
+)
 
 const leaveTypes: LeaveType[] = [
   'Congé annuel', 'Congé maladie', 'Congé maternité',
@@ -250,9 +281,10 @@ const form = reactive({
 })
 
 const errors = reactive({
-  type:         '',
-  startDate:    '',
-  workingDays:  '',
+  employee:    '',
+  type:        '',
+  startDate:   '',
+  workingDays: '',
 })
 
 const resumeDate = ref('')
@@ -284,6 +316,9 @@ const isBalanceInsufficient = computed(() => {
   return limit > 0 && form.workingDaysCount > limit
 })
 
+const SPECIAL_TYPES: LeaveType[] = ['Congé maladie', 'Congé maternité', 'Assistance parentale']
+const isSpecialType = computed(() => !!form.type && SPECIAL_TYPES.includes(form.type as LeaveType))
+
 const isNoticePeriodViolated = computed(() => {
   if (!form.startDate || !currentRule.value || currentRule.value.noticeDays === 0) return false
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -296,6 +331,7 @@ const isNoticePeriodViolated = computed(() => {
 // ── Watchers ───────────────────────────────────────────────────
 watch(() => props.modelValue, (val) => {
   if (val) {
+    selectedEmployeeId.value = ''
     form.type             = props.initialType ?? ''
     form.startDate        = ''
     form.startPeriod      = 'full'
@@ -363,10 +399,16 @@ function formatDateFR(dateStr: string): string {
 
 // ── Validation ─────────────────────────────────────────────────
 function validate(): boolean {
+  errors.employee    = ''
   errors.type        = ''
   errors.startDate   = ''
   errors.workingDays = ''
   let ok = true
+
+  if (props.mode === 'for-employee' && !selectedEmployeeId.value) {
+    errors.employee = 'Veuillez sélectionner un employé'
+    ok = false
+  }
 
   if (!form.type) {
     errors.type = t('validation.required_type')
@@ -413,6 +455,19 @@ function handleSubmit() {
     endDate:   form.endDate || form.startDate,
     reason:    form.comment || undefined,
   })
+  close()
+  emit('submitted')
+}
+
+function handleMarkRegistered() {
+  if (!validate()) return
+  const leave = absenceStore.submitLeave({
+    type:      form.type as LeaveType,
+    startDate: form.startDate,
+    endDate:   form.endDate || form.startDate,
+    reason:    form.comment || undefined,
+  })
+  absenceStore.markRegistered(leave.id)
   close()
   emit('submitted')
 }
@@ -559,6 +614,8 @@ function handleSubmit() {
 .btn-primary:hover { background: var(--color-primary-dark); }
 .btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
 .btn-outline:hover { background: var(--color-bg); }
+.btn-registered { background: var(--color-info-bg); color: var(--color-info); border: none; }
+.btn-registered:hover { background: var(--color-info); color: #fff; }
 
 @media (max-width: 600px) {
   .modal-card  { padding: 20px; }

@@ -23,8 +23,8 @@ const router = createRouter({
     },
     {
       path: '/rh/absences/soldes', name: 'rh-absence-balances',
-      component: PH,
-      meta: { requiresAuth: true, title: "Soldes d'absence" },
+      component: () => import('../views/absences/AbsenceBalancesView.vue'),
+      meta: { requiresAuth: true },
     },
 
     // ── Administration RH ────────────────────────────────────────
@@ -43,10 +43,10 @@ const router = createRouter({
       component: () => import('../views/employees/EmployeeFormView.vue'),
       meta: { requiresAuth: true },
     },
-    { path: '/rh/missions',      name: 'rh-missions',   component: PH, meta: { requiresAuth: true, title: 'Gestion des Missions' } },
-    { path: '/rh/notes-de-frais', name: 'rh-expenses',  component: PH, meta: { requiresAuth: true, title: 'Notes de frais' } },
+    { path: '/rh/missions',      name: 'rh-missions',   component: () => import('../views/missions/MissionListView.vue'), meta: { requiresAuth: true } },
+    { path: '/rh/notes-de-frais', name: 'rh-expenses', component: () => import('../views/expenses/ExpenseListView.vue'), meta: { requiresAuth: true } },
     { path: '/rh/contrats',      name: 'rh-contracts',  component: PH, meta: { requiresAuth: true, title: 'Gestion des Contrats' } },
-    { path: '/rh/rapports/stats', name: 'rh-stats',     component: PH, meta: { requiresAuth: true, title: 'Statistiques RH' } },
+    { path: '/rh/rapports/stats', name: 'rh-stats', component: () => import('../views/reports/StatisticsView.vue'), meta: { requiresAuth: true } },
     {
       path: '/rh/organigramme', name: 'rh-organigramme',
       component: () => import('../views/rh/OrganigrammeView.vue'),
@@ -139,15 +139,25 @@ const router = createRouter({
       component: () => import('../views/absences/AbsenceRequestView.vue'),
       meta: { requiresAuth: true },
     },
-    { path: '/employe/profil',    name: 'employee-profile',   component: PH, meta: { requiresAuth: true, title: 'Mon Profil' } },
+    { path: '/employe/profil',    name: 'employee-profile',   component: () => import('../views/employee/ProfileView.vue'), meta: { requiresAuth: true } },
+    { path: '/rh/profil',         name: 'rh-profile',          component: () => import('../views/employee/ProfileView.vue'), meta: { requiresAuth: true } },
     {
       path: '/employe/planning', name: 'employee-planning',
       component: () => import('../views/employee/PlanningView.vue'),
       meta: { requiresAuth: true },
     },
-    { path: '/employe/missions',  name: 'employee-missions',  component: PH, meta: { requiresAuth: true, title: 'Mes Missions' } },
-    { path: '/employe/a-valider', name: 'employee-validator', component: PH, meta: { requiresAuth: true, title: 'Demandes à Valider' } },
-    { path: '/employe/equipe',    name: 'employee-team',      component: PH, meta: { requiresAuth: true, title: 'Mon Équipe' } },
+    { path: '/employe/missions',  name: 'employee-missions',       component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true } },
+    { path: '/employe/notes-de-frais', name: 'employee-expenses', component: () => import('../views/expenses/ExpenseListView.vue'), meta: { requiresAuth: true } },
+    {
+      path: '/employe/a-valider', name: 'employee-validator',
+      component: () => import('../views/employee/ToValidateView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/employe/equipe', name: 'employee-team',
+      component: () => import('../views/employee/TeamView.vue'),
+      meta: { requiresAuth: true },
+    },
 
     // Catch-all → login
     { path: '/:pathMatch(.*)*', redirect: '/' },

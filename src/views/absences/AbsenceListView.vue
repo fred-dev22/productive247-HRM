@@ -136,7 +136,16 @@
                       <td v-if="isVisible('actions')">
                         <div v-if="r.status === 'pending'" class="action-btns">
                           <button class="act-btn act-approve" @click="handleApprove(r.id)">{{ t('absence.actions.approve') }}</button>
+                          <button class="act-btn act-return"  @click="openReturnModal(r)"><i class="ti ti-arrow-back-up"></i> Retourner</button>
                           <button class="act-btn act-reject"  @click="openRejectModal(r)">{{ t('absence.actions.reject') }}</button>
+                        </div>
+                        <div v-else-if="r.status === 'registered'" class="action-btns">
+                          <button class="act-btn act-approve" @click="absenceStore.markDone(r.id)">Marquer Effectué</button>
+                          <button class="act-btn act-view" @click="toggleDetail(r.id)">{{ expandedId === r.id ? '↑' : 'Voir' }}</button>
+                        </div>
+                        <div v-else-if="r.status === 'done'" class="action-btns">
+                          <button class="act-btn act-approve" @click="absenceStore.markRegularized(r.id)">Régulariser</button>
+                          <button class="act-btn act-view" @click="toggleDetail(r.id)">{{ expandedId === r.id ? '↑' : 'Voir' }}</button>
                         </div>
                         <button v-else class="act-btn act-view" @click="toggleDetail(r.id)">
                           {{ expandedId === r.id ? '↑ Fermer' : t('absence.actions.view') }}
@@ -146,15 +155,19 @@
                     <tr v-if="expandedId === r.id" class="detail-row">
                       <td :colspan="visibleColumns.length">
                         <div class="detail-panel">
-                          <div v-if="r.reason"><span class="detail-label">{{ t('absence.fields.reason') }} :</span> {{ r.reason }}</div>
-                          <div v-if="r.rejectionReason" class="rejection-reason">
-                            <i class="ti ti-alert-circle"></i>
-                            <span class="detail-label">{{ t('absence.fields.rejection_reason') }} :</span> {{ r.rejectionReason }}
-                          </div>
                           <div class="detail-meta">
                             <span>{{ t('absence.fields.start_date') }} : {{ r.startDate }}</span>
                             <span>{{ t('absence.fields.end_date') }} : {{ r.endDate }}</span>
                             <span>{{ t('absence.fields.working_days', { count: r.workingDays }) }}</span>
+                          </div>
+                          <div v-if="r.reason"><span class="detail-label">{{ t('absence.fields.reason') }} :</span> {{ r.reason }}</div>
+                          <div v-if="r.rejectionReason" class="rejection-reason">
+                            <i class="ti ti-alert-circle" aria-hidden="true"></i>
+                            <span class="detail-label">{{ t('absence.fields.rejection_reason') }} :</span> {{ r.rejectionReason }}
+                          </div>
+                          <div v-if="r.validationHistory?.length" class="timeline-section">
+                            <div class="timeline-title">Historique de validation</div>
+                            <ValidationTimeline :history="r.validationHistory" />
                           </div>
                         </div>
                       </td>
@@ -192,6 +205,20 @@
   </div>
 
   <Teleport to="body">
+    <div v-if="returnModal.open" class="overlay" @click.self="closeReturnModal">
+      <div class="modal-card">
+        <div class="modal-title">Retourner la demande de {{ returnModal.employeeName }}</div>
+        <label class="modal-label">Commentaire *</label>
+        <textarea v-model="returnModal.comment" class="modal-textarea" placeholder="Expliquez ce qui doit être corrigé..." rows="4"></textarea>
+        <div v-if="returnModal.error" class="modal-error">{{ returnModal.error }}</div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" @click="confirmReturn"><i class="ti ti-arrow-back-up"></i> Retourner</button>
+          <button class="btn btn-outline" @click="closeReturnModal">{{ t('absence.actions.cancel') }}</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+  <Teleport to="body">
     <div v-if="rejectModal.open" class="overlay" @click.self="closeRejectModal">
       <div class="modal-card">
         <div class="modal-title">{{ t('absence.reject_modal.title', { name: rejectModal.employeeName }) }}</div>
@@ -211,7 +238,8 @@
 import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AppSidebar, AppTopNav, StatusPill, UserAvatar } from '../../components'
-import { useAuthStore }   from '../../stores/auth'
+import ValidationTimeline from '../../components/ui/ValidationTimeline.vue'
+import { useAuthStore }    from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'
 import type { LeaveStatus, LeaveRequest } from '../../types'
 
@@ -324,6 +352,19 @@ const pageItems    = computed(() => {
 function toggleDetail(id: number) { expandedId.value = expandedId.value === id ? null : id }
 function handleApprove(id: number) { absenceStore.approveLeave(id) }
 
+const returnModal = reactive({ open: false, id: 0, employeeName: '', comment: '', error: '' })
+function openReturnModal(r: LeaveRequest) {
+  Object.assign(returnModal, { open: true, id: r.id, employeeName: r.employeeName, comment: '', error: '' })
+}
+function closeReturnModal() { returnModal.open = false }
+function confirmReturn() {
+  if (!returnModal.comment.trim() || returnModal.comment.trim().length < 10) {
+    returnModal.error = 'Le commentaire doit comporter au moins 10 caractères'; return
+  }
+  absenceStore.returnLeave(returnModal.id, returnModal.comment.trim())
+  closeReturnModal()
+}
+
 const rejectModal = reactive({ open: false, id: 0, employeeName: '', reason: '', error: '' })
 function openRejectModal(r: LeaveRequest) {
   Object.assign(rejectModal, { open: true, id: r.id, employeeName: r.employeeName, reason: '', error: '' })
@@ -340,12 +381,12 @@ function pillClass(s: LeaveStatus) {
   return { 'pill-pending': s==='pending', 'pill-approved': s==='approved', 'pill-rejected': s==='rejected', 'pill-cancelled': s==='cancelled', 'pill-draft': s==='draft' }
 }
 function statusLabel(s: LeaveStatus): string {
-  const map: Record<LeaveStatus, string> = {
+  const map: Partial<Record<LeaveStatus, string>> = {
     draft: t('absence.status.draft'), pending: t('absence.status.pending'),
     approved: t('absence.status.approved'), rejected: t('absence.status.rejected'),
-    cancelled: t('absence.status.cancelled'),
+    cancelled: t('absence.status.cancelled'), returned: t('absence.status.returned'),
   }
-  return map[s]
+  return map[s] ?? s
 }
 </script>
 
@@ -428,13 +469,16 @@ function statusLabel(s: LeaveStatus): string {
 .action-btns { display:flex;gap:4px; }
 .act-btn { padding:5px 10px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;border:none;white-space:nowrap; }
 .act-approve { background:var(--color-success-bg);color:var(--p247-success); }
-.act-reject { background:var(--p247-danger-bg);color:var(--p247-danger); }
-.act-view { background:var(--p247-bg);color:var(--p247-muted); }
+.act-return  { background:var(--color-info-bg);color:var(--color-info); }
+.act-reject  { background:var(--p247-danger-bg);color:var(--p247-danger); }
+.act-view    { background:var(--p247-bg);color:var(--p247-muted); }
 .detail-row td { padding:0; }
-.detail-panel { background:var(--p247-bg);border-top:0.5px solid var(--p247-border);padding:12px 14px;display:flex;flex-direction:column;gap:6px; }
+.detail-panel { background:var(--p247-bg);border-top:0.5px solid var(--p247-border);padding:16px;display:flex;flex-direction:column;gap:10px; }
 .detail-label { font-weight:500;font-size:11px; }
 .rejection-reason { display:flex;align-items:center;gap:6px;color:var(--p247-danger);font-size:12px; }
 .detail-meta { display:flex;gap:16px;font-size:11px;color:var(--p247-muted); }
+.timeline-section { margin-top:4px; }
+.timeline-title { font-size:11px;font-weight:700;color:var(--p247-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px; }
 .empty-state { display:flex;flex-direction:column;align-items:center;padding:40px;gap:8px;color:var(--p247-muted); }
 .empty-state i { font-size:32px; }
 .empty-state p { font-size:13px; }

@@ -7,7 +7,8 @@
       <!-- MODULE : Administration -->
       <template v-if="navStore.activeModule === 'administration'">
         <SidebarSection :label="t('sidebar.dashboard')">
-          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.overview')" :to="{ name: 'rh' }" />
+          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.overview')"  :to="{ name: 'rh' }" />
+          <SidebarItem icon="ti ti-user"             :label="t('sidebar.my_profile')" :to="{ name: 'rh-profile' }" />
         </SidebarSection>
 
         <SidebarSection :label="t('sidebar.absence_requests')">
@@ -127,8 +128,9 @@
       </SidebarSection>
 
       <SidebarSection :label="t('sidebar.my_requests')">
-        <SidebarItem icon="ti ti-calendar-off" :label="t('sidebar.absence_requests')" :to="{ name: 'employee-absences' }" :badge="myPendingCount" />
+        <SidebarItem icon="ti ti-calendar-off" :label="t('sidebar.absence_requests')" :to="{ name: 'employee-absences' }"  :badge="myPendingCount" />
         <SidebarItem icon="ti ti-plane"        :label="t('sidebar.my_missions')"      :to="{ name: 'employee-missions' }" />
+        <SidebarItem icon="ti ti-receipt"      label="Notes de frais"                 :to="{ name: 'employee-expenses' }" />
       </SidebarSection>
 
       <template v-if="auth.isValidator">
@@ -218,7 +220,7 @@ const SidebarItem = defineComponent({
 
 :deep(.sidebar-item) {
   display: flex; align-items: center; gap: 8px;
-  padding: 7px 16px 7px 20px; color: var(--p247-muted);
+  padding: 7px 16px 7px 24px; color: var(--p247-muted);
   cursor: pointer; font-size: 13px; transition: all .12s;
   text-decoration: none; user-select: none;
 }

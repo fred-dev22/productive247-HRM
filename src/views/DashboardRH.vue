@@ -14,9 +14,21 @@
             <button class="btn btn-outline">
               <i class="ti ti-file-export" aria-hidden="true"></i> {{ t('dashboard.export') }}
             </button>
-            <button class="btn btn-primary" @click="openCreateModal">
-              <i class="ti ti-plus" aria-hidden="true"></i> {{ t('dashboard.new_request') }}
-            </button>
+            <!-- Dropdown mode demande -->
+            <div class="req-dropdown-wrap" ref="reqDropRef">
+              <button class="btn btn-primary" @click="reqDropOpen = !reqDropOpen">
+                <i class="ti ti-plus" aria-hidden="true"></i> {{ t('dashboard.new_request') }}
+                <i class="ti ti-chevron-down" style="font-size:11px" aria-hidden="true"></i>
+              </button>
+              <div v-if="reqDropOpen" class="req-dropdown">
+                <button class="req-drop-item" @click="openAbsenceModal('self')">
+                  <i class="ti ti-user" aria-hidden="true"></i> Pour moi-même
+                </button>
+                <button class="req-drop-item" @click="openAbsenceModal('for-employee')">
+                  <i class="ti ti-users" aria-hidden="true"></i> Pour un employé
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -109,6 +121,7 @@
             </span>
             <div v-if="r.status === 'pending'" class="action-btns">
               <button class="act-btn act-approve" @click="approve(r.id)">{{ t('absence.actions.approve') }}</button>
+              <button class="act-btn act-return"  @click="openReturnModal(r)"><i class="ti ti-arrow-back-up"></i></button>
               <button class="act-btn act-reject"  @click="openRejectModal(r)">{{ t('absence.actions.reject') }}</button>
             </div>
             <button v-else class="act-btn act-view">{{ t('absence.actions.view') }}</button>
@@ -269,63 +282,25 @@
   </div>
 </Teleport>
 
-<!-- Modale de création -->
+<!-- Modale de création (AbsenceRequestModal réutilisable) -->
+<AbsenceRequestModal
+  v-model="absenceModalOpen"
+  :mode="absenceMode"
+  @submitted="onAbsenceSubmitted"
+  @drafted="onAbsenceSubmitted"
+/>
+
+<!-- Modale de retour -->
 <Teleport to="body">
-  <div v-if="createModal.open" class="overlay" @click.self="closeCreateModal">
-    <div class="modal-card modal-card--lg">
-      <div class="modal-header">
-        <div class="modal-title">{{ t('absence.new') }}</div>
-        <button class="modal-close" @click="closeCreateModal"><i class="ti ti-x"></i></button>
-      </div>
-
-      <div class="cform-field">
-        <label class="modal-label">{{ t('absence.fields.employee') }} *</label>
-        <select v-model="createModal.employeeName" class="cform-input" :class="{ 'input-error': createModal.errors.employeeName }">
-          <option value="">{{ t('absence.select_employee') }}</option>
-          <option v-for="e in employeeList" :key="e.name" :value="e.name">{{ e.name }}</option>
-        </select>
-        <div v-if="createModal.errors.employeeName" class="modal-error">{{ createModal.errors.employeeName }}</div>
-      </div>
-
-      <div class="cform-field">
-        <label class="modal-label">{{ t('absence.fields.type') }} *</label>
-        <select v-model="createModal.type" class="cform-input" :class="{ 'input-error': createModal.errors.type }">
-          <option value="">{{ t('absence.select_type') }}</option>
-          <option v-for="lt in leaveTypes" :key="lt" :value="lt">{{ typeLabel(lt) }}</option>
-        </select>
-        <div v-if="createModal.errors.type" class="modal-error">{{ createModal.errors.type }}</div>
-      </div>
-
-      <div class="cform-row">
-        <div class="cform-field">
-          <label class="modal-label">{{ t('absence.fields.start_date') }} *</label>
-          <input type="date" v-model="createModal.startDate" class="cform-input" :class="{ 'input-error': createModal.errors.startDate }" />
-          <div v-if="createModal.errors.startDate" class="modal-error">{{ createModal.errors.startDate }}</div>
-        </div>
-        <div class="cform-field">
-          <label class="modal-label">{{ t('absence.fields.end_date') }} *</label>
-          <input type="date" v-model="createModal.endDate" class="cform-input" :class="{ 'input-error': createModal.errors.endDate }" :min="createModal.startDate || undefined" />
-          <div v-if="createModal.errors.endDate" class="modal-error">{{ createModal.errors.endDate }}</div>
-        </div>
-      </div>
-
-      <div v-if="createWorkingDays > 0" class="days-badge">
-        <i class="ti ti-sun"></i> {{ t('absence.fields.working_days', { count: createWorkingDays }) }}
-      </div>
-
-      <div class="cform-field">
-        <label class="modal-label">
-          {{ t('absence.fields.reason') }}
-          <span style="font-weight:400;color:var(--p247-muted)">({{ t('absence.optional') }})</span>
-        </label>
-        <textarea v-model="createModal.reason" class="modal-textarea" rows="3" placeholder="Informations complémentaires..."></textarea>
-      </div>
-
+  <div v-if="returnModal.open" class="overlay" @click.self="closeReturnModal">
+    <div class="modal-card">
+      <div class="modal-title">Retourner la demande de {{ returnModal.employeeName }}</div>
+      <label class="modal-label">Commentaire *</label>
+      <textarea v-model="returnModal.comment" class="modal-textarea" placeholder="Expliquez ce qui doit être corrigé..." rows="4"></textarea>
+      <div v-if="returnModal.error" class="modal-error">{{ returnModal.error }}</div>
       <div class="modal-actions">
-        <button class="btn btn-primary" @click="confirmCreate">
-          <i class="ti ti-send"></i> {{ t('absence.actions.submit') }}
-        </button>
-        <button class="btn btn-outline" @click="closeCreateModal">{{ t('absence.actions.cancel') }}</button>
+        <button class="btn btn-primary" @click="confirmReturn"><i class="ti ti-arrow-back-up"></i> Retourner</button>
+        <button class="btn btn-outline" @click="closeReturnModal">{{ t('absence.actions.cancel') }}</button>
       </div>
     </div>
   </div>
@@ -356,7 +331,9 @@
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { onClickOutside } from '@vueuse/core'
 import { AppSidebar, AppTopNav } from '../components'
+import AbsenceRequestModal from '../components/AbsenceRequestModal.vue'
 import { useAuthStore } from '../stores/auth'
 import { useAbsenceStore } from '../stores/absences'
 import { useEntityStore } from '../stores/entities'
@@ -371,10 +348,6 @@ const today = new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'e
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
 })
 
-const leaveTypes: LeaveType[] = [
-  'Congé annuel', 'Congé maladie', 'Récupération', 'Télétravail', 'Congé maternité',
-]
-
 // ── Type display helper ──────────────────────────────────────
 const typeI18nKey: Record<string, string> = {
   'Congé annuel':    'absence.types.annual',
@@ -388,74 +361,22 @@ function typeLabel(type: string): string {
   return key ? t(key) : type
 }
 
-const employeeList = [
-  { name: 'Aminata Diallo',      initials: 'AD', avatarColor: '#B5D4F4', avatarTextColor: '#0C447C' },
-  { name: 'Kofi Mensah',         initials: 'KM', avatarColor: '#C0DD97', avatarTextColor: '#3B6D11' },
-  { name: 'Fatou Sow',           initials: 'FS', avatarColor: '#F4C0D1', avatarTextColor: '#72243E' },
-  { name: 'Jean-Pierre Mvondo',  initials: 'JP', avatarColor: '#FAC775', avatarTextColor: '#633806' },
-  { name: 'Rose Nkeng',          initials: 'RN', avatarColor: '#AFA9EC', avatarTextColor: '#3C3489' },
-  { name: 'Ibrahim Touré',       initials: 'IT', avatarColor: '#B5D4F4', avatarTextColor: '#0C447C' },
-  { name: 'Nadia Eze',           initials: 'NE', avatarColor: '#C0DD97', avatarTextColor: '#3B6D11' },
-  { name: 'Samuel Osei',         initials: 'SO', avatarColor: '#FAC775', avatarTextColor: '#633806' },
-]
+// ── Dropdown + AbsenceRequestModal ──────────────────────────
+const reqDropOpen      = ref(false)
+const reqDropRef       = ref<HTMLElement | null>(null)
+const absenceModalOpen = ref(false)
+const absenceMode      = ref<'self' | 'for-employee'>('self')
 
-// ── Création modale ──────────────────────────────────────────
-const createModal = reactive({
-  open: false,
-  employeeName: '',
-  type: '' as LeaveType | '',
-  startDate: '',
-  endDate: '',
-  reason: '',
-  errors: { employeeName: '', type: '', startDate: '', endDate: '' },
-})
+onClickOutside(reqDropRef, () => { reqDropOpen.value = false })
 
-const createWorkingDays = computed(() => {
-  if (!createModal.startDate || !createModal.endDate) return 0
-  if (createModal.endDate < createModal.startDate) return 0
-  return leaves.calculateWorkingDays(createModal.startDate, createModal.endDate)
-})
-
-function openCreateModal() {
-  createModal.open = true
-  createModal.employeeName = ''
-  createModal.type = ''
-  createModal.startDate = ''
-  createModal.endDate = ''
-  createModal.reason = ''
-  createModal.errors = { employeeName: '', type: '', startDate: '', endDate: '' }
+function openAbsenceModal(mode: 'self' | 'for-employee') {
+  reqDropOpen.value  = false
+  absenceMode.value  = mode
+  absenceModalOpen.value = true
 }
-function closeCreateModal() { createModal.open = false }
 
-function confirmCreate() {
-  createModal.errors = { employeeName: '', type: '', startDate: '', endDate: '' }
-  let ok = true
-  if (!createModal.employeeName) { createModal.errors.employeeName = t('validation.required_employee'); ok = false }
-  if (!createModal.type)         { createModal.errors.type = t('validation.required_type');      ok = false }
-  if (!createModal.startDate)    { createModal.errors.startDate = t('validation.required_start'); ok = false }
-  if (!createModal.endDate)      { createModal.errors.endDate = t('validation.required_end');     ok = false }
-  else if (createModal.startDate && createModal.endDate < createModal.startDate) {
-    createModal.errors.endDate = t('validation.end_before_start')
-    ok = false
-  }
-  if (!ok) return
-  const emp = employeeList.find(e => e.name === createModal.employeeName)
-  const todayStr = new Date().toISOString().slice(0, 10)
-  requests.value.unshift({
-    id: Date.now(),
-    employeeName:     createModal.employeeName,
-    employeeInitials: emp?.initials ?? '??',
-    avatarColor:      emp?.avatarColor ?? '#ccc',
-    avatarTextColor:  emp?.avatarTextColor ?? '#333',
-    type:             createModal.type as LeaveType,
-    startDate:        createModal.startDate,
-    endDate:          createModal.endDate,
-    workingDays:      createWorkingDays.value,
-    reason:           createModal.reason || undefined,
-    status:           'pending',
-    submittedAt:      todayStr,
-  })
-  closeCreateModal()
+function onAbsenceSubmitted() {
+  absenceModalOpen.value = false
 }
 
 // ── Demandes ─────────────────────────────────────────────────
@@ -476,6 +397,20 @@ const activeRequests = computed(() => tab.value === 'pending' ? pending.value : 
 function approve(id: number) {
   const r = requests.value.find(r => r.id === id)
   if (r) r.status = 'approved'
+}
+
+const returnModal = reactive({ open: false, id: 0, employeeName: '', comment: '', error: '' })
+function openReturnModal(r: LeaveRequest) {
+  Object.assign(returnModal, { open: true, id: r.id, employeeName: r.employeeName, comment: '', error: '' })
+}
+function closeReturnModal() { returnModal.open = false }
+function confirmReturn() {
+  if (!returnModal.comment.trim() || returnModal.comment.trim().length < 10) {
+    returnModal.error = 'Le commentaire doit comporter au moins 10 caractères'; return
+  }
+  const r = requests.value.find(r => r.id === returnModal.id)
+  if (r) { r.status = 'returned'; r.returnComment = returnModal.comment.trim() }
+  closeReturnModal()
 }
 
 const rejectModal = reactive({ open: false, id: 0, employeeName: '', reason: '', error: '' })
@@ -507,14 +442,18 @@ function pillClass(s: LeaveStatus) {
   }
 }
 function statusLabel(s: LeaveStatus): string {
-  const map: Record<LeaveStatus, string> = {
-    draft:     t('absence.status.draft'),
-    pending:   t('absence.status.pending'),
-    approved:  t('absence.status.approved'),
-    rejected:  t('absence.status.rejected'),
-    cancelled: t('absence.status.cancelled'),
+  const map: Partial<Record<LeaveStatus, string>> = {
+    draft:       t('absence.status.draft'),
+    pending:     t('absence.status.pending'),
+    approved:    t('absence.status.approved'),
+    rejected:    t('absence.status.rejected'),
+    cancelled:   t('absence.status.cancelled'),
+    returned:    t('absence.status.returned'),
+    registered:  'Enregistré',
+    done:        'Effectué',
+    regularized: 'Régularisé',
   }
-  return map[s]
+  return map[s] ?? s
 }
 
 // ── Soldes individuels ────────────────────────────────────────
@@ -685,6 +624,7 @@ function hideTooltip() { tooltip.visible = false }
 .action-btns { display: flex; gap: 4px; }
 .act-btn     { padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; }
 .act-approve { background: var(--color-success-bg); color: var(--p247-success); }
+.act-return  { background: var(--color-info-bg);   color: var(--color-info);   }
 .act-reject  { background: var(--p247-danger-bg);  color: var(--p247-danger);  }
 .act-view    { background: var(--p247-bg); color: var(--p247-muted); }
 
@@ -758,7 +698,6 @@ function hideTooltip() { tooltip.visible = false }
 .pag-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .pag-arrow { color: var(--p247-muted); }
 
-/* Modale */
 /* ── Org KPI card ── */
 .org-kpi-card {
   display: flex; align-items: center; justify-content: space-between;
@@ -783,22 +722,30 @@ function hideTooltip() { tooltip.visible = false }
 }
 .org-kpi-arrow { color: var(--p247-muted); font-size: 16px; }
 
-.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-card--lg { width: 520px; }
-.modal-header { display: flex; align-items: center; justify-content: space-between; }
-.modal-close { background: none; border: none; cursor: pointer; font-size: 16px; color: var(--p247-muted); padding: 0; line-height: 1; }
-.modal-close:hover { color: var(--p247-text); }
-.cform-field { display: flex; flex-direction: column; gap: 4px; }
-.cform-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.cform-input { height: 34px; padding: 0 10px; border: 0.5px solid var(--p247-border); border-radius: 6px; font-size: 12px; color: var(--p247-text); background: var(--p247-white); outline: none; transition: border-color .12s; }
-.cform-input:focus { border-color: var(--p247-orange); }
-.input-error  { border-color: var(--p247-danger) !important; }
-.days-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--p247-orange-light); color: var(--p247-orange); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 20px; align-self: flex-start; }
-.modal-card { background: var(--p247-white); border-radius: 10px; padding: 24px; width: 420px; max-width: 90vw; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.18); }
-.modal-title { font-size: 14px; font-weight: 600; }
-.modal-label { font-size: 12px; font-weight: 500; }
+/* Reject modal (kept — used by the reject Teleport block) */
+.overlay       { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-card    { background: var(--p247-white); border-radius: 10px; padding: 24px; width: 420px; max-width: 90vw; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.18); }
+.modal-title   { font-size: 14px; font-weight: 600; }
+.modal-label   { font-size: 12px; font-weight: 500; }
 .modal-textarea { width: 100%; border: 0.5px solid var(--p247-border); border-radius: 6px; padding: 8px 10px; font-size: 12px; resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
 .modal-textarea:focus { border-color: var(--p247-orange); }
-.modal-error { font-size: 11px; color: var(--p247-danger); }
+.modal-error   { font-size: 11px; color: var(--p247-danger); }
 .modal-actions { display: flex; gap: 8px; }
+
+/* Dropdown demande */
+.req-dropdown-wrap { position: relative; }
+.req-dropdown {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 200;
+  background: var(--p247-white); border: 0.5px solid var(--p247-border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 4px; min-width: 180px; display: flex; flex-direction: column; gap: 2px;
+}
+.req-drop-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  color: var(--p247-text); background: none; border: none; cursor: pointer;
+  text-align: left; transition: background .1s;
+}
+.req-drop-item:hover { background: var(--p247-bg); }
+.req-drop-item i { font-size: 15px; color: var(--p247-muted); }
 </style>

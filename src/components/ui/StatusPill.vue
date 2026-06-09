@@ -13,15 +13,19 @@ interface PillConfig { label: string; bg: string; color: string }
 
 const CONFIG: Record<string, PillConfig> = {
   draft:            { label: 'Brouillon',  bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
+  returned:         { label: 'Retourné',   bg: 'var(--color-info-bg)',    color: 'var(--color-info)'    },
   pending:          { label: 'En attente', bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
   pending_approval: { label: 'En attente', bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
   approved:         { label: 'Approuvé',   bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
   rejected:         { label: 'Refusé',     bg: 'var(--color-danger-bg)',  color: 'var(--color-danger)'  },
   cancelled:        { label: 'Annulé',     bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
-  inactive:         { label: 'Inactif',    bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
-  active:           { label: 'Actif',      bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
-  trial:            { label: 'En essai',   bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
-  onleave:          { label: 'En congé',   bg: 'var(--color-info-bg)',    color: 'var(--color-info)'    },
+  inactive:         { label: 'Inactif',     bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
+  active:           { label: 'Actif',       bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
+  trial:            { label: 'En essai',    bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
+  onleave:          { label: 'En congé',    bg: 'var(--color-info-bg)',    color: 'var(--color-info)'    },
+  registered:       { label: 'Enregistré', bg: 'var(--color-info-bg)',    color: 'var(--color-info)'    },
+  done:             { label: 'Effectué',   bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
+  regularized:      { label: 'Régularisé', bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
 }
 
 const cfg = computed<PillConfig>(() =>

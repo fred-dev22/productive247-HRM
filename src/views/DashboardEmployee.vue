@@ -100,6 +100,7 @@
   <!-- Modale nouvelle demande -->
   <AbsenceRequestModal
     v-model="showModal"
+    mode="self"
     :initial-type="modalInitialType"
     @submitted="showToast(t('absence.submitted_toast'))"
     @drafted="showToast(t('absence.draft_saved'))"

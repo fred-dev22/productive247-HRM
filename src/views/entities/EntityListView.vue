@@ -15,9 +15,9 @@
             <router-link :to="{ name: 'rh' }" class="btn btn-outline">
               <i class="ti ti-arrow-left"></i> Retour
             </router-link>
-            <router-link :to="{ name: 'entity-create' }" class="btn btn-primary">
+            <button class="btn btn-primary" @click="showEntityModal = true">
               <i class="ti ti-plus"></i> Nouvelle entité
-            </router-link>
+            </button>
           </div>
         </div>
 
@@ -76,16 +76,23 @@
       </main>
     </div>
   </div>
+
+  <!-- ── Modal création entité ── -->
+  <EntityFormModal v-model="showEntityModal" @saved="showEntityModal = false" />
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { AppSidebar, AppTopNav } from '../../components'
 import { useAuthStore }   from '../../stores/auth'
 import { useEntityStore } from '../../stores/entities'
-import EntityTabsContent  from '../../components/entities/EntityTabsContent.vue'
+import EntityTabsContent from '../../components/entities/EntityTabsContent.vue'
+import EntityFormModal   from '../../components/entities/EntityFormModal.vue'
 
 const auth  = useAuthStore()
 const store = useEntityStore()
+
+const showEntityModal = ref(false)
 </script>
 
 <style scoped>
@@ -99,8 +106,8 @@ const store = useEntityStore()
 .header-actions { display: flex; gap: 8px; }
 
 .btn         { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; transition: all .12s; }
-.btn-primary { background: var(--color-primary); color: white; }
-.btn-primary:hover { background: var(--color-primary-dark); }
+.btn-primary { background: var(--color-primary); color: var(--color-surface); }
+.btn-primary:hover { opacity: .88; }
 .btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
 .btn-outline:hover { background: var(--color-bg); }
 
@@ -109,7 +116,7 @@ const store = useEntityStore()
 .kpi-icon  { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
 .kpi-val   { font-size: 22px; font-weight: 700; line-height: 1; }
 .kpi-lbl   { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
-.pending-badge { background: var(--color-danger); color: white; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
+.pending-badge { background: var(--color-danger); color: var(--color-surface); font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
 
 @media (max-width: 900px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) { .kpi-strip { grid-template-columns: 1fr; } .content { padding: 16px; } }

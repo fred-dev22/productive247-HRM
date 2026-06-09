@@ -18,6 +18,12 @@
 
   --galana-white:        #FFFFFF;
 
+  /* ── Niveaux organigramme ── */
+  --galana-direction-bg:   #8B0000;
+  --galana-department-bg:  #006B3C;
+  --galana-service-bg:     #FFFFFF;
+  --galana-service-border: #006B3C;
+
   /* ── Couleurs sémantiques — UTILISER CES VARIABLES dans les composants ── */
   --color-primary:       var(--galana-green);
   --color-primary-dark:  var(--galana-green-dark);

@@ -1,4 +1,9 @@
 <template>
+  <div class="app-shell">
+    <AppTopNav :user="auth.user" />
+    <div class="main-layout">
+      <AppSidebar />
+      <main class="content">
   <div class="planning-view">
 
     <!-- ── En-tête ── -->
@@ -27,13 +32,14 @@
           v-for="day in weekDays"
           :key="day.date"
           class="day-card"
-          :class="dayCardClass(day)"
+          :class="[dayCardClass(day), { 'day-card--today': day.date === today }]"
         >
 
           <!-- En-tête du jour -->
-          <div class="day-card-header">
-            <span class="day-abbr">{{ dayAbbr(day.date) }}</span>
-            <span class="day-num">{{ dayNum(day.date) }}</span>
+          <div class="day-card-header" :class="{ 'day-card-header--today': day.date === today }">
+            <span class="day-abbr" :class="{ 'day-abbr--today': day.date === today }">{{ dayAbbr(day.date) }}</span>
+            <span class="day-num"  :class="{ 'day-num--today':  day.date === today }">{{ dayNum(day.date) }}</span>
+            <span v-if="day.date === today" class="today-badge">Aujourd'hui</span>
           </div>
 
           <!-- Jour ouvrable normal -->
@@ -125,18 +131,27 @@
       </div>
     </div>
 
-  </div>
+  </div><!-- .planning-view -->
+      </main>
+    </div>
+  </div><!-- .app-shell -->
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import AppTopNav  from '../../components/AppTopNav.vue'
+import AppSidebar from '../../components/AppSidebar.vue'
+import { useAuthStore }     from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'
 import { useAbsenceStore }  from '../../stores/absences'
 import { generateWeekPlanning } from '../../utils/calendar'
 import type { DayPlanning, WorkingHours } from '../../types'
 
+const auth          = useAuthStore()
 const calendarStore = useCalendarStore()
 const absenceStore  = useAbsenceStore()
+
+const today = new Date().toISOString().split('T')[0] ?? ''
 
 // ── Week navigation ───────────────────────────────────────────
 function parseLocal(dateStr: string): Date {
@@ -287,6 +302,10 @@ const balanceSummary = [
 </script>
 
 <style scoped>
+.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
+.main-layout { display: flex; flex: 1; overflow: hidden; }
+.content     { flex: 1; overflow-y: auto; background: var(--color-bg); }
+
 .planning-view {
   padding: 24px;
   max-width: 1100px;
@@ -350,6 +369,17 @@ const balanceSummary = [
 .day-card--pending  { background: var(--color-warning-bg);    border-color: var(--color-warning); }
 .day-card--holiday  { background: var(--color-info-bg);       border-color: var(--color-info); }
 .day-card--off      { background: var(--color-bg); opacity: .6; }
+.day-card--today    { background: var(--color-primary-light) !important; border: 2px solid var(--color-primary) !important; }
+
+.day-card-header--today { background: none; }
+.day-abbr--today { color: var(--color-primary); font-weight: 700; }
+.day-num--today  { color: var(--color-primary); }
+.today-badge {
+  margin-left: auto;
+  background: var(--color-primary); color: #fff;
+  font-size: 9px; font-weight: 700; padding: 2px 6px;
+  border-radius: 10px; letter-spacing: .03em;
+}
 
 .day-card-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -392,7 +422,7 @@ const balanceSummary = [
   display: inline-block;
   font-size: 11px; font-weight: 600;
   color: var(--color-primary);
-  background: rgba(0,107,60,.12);
+  background: var(--color-primary-light);
   border-radius: 6px;
   padding: 3px 8px;
   text-align: center;
@@ -400,7 +430,7 @@ const balanceSummary = [
 }
 .absence-badge--pending {
   color: var(--color-warning);
-  background: rgba(138,90,10,.12);
+  background: var(--color-warning-bg);
 }
 
 .holiday-name {

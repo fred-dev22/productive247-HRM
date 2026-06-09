@@ -11,9 +11,9 @@
             <div class="page-title">{{ t('employee.title') }}</div>
             <div class="page-sub">{{ t('employee.sub_title', { count: store.employees.length }) }}</div>
           </div>
-          <router-link :to="{ name: 'rh-employee-create' }" class="btn btn-primary">
+          <button class="btn btn-primary" @click="openEmpModal()">
             <i class="ti ti-user-plus"></i> {{ t('employee.new') }}
-          </router-link>
+          </button>
         </div>
 
         <!-- ── KPI strip ── -->
@@ -135,9 +135,9 @@
                 </td>
                 <td>
                   <div class="actions-cell">
-                    <router-link :to="{ name: 'rh-employee-edit', params: { id: emp.id } }" class="act-btn">
+                    <button class="act-btn" @click="openEmpModal(emp.id)">
                       <i class="ti ti-pencil"></i> {{ t('employee.btn_edit') }}
-                    </router-link>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -169,6 +169,13 @@
       </main>
     </div>
   </div>
+
+  <!-- ── Modal employé ── -->
+  <EmployeeFormModal
+    v-model="showEmpModal"
+    :edit-id="editEmpId"
+    @saved="showEmpModal = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -178,12 +185,21 @@ import { AppSidebar, AppTopNav } from '../../components'
 import { useAuthStore }     from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore }   from '../../stores/entities'
+import EmployeeFormModal    from '../../components/employees/EmployeeFormModal.vue'
 import type { UserRole, EmployeeStatus } from '../../types'
 
 const { t }       = useI18n()
 const auth        = useAuthStore()
 const store       = useEmployeeStore()
 const entityStore = useEntityStore()
+
+const showEmpModal = ref(false)
+const editEmpId    = ref<string | undefined>(undefined)
+
+function openEmpModal(id?: string) {
+  editEmpId.value    = id
+  showEmpModal.value = true
+}
 
 const PAGE_SIZE = 15
 const page      = ref(1)
@@ -253,7 +269,7 @@ function statusLabel(s: EmployeeStatus): string {
 
 .btn         { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; transition: all .12s; }
 .btn-sm      { padding: 5px 12px; font-size: 12px; }
-.btn-primary { background: var(--p247-orange); color: white; }
+.btn-primary { background: var(--p247-orange); color: var(--color-surface); }
 .btn-primary:hover { background: var(--p247-orange-dark); }
 .btn-outline { background: var(--p247-white); color: var(--p247-text); border: 0.5px solid var(--p247-border); }
 .btn-outline:hover { background: var(--p247-bg); }
@@ -309,7 +325,7 @@ function statusLabel(s: EmployeeStatus): string {
 .pag-pages  { display: flex; gap: 3px; }
 .pag-btn    { min-width: 28px; height: 28px; padding: 0 6px; border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--p247-border); background: var(--p247-white); color: var(--p247-text); display: flex; align-items: center; justify-content: center; }
 .pag-btn:hover:not(:disabled) { background: var(--p247-bg); }
-.pag-btn.active   { background: var(--p247-orange); color: white; border-color: var(--p247-orange); }
+.pag-btn.active   { background: var(--p247-orange); color: var(--color-surface); border-color: var(--p247-orange); }
 .pag-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 @media (max-width: 900px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }

@@ -145,8 +145,8 @@ export function generateWeekPlanning(
       hours: working ? {
         start:      dayConfig.start,
         end:        dayConfig.end,
-        breakStart: calendar.breakStart,
-        breakEnd:   calendar.breakEnd,
+        breakStart: dayConfig.breakEnabled ? dayConfig.breakStart : '',
+        breakEnd:   dayConfig.breakEnabled ? dayConfig.breakEnd   : '',
       } : undefined,
     })
   }

@@ -9,9 +9,36 @@
         <i class="ti ti-search"></i>
         <span class="kbd-badge">Ctrl+K</span>
       </div>
-      <div class="icon-btn" :title="t('topbar.notifications')">
+      <div class="icon-btn notif-btn" :title="t('topbar.notifications')" @click.stop="toggleDropdown('notif')">
         <i class="ti ti-bell"></i>
-        <span class="notif-badge">3</span>
+        <span v-if="notifStore.unreadCount > 0" class="notif-badge">{{ notifStore.unreadCount }}</span>
+        <div v-if="activeDropdown === 'notif'" class="dropdown notif-dropdown" @click.stop>
+          <div class="notif-header">
+            <span class="notif-title">Notifications</span>
+            <button v-if="notifStore.unreadCount > 0" class="notif-mark-all" @click="notifStore.markAllAsRead()">
+              Tout marquer lu
+            </button>
+          </div>
+          <div class="notif-list">
+            <div
+              v-for="n in notifStore.notifications"
+              :key="n.id"
+              class="notif-item"
+              :class="{ 'notif-unread': !n.read }"
+              @click="notifStore.markAsRead(n.id)"
+            >
+              <span class="notif-dot" :class="`notif-dot--${n.type}`"></span>
+              <div class="notif-body">
+                <div class="notif-item-title">{{ n.title }}</div>
+                <div class="notif-item-msg">{{ n.message }}</div>
+                <div class="notif-item-date">{{ n.date }}</div>
+              </div>
+            </div>
+            <div v-if="notifStore.notifications.length === 0" class="notif-empty">
+              Aucune notification
+            </div>
+          </div>
+        </div>
       </div>
       <div class="icon-btn" :title="t('topbar.settings')">
         <i class="ti ti-settings"></i>
@@ -127,9 +154,10 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore }       from '../stores/auth'
-import { useNavigationStore } from '../stores/navigation'
-import { useAbsenceStore }    from '../stores/absences'
+import { useAuthStore }          from '../stores/auth'
+import { useNavigationStore }    from '../stores/navigation'
+import { useAbsenceStore }       from '../stores/absences'
+import { useNotificationStore }  from '../stores/notifications'
 import type { AuthUser } from '../types'
 
 defineProps<{ user: AuthUser | null }>()
@@ -138,6 +166,7 @@ const router       = useRouter()
 const auth         = useAuthStore()
 const navStore     = useNavigationStore()
 const absenceStore = useAbsenceStore()
+const notifStore   = useNotificationStore()
 const { t, locale } = useI18n()
 
 // ── HR nav items ──────────────────────────────────────────────
@@ -188,13 +217,13 @@ const contextLabel = computed(() => {
 })
 
 // ── Dropdowns / Search ────────────────────────────────────────
-const activeDropdown   = ref<'lang' | 'user' | null>(null)
+const activeDropdown   = ref<'lang' | 'user' | 'notif' | null>(null)
 const searchOpen       = ref(false)
 const searchQuery      = ref('')
 const isMobileMenuOpen = ref(false)
 const searchInput      = ref<HTMLInputElement | null>(null)
 
-function toggleDropdown(name: 'lang' | 'user') {
+function toggleDropdown(name: 'lang' | 'user' | 'notif') {
   activeDropdown.value = activeDropdown.value === name ? null : name
 }
 
@@ -241,6 +270,26 @@ onUnmounted(() => { document.removeEventListener('click', onDocClick); document.
 .icon-btn.lang-btn, .icon-btn.avatar-btn { width: auto; padding: 0 6px; gap: 4px; }
 .lang-text { color: #FFF; font-size: 12px; }
 .notif-badge { position: absolute; top: -4px; right: -4px; background: var(--color-accent); color: white; font-size: 9px; width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.notif-btn { position: relative; }
+.notif-dropdown { min-width: 300px; max-width: 340px; padding: 0; overflow: hidden; }
+.notif-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 8px; border-bottom: 0.5px solid var(--p247-border); }
+.notif-title { font-size: 12px; font-weight: 700; color: var(--color-text); }
+.notif-mark-all { background: none; border: none; font-size: 11px; color: var(--p247-orange); cursor: pointer; padding: 0; }
+.notif-list { max-height: 320px; overflow-y: auto; }
+.notif-item { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 0.5px solid var(--p247-border); cursor: pointer; transition: background .1s; }
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: var(--p247-bg); }
+.notif-unread { background: var(--color-primary-light); }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.notif-dot--leave   { background: var(--color-primary); }
+.notif-dot--mission { background: var(--color-info); }
+.notif-dot--expense { background: var(--color-warning); }
+.notif-dot--system  { background: var(--color-neutral); }
+.notif-body { flex: 1; min-width: 0; }
+.notif-item-title { font-size: 12px; font-weight: 600; color: var(--color-text); }
+.notif-item-msg   { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-item-date  { font-size: 10px; color: var(--color-text-muted); margin-top: 3px; }
+.notif-empty { padding: 20px; text-align: center; font-size: 12px; color: var(--color-text-muted); }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--p247-orange); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: white; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15); border: 0.5px solid var(--p247-border); min-width: 150px; z-index: 200; padding: 4px; }
 .dropdown-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 13px; border-radius: 6px; cursor: pointer; color: var(--p247-text); transition: background .1s; }

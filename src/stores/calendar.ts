@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type {
-  CompanyCalendar, EmployeeSchedule, WorkingDays,
-  Holiday, LeaveRule, LeaveType,
+  CompanyCalendar, EmployeeSchedule, WorkingDays, WorkingHours,
+  Holiday, LeaveRule, LeaveType, PerdiemRate,
 } from '../types'
 
 let holidayCounter = 20
@@ -11,16 +11,14 @@ export const useCalendarStore = defineStore('calendar', () => {
   const calendar = ref<CompanyCalendar>({
     id: 'cal-001',
     workingDays: {
-      monday:    { enabled: true,  start: '08:00', end: '17:30' },
-      tuesday:   { enabled: true,  start: '08:00', end: '17:30' },
-      wednesday: { enabled: true,  start: '08:00', end: '17:30' },
-      thursday:  { enabled: true,  start: '08:00', end: '17:30' },
-      friday:    { enabled: true,  start: '08:00', end: '17:30' },
-      saturday:  { enabled: false, start: '08:00', end: '12:00' },
-      sunday:    { enabled: false, start: '08:00', end: '12:00' },
+      monday:    { enabled: true,  start: '08:00', end: '17:30', breakEnabled: true,  breakStart: '12:00', breakEnd: '14:00' },
+      tuesday:   { enabled: true,  start: '08:00', end: '17:30', breakEnabled: true,  breakStart: '12:00', breakEnd: '14:00' },
+      wednesday: { enabled: true,  start: '08:00', end: '17:30', breakEnabled: true,  breakStart: '12:00', breakEnd: '14:00' },
+      thursday:  { enabled: true,  start: '08:00', end: '17:30', breakEnabled: true,  breakStart: '12:00', breakEnd: '14:00' },
+      friday:    { enabled: true,  start: '08:00', end: '17:30', breakEnabled: true,  breakStart: '12:00', breakEnd: '14:00' },
+      saturday:  { enabled: false, start: '08:00', end: '12:00', breakEnabled: false, breakStart: '',      breakEnd: ''      },
+      sunday:    { enabled: false, start: '08:00', end: '12:00', breakEnabled: false, breakStart: '',      breakEnd: ''      },
     },
-    breakStart: '12:00',
-    breakEnd:   '14:00',
     holidays: [
       { id: 'h1',  name: "Jour de l'An",      date: '01-01',      type: 'annual',   isRecurring: true  },
       { id: 'h2',  name: 'Lundi de Pâques',   date: '2026-04-06', type: 'ponctual', isRecurring: false },
@@ -38,6 +36,12 @@ export const useCalendarStore = defineStore('calendar', () => {
       { type: 'Assistance parentale',      daysPerYear: 5,                    maxCarryOver: 0,  requiresDocument: true,  noticeDays: 2  },
       { type: 'Permission exceptionnelle', daysPerYear: 5,                    maxCarryOver: 0,  requiresDocument: false, noticeDays: 1  },
       { type: 'Télétravail',               daysPerYear: 0,                    maxCarryOver: 0,  requiresDocument: false, noticeDays: 1  },
+    ],
+    perdiemRates: [
+      { id: 'pd1', category: 'Cadre supérieur',   ratePerDay: 150000, currency: 'MGA', description: 'Direction / Cadres A — valeur provisoire' },
+      { id: 'pd2', category: 'Cadre',              ratePerDay: 100000, currency: 'MGA', description: 'Cadres B — valeur provisoire' },
+      { id: 'pd3', category: 'Agent de maîtrise',  ratePerDay:  75000, currency: 'MGA', description: 'Agents de maîtrise — valeur provisoire' },
+      { id: 'pd4', category: 'Employé',             ratePerDay:  50000, currency: 'MGA', description: 'Employés de base — valeur provisoire' },
     ],
     updatedAt: '2026-01-15',
     updatedBy: 'David Djouboui',
@@ -78,10 +82,18 @@ export const useCalendarStore = defineStore('calendar', () => {
     calendar.value.updatedAt   = new Date().toISOString().slice(0, 10)
   }
 
-  function updateBreak(breakStart: string, breakEnd: string) {
-    calendar.value.breakStart = breakStart
-    calendar.value.breakEnd   = breakEnd
-    calendar.value.updatedAt  = new Date().toISOString().slice(0, 10)
+  function updateWorkingHours(hours: WorkingHours) {
+    // Apply the same break times to all enabled days
+    const days = calendar.value.workingDays
+    for (const key of Object.keys(days) as (keyof WorkingDays)[]) {
+      if (days[key].enabled) {
+        days[key].start      = hours.start
+        days[key].end        = hours.end
+        days[key].breakStart = hours.breakStart
+        days[key].breakEnd   = hours.breakEnd
+      }
+    }
+    calendar.value.updatedAt = new Date().toISOString().slice(0, 10)
   }
 
   function addHoliday(holiday: Omit<Holiday, 'id'>) {
@@ -107,6 +119,26 @@ export const useCalendarStore = defineStore('calendar', () => {
     }
   }
 
+  // ── Perdiem actions ───────────────────────────────────────────
+  function getPerdiemRate(category: string): PerdiemRate | undefined {
+    return (calendar.value.perdiemRates ?? []).find(r => r.category === category)
+  }
+
+  function addPerdiemRate(rate: Omit<PerdiemRate, 'id'>) {
+    const id = `pd${Date.now()}`
+    calendar.value.perdiemRates = [...(calendar.value.perdiemRates ?? []), { ...rate, id }]
+  }
+
+  function updatePerdiemRate(id: string, data: Partial<PerdiemRate>) {
+    const list = calendar.value.perdiemRates ?? []
+    const idx  = list.findIndex(r => r.id === id)
+    if (idx !== -1) list[idx] = { ...list[idx], ...data } as PerdiemRate
+  }
+
+  function removePerdiemRate(id: string) {
+    calendar.value.perdiemRates = (calendar.value.perdiemRates ?? []).filter(r => r.id !== id)
+  }
+
   return {
     calendar,
     employeeSchedules,
@@ -115,11 +147,15 @@ export const useCalendarStore = defineStore('calendar', () => {
     ponctualHolidays,
     getLeaveRule,
     getHolidaysForYear,
+    getPerdiemRate,
     updateWorkingDays,
-    updateBreak,
+    updateWorkingHours,
     addHoliday,
     removeHoliday,
     updateHoliday,
     updateLeaveRule,
+    addPerdiemRate,
+    updatePerdiemRate,
+    removePerdiemRate,
   }
 })

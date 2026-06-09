@@ -105,19 +105,21 @@
             <tr v-if="expandedId === row.id" class="detail-row">
               <td :colspan="columns.length">
                 <div class="detail-panel">
-                  <div v-if="row.reason">
-                    <span class="detail-label">{{ t('absence.fields.reason') }} :</span>
-                    {{ row.reason }}
-                  </div>
-                  <div v-if="row.rejectionReason" class="rejection-reason">
-                    <i class="ti ti-alert-circle" aria-hidden="true"></i>
-                    <span class="detail-label">{{ t('absence.fields.rejection_reason') }} :</span>
-                    {{ row.rejectionReason }}
-                  </div>
                   <div class="detail-meta">
                     <span>{{ t('absence.fields.start_date') }} : {{ row.startDate }}</span>
                     <span>{{ t('absence.fields.end_date') }} : {{ row.endDate }}</span>
                     <span>{{ t('absence.fields.working_days', { count: row.workingDays }) }}</span>
+                  </div>
+                  <div v-if="row.reason" class="detail-reason">
+                    <span class="detail-label">{{ t('absence.fields.reason') }} :</span> {{ row.reason }}
+                  </div>
+                  <div v-if="row.returnComment" class="return-comment">
+                    <i class="ti ti-arrow-back" aria-hidden="true"></i>
+                    <span class="detail-label">Commentaire retour :</span> {{ row.returnComment }}
+                  </div>
+                  <div v-if="row.validationHistory?.length" class="timeline-section">
+                    <div class="timeline-title">Historique de validation</div>
+                    <ValidationTimeline :history="row.validationHistory" />
                   </div>
                 </div>
               </td>
@@ -159,6 +161,7 @@
 
   <AbsenceRequestModal
     v-model="showModal"
+    mode="self"
     @submitted="showToast(t('absence.submitted_toast'))"
     @drafted="showToast(t('absence.draft_saved'))"
   />
@@ -172,6 +175,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AppSidebar, AppTopNav, AbsenceRequestModal, StatusPill, DataTable } from '../../components'
+import ValidationTimeline from '../../components/ui/ValidationTimeline.vue'
 import { useAuthStore }    from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'
 import type { LeaveType } from '../../types'
@@ -285,10 +289,13 @@ function showToast(msg: string) {
 
 /* Ligne détail */
 .detail-row td { padding: 0; }
-.detail-panel  { background: var(--color-bg); border-top: 0.5px solid var(--color-border); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.detail-panel  { background: var(--color-bg); border-top: 0.5px solid var(--color-border); padding: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
 .detail-label  { font-weight: 500; font-size: 11px; }
-.rejection-reason { display: flex; align-items: center; gap: 6px; color: var(--color-danger); font-size: 12px; }
 .detail-meta   { display: flex; gap: 16px; font-size: 11px; color: var(--color-text-muted); flex-wrap: wrap; }
+.detail-reason { font-size: 12px; color: var(--color-text-muted); }
+.return-comment { display: flex; align-items: center; gap: 6px; color: var(--color-warning); font-size: 12px; background: var(--color-warning-bg); border-radius: 6px; padding: 6px 10px; }
+.timeline-section { margin-top: 4px; }
+.timeline-title { font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
 
 /* Pagination */
 .pagination     { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--color-text-muted); flex-wrap: wrap; }

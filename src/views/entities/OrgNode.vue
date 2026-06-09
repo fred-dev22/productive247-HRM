@@ -153,10 +153,10 @@ function approveEntity() { store.approveEntity(props.entity.id) }
 }
 .org-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.08); }
 
-/* Type accent on left border */
-.org-card.type-direction  { border-left: 4px solid var(--galana-red); }
-.org-card.type-department { border-left: 3px solid var(--galana-green); }
-.org-card.type-service    { border-left: 2px solid var(--galana-green-mid); }
+/* Type accent on left border — use organigramme level variables */
+.org-card.type-direction  { border-left: 4px solid var(--galana-direction-bg); }
+.org-card.type-department { border-left: 3px solid var(--galana-department-bg); }
+.org-card.type-service    { border-left: 2px solid var(--galana-service-border); }
 
 .card-main {
   display: flex;
