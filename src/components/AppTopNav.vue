@@ -46,32 +46,48 @@
       <div class="icon-btn" :title="t('topbar.help')">
         <i class="ti ti-help-circle"></i>
       </div>
-      <!-- Langue -->
-      <div class="icon-btn lang-btn" @click.stop="toggleDropdown('lang')" :title="t('topbar.language')">
-        <i class="ti ti-world"></i>
-        <span class="lang-text">{{ locale === 'fr' ? 'FR' : 'EN' }}</span>
-        <div v-if="activeDropdown === 'lang'" class="dropdown">
-          <div class="dropdown-item" :class="{ 'item-active': locale === 'fr' }" @click.stop="switchLanguage('fr')">
-            <span>🇫🇷 Français</span><i v-if="locale === 'fr'" class="ti ti-check"></i>
-          </div>
-          <div class="dropdown-item" :class="{ 'item-active': locale === 'en' }" @click.stop="switchLanguage('en')">
-            <span>🇬🇧 English</span><i v-if="locale === 'en'" class="ti ti-check"></i>
-          </div>
-        </div>
-      </div>
-      <!-- Avatar -->
+      <!-- Avatar + menu utilisateur -->
       <div class="icon-btn avatar-btn" @click.stop="toggleDropdown('user')">
-        <div class="avatar">{{ user?.initials }}</div>
-        <div v-if="activeDropdown === 'user'" class="dropdown dropdown-user">
+        <UserAvatar :name="user?.name ?? '?'" size="md" />
+        <div v-if="activeDropdown === 'user'" class="dropdown dropdown-user" @click.stop>
+
+          <!-- En-tête -->
           <div class="user-header">
-            <div class="user-name">{{ user?.name }}</div>
-            <div class="user-email">{{ user?.email }}</div>
-            <div class="user-role-chip">{{ roleLabel }}</div>
+            <UserAvatar :name="user?.name ?? '?'" size="lg" />
+            <div class="user-info">
+              <div class="user-name">{{ user?.name }}</div>
+              <div class="user-sub">{{ roleLabel }} · {{ user?.entityName }}</div>
+            </div>
           </div>
+
+          <!-- Items principaux -->
+          <div class="dropdown-item" @click.stop="goToProfile">
+            <i class="ti ti-user-circle"></i><span>Mon profil</span>
+          </div>
+
+          <!-- Langue avec sous-menu -->
+          <div class="dropdown-item lang-item" @click.stop="langOpen = !langOpen">
+            <div class="lang-item-left">
+              <i class="ti ti-world"></i><span>{{ t('topbar.language') }}</span>
+            </div>
+            <span class="lang-current">{{ locale === 'fr' ? 'FR' : 'EN' }}</span>
+          </div>
+          <div v-if="langOpen" class="lang-submenu">
+            <div class="submenu-item" :class="{ 'submenu-item--active': locale === 'fr' }" @click.stop="switchLanguage('fr')">
+              <span>🇫🇷 Français</span><i v-if="locale === 'fr'" class="ti ti-check"></i>
+            </div>
+            <div class="submenu-item" :class="{ 'submenu-item--active': locale === 'en' }" @click.stop="switchLanguage('en')">
+              <span>🇬🇧 English</span><i v-if="locale === 'en'" class="ti ti-check"></i>
+            </div>
+          </div>
+
           <div class="dropdown-divider"></div>
+
+          <!-- Déconnexion -->
           <div class="dropdown-item item-danger" @click.stop="handleLogout">
             <i class="ti ti-logout"></i><span>{{ t('topbar.logout') }}</span>
           </div>
+
         </div>
       </div>
     </div>
@@ -154,6 +170,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import UserAvatar               from './ui/UserAvatar.vue'
 import { useAuthStore }          from '../stores/auth'
 import { useNavigationStore }    from '../stores/navigation'
 import { useAbsenceStore }       from '../stores/absences'
@@ -219,20 +236,32 @@ const contextLabel = computed(() => {
 })
 
 // ── Dropdowns / Search ────────────────────────────────────────
-const activeDropdown   = ref<'lang' | 'user' | 'notif' | null>(null)
+const activeDropdown   = ref<'user' | 'notif' | null>(null)
+const langOpen         = ref(false)
 const searchOpen       = ref(false)
 const searchQuery      = ref('')
 const isMobileMenuOpen = ref(false)
 const searchInput      = ref<HTMLInputElement | null>(null)
 
-function toggleDropdown(name: 'lang' | 'user' | 'notif') {
-  activeDropdown.value = activeDropdown.value === name ? null : name
+function toggleDropdown(name: 'user' | 'notif') {
+  if (activeDropdown.value === name) {
+    activeDropdown.value = null
+    langOpen.value = false
+  } else {
+    activeDropdown.value = name
+    langOpen.value = false
+  }
 }
 
 function switchLanguage(lang: 'fr' | 'en') {
   locale.value = lang
   localStorage.setItem('p247-locale', lang)
+  langOpen.value = false
+}
+
+function goToProfile() {
   activeDropdown.value = null
+  router.push(auth.isHRSide ? { name: 'rh-profile' } : { name: 'employee-profile' })
 }
 
 async function openSearch() {
@@ -244,7 +273,7 @@ function handleLogout() {
   activeDropdown.value = null; auth.logout(); router.push({ name: 'login' })
 }
 
-function onDocClick()              { activeDropdown.value = null }
+function onDocClick()              { activeDropdown.value = null; langOpen.value = false }
 function onKeydown(e: KeyboardEvent) {
   if (e.ctrlKey && e.key === 'k') { e.preventDefault(); openSearch() }
   if (e.key === 'Escape')         { closeSearch(); activeDropdown.value = null }
@@ -292,19 +321,45 @@ onUnmounted(() => { document.removeEventListener('click', onDocClick); document.
 .notif-item-msg   { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .notif-item-date  { font-size: 10px; color: var(--color-text-muted); margin-top: 3px; }
 .notif-empty { padding: 20px; text-align: center; font-size: 12px; color: var(--color-text-muted); }
-.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--p247-orange); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: white; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15); border: 0.5px solid var(--p247-border); min-width: 150px; z-index: 200; padding: 4px; }
-.dropdown-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 13px; border-radius: 6px; cursor: pointer; color: var(--p247-text); transition: background .1s; }
-.dropdown-item:hover { background: var(--p247-bg); }
+.dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--color-surface); border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.16); border: 0.5px solid var(--p247-border);
+  min-width: 150px; z-index: 200; padding: 4px; overflow: hidden;
+}
+.dropdown-user { min-width: 240px; padding: 0; }
+
+/* En-tête user */
+.user-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: var(--color-bg); border-bottom: 1px solid var(--p247-border);
+}
+.user-info { min-width: 0; }
+.user-name  { font-size: 13px; font-weight: 700; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-sub   { font-size: 11px; color: var(--p247-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Items */
+.dropdown-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 16px; font-size: 13px; cursor: pointer;
+  color: var(--color-text); transition: background .1s;
+}
+.dropdown-item:hover { background: var(--color-primary-light); color: var(--color-primary); }
 .item-active { color: var(--p247-orange); font-weight: 500; }
-.dropdown-user { min-width: 220px; }
-.user-header  { padding: 8px 12px; }
-.user-name    { font-size: 13px; font-weight: 600; }
-.user-email   { font-size: 11px; color: var(--p247-muted); margin-top: 2px; }
-.user-role-chip { display: inline-block; margin-top: 5px; background: var(--p247-orange-light); color: var(--p247-orange); font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+.item-danger:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* Langue */
+.lang-item { justify-content: space-between; }
+.lang-item-left { display: flex; align-items: center; gap: 8px; }
+.lang-current { font-size: 11px; font-weight: 700; color: var(--color-text-muted); background: var(--color-bg); border: 0.5px solid var(--p247-border); border-radius: 4px; padding: 1px 6px; }
+.lang-submenu { background: var(--color-bg); border-top: 0.5px solid var(--p247-border); border-bottom: 0.5px solid var(--p247-border); }
+.submenu-item { display: flex; align-items: center; justify-content: space-between; padding: 7px 24px; font-size: 12px; cursor: pointer; color: var(--color-text); transition: background .1s; }
+.submenu-item:hover { background: var(--color-primary-light); color: var(--color-primary); }
+.submenu-item--active { color: var(--p247-orange); font-weight: 600; }
+.submenu-item--active i { color: var(--p247-orange); font-size: 13px; }
+
 .dropdown-divider { height: 1px; background: var(--p247-border); margin: 4px 0; }
-.item-danger:hover { color: var(--p247-danger); }
-.item-danger { gap: 8px; justify-content: flex-start; }
 .search-area  { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; }
 .search-field { width: 240px; background: rgba(255,255,255,0.08); color: white; border: none; border-radius: 6px; padding: 6px 12px; font-size: 13px; outline: none; }
 .search-field::placeholder { color: #666; }

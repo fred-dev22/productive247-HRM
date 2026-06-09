@@ -98,14 +98,25 @@
               </select>
               <div v-if="errors.role" class="field-error">{{ errors.role }}</div>
             </div>
-            <div class="field">
-              <label class="field-label">Manager direct</label>
-              <select v-model="form.managerId" class="field-input">
-                <option value="">-- Aucun --</option>
-                <option v-for="e in managerOptions" :key="e.id" :value="e.id">
-                  {{ e.name }} · {{ e.jobTitle }}
-                </option>
-              </select>
+            <div class="field field-full">
+              <label class="field-label">
+                Manager direct
+                <span class="auto-badge"><i class="ti ti-lock" aria-hidden="true"></i> Auto</span>
+              </label>
+              <div class="manager-readonly" :class="{ 'manager-readonly--empty': !directManager }">
+                <template v-if="directManager">
+                  <div class="manager-avatar" :style="{ background: directManager.avatarColor }">
+                    {{ directManager.initials }}
+                  </div>
+                  <span class="manager-name">{{ directManager.name }}</span>
+                  <span class="manager-role">· Responsable d'entité</span>
+                </template>
+                <span v-else class="manager-empty-text">Sélectionnez une entité pour voir le manager</span>
+              </div>
+              <span class="field-hint">
+                <i class="ti ti-info-circle" aria-hidden="true"></i>
+                Défini automatiquement depuis le responsable de l'entité de rattachement
+              </span>
             </div>
           </div>
 
@@ -206,16 +217,28 @@ const errors = reactive({
   entityId: '', role: '', contractType: '', hireDate: '',
 })
 
-const managerOptions = computed(() =>
-  store.employees.filter(e =>
-    ['validator', 'hr_admin', 'hr_director'].includes(e.role) &&
-    e.id !== props.editId
-  )
-)
+function getInitials(name: string): string {
+  return name.split(' ').map(p => p[0] ?? '').join('').toUpperCase().slice(0, 2)
+}
+
+const AVATAR_COLORS = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2']
+
+const directManager = computed(() => {
+  const entity = entityStore.approvedEntities.find(e => e.id === form.entityId)
+  if (!entity?.responsibleName) return null
+  const idx = entity.id.charCodeAt(0) % AVATAR_COLORS.length
+  return {
+    name:        entity.responsibleName,
+    initials:    getInitials(entity.responsibleName),
+    avatarColor: AVATAR_COLORS[idx] ?? AVATAR_COLORS[0],
+    managerId:   entity.responsibleId ?? null,
+  }
+})
 
 function onEntityChange() {
   const e = entityStore.approvedEntities.find(e => e.id === form.entityId)
   form.entityName = e?.name ?? ''
+  form.managerId  = e?.responsibleId ?? ''
 }
 
 function populate() {
@@ -239,6 +262,11 @@ function populate() {
       entityId: '', entityName: '', role: '', contractType: '',
       hireDate: '', status: 'active', managerId: '',
     })
+  }
+  // Sync manager from entity on open
+  if (form.entityId) {
+    const e = entityStore.approvedEntities.find(e => e.id === form.entityId)
+    if (e?.responsibleId) form.managerId = e.responsibleId
   }
   Object.assign(errors, {
     firstName: '', lastName: '', jobTitle: '', email: '',
@@ -284,7 +312,7 @@ function handleSave() {
     contractType: form.contractType as ContractType,
     hireDate:     form.hireDate,
     status:       form.status,
-    managerId:    form.managerId || undefined,
+    managerId:    (directManager.value?.managerId ?? form.managerId) || undefined,
   }
 
   if (isEditMode.value && props.editId) {
@@ -351,6 +379,29 @@ function handleSave() {
 .field-input:focus { border-color: var(--color-primary); }
 .input-error { border-color: var(--color-danger) !important; }
 .field-error { font-size: 11px; color: var(--color-danger); }
+
+.auto-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600; color: var(--color-text-muted);
+  background: var(--color-bg); border: 0.5px solid var(--color-border);
+  border-radius: 10px; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
+}
+.manager-readonly {
+  display: flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 10px; border: 0.5px solid var(--color-border);
+  border-radius: 6px; background: var(--color-bg); font-size: 13px; color: var(--color-text);
+}
+.manager-readonly--empty { color: var(--color-text-muted); font-style: italic; }
+.manager-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.manager-name { font-weight: 500; }
+.manager-role { color: var(--color-text-muted); font-size: 12px; }
+.manager-empty-text { font-size: 12px; color: var(--color-text-muted); }
+.field-hint { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-text-muted); }
+.field-hint i { font-size: 13px; color: var(--color-primary); }
 
 .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; white-space: nowrap; }
 .btn-primary { background: var(--color-primary); color: var(--color-surface); }

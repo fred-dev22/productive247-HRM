@@ -7,27 +7,25 @@
       <!-- MODULE : Administration -->
       <template v-if="navStore.activeModule === 'administration'">
         <SidebarSection :label="t('sidebar.dashboard')">
-          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.overview')"  :to="{ name: 'rh' }" />
-          <SidebarItem icon="ti ti-user"             :label="t('sidebar.my_profile')" :to="{ name: 'rh-profile' }" />
+          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.overview')" :to="{ name: 'rh' }" />
         </SidebarSection>
 
         <SidebarSection :label="t('sidebar.absence_requests')">
-          <SidebarItem icon="ti ti-calendar-off" :label="t('sidebar.requests')" :to="{ name: 'rh-absences' }" :badge="pendingCount" />
+          <SidebarItem icon="ti ti-calendar-off" :label="t('sidebar.requests')" :to="{ name: 'rh-absences' }"        :badge="pendingCount" />
           <SidebarItem icon="ti ti-chart-pie"    :label="t('sidebar.balances')" :to="{ name: 'rh-absence-balances' }" />
         </SidebarSection>
 
-        <SidebarSection :label="t('sidebar.administration')">
-          <SidebarItem icon="ti ti-users"          :label="t('sidebar.employees')" :to="{ name: 'rh-employees' }" />
-          <SidebarItem icon="ti ti-building"       :label="t('sidebar.entities')"  :to="{ name: 'entities' }" />
-          <SidebarItem icon="ti ti-calendar-event" label="Calendrier"              :to="{ name: 'calendar' }" />
-          <SidebarItem icon="ti ti-plane"          :label="t('sidebar.missions')"  :to="{ name: 'rh-missions' }" />
-          <SidebarItem icon="ti ti-receipt"   :label="t('sidebar.expenses')"  :to="{ name: 'rh-expenses' }" />
-          <SidebarItem icon="ti ti-file-text" :label="t('sidebar.contracts')" :to="{ name: 'rh-contracts' }" />
+        <SidebarSection :label="t('sidebar.management')">
+          <SidebarItem icon="ti ti-users"   :label="t('sidebar.employees')"  :to="{ name: 'rh-employees' }" />
+          <SidebarItem icon="ti ti-building" :label="t('sidebar.entities')"   :to="{ name: 'entities' }" />
+          <SidebarItem icon="ti ti-plane"    :label="t('sidebar.missions')"   :to="{ name: 'rh-missions' }" />
+          <SidebarItem icon="ti ti-receipt"  :label="t('sidebar.expenses')"   :to="{ name: 'rh-expenses' }" />
+          <SidebarItem icon="ti ti-sitemap"  :label="t('sidebar.org_chart')"  :to="{ name: 'rh-organigramme' }" />
         </SidebarSection>
 
-        <SidebarSection :label="t('sidebar.reports')">
-          <SidebarItem icon="ti ti-chart-bar" :label="t('sidebar.statistics')" :to="{ name: 'rh-stats' }" />
-          <SidebarItem icon="ti ti-sitemap"   :label="t('sidebar.org_chart')"  :to="{ name: 'rh-organigramme' }" />
+        <SidebarSection :label="t('sidebar.configuration')">
+          <SidebarItem icon="ti ti-calendar-event" :label="t('sidebar.config_calendar')" :to="{ name: 'config-calendar' }" />
+          <SidebarItem icon="ti ti-coin"           :label="t('sidebar.fees_perdiems')"   :to="{ name: 'config-missions' }" />
         </SidebarSection>
       </template>
 
@@ -99,6 +97,10 @@
 
       <!-- MODULE : Rapports -->
       <template v-else-if="navStore.activeModule === 'rapports'">
+        <SidebarSection :label="t('sidebar.reports')">
+          <SidebarItem icon="ti ti-chart-bar" :label="t('sidebar.statistics')" :to="{ name: 'rh-stats' }" />
+          <SidebarItem icon="ti ti-sitemap"   :label="t('sidebar.org_chart')"  :to="{ name: 'rh-organigramme' }" />
+        </SidebarSection>
         <SidebarSection :label="t('sidebar.hr_reports')">
           <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.hr_dashboard')" :to="{ name: 'rh-rapports' }" />
           <SidebarItem icon="ti ti-users"            :label="t('sidebar.staff_list')"   :to="{ name: 'rh-rapports-personnel' }" />
@@ -108,7 +110,6 @@
         <SidebarSection :label="t('sidebar.analyses')">
           <SidebarItem icon="ti ti-percentage"    :label="t('sidebar.absenteeism')" :to="{ name: 'rh-rapports-absenteisme' }" />
           <SidebarItem icon="ti ti-trending-down" :label="t('sidebar.turnover')"    :to="{ name: 'rh-rapports-turnover' }" />
-          <SidebarItem icon="ti ti-sitemap"       :label="t('sidebar.org_chart')"   :to="{ name: 'rh-organigramme' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.exports')">
           <SidebarItem icon="ti ti-file-spreadsheet" :label="t('sidebar.export_excel')" :to="{ name: 'rh-rapports-export-excel' }" />
@@ -122,15 +123,13 @@
     <!-- ══════════ CÔTÉ EMPLOYÉ / VALIDATEUR ══════════ -->
     <template v-else>
       <SidebarSection :label="t('sidebar.my_space')">
-        <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')"  :to="{ name: 'employe' }" />
-        <SidebarItem icon="ti ti-user"             :label="t('sidebar.my_profile')" :to="{ name: 'employee-profile' }" />
-        <SidebarItem icon="ti ti-calendar"         :label="t('sidebar.my_planning')" :to="{ name: 'employee-planning' }" />
+        <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')" :to="{ name: 'employe' }" />
       </SidebarSection>
 
       <SidebarSection :label="t('sidebar.my_requests')">
-        <SidebarItem icon="ti ti-calendar-off" :label="t('sidebar.absence_requests')" :to="{ name: 'employee-absences' }"  :badge="myPendingCount" />
+        <SidebarItem icon="ti ti-calendar-off" :label="t('sidebar.absence_requests')" :to="{ name: 'employee-absences' }" :badge="myPendingCount" />
         <SidebarItem icon="ti ti-plane"        :label="t('sidebar.my_missions')"      :to="{ name: 'employee-missions' }" />
-        <SidebarItem icon="ti ti-receipt"      label="Notes de frais"                 :to="{ name: 'employee-expenses' }" />
+        <SidebarItem icon="ti ti-receipt"      :label="t('sidebar.expenses')"          :to="{ name: 'employee-expenses' }" />
       </SidebarSection>
 
       <template v-if="auth.isValidator">

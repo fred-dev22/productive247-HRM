@@ -129,9 +129,14 @@
           <div class="section-card">
             <div class="section-header">
               <h2 class="section-title">Fériés annuels</h2>
-              <button class="btn btn-outline btn-sm" @click="openAddModal('annual')">
-                <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
-              </button>
+              <div class="header-actions">
+                <button class="btn btn-outline btn-sm" @click="importCSV">
+                  <i class="ti ti-upload" aria-hidden="true"></i> Importer CSV
+                </button>
+                <button class="btn btn-outline btn-sm" @click="openAddModal('annual')">
+                  <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
+                </button>
+              </div>
             </div>
             <div class="table-wrap">
               <table class="data-table">
@@ -154,9 +159,14 @@
           <div class="section-card">
             <div class="section-header">
               <h2 class="section-title">Fériés ponctuels</h2>
-              <button class="btn btn-outline btn-sm" @click="openAddModal('ponctual')">
-                <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
-              </button>
+              <div class="header-actions">
+                <button class="btn btn-outline btn-sm" @click="importCSV">
+                  <i class="ti ti-upload" aria-hidden="true"></i> Importer CSV
+                </button>
+                <button class="btn btn-outline btn-sm" @click="openAddModal('ponctual')">
+                  <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
+                </button>
+              </div>
             </div>
             <div class="table-wrap">
               <table class="data-table">
@@ -181,124 +191,119 @@
 
         </div>
 
-        <!-- ══════════ Onglet 3 : Règles de congés ══════════ -->
+        <!-- ══════════ Onglet 3 : Types & Règles de congés ══════════ -->
         <div v-if="activeTab === 'leave-rules'" class="tab-content">
-          <div class="rules-grid">
-            <div v-for="rule in localRules" :key="rule.type" class="rule-card">
-              <div class="rule-header">
-                <i :class="`ti ${leaveIcon(rule.type)}`" aria-hidden="true"></i>
-                <span class="rule-type">{{ rule.type }}</span>
+
+          <!-- Section 1 : Types d'absence configurés -->
+          <div class="section-card">
+            <div class="section-header">
+              <h2 class="section-title">Types d'absence configurés</h2>
+              <div class="header-actions">
+                <button class="btn btn-outline btn-sm" @click="importCSV">
+                  <i class="ti ti-upload" aria-hidden="true"></i> Importer CSV
+                </button>
+                <button class="btn btn-outline btn-sm" @click="openAddLT">
+                  <i class="ti ti-plus" aria-hidden="true"></i> Ajouter un type
+                </button>
               </div>
-              <div class="rule-fields">
-                <label class="rule-field">
-                  <span>Jours alloués par an</span>
-                  <input type="number" min="0" class="rule-input" v-model.number="rule.daysPerYear" @input="rulesTouched = true" />
-                </label>
-                <label class="rule-field">
-                  <span>Accumulation mensuelle (j/mois)</span>
-                  <input type="number" min="0" step="0.5" class="rule-input" v-model.number="rule.daysPerMonth" @input="rulesTouched = true" />
-                </label>
-                <label class="rule-field">
-                  <span>Report possible (jours max)</span>
-                  <input type="number" min="0" class="rule-input" v-model.number="rule.maxCarryOver" @input="rulesTouched = true" />
-                </label>
-                <label class="rule-field">
-                  <span>Préavis minimum (jours)</span>
-                  <input type="number" min="0" class="rule-input" v-model.number="rule.noticeDays" @input="rulesTouched = true" />
-                </label>
-                <div class="rule-field rule-field--toggle">
-                  <span>Justificatif obligatoire</span>
-                  <label class="toggle-wrap">
-                    <input type="checkbox" class="toggle-input" v-model="rule.requiresDocument" @change="rulesTouched = true" />
-                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width:36px"></th>
+                    <th>Nom</th>
+                    <th>Code</th>
+                    <th style="width:60px; text-align:center">Actif</th>
+                    <th style="width:80px; text-align:center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="lt in leaveTypesStore.leaveTypes" :key="lt.id">
+                    <td>
+                      <div class="lt-icon-cell" :style="{ background: lt.color }">
+                        <i :class="`ti ${lt.icon}`" aria-hidden="true"></i>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="lt-name">{{ lt.name }}</span>
+                      <i v-if="lt.isSystem" class="ti ti-lock lt-lock" title="Type système" aria-hidden="true"></i>
+                    </td>
+                    <td><code class="lt-code">{{ lt.code }}</code></td>
+                    <td style="text-align:center">
+                      <label class="toggle-wrap" :title="lt.isSystem ? 'Toujours actif' : ''">
+                        <input type="checkbox" class="toggle-input" :checked="lt.isActive" :disabled="lt.isSystem" @change="leaveTypesStore.toggleLeaveType(lt.id)" />
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                      </label>
+                    </td>
+                    <td style="text-align:center">
+                      <div class="actions-cell">
+                        <button class="icon-btn" title="Modifier" @click="openEditLT(lt.id)">
+                          <i class="ti ti-edit" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section 2 : Règles par type -->
+          <div class="section-card">
+            <h2 class="section-title">Règles par type</h2>
+            <div class="rules-grid">
+              <div v-for="rule in localRules" :key="rule.type" class="rule-card">
+                <div class="rule-header">
+                  <i :class="`ti ${leaveIcon(rule.type)}`" aria-hidden="true"></i>
+                  <span class="rule-type">{{ rule.type }}</span>
+                </div>
+                <div class="rule-fields">
+                  <label class="rule-field">
+                    <span>Jours alloués par an</span>
+                    <input type="number" min="0" class="rule-input" v-model.number="rule.daysPerYear" @input="rulesTouched = true" />
                   </label>
+                  <label class="rule-field">
+                    <span>Accumulation mensuelle (j/mois)</span>
+                    <input type="number" min="0" step="0.5" class="rule-input" v-model.number="rule.daysPerMonth" @input="rulesTouched = true" />
+                  </label>
+                  <label class="rule-field">
+                    <span>Report possible (jours max)</span>
+                    <input type="number" min="0" class="rule-input" v-model.number="rule.maxCarryOver" @input="rulesTouched = true" />
+                  </label>
+                  <label class="rule-field">
+                    <span>Préavis minimum (jours)</span>
+                    <input type="number" min="0" class="rule-input" v-model.number="rule.noticeDays" @input="rulesTouched = true" />
+                  </label>
+                  <div class="rule-field rule-field--toggle">
+                    <span>Justificatif obligatoire</span>
+                    <label class="toggle-wrap">
+                      <input type="checkbox" class="toggle-input" v-model="rule.requiresDocument" @change="rulesTouched = true" />
+                      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- ══════════ Onglet 4 : Perdiems ══════════ -->
-        <div v-if="activeTab === 'perdiem'" class="tab-content">
-          <div class="section-card">
-            <div class="section-header">
-              <h2 class="section-title">Taux de perdiem par catégorie</h2>
-              <button class="btn btn-primary btn-sm" @click="openPerdiemModal()">
-                <i class="ti ti-plus"></i> Ajouter
-              </button>
-            </div>
-            <p class="section-note">Valeurs provisoires</p>
-            <table class="pd-table">
-              <thead>
-                <tr>
-                  <th>Catégorie</th>
-                  <th>Description</th>
-                  <th>Taux / jour</th>
-                  <th>Devise</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="pd in calendar.perdiemRates ?? []" :key="pd.id">
-                  <td class="pd-cat">{{ pd.category }}</td>
-                  <td class="pd-desc">{{ pd.description }}</td>
-                  <td class="pd-rate">{{ pd.ratePerDay.toLocaleString('fr-FR') }}</td>
-                  <td class="pd-currency">{{ pd.currency }}</td>
-                  <td>
-                    <div class="pd-actions">
-                      <button class="pd-btn pd-edit" @click="openPerdiemModal(pd.id)"><i class="ti ti-edit"></i></button>
-                      <button class="pd-btn pd-del"  @click="calendarStore.removePerdiemRate(pd.id)"><i class="ti ti-trash"></i></button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="!calendar.perdiemRates?.length">
-                  <td colspan="5" class="pd-empty">Aucun taux configuré</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </div>
 
       </main>
     </div>
   </div>
 
-  <!-- ── Modal Perdiem ── -->
+  <!-- ── Modal types d'absence ── -->
+  <LeaveTypeFormModal v-model="showLTModal" :edit-id="editLTId" />
+
+  <!-- ── Import CSV toast ── -->
   <Teleport to="body">
-    <div v-if="showPerdiemModal" class="modal-overlay" @click.self="showPerdiemModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">{{ editingPerdiem ? 'Modifier le taux' : 'Nouveau taux perdiem' }}</span>
-          <button class="modal-close" @click="showPerdiemModal = false"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Catégorie *</span>
-            <input type="text" class="field-input" v-model="pdForm.category" placeholder="Ex: Cadre supérieur" />
-          </label>
-          <label class="field">
-            <span class="field-label">Description</span>
-            <input type="text" class="field-input" v-model="pdForm.description" placeholder="Ex: Direction / Cadres A" />
-          </label>
-          <label class="field">
-            <span class="field-label">Taux / jour *</span>
-            <input type="number" min="0" class="field-input" v-model.number="pdForm.ratePerDay" />
-          </label>
-          <label class="field">
-            <span class="field-label">Devise</span>
-            <select class="field-input" v-model="pdForm.currency">
-              <option value="MGA">MGA (Ariary)</option>
-              <option value="MUR">MUR (Roupie mauricienne)</option>
-              <option value="EUR">EUR (Euro)</option>
-            </select>
-          </label>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="showPerdiemModal = false">Annuler</button>
-          <button class="btn btn-primary" @click="savePerdiem">Enregistrer</button>
-        </div>
+    <Transition name="toast">
+      <div v-if="showImportToast" class="toast-notif toast-notif--info">
+        <i class="ti ti-info-circle" aria-hidden="true"></i>
+        {{ importToastMsg }}
       </div>
-    </div>
+    </Transition>
   </Teleport>
 
   <!-- ── Modals fériés ── -->
@@ -365,21 +370,29 @@ import { ref, reactive, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import AppTopNav  from '../../components/AppTopNav.vue'
 import AppSidebar from '../../components/AppSidebar.vue'
-import { useAuthStore }     from '../../stores/auth'
-import { useCalendarStore } from '../../stores/calendar'
+import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
+import { useAuthStore }       from '../../stores/auth'
+import { useCalendarStore }   from '../../stores/calendar'
+import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { WorkingDays, WorkingDayConfig, Holiday, LeaveRule, LeaveType, HolidayType } from '../../types'
 
-const auth          = useAuthStore()
-const calendarStore = useCalendarStore()
+const auth            = useAuthStore()
+const calendarStore   = useCalendarStore()
+const leaveTypesStore = useLeaveTypesStore()
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
 
+// ── Modal types d'absence ─────────────────────────────────────
+const showLTModal = ref(false)
+const editLTId    = ref<string | undefined>(undefined)
+function openAddLT() { editLTId.value = undefined; showLTModal.value = true }
+function openEditLT(id: string) { editLTId.value = id; showLTModal.value = true }
+
 // ── Tabs ──────────────────────────────────────────────────────
-const activeTab = ref<'working-days' | 'holidays' | 'leave-rules' | 'perdiem'>('working-days')
+const activeTab = ref<'working-days' | 'holidays' | 'leave-rules'>('working-days')
 const TABS = [
-  { id: 'working-days', label: 'Jours de travail', icon: 'ti-clock'         },
-  { id: 'holidays',     label: 'Jours fériés',     icon: 'ti-calendar-event' },
-  { id: 'leave-rules',  label: 'Règles de congés', icon: 'ti-list-check'     },
-  { id: 'perdiem',      label: 'Perdiems',          icon: 'ti-coin'           },
+  { id: 'working-days', label: 'Jours de travail',       icon: 'ti-clock'         },
+  { id: 'holidays',     label: 'Jours fériés',           icon: 'ti-calendar-event' },
+  { id: 'leave-rules',  label: 'Types & Règles de congés', icon: 'ti-list-check'   },
 ] as const
 
 const showToast = ref(false)
@@ -517,30 +530,16 @@ function savePonctualHoliday() {
 }
 function deleteHoliday(id: string) { if (confirm('Supprimer ce jour férié ?')) calendarStore.removeHoliday(id) }
 
-// ── Perdiem ────────────────────────────────────────────────────
-const showPerdiemModal = ref(false)
-const editingPerdiem   = ref<string | null>(null)
-const pdForm = reactive({ category: '', description: '', ratePerDay: 0, currency: 'MGA' })
-
-function openPerdiemModal(id?: string) {
-  editingPerdiem.value = id ?? null
-  if (id) {
-    const pd = (calendar.value.perdiemRates ?? []).find(r => r.id === id)
-    if (pd) { pdForm.category = pd.category; pdForm.description = pd.description; pdForm.ratePerDay = pd.ratePerDay; pdForm.currency = pd.currency }
-  } else {
-    pdForm.category = ''; pdForm.description = ''; pdForm.ratePerDay = 0; pdForm.currency = 'MGA'
-  }
-  showPerdiemModal.value = true
+// ── Import CSV toast ──────────────────────────────────────────
+const showImportToast  = ref(false)
+const importToastMsg   = ref('')
+function triggerImportToast(msg: string) {
+  importToastMsg.value  = msg
+  showImportToast.value = true
+  setTimeout(() => { showImportToast.value = false }, 3500)
 }
-
-function savePerdiem() {
-  if (!pdForm.category.trim()) return
-  if (editingPerdiem.value) {
-    calendarStore.updatePerdiemRate(editingPerdiem.value, { category: pdForm.category, description: pdForm.description, ratePerDay: pdForm.ratePerDay, currency: pdForm.currency })
-  } else {
-    calendarStore.addPerdiemRate({ category: pdForm.category, description: pdForm.description, ratePerDay: pdForm.ratePerDay, currency: pdForm.currency })
-  }
-  showPerdiemModal.value = false
+function importCSV() {
+  triggerImportToast('Import CSV disponible prochainement. Format attendu : Nom, Date (YYYY-MM-DD ou MM-DD pour annuels), Type (annual/ponctual)')
 }
 </script>
 
@@ -567,6 +566,9 @@ function savePerdiem() {
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
 .section-title  { font-size: 15px; font-weight: 600; color: var(--color-text); margin-bottom: 16px; }
 .section-header .section-title { margin-bottom: 0; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.toast-notif--info { background: var(--color-primary); }
+.toast-notif--info i { font-size: 15px; }
 
 /* ── Day rows — une seule ligne ── */
 .days-grid { display: flex; flex-direction: column; gap: 2px; }
@@ -638,6 +640,23 @@ function savePerdiem() {
 .icon-btn:hover         { background: var(--color-primary-light); color: var(--color-primary); }
 .icon-btn--danger:hover { background: var(--color-danger-bg);     color: var(--color-danger);  }
 .empty-cell { text-align: center; color: var(--color-text-muted); padding: 20px; }
+
+/* Leave types table */
+.lt-icon-cell { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+.lt-icon-cell i { color: #fff; font-size: 13px; }
+.lt-name { font-size: 13px; font-weight: 500; color: var(--color-text); margin-right: 4px; }
+.lt-lock { font-size: 12px; color: var(--color-text-muted); vertical-align: middle; }
+.lt-code { font-size: 11px; font-weight: 700; font-family: monospace; background: var(--color-bg); border: 0.5px solid var(--color-border); border-radius: 4px; padding: 2px 6px; color: var(--color-text-muted); }
+.actions-cell { display: flex; gap: 4px; align-items: center; justify-content: center; }
+
+/* Toggle (réutilisé depuis leaveTypesView) */
+.toggle-wrap  { position: relative; display: inline-flex; align-items: center; }
+.toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle-track { width: 32px; height: 18px; background: var(--color-border); border-radius: 9px; position: relative; cursor: pointer; transition: background .2s; }
+.toggle-input:checked + .toggle-track { background: var(--color-primary); }
+.toggle-input:disabled + .toggle-track { opacity: .5; cursor: not-allowed; }
+.toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.toggle-input:checked + .toggle-track .toggle-thumb { left: 16px; }
 
 /* Rules */
 .rules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }

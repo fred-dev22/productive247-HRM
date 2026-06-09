@@ -39,10 +39,12 @@
           <!-- Sélecteur d'employé (mode for-employee) -->
           <div v-if="internalMode === 'for-employee'" class="field">
             <label class="field-label">Employé concerné *</label>
-            <EmployeeSelector
-              :employees="employeeList"
-              v-model="selectedEmployeeId"
+            <SearchableDropdown
+              :items="employeeItems"
+              :model-value="selectedEmployeeId"
               placeholder="Sélectionner un employé"
+              :show-avatar="true"
+              @update:model-value="selectedEmployeeId = $event"
             />
             <div v-if="errors.employee" class="field-error">{{ errors.employee }}</div>
           </div>
@@ -114,15 +116,21 @@
           <div class="field-row">
             <div class="field">
               <label class="field-label">Transport aller</label>
-              <select v-model="form.transportMode" class="field-input">
-                <option v-for="m in TRANSPORT_MODES" :key="m.value" :value="m.value">{{ m.label }}</option>
-              </select>
+              <SearchableDropdown
+                :items="transportItems"
+                :model-value="form.transportMode"
+                :show-avatar="false"
+                @update:model-value="form.transportMode = $event as TransportMode"
+              />
             </div>
             <div class="field">
               <label class="field-label">Transport retour</label>
-              <select v-model="form.transportModeReturn" class="field-input">
-                <option v-for="m in TRANSPORT_MODES" :key="m.value" :value="m.value">{{ m.label }}</option>
-              </select>
+              <SearchableDropdown
+                :items="transportItems"
+                :model-value="form.transportModeReturn"
+                :show-avatar="false"
+                @update:model-value="form.transportModeReturn = $event as TransportMode"
+              />
             </div>
           </div>
 
@@ -258,8 +266,8 @@
 
 <script setup lang="ts">
 import { reactive, ref, computed, watch } from 'vue'
-import EmployeeSelector from '../ui/EmployeeSelector.vue'
-import UserAvatar       from '../ui/UserAvatar.vue'
+import SearchableDropdown from '../ui/SearchableDropdown.vue'
+import UserAvatar         from '../ui/UserAvatar.vue'
 import { useMissionStore }  from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
 import { useAuthStore }     from '../../stores/auth'
@@ -313,13 +321,17 @@ function setMode(m: 'self' | 'for-employee') {
   selectedEmployeeId.value = ''
 }
 
-const employeeList = computed(() =>
+const employeeItems = computed(() =>
   employeeStore.employees.map(e => ({
-    id: e.id, name: e.name,
-    avatarBg: e.avatarBg, avatarText: e.avatarText,
-    entityName: e.entityName,
+    id:          e.id,
+    label:       e.name,
+    sublabel:    e.entityName,
+    initials:    e.avatarText,
+    avatarColor: e.avatarBg,
   }))
 )
+
+const transportItems = TRANSPORT_MODES.map(m => ({ id: m.value, label: m.label }))
 
 const selectedEmployee = computed(() => {
   if (internalMode.value === 'self') {
