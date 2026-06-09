@@ -201,7 +201,7 @@ const route        = useRoute()
 
 const isRh = computed(() =>
   route.path.startsWith('/rh') ||
-  auth.user?.role === 'rh_admin' ||
+  auth.user?.role === 'hr_admin' ||
   auth.user?.role === 'hr_director'
 )
 

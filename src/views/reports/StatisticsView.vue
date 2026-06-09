@@ -69,7 +69,7 @@
           <div class="card">
             <div class="card-title">Répartition des congés</div>
             <div class="absence-bars">
-              <div class="ab-row" v-for="ab in absencesByType" :key="ab.type">
+              <div class="ab-row" v-for="ab in absencesByType" :key="ab.key">
                 <div class="ab-type">{{ ab.label }}</div>
                 <div class="ab-bar-wrap">
                   <div class="ab-bar" :style="{ width: ab.pct + '%', background: ab.color }"></div>

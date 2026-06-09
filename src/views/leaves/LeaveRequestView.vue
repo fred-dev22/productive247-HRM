@@ -133,11 +133,13 @@ function typeLabel(type: string): string {
 }
 
 const balances: Record<LeaveType, number> = {
-  'Congé annuel':    12,
-  'Congé maladie':   8,
-  'Récupération':    3,
-  'Télétravail':     5,
-  'Congé maternité': 90,
+  'Congé annuel':              12,
+  'Congé maladie':              8,
+  'Récupération':               3,
+  'Télétravail':                5,
+  'Congé maternité':           90,
+  'Assistance parentale':       3,
+  'Permission exceptionnelle':  2,
 }
 
 function balanceFor(type: LeaveType): number {

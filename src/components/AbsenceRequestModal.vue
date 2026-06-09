@@ -17,10 +17,12 @@
             <!-- Champ 0 : Employé concerné (mode for-employee) -->
           <div v-if="mode === 'for-employee'" class="field">
             <label class="field-label">Employé concerné *</label>
-            <EmployeeSelector
-              :employees="employeeList"
-              v-model="selectedEmployeeId"
+            <SearchableDropdown
+              :items="employeeItems"
+              :model-value="selectedEmployeeId"
               placeholder="Sélectionner un employé"
+              :show-avatar="true"
+              @update:model-value="selectedEmployeeId = $event"
             />
             <div v-if="errors.employee" class="field-error">{{ errors.employee }}</div>
           </div>
@@ -28,10 +30,14 @@
           <!-- Champ 1: Type d'absence -->
           <div class="field">
             <label class="field-label">{{ t('absence.fields.type') }} *</label>
-            <select v-model="form.type" class="field-input" :class="{ 'input-error': errors.type }">
-              <option value="">{{ t('absence.select_type') }}</option>
-              <option v-for="lt in leaveTypes" :key="lt" :value="lt">{{ typeLabel(lt) }}</option>
-            </select>
+            <SearchableDropdown
+              :items="leaveTypeItems"
+              :model-value="form.type"
+              :placeholder="t('absence.select_type')"
+              :show-avatar="false"
+              :class="{ 'input-error-wrap': errors.type }"
+              @update:model-value="form.type = $event as LeaveType"
+            />
             <div v-if="errors.type" class="field-error">{{ errors.type }}</div>
 
             <div v-if="currentRule" class="rule-hint">
@@ -213,10 +219,11 @@
 <script setup lang="ts">
 import { reactive, ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import EmployeeSelector from './ui/EmployeeSelector.vue'
-import { useAbsenceStore }  from '../stores/absences'
-import { useCalendarStore } from '../stores/calendar'
-import { useEmployeeStore } from '../stores/employees'
+import SearchableDropdown from './ui/SearchableDropdown.vue'
+import { useAbsenceStore }    from '../stores/absences'
+import { useCalendarStore }   from '../stores/calendar'
+import { useEmployeeStore }   from '../stores/employees'
+import { useLeaveTypesStore } from '../stores/leaveTypes'
 import { calculateEndDate, getWorkingDaysBetween, isWorkingDay } from '../utils/calendar'
 import type { LeaveType } from '../types'
 
@@ -234,39 +241,30 @@ const emit = defineEmits<{
   'submitted': []
 }>()
 
-const absenceStore  = useAbsenceStore()
-const calendarStore = useCalendarStore()
-const employeeStore = useEmployeeStore()
-const { t }         = useI18n()
+const absenceStore    = useAbsenceStore()
+const calendarStore   = useCalendarStore()
+const employeeStore   = useEmployeeStore()
+const leaveTypesStore = useLeaveTypesStore()
+const { t }           = useI18n()
 
 const selectedEmployeeId = ref('')
 
-const employeeList = computed(() =>
+const employeeItems = computed(() =>
   employeeStore.employees.map(e => ({
-    id: e.id, name: e.name,
-    avatarBg: e.avatarBg, avatarText: e.avatarText,
-    entityName: e.entityName,
+    id:          e.id,
+    label:       e.name,
+    sublabel:    e.entityName,
+    initials:    e.avatarText,
+    avatarColor: e.avatarBg,
   }))
 )
 
-const leaveTypes: LeaveType[] = [
-  'Congé annuel', 'Congé maladie', 'Congé maternité',
-  'Récupération', 'Assistance parentale', 'Permission exceptionnelle', 'Télétravail',
-]
-
-const typeI18nKey: Record<string, string> = {
-  'Congé annuel':              'absence.types.annual',
-  'Congé maladie':             'absence.types.sick',
-  'Congé maternité':           'absence.types.maternity',
-  'Récupération':              'absence.types.recovery',
-  'Assistance parentale':      'absence.types.parental',
-  'Permission exceptionnelle': 'absence.types.exceptional',
-  'Télétravail':               'absence.types.remote',
-}
-function typeLabel(type: string): string {
-  const key = typeI18nKey[type]
-  return key ? t(key) : type
-}
+const leaveTypeItems = computed(() =>
+  leaveTypesStore.activeTypes.map(lt => ({
+    id:    lt.name,
+    label: lt.name,
+  }))
+)
 
 // ── Form state ─────────────────────────────────────────────────
 const form = reactive({

@@ -222,12 +222,12 @@ const POOL_COLORS = [
   'var(--color-info)',
 ]
 let colorIdx = 0
-function nextColor() { return POOL_COLORS[colorIdx++ % POOL_COLORS.length] }
+function nextColor(): string { return POOL_COLORS[colorIdx++ % POOL_COLORS.length] ?? 'var(--color-primary)' }
 
 function computeInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   return parts.length >= 2
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    ? (parts[0]!.charAt(0) + parts[parts.length - 1]!.charAt(0)).toUpperCase()
     : (parts[0] ?? '?').slice(0, 2).toUpperCase()
 }
 
@@ -352,7 +352,7 @@ function handleSubmit() {
     store.submitEntity(props.editId)
   } else {
     store.createEntity(buildPayload())
-    const newId = store.entities[store.entities.length - 1].id
+    const newId = store.entities[store.entities.length - 1]!.id
     store.submitEntity(newId)
   }
   emit('saved')

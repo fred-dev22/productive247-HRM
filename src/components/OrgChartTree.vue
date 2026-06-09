@@ -35,7 +35,8 @@ function toggle(id: string) {
   collapsed.value = s
 }
 
-const OrgChartNode = defineComponent({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const OrgChartNode: any = defineComponent({
   name: 'OrgChartNode',
   props: { node: { type: Object as PropType<TreeNode>, required: true } },
   setup(nodeProps) {

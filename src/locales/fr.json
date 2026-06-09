@@ -72,11 +72,15 @@
       "remote": "Télétravail"
     },
     "status": {
-      "draft": "Brouillon",
-      "pending": "En attente",
-      "approved": "Approuvé",
-      "rejected": "Refusé",
-      "cancelled": "Annulé"
+      "draft":       "Brouillon",
+      "pending":     "En attente",
+      "approved":    "Approuvé",
+      "rejected":    "Refusé",
+      "cancelled":   "Annulé",
+      "returned":    "Retourné",
+      "registered":  "Enregistré",
+      "done":        "Clôturé",
+      "regularized": "Régularisé"
     },
     "fields": {
       "employee": "Employé",
@@ -255,6 +259,14 @@
     "reports": "Rapports",
     "statistics": "Statistiques",
     "org_chart": "Organigramme",
+    "management": "Gestion",
+    "fees_perdiems": "Frais & Perdiems",
+    "configuration": "Configuration",
+    "config_calendar": "Calendrier",
+    "config_leave_types": "Types d'absence",
+    "config_missions": "Config. missions",
+    "config_perdiems": "Perdiems",
+    "my_requests": "Mes demandes",
     "candidates": "Candidats",
     "hr_admin_section": "Administration RH",
     "job_offers": "Offres d'emploi",
