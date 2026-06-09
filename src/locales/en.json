@@ -72,11 +72,15 @@
       "remote": "Remote Work"
     },
     "status": {
-      "draft": "Draft",
-      "pending": "Pending",
-      "approved": "Approved",
-      "rejected": "Rejected",
-      "cancelled": "Cancelled"
+      "draft":       "Draft",
+      "pending":     "Pending",
+      "approved":    "Approved",
+      "rejected":    "Rejected",
+      "cancelled":   "Cancelled",
+      "returned":    "Returned",
+      "registered":  "Registered",
+      "done":        "Closed",
+      "regularized": "Regularized"
     },
     "fields": {
       "employee": "Employee",

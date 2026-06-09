@@ -12,7 +12,7 @@ const PALETTE = [
   { bg: '#FAD9B0', text: '#7A3B09' },
 ]
 
-function p(i: number) { return PALETTE[i % PALETTE.length] }
+function p(i: number) { return PALETTE[i % PALETTE.length]! }
 
 function mk(
   id: string, code: string,
@@ -26,7 +26,7 @@ function mk(
   return {
     id, code, firstName, lastName,
     name: `${firstName} ${lastName}`,
-    initials: (firstName[0] + lastName[0]).toUpperCase(),
+    initials: (firstName.charAt(0) + lastName.charAt(0)).toUpperCase(),
     avatarBg: p(pi).bg, avatarText: p(pi).text,
     role, jobTitle, entityId, entityName,
     contractType, hireDate, status,
@@ -84,13 +84,14 @@ export const useEmployeeStore = defineStore('employees', () => {
     return employees.value.filter(e => e.entityId === entityId)
   }
 
-  function createEmployee(payload: Omit<Employee, 'id' | 'name' | 'initials' | 'avatarBg' | 'avatarText'>) {
+  function createEmployee(payload: Omit<Employee, 'id' | 'code' | 'name' | 'initials' | 'avatarBg' | 'avatarText'>) {
     const pi = employees.value.length % PALETTE.length
     const emp: Employee = {
       ...payload,
       id:         `emp-${Date.now()}`,
+      code:       nextCode.value,
       name:       `${payload.firstName} ${payload.lastName}`,
-      initials:   (payload.firstName[0] + payload.lastName[0]).toUpperCase(),
+      initials:   (payload.firstName.charAt(0) + payload.lastName.charAt(0)).toUpperCase(),
       avatarBg:   p(pi).bg,
       avatarText: p(pi).text,
     }
@@ -101,11 +102,11 @@ export const useEmployeeStore = defineStore('employees', () => {
   function updateEmployee(id: string, payload: Partial<Employee>) {
     const idx = employees.value.findIndex(e => e.id === id)
     if (idx !== -1) {
-      const emp = employees.value[idx]
-      const updated = { ...emp, ...payload }
+      const emp = employees.value[idx]!
+      const updated: Employee = { ...emp, ...payload }
       if (payload.firstName || payload.lastName) {
         updated.name     = `${updated.firstName} ${updated.lastName}`
-        updated.initials = (updated.firstName[0] + updated.lastName[0]).toUpperCase()
+        updated.initials = (updated.firstName.charAt(0) + updated.lastName.charAt(0)).toUpperCase()
       }
       employees.value[idx] = updated
     }

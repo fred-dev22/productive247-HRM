@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import LoginView        from '../views/LoginView.vue'
 import DashboardRH       from '../views/DashboardRH.vue'
 import DashboardEmployee from '../views/DashboardEmployee.vue'
+import CalendarView      from '../views/calendar/CalendarView.vue'
 
 const PH = () => import('../views/placeholders/PlaceholderView.vue')
 
@@ -54,11 +55,7 @@ const router = createRouter({
     },
 
     // ── Calendrier RH ────────────────────────────────────────────
-    {
-      path: '/rh/calendrier', name: 'calendar',
-      component: () => import('../views/calendar/CalendarView.vue'),
-      meta: { requiresAuth: true },
-    },
+    { path: '/rh/calendrier', name: 'calendar', component: CalendarView, meta: { requiresAuth: true } },
 
     // ── Entités ──────────────────────────────────────────────────
     {

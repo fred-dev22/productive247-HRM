@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, defineOptions } from 'vue'
+import { computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEntityStore } from '../../stores/entities'
 import type { Entity } from '../../types'

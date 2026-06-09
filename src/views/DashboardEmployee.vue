@@ -172,11 +172,15 @@ function pillClass(s: LeaveStatus) {
 
 function statusLabel(s: LeaveStatus): string {
   const map: Record<LeaveStatus, string> = {
-    draft:     t('absence.status.draft'),
-    pending:   t('absence.status.pending'),
-    approved:  t('absence.status.approved'),
-    rejected:  t('absence.status.rejected'),
-    cancelled: t('absence.status.cancelled'),
+    draft:       t('absence.status.draft'),
+    pending:     t('absence.status.pending'),
+    approved:    t('absence.status.approved'),
+    rejected:    t('absence.status.rejected'),
+    cancelled:   t('absence.status.cancelled'),
+    returned:    t('absence.status.returned'),
+    registered:  t('absence.status.registered'),
+    done:        t('absence.status.done'),
+    regularized: t('absence.status.regularized'),
   }
   return map[s]
 }

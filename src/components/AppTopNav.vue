@@ -192,9 +192,11 @@ function handleHRNav(key: string) {
 }
 
 // ── Employee/Validator nav items ──────────────────────────────
+interface NavItem { key: string; label: string; to?: { name: string }; badge?: number }
+
 const pendingCount = computed(() => absenceStore.pendingLeaves.length)
 
-const empNavItems = computed(() => [
+const empNavItems = computed<NavItem[]>(() => [
   { key: 'mon-espace', label: t('nav.my_space'), to: { name: 'employe' } },
 ])
 

@@ -72,11 +72,15 @@
       "remote": "Télétravail"
     },
     "status": {
-      "draft": "Brouillon",
-      "pending": "En attente",
-      "approved": "Approuvé",
-      "rejected": "Refusé",
-      "cancelled": "Annulé"
+      "draft":       "Brouillon",
+      "pending":     "En attente",
+      "approved":    "Approuvé",
+      "rejected":    "Refusé",
+      "cancelled":   "Annulé",
+      "returned":    "Retourné",
+      "registered":  "Enregistré",
+      "done":        "Clôturé",
+      "regularized": "Régularisé"
     },
     "fields": {
       "employee": "Employé",

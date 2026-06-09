@@ -194,7 +194,7 @@ export const useEntityStore = defineStore('entities', {
 
     updateEntity(id: string, payload: Partial<Entity>) {
       const idx = this.entities.findIndex(x => x.id === id)
-      if (idx !== -1) this.entities[idx] = { ...this.entities[idx], ...payload }
+      if (idx !== -1) this.entities[idx] = { ...this.entities[idx]!, ...payload } as Entity
     },
 
     deactivateEntity(id: string) {

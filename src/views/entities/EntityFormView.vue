@@ -200,11 +200,11 @@ const editEntity = computed(() => entityId.value ? store.getEntityById(entityId.
 // ── Palette de couleurs pour les validateurs ──────────────────
 const COLORS = ['var(--galana-green)', 'var(--galana-green-dark)', '#854F0B', '#993556', '#7C3AED', '#0F766E', '#BE185D']
 let colorIdx = 0
-function nextColor() { return COLORS[colorIdx++ % COLORS.length] }
+function nextColor(): string { return COLORS[colorIdx++ % COLORS.length] ?? 'var(--galana-green)' }
 
 function computeInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  if (parts.length >= 2) return (parts[0]!.charAt(0) + parts[parts.length - 1]!.charAt(0)).toUpperCase()
   return (parts[0] ?? '?').slice(0, 2).toUpperCase()
 }
 
@@ -340,7 +340,7 @@ async function handleSubmit() {
     store.submitEntity(entityId.value)
   } else {
     store.createEntity(buildPayload())
-    const newId = store.entities[store.entities.length - 1].id
+    const newId = store.entities[store.entities.length - 1]!.id
     store.submitEntity(newId)
   }
   router.push({ name: 'entities' })

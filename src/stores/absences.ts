@@ -226,27 +226,27 @@ export const useAbsenceStore = defineStore('absences', () => {
     const now  = new Date().toISOString()
     const vstep = step('n1', 'Sonia Boodhun', 'SB', 'approved', now, comment)
     const l = allLeaves.value.find(l => l.id === id)
-    if (l) { l.status = 'approved'; l.validationHistory = [...l.validationHistory.filter(s => s.action !== 'pending'), vstep] }
+    if (l) { l.status = 'approved'; l.validationHistory = [...(l.validationHistory ?? []).filter(s => s.action !== 'pending'), vstep] }
     const m = myLeaves.value.find(l => l.id === id)
-    if (m) { m.status = 'approved'; m.validationHistory = [...m.validationHistory.filter(s => s.action !== 'pending'), vstep] }
+    if (m) { m.status = 'approved'; m.validationHistory = [...(m.validationHistory ?? []).filter(s => s.action !== 'pending'), vstep] }
   }
 
   function rejectLeave(id: number, reason: string) {
     const now  = new Date().toISOString()
     const vstep = step('n1', 'Sonia Boodhun', 'SB', 'rejected', now, reason)
     const l = allLeaves.value.find(l => l.id === id)
-    if (l) { l.status = 'rejected'; l.rejectionReason = reason; l.validationHistory = [...l.validationHistory.filter(s => s.action !== 'pending'), vstep] }
+    if (l) { l.status = 'rejected'; l.rejectionReason = reason; l.validationHistory = [...(l.validationHistory ?? []).filter(s => s.action !== 'pending'), vstep] }
     const m = myLeaves.value.find(l => l.id === id)
-    if (m) { m.status = 'rejected'; m.rejectionReason = reason; m.validationHistory = [...m.validationHistory.filter(s => s.action !== 'pending'), vstep] }
+    if (m) { m.status = 'rejected'; m.rejectionReason = reason; m.validationHistory = [...(m.validationHistory ?? []).filter(s => s.action !== 'pending'), vstep] }
   }
 
   function returnLeave(id: number, comment: string) {
     const now  = new Date().toISOString()
     const vstep = step('n1', 'Sonia Boodhun', 'SB', 'returned', now, comment)
     const l = allLeaves.value.find(l => l.id === id)
-    if (l) { l.status = 'returned'; l.returnComment = comment; l.validationHistory = [...l.validationHistory.filter(s => s.action !== 'pending'), vstep] }
+    if (l) { l.status = 'returned'; l.returnComment = comment; l.validationHistory = [...(l.validationHistory ?? []).filter(s => s.action !== 'pending'), vstep] }
     const m = myLeaves.value.find(l => l.id === id)
-    if (m) { m.status = 'returned'; m.returnComment = comment; m.validationHistory = [...m.validationHistory.filter(s => s.action !== 'pending'), vstep] }
+    if (m) { m.status = 'returned'; m.returnComment = comment; m.validationHistory = [...(m.validationHistory ?? []).filter(s => s.action !== 'pending'), vstep] }
   }
 
   function markRegistered(id: number) {

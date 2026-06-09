@@ -53,7 +53,7 @@ export interface LeaveRequest {
   returnComment?:   string
   status:           LeaveStatus
   submittedAt:      string
-  validationHistory: ValidationStep[]
+  validationHistory?: ValidationStep[]
 }
 
 export interface LeaveBalance {
