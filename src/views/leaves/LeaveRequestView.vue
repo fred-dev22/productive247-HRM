@@ -10,9 +10,6 @@
             <div class="page-title">{{ t('absence.new') }}</div>
             <div class="page-sub">{{ auth.user?.name }}</div>
           </div>
-          <router-link :to="{ name: 'employe' }" class="btn btn-outline">
-            <i class="ti ti-arrow-left" aria-hidden="true"></i> {{ t('absence.actions.back') }}
-          </router-link>
         </div>
 
         <div class="form-wrapper">

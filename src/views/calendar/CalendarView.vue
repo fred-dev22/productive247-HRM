@@ -194,10 +194,10 @@
         <!-- ══════════ Onglet 3 : Types & Règles de congés ══════════ -->
         <div v-if="activeTab === 'leave-rules'" class="tab-content">
 
-          <!-- Section 1 : Types d'absence configurés -->
+          <!-- Tableau unifié types + règles -->
           <div class="section-card">
             <div class="section-header">
-              <h2 class="section-title">Types d'absence configurés</h2>
+              <h2 class="section-title">Types & Règles de congés</h2>
               <div class="header-actions">
                 <button class="btn btn-outline btn-sm" @click="importCSV">
                   <i class="ti ti-upload" aria-hidden="true"></i> Importer CSV
@@ -213,13 +213,16 @@
                   <tr>
                     <th style="width:36px"></th>
                     <th>Nom</th>
-                    <th>Code</th>
+                    <th style="width:80px; text-align:center">Jours/an</th>
+                    <th style="width:90px; text-align:center">Accum./mois</th>
+                    <th style="width:70px; text-align:center">Préavis</th>
+                    <th style="width:70px; text-align:center">Justif.</th>
                     <th style="width:60px; text-align:center">Actif</th>
-                    <th style="width:80px; text-align:center">Actions</th>
+                    <th style="width:60px; text-align:center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="lt in leaveTypesStore.leaveTypes" :key="lt.id">
+                  <tr v-for="{ lt, rule } in unifiedTypes" :key="lt.id">
                     <td>
                       <div class="lt-icon-cell" :style="{ background: lt.color }">
                         <i :class="`ti ${lt.icon}`" aria-hidden="true"></i>
@@ -229,10 +232,51 @@
                       <span class="lt-name">{{ lt.name }}</span>
                       <i v-if="lt.isSystem" class="ti ti-lock lt-lock" title="Type système" aria-hidden="true"></i>
                     </td>
-                    <td><code class="lt-code">{{ lt.code }}</code></td>
+                    <td style="text-align:center">
+                      <input
+                        v-if="rule" type="number" min="0"
+                        class="rule-cell-input"
+                        :value="rule.daysPerYear"
+                        @input="updateRule(lt.name, 'daysPerYear', +($event.target as HTMLInputElement).value)"
+                      />
+                      <span v-else>—</span>
+                    </td>
+                    <td style="text-align:center">
+                      <input
+                        v-if="rule" type="number" min="0" step="0.5"
+                        class="rule-cell-input"
+                        :value="rule.daysPerMonth"
+                        @input="updateRule(lt.name, 'daysPerMonth', +($event.target as HTMLInputElement).value)"
+                      />
+                      <span v-else>—</span>
+                    </td>
+                    <td style="text-align:center">
+                      <input
+                        v-if="rule" type="number" min="0"
+                        class="rule-cell-input"
+                        :value="rule.noticeDays"
+                        @input="updateRule(lt.name, 'noticeDays', +($event.target as HTMLInputElement).value)"
+                      />
+                      <span v-else>—</span>
+                    </td>
+                    <td style="text-align:center">
+                      <label v-if="rule" class="toggle-wrap">
+                        <input
+                          type="checkbox" class="toggle-input"
+                          :checked="rule.requiresDocument"
+                          @change="updateRule(lt.name, 'requiresDocument', ($event.target as HTMLInputElement).checked)"
+                        />
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                      </label>
+                      <span v-else>—</span>
+                    </td>
                     <td style="text-align:center">
                       <label class="toggle-wrap" :title="lt.isSystem ? 'Toujours actif' : ''">
-                        <input type="checkbox" class="toggle-input" :checked="lt.isActive" :disabled="lt.isSystem" @change="leaveTypesStore.toggleLeaveType(lt.id)" />
+                        <input
+                          type="checkbox" class="toggle-input"
+                          :checked="lt.isActive" :disabled="lt.isSystem"
+                          @change="leaveTypesStore.toggleLeaveType(lt.id)"
+                        />
                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                       </label>
                     </td>
@@ -246,44 +290,6 @@
                   </tr>
                 </tbody>
               </table>
-            </div>
-          </div>
-
-          <!-- Section 2 : Règles par type -->
-          <div class="section-card">
-            <h2 class="section-title">Règles par type</h2>
-            <div class="rules-grid">
-              <div v-for="rule in localRules" :key="rule.type" class="rule-card">
-                <div class="rule-header">
-                  <i :class="`ti ${leaveIcon(rule.type)}`" aria-hidden="true"></i>
-                  <span class="rule-type">{{ rule.type }}</span>
-                </div>
-                <div class="rule-fields">
-                  <label class="rule-field">
-                    <span>Jours alloués par an</span>
-                    <input type="number" min="0" class="rule-input" v-model.number="rule.daysPerYear" @input="rulesTouched = true" />
-                  </label>
-                  <label class="rule-field">
-                    <span>Accumulation mensuelle (j/mois)</span>
-                    <input type="number" min="0" step="0.5" class="rule-input" v-model.number="rule.daysPerMonth" @input="rulesTouched = true" />
-                  </label>
-                  <label class="rule-field">
-                    <span>Report possible (jours max)</span>
-                    <input type="number" min="0" class="rule-input" v-model.number="rule.maxCarryOver" @input="rulesTouched = true" />
-                  </label>
-                  <label class="rule-field">
-                    <span>Préavis minimum (jours)</span>
-                    <input type="number" min="0" class="rule-input" v-model.number="rule.noticeDays" @input="rulesTouched = true" />
-                  </label>
-                  <div class="rule-field rule-field--toggle">
-                    <span>Justificatif obligatoire</span>
-                    <label class="toggle-wrap">
-                      <input type="checkbox" class="toggle-input" v-model="rule.requiresDocument" @change="rulesTouched = true" />
-                      <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    </label>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -410,6 +416,21 @@ const localDays = reactive<WorkingDays>(JSON.parse(JSON.stringify(calendar.value
 const localRules   = ref<LeaveRule[]>(JSON.parse(JSON.stringify(calendar.value.leaveRules)))
 const rulesTouched = ref(false)
 
+const unifiedTypes = computed(() =>
+  leaveTypesStore.leaveTypes.map(lt => ({
+    lt,
+    rule: localRules.value.find(r => r.type === lt.name) ?? null,
+  }))
+)
+
+function updateRule(typeName: string, field: string, value: number | boolean) {
+  const rule = localRules.value.find(r => r.type === typeName)
+  if (rule) {
+    ;(rule as Record<string, unknown>)[field] = value
+    rulesTouched.value = true
+  }
+}
+
 // ── Helpers temps ─────────────────────────────────────────────
 function toMin(t: string): number {
   if (!t) return 0
@@ -476,12 +497,6 @@ function formatAnnualDate(date: string): string {
   const p = date.split('-')
   return `${p[1] ?? ''} ${M[parseInt(p[0] ?? '0')] ?? ''}`
 }
-const LEAVE_ICONS: Record<string, string> = {
-  'Congé annuel':'ti-beach','Congé maladie':'ti-heart-rate-monitor','Congé maternité':'ti-baby-carriage',
-  'Récupération':'ti-clock-hour-3','Télétravail':'ti-home','Assistance parentale':'ti-users',
-  'Permission exceptionnelle':'ti-star',
-}
-function leaveIcon(type: string) { return LEAVE_ICONS[type] ?? 'ti-calendar' }
 
 // ── Modals fériés ─────────────────────────────────────────────
 const showModal      = ref<'annual' | 'ponctual' | null>(null)
@@ -658,17 +673,13 @@ function importCSV() {
 .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 .toggle-input:checked + .toggle-track .toggle-thumb { left: 16px; }
 
-/* Rules */
-.rules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-.rule-card   { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; padding: 18px; }
-.rule-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 0.5px solid var(--color-border); }
-.rule-header i { font-size: 20px; color: var(--color-primary); }
-.rule-type     { font-size: 14px; font-weight: 600; color: var(--color-text); }
-.rule-fields   { display: flex; flex-direction: column; gap: 12px; }
-.rule-field    { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--color-text-muted); }
-.rule-field--toggle { flex-direction: row; align-items: center; justify-content: space-between; }
-.rule-input    { height: 32px; padding: 0 8px; border: 0.5px solid var(--color-border); border-radius: 6px; font-size: 13px; color: var(--color-text); background: var(--color-bg); outline: none; width: 100%; }
-.rule-input:focus { border-color: var(--color-primary); background: var(--color-surface); }
+/* Rule cell inputs (unified table) */
+.rule-cell-input {
+  width: 60px; height: 28px; padding: 0 6px; text-align: center;
+  border: 0.5px solid var(--color-border); border-radius: 5px;
+  background: var(--color-bg); font-size: 12px; color: var(--color-text); outline: none;
+}
+.rule-cell-input:focus { border-color: var(--color-primary); }
 
 /* Buttons */
 .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; white-space: nowrap; }
@@ -717,6 +728,5 @@ function importCSV() {
   .content { padding: 16px; }
   .page-header { flex-direction: column; }
   .summary-grid { grid-template-columns: 1fr; }
-  .rules-grid   { grid-template-columns: 1fr; }
 }
 </style>

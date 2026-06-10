@@ -10,9 +10,6 @@
             <div class="page-title">{{ t('absence.title') }}</div>
             <div class="page-sub">{{ t('absence.total', { count: totalCount }) }} · {{ pendingCount }} {{ t('dashboard.pending').toLowerCase() }}</div>
           </div>
-          <router-link :to="{ name: 'rh' }" class="btn btn-outline">
-            <i class="ti ti-arrow-left" aria-hidden="true"></i> {{ t('absence.actions.back') }}
-          </router-link>
         </div>
 
         <!-- Table card -->

@@ -9,6 +9,14 @@
 
         <div class="modal-body">
 
+          <!-- Bénéficiaire -->
+          <div class="section">
+            <ForWhomSelector
+              v-model="forWhom"
+              :available-employees="availableEmployees"
+            />
+          </div>
+
           <!-- Infos générales -->
           <div class="section">
             <div class="section-title">Informations générales</div>
@@ -104,9 +112,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { useAuthStore }    from '../../stores/auth'
-import { useExpenseStore } from '../../stores/expenses'
-import { useMissionStore } from '../../stores/missions'
+import ForWhomSelector from '../ui/ForWhomSelector.vue'
+import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
+import { useAuthStore }     from '../../stores/auth'
+import { useExpenseStore }  from '../../stores/expenses'
+import { useMissionStore }  from '../../stores/missions'
+import { useEmployeeStore } from '../../stores/employees'
 import type { ExpenseLine, ExpenseCategory } from '../../types'
 
 const props = defineProps<{
@@ -118,9 +129,37 @@ const emit = defineEmits<{
   (e: 'submitted'): void
 }>()
 
-const auth         = useAuthStore()
-const expenseStore = useExpenseStore()
-const missionStore = useMissionStore()
+const auth          = useAuthStore()
+const expenseStore  = useExpenseStore()
+const missionStore  = useMissionStore()
+const employeeStore = useEmployeeStore()
+
+const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
+
+const availableEmployees = computed(() => {
+  const role = auth.user?.role ?? ''
+  if (role === 'hr_admin' || role === 'hr_director') {
+    return employeeStore.employees.map(e => ({
+      id: e.id, label: e.name, sublabel: e.entityName,
+      initials: e.avatarText, avatarColor: e.avatarBg,
+    }))
+  }
+  if (role === 'validator') {
+    return employeeStore.getByEntityId(auth.user?.entityId ?? '').map(e => ({
+      id: e.id, label: e.name, sublabel: e.entityName,
+      initials: e.avatarText, avatarColor: e.avatarBg,
+    }))
+  }
+  return []
+})
+
+function resolveEmployee() {
+  if (forWhom.value.mode === 'for-employee' && forWhom.value.employeeId) {
+    const emp = employeeStore.getById(forWhom.value.employeeId)
+    if (emp) return { id: emp.id, name: emp.name, initials: emp.initials }
+  }
+  return { id: auth.user?.id ?? '', name: auth.user?.name ?? '', initials: auth.user?.initials ?? '' }
+}
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   transport:      'Transport',
@@ -165,10 +204,11 @@ function saveDraft() {
   if (props.editId) {
     expenseStore.updateLines(props.editId, form.lines)
   } else {
+    const emp = resolveEmployee()
     expenseStore.createReport({
-      employeeId:       auth.user?.id       ?? '',
-      employeeName:     auth.user?.name     ?? '',
-      employeeInitials: auth.user?.initials ?? '',
+      employeeId:       emp.id,
+      employeeName:     emp.name,
+      employeeInitials: emp.initials,
       title:        form.title,
       missionId:    form.missionId || undefined,
       lines:        form.lines,
@@ -180,12 +220,13 @@ function saveDraft() {
 }
 
 function submit() {
+  const emp = resolveEmployee()
   const r = props.editId
     ? expenseStore.getById(props.editId)
     : expenseStore.createReport({
-        employeeId:       auth.user?.id       ?? '',
-        employeeName:     auth.user?.name     ?? '',
-        employeeInitials: auth.user?.initials ?? '',
+        employeeId:       emp.id,
+        employeeName:     emp.name,
+        employeeInitials: emp.initials,
         title:        form.title,
         missionId:    form.missionId || undefined,
         lines:        form.lines,

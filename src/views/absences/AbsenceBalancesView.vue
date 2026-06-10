@@ -12,9 +12,6 @@
             <p class="page-sub">Vue d'ensemble des soldes par employé et par type</p>
           </div>
           <div class="header-actions">
-            <router-link :to="{ name: 'rh' }" class="btn btn-outline">
-              <i class="ti ti-arrow-left"></i> Retour
-            </router-link>
             <button class="btn btn-outline"><i class="ti ti-file-export"></i> Exporter</button>
           </div>
         </div>
