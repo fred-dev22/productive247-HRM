@@ -12,9 +12,6 @@
             <div class="page-sub">Structure hiérarchique de Galana Petroleum Ltd</div>
           </div>
           <div class="header-actions">
-            <router-link :to="{ name: 'rh' }" class="btn btn-outline">
-              <i class="ti ti-arrow-left"></i> Retour
-            </router-link>
             <button class="btn btn-primary" @click="showEntityModal = true">
               <i class="ti ti-plus"></i> Nouvelle entité
             </button>

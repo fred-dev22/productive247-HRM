@@ -14,18 +14,12 @@
         <!-- ── Corps ── -->
         <div class="modal-body">
 
-            <!-- Champ 0 : Employé concerné (mode for-employee) -->
-          <div v-if="mode === 'for-employee'" class="field">
-            <label class="field-label">Employé concerné *</label>
-            <SearchableDropdown
-              :items="employeeItems"
-              :model-value="selectedEmployeeId"
-              placeholder="Sélectionner un employé"
-              :show-avatar="true"
-              @update:model-value="selectedEmployeeId = $event"
-            />
-            <div v-if="errors.employee" class="field-error">{{ errors.employee }}</div>
-          </div>
+          <!-- Champ 0 : Bénéficiaire -->
+          <ForWhomSelector
+            v-model="forWhom"
+            :available-employees="availableEmployees"
+            :error-employee="errors.employee"
+          />
 
           <!-- Champ 1: Type d'absence -->
           <div class="field">
@@ -220,20 +214,20 @@
 import { reactive, ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SearchableDropdown from './ui/SearchableDropdown.vue'
+import ForWhomSelector from './ui/ForWhomSelector.vue'
+import type { BeneficiaryValue } from './ui/ForWhomSelector.vue'
 import { useAbsenceStore }    from '../stores/absences'
 import { useCalendarStore }   from '../stores/calendar'
 import { useEmployeeStore }   from '../stores/employees'
 import { useLeaveTypesStore } from '../stores/leaveTypes'
+import { useAuthStore }       from '../stores/auth'
 import { calculateEndDate, getWorkingDaysBetween, isWorkingDay } from '../utils/calendar'
 import type { LeaveType } from '../types'
 
-const props = withDefaults(defineProps<{
+const props = defineProps<{
   modelValue:   boolean
   initialType?: LeaveType | ''
-  mode?:        'self' | 'for-employee'
-}>(), {
-  mode: 'self',
-})
+}>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -245,19 +239,27 @@ const absenceStore    = useAbsenceStore()
 const calendarStore   = useCalendarStore()
 const employeeStore   = useEmployeeStore()
 const leaveTypesStore = useLeaveTypesStore()
+const auth            = useAuthStore()
 const { t }           = useI18n()
 
-const selectedEmployeeId = ref('')
+const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
 
-const employeeItems = computed(() =>
-  employeeStore.employees.map(e => ({
-    id:          e.id,
-    label:       e.name,
-    sublabel:    e.entityName,
-    initials:    e.avatarText,
-    avatarColor: e.avatarBg,
-  }))
-)
+const availableEmployees = computed(() => {
+  const role = auth.user?.role ?? ''
+  if (role === 'hr_admin' || role === 'hr_director') {
+    return employeeStore.employees.map(e => ({
+      id: e.id, label: e.name, sublabel: e.entityName,
+      initials: e.avatarText, avatarColor: e.avatarBg,
+    }))
+  }
+  if (role === 'validator') {
+    return employeeStore.getByEntityId(auth.user?.entityId ?? '').map(e => ({
+      id: e.id, label: e.name, sublabel: e.entityName,
+      initials: e.avatarText, avatarColor: e.avatarBg,
+    }))
+  }
+  return []
+})
 
 const leaveTypeItems = computed(() =>
   leaveTypesStore.activeTypes.map(lt => ({
@@ -329,7 +331,7 @@ const isNoticePeriodViolated = computed(() => {
 // ── Watchers ───────────────────────────────────────────────────
 watch(() => props.modelValue, (val) => {
   if (val) {
-    selectedEmployeeId.value = ''
+    forWhom.value         = { mode: 'self', employeeId: '' }
     form.type             = props.initialType ?? ''
     form.startDate        = ''
     form.startPeriod      = 'full'
@@ -403,7 +405,7 @@ function validate(): boolean {
   errors.workingDays = ''
   let ok = true
 
-  if (props.mode === 'for-employee' && !selectedEmployeeId.value) {
+  if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) {
     errors.employee = 'Veuillez sélectionner un employé'
     ok = false
   }

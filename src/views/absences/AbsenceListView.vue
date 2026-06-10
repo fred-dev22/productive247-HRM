@@ -10,9 +10,9 @@
             <div class="page-title">{{ t('absence.title') }}</div>
             <div class="page-sub">{{ t('absence.total', { count: totalCount }) }} · {{ pendingCount }} {{ t('dashboard.pending').toLowerCase() }}</div>
           </div>
-          <router-link :to="{ name: 'rh' }" class="btn btn-outline">
-            <i class="ti ti-arrow-left" aria-hidden="true"></i> {{ t('absence.actions.back') }}
-          </router-link>
+          <button class="btn btn-primary" @click="showNewModal = true">
+            <i class="ti ti-plus" aria-hidden="true"></i> {{ t('dashboard.new_request') }}
+          </button>
         </div>
 
         <!-- Table card -->
@@ -39,7 +39,7 @@
               <button class="tb-icon-btn" :class="{ active: showColumns }" @click="showColumns = !showColumns" ref="colsBtnRef">
                 <i class="ti ti-layout-columns"></i>
               </button>
-              <button class="btn btn-primary" @click="$router.push({ name: 'rh' })">
+              <button class="btn btn-primary" @click="showNewModal = true">
                 <i class="ti ti-plus"></i> {{ t('dashboard.new_request') }}
               </button>
             </div>
@@ -232,6 +232,8 @@
       </div>
     </div>
   </Teleport>
+
+  <AbsenceRequestModal v-model="showNewModal" />
 </template>
 
 <script setup lang="ts">
@@ -239,6 +241,7 @@ import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AppSidebar, AppTopNav, StatusPill, UserAvatar } from '../../components'
 import ValidationTimeline from '../../components/ui/ValidationTimeline.vue'
+import AbsenceRequestModal from '../../components/AbsenceRequestModal.vue'
 import { useAuthStore }    from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'
 import type { LeaveStatus, LeaveRequest } from '../../types'
@@ -246,6 +249,8 @@ import type { LeaveStatus, LeaveRequest } from '../../types'
 const auth          = useAuthStore()
 const absenceStore  = useAbsenceStore()
 const { t }         = useI18n()
+
+const showNewModal  = ref(false)
 
 const showFilters = ref(false)
 const showColumns = ref(false)

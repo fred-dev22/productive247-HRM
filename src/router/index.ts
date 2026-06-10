@@ -170,6 +170,11 @@ const router = createRouter({
       component: () => import('../views/employee/PlanningView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/rh/planning', name: 'rh-planning',
+      component: () => import('../views/employee/PlanningView.vue'),
+      meta: { requiresAuth: true },
+    },
     { path: '/employe/missions',      name: 'employee-missions', component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true } },
     { path: '/employe/notes-de-frais', name: 'employee-expenses', component: () => import('../views/expenses/ExpenseListView.vue'), meta: { requiresAuth: true } },
     {

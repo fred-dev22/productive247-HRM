@@ -7,7 +7,8 @@
       <!-- MODULE : Administration -->
       <template v-if="navStore.activeModule === 'administration'">
         <SidebarSection :label="t('sidebar.dashboard')">
-          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.overview')" :to="{ name: 'rh' }" />
+          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.overview')"    :to="{ name: 'rh' }" />
+          <SidebarItem icon="ti ti-calendar-week"    :label="t('sidebar.my_planning')" :to="{ name: 'rh-planning' }" />
         </SidebarSection>
 
         <SidebarSection :label="t('sidebar.absence_requests')">
@@ -124,6 +125,7 @@
     <template v-else>
       <SidebarSection :label="t('sidebar.my_space')">
         <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')" :to="{ name: 'employe' }" />
+        <SidebarItem icon="ti ti-calendar-week"    :label="t('sidebar.my_planning')" :to="{ name: 'employee-planning' }" />
       </SidebarSection>
 
       <SidebarSection :label="t('sidebar.my_requests')">
@@ -205,7 +207,7 @@ const SidebarItem = defineComponent({
   width: 220px; flex-shrink: 0;
   background: var(--p247-white);
   border-right: 0.5px solid var(--p247-border);
-  padding: 10px 0;
+  padding: 10px 5px;
   overflow-y: auto;
   overflow-x: hidden;
 }

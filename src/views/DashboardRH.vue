@@ -14,21 +14,9 @@
             <button class="btn btn-outline">
               <i class="ti ti-file-export" aria-hidden="true"></i> {{ t('dashboard.export') }}
             </button>
-            <!-- Dropdown mode demande -->
-            <div class="req-dropdown-wrap" ref="reqDropRef">
-              <button class="btn btn-primary" @click="reqDropOpen = !reqDropOpen">
-                <i class="ti ti-plus" aria-hidden="true"></i> {{ t('dashboard.new_request') }}
-                <i class="ti ti-chevron-down" style="font-size:11px" aria-hidden="true"></i>
-              </button>
-              <div v-if="reqDropOpen" class="req-dropdown">
-                <button class="req-drop-item" @click="openAbsenceModal('self')">
-                  <i class="ti ti-user" aria-hidden="true"></i> Pour moi-même
-                </button>
-                <button class="req-drop-item" @click="openAbsenceModal('for-employee')">
-                  <i class="ti ti-users" aria-hidden="true"></i> Pour un employé
-                </button>
-              </div>
-            </div>
+            <button class="btn btn-primary" @click="absenceModalOpen = true">
+              <i class="ti ti-plus" aria-hidden="true"></i> {{ t('dashboard.new_request') }}
+            </button>
           </div>
         </div>
 
@@ -285,7 +273,6 @@
 <!-- Modale de création (AbsenceRequestModal réutilisable) -->
 <AbsenceRequestModal
   v-model="absenceModalOpen"
-  :mode="absenceMode"
   @submitted="onAbsenceSubmitted"
   @drafted="onAbsenceSubmitted"
 />
@@ -331,7 +318,6 @@
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { onClickOutside } from '@vueuse/core'
 import { AppSidebar, AppTopNav } from '../components'
 import AbsenceRequestModal from '../components/AbsenceRequestModal.vue'
 import { useAuthStore } from '../stores/auth'
@@ -361,19 +347,8 @@ function typeLabel(type: string): string {
   return key ? t(key) : type
 }
 
-// ── Dropdown + AbsenceRequestModal ──────────────────────────
-const reqDropOpen      = ref(false)
-const reqDropRef       = ref<HTMLElement | null>(null)
+// ── AbsenceRequestModal ──────────────────────────────────────
 const absenceModalOpen = ref(false)
-const absenceMode      = ref<'self' | 'for-employee'>('self')
-
-onClickOutside(reqDropRef, () => { reqDropOpen.value = false })
-
-function openAbsenceModal(mode: 'self' | 'for-employee') {
-  reqDropOpen.value  = false
-  absenceMode.value  = mode
-  absenceModalOpen.value = true
-}
 
 function onAbsenceSubmitted() {
   absenceModalOpen.value = false
@@ -732,20 +707,4 @@ function hideTooltip() { tooltip.visible = false }
 .modal-error   { font-size: 11px; color: var(--p247-danger); }
 .modal-actions { display: flex; gap: 8px; }
 
-/* Dropdown demande */
-.req-dropdown-wrap { position: relative; }
-.req-dropdown {
-  position: absolute; top: calc(100% + 4px); right: 0; z-index: 200;
-  background: var(--p247-white); border: 0.5px solid var(--p247-border);
-  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  padding: 4px; min-width: 180px; display: flex; flex-direction: column; gap: 2px;
-}
-.req-drop-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 500;
-  color: var(--p247-text); background: none; border: none; cursor: pointer;
-  text-align: left; transition: background .1s;
-}
-.req-drop-item:hover { background: var(--p247-bg); }
-.req-drop-item i { font-size: 15px; color: var(--p247-muted); }
 </style>

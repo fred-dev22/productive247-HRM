@@ -18,36 +18,12 @@
           <!-- Section : Informations générales -->
           <div class="section-title">Informations générales</div>
 
-          <!-- Toggle Pour moi-même / Pour un employé -->
-          <div v-if="canSwitchMode" class="mode-toggle">
-            <button
-              class="mode-btn"
-              :class="{ active: internalMode === 'self' }"
-              @click="setMode('self')"
-            >
-              <i class="ti ti-user" aria-hidden="true"></i> Pour moi-même
-            </button>
-            <button
-              class="mode-btn"
-              :class="{ active: internalMode === 'for-employee' }"
-              @click="setMode('for-employee')"
-            >
-              <i class="ti ti-users" aria-hidden="true"></i> Pour un employé
-            </button>
-          </div>
-
-          <!-- Sélecteur d'employé (mode for-employee) -->
-          <div v-if="internalMode === 'for-employee'" class="field">
-            <label class="field-label">Employé concerné *</label>
-            <SearchableDropdown
-              :items="employeeItems"
-              :model-value="selectedEmployeeId"
-              placeholder="Sélectionner un employé"
-              :show-avatar="true"
-              @update:model-value="selectedEmployeeId = $event"
-            />
-            <div v-if="errors.employee" class="field-error">{{ errors.employee }}</div>
-          </div>
+          <!-- Sélecteur de bénéficiaire -->
+          <ForWhomSelector
+            v-model="forWhom"
+            :available-employees="employeeItems"
+            :error-employee="errors.employee"
+          />
 
           <!-- Badge employé avec catégorie -->
           <div v-if="selectedEmployee" class="emp-badge">
@@ -267,6 +243,8 @@
 <script setup lang="ts">
 import { reactive, ref, computed, watch } from 'vue'
 import SearchableDropdown from '../ui/SearchableDropdown.vue'
+import ForWhomSelector from '../ui/ForWhomSelector.vue'
+import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
 import UserAvatar         from '../ui/UserAvatar.vue'
 import { useMissionStore }  from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
@@ -309,17 +287,7 @@ const EXPENSE_CATS = [
 ]
 
 // ── Qui soumet ? ─────────────────────────────────────────────
-const canSwitchMode = computed(() =>
-  ['hr_admin', 'hr_director', 'validator'].includes(auth.user?.role ?? '')
-)
-
-const internalMode       = ref<'self' | 'for-employee'>(props.mode)
-const selectedEmployeeId = ref('')
-
-function setMode(m: 'self' | 'for-employee') {
-  internalMode.value       = m
-  selectedEmployeeId.value = ''
-}
+const forWhom = ref<BeneficiaryValue>({ mode: props.mode, employeeId: '' })
 
 const employeeItems = computed(() =>
   employeeStore.employees.map(e => ({
@@ -334,12 +302,12 @@ const employeeItems = computed(() =>
 const transportItems = TRANSPORT_MODES.map(m => ({ id: m.value, label: m.label }))
 
 const selectedEmployee = computed(() => {
-  if (internalMode.value === 'self') {
+  if (forWhom.value.mode === 'self') {
     const u = auth.user
     if (!u) return null
     return { id: u.id, name: u.name, initials: u.initials, role: u.role as string }
   }
-  const emp = employeeStore.getById(selectedEmployeeId.value)
+  const emp = employeeStore.getById(forWhom.value.employeeId)
   if (!emp) return null
   return { id: emp.id, name: emp.name, initials: emp.initials, role: emp.role as string }
 })
@@ -415,8 +383,7 @@ function removeLine(i: number) { expenseLines.splice(i, 1) }
 
 // ── Reset ─────────────────────────────────────────────────────
 function reset() {
-  internalMode.value       = props.mode
-  selectedEmployeeId.value = ''
+  forWhom.value            = { mode: props.mode, employeeId: '' }
   form.destination         = ''
   form.purpose             = ''
   form.departureDate       = ''
@@ -435,7 +402,7 @@ watch(() => props.modelValue, v => { if (v) reset() })
 function validate(): boolean {
   Object.assign(errors, { employee: '', destination: '', purpose: '', departureDate: '', returnDate: '' })
   let ok = true
-  if (internalMode.value === 'for-employee' && !selectedEmployeeId.value) {
+  if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) {
     errors.employee = 'Sélectionnez un employé'; ok = false
   }
   if (!form.destination)   { errors.destination  = 'Destination requise'; ok = false }
@@ -449,10 +416,10 @@ function validate(): boolean {
 }
 
 function resolveEmployee() {
-  if (internalMode.value === 'self') {
+  if (forWhom.value.mode === 'self') {
     return { id: auth.user?.id ?? '', name: auth.user?.name ?? '', initials: auth.user?.initials ?? '' }
   }
-  const emp = employeeStore.getById(selectedEmployeeId.value)
+  const emp = employeeStore.getById(forWhom.value.employeeId)
   return { id: emp?.id ?? '', name: emp?.name ?? '', initials: emp?.initials ?? '' }
 }
 
@@ -528,15 +495,6 @@ function handleSubmit() {
 }
 .section-opt { font-weight: 400; text-transform: none; letter-spacing: 0; font-style: italic; }
 
-.mode-toggle { display: flex; gap: 6px; }
-.mode-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
-  cursor: pointer; border: 0.5px solid var(--color-border);
-  background: var(--color-bg); color: var(--color-text-muted); transition: all .12s;
-}
-.mode-btn.active { background: var(--color-primary-light); color: var(--color-primary); border-color: var(--color-primary); }
-.mode-btn:hover:not(.active) { background: var(--color-surface); color: var(--color-text); }
 
 .emp-badge {
   display: flex; align-items: center; gap: 10px;
