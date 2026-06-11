@@ -17,9 +17,9 @@ export const useNotificationStore = defineStore('notifications', () => {
   const auth = useAuthStore()
 
   const all = ref<AppNotification[]>([
-    { id: 'n1', type: 'leave',   title: 'Nouvelle demande',      message: 'Aminata Diallo a soumis un congé annuel',       href: '/rh/absences',        read: false, date: '2026-06-06', forRoles: ['hr_admin', 'hr_director', 'validator'] },
-    { id: 'n2', type: 'leave',   title: 'Nouvelle demande',      message: 'Jean-Pierre Mvondo a soumis un télétravail',    href: '/rh/absences',        read: false, date: '2026-06-05', forRoles: ['hr_admin', 'hr_director', 'validator'] },
-    { id: 'n3', type: 'mission', title: 'Ordre de mission',       message: 'Thierry Randriamanga — OM-2026-004 soumis',    href: '/rh/missions',        read: false, date: '2026-06-04', forRoles: ['hr_admin', 'hr_director'] },
+    { id: 'n1', type: 'leave',   title: 'Nouvelle demande',      message: 'Aminata Diallo a soumis un congé annuel',       href: '/hr/absences',        read: false, date: '2026-06-06', forRoles: ['hr_admin', 'hr_director', 'validator'] },
+    { id: 'n2', type: 'leave',   title: 'Nouvelle demande',      message: 'Jean-Pierre Mvondo a soumis un télétravail',    href: '/hr/absences',        read: false, date: '2026-06-05', forRoles: ['hr_admin', 'hr_director', 'validator'] },
+    { id: 'n3', type: 'mission', title: 'Ordre de mission',       message: 'Thierry Randriamanga — OM-2026-004 soumis',    href: '/hr/missions',        read: false, date: '2026-06-04', forRoles: ['hr_admin', 'hr_director'] },
     { id: 'n4', type: 'system',  title: 'Rappel',                 message: '3 demandes en attente depuis plus de 48h',                                  read: true,  date: '2026-06-03', forRoles: ['hr_admin', 'hr_director'] },
     { id: 'n5', type: 'leave',   title: 'Demande approuvée',      message: 'Votre congé du 10 juillet a été approuvé',                                  read: false, date: '2026-06-06', forRoles: ['employee', 'validator'] },
     { id: 'n6', type: 'mission', title: 'OM validé',              message: 'Votre ordre de mission OM-2026-001 est approuvé',                           read: true,  date: '2026-06-04', forRoles: ['employee', 'validator'] },

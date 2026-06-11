@@ -62,6 +62,37 @@ export const useCalendarStore = defineStore('calendar', () => {
     calendar.value.holidays.filter(h => !h.isRecurring),
   )
 
+  // ── Helpers temps de travail ──────────────────────────────────
+  const DAY_KEYS: (keyof WorkingDays)[] = [
+    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+  ]
+
+  function toMinutes(t: string): number {
+    if (!t) return 0
+    const p = t.split(':').map(Number)
+    return (p[0] ?? 0) * 60 + (p[1] ?? 0)
+  }
+
+  function formatMinutes(min: number): string {
+    const h = Math.floor(min / 60)
+    const m = min % 60
+    return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`
+  }
+
+  const daysPerWeek = computed(() =>
+    DAY_KEYS.filter(k => calendar.value.workingDays[k].enabled).length,
+  )
+
+  const weeklyMinutes = computed(() =>
+    DAY_KEYS.reduce((total, key) => {
+      const day = calendar.value.workingDays[key]
+      if (!day.enabled) return total
+      const work  = toMinutes(day.end) - toMinutes(day.start)
+      const pause = day.breakEnabled ? toMinutes(day.breakEnd) - toMinutes(day.breakStart) : 0
+      return total + Math.max(0, work - pause)
+    }, 0),
+  )
+
   function getLeaveRule(type: LeaveType): LeaveRule | undefined {
     return calendar.value.leaveRules.find(r => r.type === type)
   }
@@ -145,6 +176,10 @@ export const useCalendarStore = defineStore('calendar', () => {
     workingHolidays,
     annualHolidays,
     ponctualHolidays,
+    daysPerWeek,
+    weeklyMinutes,
+    toMinutes,
+    formatMinutes,
     getLeaveRule,
     getHolidaysForYear,
     getPerdiemRate,

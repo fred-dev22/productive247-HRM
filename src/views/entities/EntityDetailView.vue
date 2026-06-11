@@ -9,7 +9,7 @@
         <div v-if="!entity" class="not-found">
           <i class="ti ti-alert-triangle"></i>
           <p>Entité introuvable.</p>
-          <router-link :to="{ name: 'entities' }" class="btn btn-primary">Retour à la liste</router-link>
+          <router-link :to="{ name: 'hr-entities' }" class="btn btn-primary">Retour à la liste</router-link>
         </div>
 
         <template v-else>
@@ -17,7 +17,7 @@
           <div class="page-header">
             <div>
               <div class="breadcrumb">
-                <router-link :to="{ name: 'entities' }" class="bc-link">Entités</router-link>
+                <router-link :to="{ name: 'hr-entities' }" class="bc-link">Entités</router-link>
                 <i class="ti ti-chevron-right bc-sep"></i>
                 <span class="bc-current">{{ entity.name }}</span>
               </div>
@@ -35,7 +35,7 @@
 
               <!-- draft -->
               <template v-if="entity.status === 'draft'">
-                <router-link :to="{ name: 'entity-edit', params: { id: entity.id } }" class="btn btn-outline">
+                <router-link :to="{ name: 'hr-entity-edit', params: { id: entity.id } }" class="btn btn-outline">
                   <i class="ti ti-pencil"></i> Modifier
                 </router-link>
                 <button class="btn btn-primary" @click="store.submitEntity(entity.id)">
@@ -53,7 +53,7 @@
               </template>
               <!-- approved -->
               <template v-else-if="entity.status === 'approved'">
-                <router-link :to="{ name: 'entity-edit', params: { id: entity.id } }" class="btn btn-outline">
+                <router-link :to="{ name: 'hr-entity-edit', params: { id: entity.id } }" class="btn btn-outline">
                   <i class="ti ti-pencil"></i> Modifier
                 </router-link>
                 <button class="btn btn-danger-outline" @click="store.deactivateEntity(entity.id)">
@@ -102,7 +102,7 @@
               <div class="card">
                 <div class="card-title"><i class="ti ti-arrow-up"></i> Entité parente</div>
                 <div v-if="parentEntity">
-                  <router-link :to="{ name: 'entity-detail', params: { id: parentEntity.id } }" class="entity-link">
+                  <router-link :to="{ name: 'hr-entity-detail', params: { id: parentEntity.id } }" class="entity-link">
                     <span class="code-chip">{{ parentEntity.code }}</span>
                     <span>{{ parentEntity.name }}</span>
                     <i class="ti ti-arrow-right"></i>
@@ -117,7 +117,7 @@
                 <div v-if="children.length > 0" class="children-list">
                   <router-link
                     v-for="child in children" :key="child.id"
-                    :to="{ name: 'entity-detail', params: { id: child.id } }"
+                    :to="{ name: 'hr-entity-detail', params: { id: child.id } }"
                     class="entity-link"
                   >
                     <span class="type-badge" :class="`type-${child.type}`">{{ typeLabelOf(child.type) }}</span>

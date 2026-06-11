@@ -60,12 +60,12 @@
 
             <div class="field">
               <label class="field-label">Entité parente</label>
-              <select v-model="form.parentId" class="field-input">
-                <option value="">Aucune (entité racine)</option>
-                <option v-for="e in parentOptions" :key="e.id" :value="e.id">
-                  {{ e.code }} — {{ e.name }}
-                </option>
-              </select>
+              <SearchableDropdown
+                v-model="form.parentId"
+                :items="entityItems"
+                placeholder="Rechercher une entité..."
+                :show-avatar="false"
+              />
             </div>
 
             <div class="field">
@@ -93,12 +93,12 @@
           <div class="field-grid">
             <div class="field">
               <label class="field-label">Responsable</label>
-              <select v-model="form.responsibleId" class="field-input" @change="onResponsibleChange">
-                <option value="">-- Aucun --</option>
-                <option v-for="e in empStore.employees" :key="e.id" :value="e.id">
-                  {{ e.code }} — {{ e.name }} · {{ e.jobTitle }}
-                </option>
-              </select>
+              <SearchableDropdown
+                v-model="form.responsibleId"
+                :items="employeeItems"
+                placeholder="Rechercher un responsable..."
+                :show-avatar="true"
+              />
             </div>
             <div class="field">
               <label class="field-label">Téléphone principal</label>
@@ -196,6 +196,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
+import SearchableDropdown from '../ui/SearchableDropdown.vue'
+import type { DropdownItem } from '../ui/SearchableDropdown.vue'
 import { useEntityStore }   from '../../stores/entities'
 import { useEmployeeStore } from '../../stores/employees'
 import type { EntityType, ValidatorPool } from '../../types'
@@ -235,10 +237,10 @@ const form = reactive({
   name:            '',
   code:            '',
   type:            '' as EntityType | '',
-  parentId:        '' as string | null,
+  parentId:        '',
   legalIdentifier: '',
   address:         '',
-  responsibleId:   '' as string | undefined,
+  responsibleId:   '',
   responsibleName: '',
   phone:           '',
   email:           '',
@@ -246,9 +248,35 @@ const form = reactive({
 const errors     = reactive({ name: '', code: '', type: '', email: '' })
 const localPools = ref<ValidatorPool[]>([])
 
-const parentOptions = computed(() =>
-  store.entities.filter(e => e.status === 'approved' && e.id !== props.editId)
+// ── Items pour les SearchableDropdown ─────────────────────────
+const employeeItems = computed<DropdownItem[]>(() =>
+  empStore.employees.map(e => ({
+    id:       e.id,
+    label:    e.name,
+    sublabel: e.entityName ?? '',
+    initials: e.initials,
+  }))
 )
+
+const TYPE_SUBLABELS: Record<string, string> = {
+  direction: 'Direction', department: 'Département', service: 'Service',
+}
+const entityItems = computed<DropdownItem[]>(() =>
+  store.entities
+    .filter(e => e.id !== props.editId)
+    .map(e => ({
+      id:       e.id,
+      label:    e.name,
+      sublabel: TYPE_SUBLABELS[e.type] ?? e.type,
+    }))
+)
+
+// Le nom du responsable suit la sélection du dropdown
+watch(() => form.responsibleId, (id) => {
+  if (!id) { form.responsibleName = ''; return }
+  const emp = empStore.getById(id)
+  if (emp) form.responsibleName = emp.name
+})
 
 function populate() {
   colorIdx = 0
@@ -302,11 +330,6 @@ function updatePoolEmployee(level: number, employeeId: string) {
     pool.validatorColor    = emp.avatarBg
   }
 }
-function onResponsibleChange() {
-  const emp = empStore.getById(form.responsibleId ?? '')
-  form.responsibleName = emp?.name ?? ''
-}
-
 // ── Validation ────────────────────────────────────────────────
 function validate(): boolean {
   errors.name = errors.code = errors.type = errors.email = ''

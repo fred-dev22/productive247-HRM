@@ -189,21 +189,20 @@ const { t, locale } = useI18n()
 // ── HR nav items ──────────────────────────────────────────────
 const hrNavItems = computed(() => [
   { key: 'administration', label: t('nav.admin') },
-  { key: 'recrutement',    label: t('nav.recruitment') },
-  { key: 'formation',      label: t('nav.training') },
-  { key: 'paie',           label: t('nav.payroll') },
-  { key: 'rapports',       label: t('nav.reports') },
+  { key: 'recruitment',    label: t('nav.recruitment') },
+  { key: 'training',       label: t('nav.training') },
+  { key: 'payroll',        label: t('nav.payroll') },
+  { key: 'reports',        label: t('nav.reports') },
 ])
 
 function handleHRNav(key: string) {
   navStore.setModule(key)
-  // Navigate to default page for this module
   const defaults: Record<string, string> = {
-    administration: 'rh',
-    recrutement:    'rh-recrutement',
-    formation:      'rh-formation',
-    paie:           'rh-paie',
-    rapports:       'rh-rapports',
+    administration: 'hr-dashboard',
+    recruitment:    'hr-recruitment',
+    training:       'hr-training',
+    payroll:        'hr-payroll',
+    reports:        'hr-reports',
   }
   if (defaults[key]) router.push({ name: defaults[key] })
 }
@@ -214,7 +213,7 @@ interface NavItem { key: string; label: string; to?: { name: string }; badge?: n
 const pendingCount = computed(() => absenceStore.pendingLeaves.length)
 
 const empNavItems = computed<NavItem[]>(() => [
-  { key: 'mon-espace', label: t('nav.my_space'), to: { name: 'employe' } },
+  { key: 'my-space', label: t('nav.my_space'), to: { name: 'employee-dashboard' } },
 ])
 
 // ── Context text ──────────────────────────────────────────────
@@ -261,7 +260,7 @@ function switchLanguage(lang: 'fr' | 'en') {
 
 function goToProfile() {
   activeDropdown.value = null
-  router.push(auth.isHRSide ? { name: 'rh-profile' } : { name: 'employee-profile' })
+  router.push(auth.isHRSide ? { name: 'hr-profile' } : { name: 'employee-profile' })
 }
 
 async function openSearch() {

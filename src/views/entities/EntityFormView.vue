@@ -11,7 +11,7 @@
             <div class="page-title">{{ isEditMode ? 'Modifier l\'entité' : 'Nouvelle entité' }}</div>
             <div class="page-sub" v-if="isEditMode">{{ editEntity?.name }}</div>
           </div>
-          <router-link :to="{ name: 'entities' }" class="btn btn-outline">
+          <router-link :to="{ name: 'hr-entities' }" class="btn btn-outline">
             <i class="ti ti-arrow-left"></i> Annuler
           </router-link>
         </div>
@@ -330,7 +330,7 @@ async function handleDraft() {
   } else {
     store.createEntity(buildPayload())
   }
-  router.push({ name: 'entities' })
+  router.push({ name: 'hr-entities' })
 }
 
 async function handleSubmit() {
@@ -343,7 +343,7 @@ async function handleSubmit() {
     const newId = store.entities[store.entities.length - 1]!.id
     store.submitEntity(newId)
   }
-  router.push({ name: 'entities' })
+  router.push({ name: 'hr-entities' })
 }
 </script>
 

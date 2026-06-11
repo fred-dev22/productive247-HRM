@@ -81,7 +81,7 @@
               <label class="field-label">Entité *</label>
               <select v-model="form.entityId" class="field-input" :class="{ 'input-error': errors.entityId }" @change="onEntityChange">
                 <option value="">-- Choisir une entité --</option>
-                <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">
+                <option v-for="e in selectableEntities" :key="e.id" :value="e.id">
                   {{ e.code }} — {{ e.name }}
                 </option>
               </select>
@@ -223,8 +223,14 @@ function getInitials(name: string): string {
 
 const AVATAR_COLORS = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2']
 
+// Inclut les entités en brouillon / en attente — indispensable pendant
+// l'onboarding où les entités fraîchement créées ne sont pas encore approuvées
+const selectableEntities = computed(() =>
+  entityStore.entities.filter(e => e.status !== 'inactive')
+)
+
 const directManager = computed(() => {
-  const entity = entityStore.approvedEntities.find(e => e.id === form.entityId)
+  const entity = selectableEntities.value.find(e => e.id === form.entityId)
   if (!entity?.responsibleName) return null
   const idx = entity.id.charCodeAt(0) % AVATAR_COLORS.length
   return {
@@ -236,7 +242,7 @@ const directManager = computed(() => {
 })
 
 function onEntityChange() {
-  const e = entityStore.approvedEntities.find(e => e.id === form.entityId)
+  const e = selectableEntities.value.find(e => e.id === form.entityId)
   form.entityName = e?.name ?? ''
   form.managerId  = e?.responsibleId ?? ''
 }
@@ -265,7 +271,7 @@ function populate() {
   }
   // Sync manager from entity on open
   if (form.entityId) {
-    const e = entityStore.approvedEntities.find(e => e.id === form.entityId)
+    const e = selectableEntities.value.find(e => e.id === form.entityId)
     if (e?.responsibleId) form.managerId = e.responsibleId
   }
   Object.assign(errors, {

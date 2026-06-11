@@ -52,7 +52,7 @@
               >
                 <i class="ti ti-layout-columns"></i>
               </button>
-              <button class="btn btn-primary" @click="$router.push({ name: 'rh' })">
+              <button class="btn btn-primary" @click="$router.push({ name: 'hr-dashboard' })">
                 <i class="ti ti-plus"></i> {{ t('dashboard.new_request') }}
               </button>
             </div>

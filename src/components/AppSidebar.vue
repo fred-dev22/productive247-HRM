@@ -7,115 +7,115 @@
       <!-- MODULE : Administration -->
       <template v-if="navStore.activeModule === 'administration'">
         <SidebarSection :label="t('sidebar.dashboard')">
-          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.overview')"    :to="{ name: 'rh' }" />
-          <SidebarItem icon="ti ti-calendar-week"    :label="t('sidebar.my_planning')" :to="{ name: 'rh-planning' }" />
+          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.overview')"    :to="{ name: 'hr-dashboard' }" />
+          <SidebarItem icon="ti ti-calendar-week"    :label="t('sidebar.my_planning')" :to="{ name: 'hr-planning' }" />
         </SidebarSection>
 
         <SidebarSection :label="t('sidebar.absence_requests')">
-          <SidebarItem icon="ti ti-calendar-off" :label="t('sidebar.requests')" :to="{ name: 'rh-absences' }"        :badge="pendingCount" />
-          <SidebarItem icon="ti ti-chart-pie"    :label="t('sidebar.balances')" :to="{ name: 'rh-absence-balances' }" />
+          <SidebarItem icon="ti ti-calendar-off" :label="t('sidebar.requests')" :to="{ name: 'hr-absences' }"     :badge="pendingCount" />
+          <SidebarItem icon="ti ti-chart-pie"    :label="t('sidebar.balances')" :to="{ name: 'hr-leave-balances' }" />
         </SidebarSection>
 
         <SidebarSection :label="t('sidebar.management')">
-          <SidebarItem icon="ti ti-users"   :label="t('sidebar.employees')"  :to="{ name: 'rh-employees' }" />
-          <SidebarItem icon="ti ti-building" :label="t('sidebar.entities')"   :to="{ name: 'entities' }" />
-          <SidebarItem icon="ti ti-plane"    :label="t('sidebar.missions')"   :to="{ name: 'rh-missions' }" />
-          <SidebarItem icon="ti ti-receipt"  :label="t('sidebar.expenses')"   :to="{ name: 'rh-expenses' }" />
-          <SidebarItem icon="ti ti-sitemap"  :label="t('sidebar.org_chart')"  :to="{ name: 'rh-organigramme' }" />
+          <SidebarItem icon="ti ti-users"   :label="t('sidebar.employees')"  :to="{ name: 'hr-employees' }" />
+          <SidebarItem icon="ti ti-building" :label="t('sidebar.entities')"   :to="{ name: 'hr-entities' }" />
+          <SidebarItem icon="ti ti-plane"    :label="t('sidebar.missions')"   :to="{ name: 'hr-missions' }" />
+          <SidebarItem icon="ti ti-receipt"  :label="t('sidebar.expenses')"   :to="{ name: 'hr-expenses' }" />
+          <SidebarItem icon="ti ti-sitemap"  :label="t('sidebar.org_chart')"  :to="{ name: 'hr-org-chart' }" />
         </SidebarSection>
 
         <SidebarSection :label="t('sidebar.configuration')">
-          <SidebarItem icon="ti ti-calendar-event" :label="t('sidebar.config_calendar')" :to="{ name: 'config-calendar' }" />
-          <SidebarItem icon="ti ti-coin"           :label="t('sidebar.fees_perdiems')"   :to="{ name: 'config-missions' }" />
+          <SidebarItem icon="ti ti-calendar-event" :label="t('sidebar.config_calendar')" :to="{ name: 'hr-config-calendar' }" />
+          <SidebarItem icon="ti ti-coin"           :label="t('sidebar.fees_perdiems')"   :to="{ name: 'hr-config-mission-fees' }" />
         </SidebarSection>
       </template>
 
       <!-- MODULE : Recrutement -->
-      <template v-else-if="navStore.activeModule === 'recrutement'">
+      <template v-else-if="navStore.activeModule === 'recruitment'">
         <SidebarSection :label="t('nav.recruitment')">
-          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')"   :to="{ name: 'rh-recrutement' }" />
-          <SidebarItem icon="ti ti-briefcase"        :label="t('sidebar.job_offers')"  :to="{ name: 'rh-recrutement-offres' }" />
-          <SidebarItem icon="ti ti-users"            :label="t('sidebar.applications')" :to="{ name: 'rh-recrutement-candidatures' }" />
-          <SidebarItem icon="ti ti-calendar"         :label="t('sidebar.interviews')"  :to="{ name: 'rh-recrutement-entretiens' }" />
-          <SidebarItem icon="ti ti-git-merge"        :label="t('sidebar.pipeline')"    :to="{ name: 'rh-recrutement-pipeline' }" />
+          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')"   :to="{ name: 'hr-recruitment' }" />
+          <SidebarItem icon="ti ti-briefcase"        :label="t('sidebar.job_offers')"  :to="{ name: 'hr-recruitment-positions' }" />
+          <SidebarItem icon="ti ti-users"            :label="t('sidebar.applications')" :to="{ name: 'hr-recruitment-applications' }" />
+          <SidebarItem icon="ti ti-calendar"         :label="t('sidebar.interviews')"  :to="{ name: 'hr-recruitment-interviews' }" />
+          <SidebarItem icon="ti ti-git-merge"        :label="t('sidebar.pipeline')"    :to="{ name: 'hr-recruitment-pipeline' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.candidates')">
-          <SidebarItem icon="ti ti-address-book" :label="t('sidebar.cvtheque')"           :to="{ name: 'rh-recrutement-cvtheque' }" />
-          <SidebarItem icon="ti ti-inbox"        :label="t('sidebar.spontaneous_apps')"   :to="{ name: 'rh-recrutement-spontanees' }" />
-          <SidebarItem icon="ti ti-school"       :label="t('sidebar.internship_requests')" :to="{ name: 'rh-recrutement-stages' }" />
+          <SidebarItem icon="ti ti-address-book" :label="t('sidebar.cvtheque')"           :to="{ name: 'hr-recruitment-cv-library' }" />
+          <SidebarItem icon="ti ti-inbox"        :label="t('sidebar.spontaneous_apps')"   :to="{ name: 'hr-recruitment-spontaneous' }" />
+          <SidebarItem icon="ti ti-school"       :label="t('sidebar.internship_requests')" :to="{ name: 'hr-recruitment-internships' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.hr_admin_section')">
-          <SidebarItem icon="ti ti-file-plus"  :label="t('sidebar.needs')"                 :to="{ name: 'rh-recrutement-besoins' }" />
-          <SidebarItem icon="ti ti-file-text"  :label="t('sidebar.contracts_to_generate')" :to="{ name: 'rh-recrutement-contrats' }" />
-          <SidebarItem icon="ti ti-clock"      :label="t('sidebar.trial_periods')"          :to="{ name: 'rh-recrutement-essai' }" />
+          <SidebarItem icon="ti ti-file-plus"  :label="t('sidebar.needs')"                 :to="{ name: 'hr-recruitment-needs' }" />
+          <SidebarItem icon="ti ti-file-text"  :label="t('sidebar.contracts_to_generate')" :to="{ name: 'hr-recruitment-contracts' }" />
+          <SidebarItem icon="ti ti-clock"      :label="t('sidebar.trial_periods')"          :to="{ name: 'hr-recruitment-trial' }" />
         </SidebarSection>
       </template>
 
       <!-- MODULE : Formation -->
-      <template v-else-if="navStore.activeModule === 'formation'">
+      <template v-else-if="navStore.activeModule === 'training'">
         <SidebarSection :label="t('nav.training')">
-          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')"   :to="{ name: 'rh-formation' }" />
-          <SidebarItem icon="ti ti-books"            :label="t('sidebar.catalog')"     :to="{ name: 'rh-formation-catalogue' }" />
-          <SidebarItem icon="ti ti-calendar-event"   :label="t('sidebar.sessions')"    :to="{ name: 'rh-formation-sessions' }" />
-          <SidebarItem icon="ti ti-user-plus"        :label="t('sidebar.enrollments')" :to="{ name: 'rh-formation-inscriptions' }" />
+          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')"   :to="{ name: 'hr-training' }" />
+          <SidebarItem icon="ti ti-books"            :label="t('sidebar.catalog')"     :to="{ name: 'hr-training-catalog' }" />
+          <SidebarItem icon="ti ti-calendar-event"   :label="t('sidebar.sessions')"    :to="{ name: 'hr-training-sessions' }" />
+          <SidebarItem icon="ti ti-user-plus"        :label="t('sidebar.enrollments')" :to="{ name: 'hr-training-enrollments' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.evaluation')">
-          <SidebarItem icon="ti ti-flame"     :label="t('sidebar.hot_evals')"         :to="{ name: 'rh-formation-eval-chaud' }" />
-          <SidebarItem icon="ti ti-snowflake" :label="t('sidebar.cold_evals')"        :to="{ name: 'rh-formation-eval-froid' }" />
-          <SidebarItem icon="ti ti-star"      :label="t('sidebar.participants_notes')" :to="{ name: 'rh-formation-notes' }" />
+          <SidebarItem icon="ti ti-flame"     :label="t('sidebar.hot_evals')"         :to="{ name: 'hr-training-hot-evals' }" />
+          <SidebarItem icon="ti ti-snowflake" :label="t('sidebar.cold_evals')"        :to="{ name: 'hr-training-cold-evals' }" />
+          <SidebarItem icon="ti ti-star"      :label="t('sidebar.participants_notes')" :to="{ name: 'hr-training-grades' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.budget_section')">
-          <SidebarItem icon="ti ti-coin"          :label="t('sidebar.budget_tracking')" :to="{ name: 'rh-formation-budget' }" />
-          <SidebarItem icon="ti ti-building-bank" :label="t('sidebar.providers')"       :to="{ name: 'rh-formation-prestataires' }" />
+          <SidebarItem icon="ti ti-coin"          :label="t('sidebar.budget_tracking')" :to="{ name: 'hr-training-budget' }" />
+          <SidebarItem icon="ti ti-building-bank" :label="t('sidebar.providers')"       :to="{ name: 'hr-training-providers' }" />
         </SidebarSection>
       </template>
 
       <!-- MODULE : Paie -->
-      <template v-else-if="navStore.activeModule === 'paie'">
+      <template v-else-if="navStore.activeModule === 'payroll'">
         <SidebarSection :label="t('nav.payroll')">
-          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')"  :to="{ name: 'rh-paie' }" />
-          <SidebarItem icon="ti ti-calendar"         :label="t('sidebar.pay_periods')" :to="{ name: 'rh-paie-periodes' }" />
-          <SidebarItem icon="ti ti-file-invoice"     :label="t('sidebar.payslips')"   :to="{ name: 'rh-paie-bulletins' }" />
-          <SidebarItem icon="ti ti-list"             :label="t('sidebar.register')"   :to="{ name: 'rh-paie-registre' }" />
+          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')"  :to="{ name: 'hr-payroll' }" />
+          <SidebarItem icon="ti ti-calendar"         :label="t('sidebar.pay_periods')" :to="{ name: 'hr-payroll-periods' }" />
+          <SidebarItem icon="ti ti-file-invoice"     :label="t('sidebar.payslips')"   :to="{ name: 'hr-payroll-payslips' }" />
+          <SidebarItem icon="ti ti-list"             :label="t('sidebar.register')"   :to="{ name: 'hr-payroll-register' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.attendance')">
-          <SidebarItem icon="ti ti-clock-hour-3" :label="t('sidebar.daily_tracking')" :to="{ name: 'rh-paie-presences' }" />
-          <SidebarItem icon="ti ti-upload"        :label="t('sidebar.import_csv')"    :to="{ name: 'rh-paie-import-csv' }" />
-          <SidebarItem icon="ti ti-alarm"         :label="t('sidebar.overtime')"      :to="{ name: 'rh-paie-heures-supp' }" />
+          <SidebarItem icon="ti ti-clock-hour-3" :label="t('sidebar.daily_tracking')" :to="{ name: 'hr-payroll-attendance' }" />
+          <SidebarItem icon="ti ti-upload"        :label="t('sidebar.import_csv')"    :to="{ name: 'hr-payroll-import' }" />
+          <SidebarItem icon="ti ti-alarm"         :label="t('sidebar.overtime')"      :to="{ name: 'hr-payroll-overtime' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.regulatory_states')">
-          <SidebarItem icon="ti ti-building-bank" label="CNaPS" :to="{ name: 'rh-paie-cnaps' }" />
-          <SidebarItem icon="ti ti-building-bank" label="OSTIE" :to="{ name: 'rh-paie-ostie' }" />
-          <SidebarItem icon="ti ti-building-bank" label="FMFP"  :to="{ name: 'rh-paie-fmfp' }" />
-          <SidebarItem icon="ti ti-building-bank" label="IRSA"  :to="{ name: 'rh-paie-irsa' }" />
+          <SidebarItem icon="ti ti-building-bank" label="CNaPS" :to="{ name: 'hr-payroll-cnaps' }" />
+          <SidebarItem icon="ti ti-building-bank" label="OSTIE" :to="{ name: 'hr-payroll-ostie' }" />
+          <SidebarItem icon="ti ti-building-bank" label="FMFP"  :to="{ name: 'hr-payroll-fmfp' }" />
+          <SidebarItem icon="ti ti-building-bank" label="IRSA"  :to="{ name: 'hr-payroll-irsa' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.payroll_settings')">
-          <SidebarItem icon="ti ti-table"       :label="t('sidebar.salary_grids')" :to="{ name: 'rh-paie-grilles' }" />
-          <SidebarItem icon="ti ti-trending-up" :label="t('sidebar.raises')"       :to="{ name: 'rh-paie-augmentations' }" />
-          <SidebarItem icon="ti ti-gift"        :label="t('sidebar.thirteenth')"   :to="{ name: 'rh-paie-treizieme' }" />
+          <SidebarItem icon="ti ti-table"       :label="t('sidebar.salary_grids')" :to="{ name: 'hr-payroll-salary-grids' }" />
+          <SidebarItem icon="ti ti-trending-up" :label="t('sidebar.raises')"       :to="{ name: 'hr-payroll-raises' }" />
+          <SidebarItem icon="ti ti-gift"        :label="t('sidebar.thirteenth')"   :to="{ name: 'hr-payroll-thirteenth' }" />
         </SidebarSection>
       </template>
 
       <!-- MODULE : Rapports -->
-      <template v-else-if="navStore.activeModule === 'rapports'">
+      <template v-else-if="navStore.activeModule === 'reports'">
         <SidebarSection :label="t('sidebar.reports')">
-          <SidebarItem icon="ti ti-chart-bar" :label="t('sidebar.statistics')" :to="{ name: 'rh-stats' }" />
-          <SidebarItem icon="ti ti-sitemap"   :label="t('sidebar.org_chart')"  :to="{ name: 'rh-organigramme' }" />
+          <SidebarItem icon="ti ti-chart-bar" :label="t('sidebar.statistics')" :to="{ name: 'hr-statistics' }" />
+          <SidebarItem icon="ti ti-sitemap"   :label="t('sidebar.org_chart')"  :to="{ name: 'hr-org-chart' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.hr_reports')">
-          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.hr_dashboard')" :to="{ name: 'rh-rapports' }" />
-          <SidebarItem icon="ti ti-users"            :label="t('sidebar.staff_list')"   :to="{ name: 'rh-rapports-personnel' }" />
-          <SidebarItem icon="ti ti-arrows-exchange"  :label="t('sidebar.movements')"    :to="{ name: 'rh-rapports-mouvements' }" />
-          <SidebarItem icon="ti ti-chart-bar"        :label="t('sidebar.age_pyramid')"  :to="{ name: 'rh-rapports-pyramide' }" />
+          <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.hr_dashboard')" :to="{ name: 'hr-reports' }" />
+          <SidebarItem icon="ti ti-users"            :label="t('sidebar.staff_list')"   :to="{ name: 'hr-reports-headcount' }" />
+          <SidebarItem icon="ti ti-arrows-exchange"  :label="t('sidebar.movements')"    :to="{ name: 'hr-reports-movements' }" />
+          <SidebarItem icon="ti ti-chart-bar"        :label="t('sidebar.age_pyramid')"  :to="{ name: 'hr-reports-pyramid' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.analyses')">
-          <SidebarItem icon="ti ti-percentage"    :label="t('sidebar.absenteeism')" :to="{ name: 'rh-rapports-absenteisme' }" />
-          <SidebarItem icon="ti ti-trending-down" :label="t('sidebar.turnover')"    :to="{ name: 'rh-rapports-turnover' }" />
+          <SidebarItem icon="ti ti-percentage"    :label="t('sidebar.absenteeism')" :to="{ name: 'hr-reports-absenteeism' }" />
+          <SidebarItem icon="ti ti-trending-down" :label="t('sidebar.turnover')"    :to="{ name: 'hr-reports-turnover' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.exports')">
-          <SidebarItem icon="ti ti-file-spreadsheet" :label="t('sidebar.export_excel')" :to="{ name: 'rh-rapports-export-excel' }" />
-          <SidebarItem icon="ti ti-file-text"        :label="t('sidebar.export_csv')"   :to="{ name: 'rh-rapports-export-csv' }" />
-          <SidebarItem icon="ti ti-plug"             :label="t('sidebar.navision')"      :to="{ name: 'rh-rapports-navision' }" />
+          <SidebarItem icon="ti ti-file-spreadsheet" :label="t('sidebar.export_excel')" :to="{ name: 'hr-reports-export-excel' }" />
+          <SidebarItem icon="ti ti-file-text"        :label="t('sidebar.export_csv')"   :to="{ name: 'hr-reports-export-csv' }" />
+          <SidebarItem icon="ti ti-plug"             :label="t('sidebar.navision')"      :to="{ name: 'hr-reports-navision' }" />
         </SidebarSection>
       </template>
 
@@ -124,7 +124,7 @@
     <!-- ══════════ CÔTÉ EMPLOYÉ / VALIDATEUR ══════════ -->
     <template v-else>
       <SidebarSection :label="t('sidebar.my_space')">
-        <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')" :to="{ name: 'employe' }" />
+        <SidebarItem icon="ti ti-layout-dashboard" :label="t('sidebar.dashboard')" :to="{ name: 'employee-dashboard' }" />
         <SidebarItem icon="ti ti-calendar-week"    :label="t('sidebar.my_planning')" :to="{ name: 'employee-planning' }" />
       </SidebarSection>
 
@@ -139,7 +139,7 @@
           <SidebarItem
             icon="ti ti-checkbox"
             :label="t('sidebar.to_validate')"
-            :to="{ name: 'employee-validator' }"
+            :to="{ name: 'employee-to-validate' }"
             :badge="pendingCount"
             :badge-orange="true"
           />

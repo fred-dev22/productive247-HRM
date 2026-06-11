@@ -211,7 +211,7 @@ function handleSubmit() {
     endDate: form.endDate,
     reason: form.reason || undefined,
   })
-  router.push({ name: 'employe' })
+  router.push({ name: 'employee-dashboard' })
 }
 </script>
 

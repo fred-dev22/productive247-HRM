@@ -10,7 +10,7 @@
             <div class="page-title">Organigramme</div>
             <div class="page-sub">Structure organisationnelle de Galana Petroleum Ltd</div>
           </div>
-          <router-link :to="{ name: 'entities' }" class="btn btn-outline">
+          <router-link :to="{ name: 'hr-entities' }" class="btn btn-outline">
             <i class="ti ti-building"></i> Gérer les entités
           </router-link>
         </div>

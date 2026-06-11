@@ -10,7 +10,7 @@
             <div class="page-title">{{ isEdit ? t('employee.edit_title') : t('employee.new') }}</div>
             <div class="page-sub" v-if="isEdit && editEmp">{{ editEmp.name }}</div>
           </div>
-          <router-link :to="{ name: 'rh-employees' }" class="btn btn-outline">
+          <router-link :to="{ name: 'hr-employees' }" class="btn btn-outline">
             <i class="ti ti-arrow-left"></i> {{ t('employee.btn_cancel') }}
           </router-link>
         </div>
@@ -278,7 +278,7 @@ function handleSave() {
   } else {
     store.createEmployee(payload)
   }
-  router.push({ name: 'rh-employees' })
+  router.push({ name: 'hr-employees' })
 }
 </script>
 
