@@ -1,203 +1,195 @@
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue" class="modal-overlay" @click.self="close">
-      <div class="modal-card">
+  <ModalShell
+    :open="modelValue"
+    :title="isEditMode ? 'Modifier l\'entité' : 'Nouvelle entité'"
+    max-width="max-w-[720px]"
+    @close="close"
+  >
 
-        <!-- ── En-tête ── -->
-        <div class="modal-header">
-          <span class="modal-title-text">
-            <i class="ti ti-building" aria-hidden="true"></i>
-            {{ isEditMode ? 'Modifier l\'entité' : 'Nouvelle entité' }}
-          </span>
-          <button class="modal-close-btn" @click="close">
-            <i class="ti ti-x" aria-hidden="true"></i>
-          </button>
-        </div>
+    <!-- Section 1 : Informations générales -->
+    <div :class="sectionTitle">
+      <Building class="w-[15px] h-[15px] text-primary" />
+      Informations générales
+    </div>
 
-        <div class="modal-body">
+    <div :class="fieldGrid">
+      <div :class="[cls.field, 'col-span-full']">
+        <label :class="cls.fieldLabel">Intitulé *</label>
+        <input
+          v-model="form.name"
+          :class="[cls.fieldInput, errors.name && cls.inputError]"
+          placeholder="ex: Direction des Ressources Humaines"
+        />
+        <div v-if="errors.name" :class="cls.fieldError">{{ errors.name }}</div>
+      </div>
 
-          <!-- Section 1 : Informations générales -->
-          <div class="section-title">
-            <i class="ti ti-building" aria-hidden="true"></i>
-            Informations générales
-          </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Code * <span :class="hint">(max 10 car.)</span></label>
+        <input
+          v-model="form.code"
+          :class="[cls.fieldInput, errors.code && cls.inputError]"
+          placeholder="ex: DRH"
+          maxlength="10"
+          @input="form.code = form.code.toUpperCase()"
+        />
+        <div v-if="errors.code" :class="cls.fieldError">{{ errors.code }}</div>
+      </div>
 
-          <div class="field-grid">
-            <div class="field field-full">
-              <label class="field-label">Intitulé *</label>
-              <input
-                v-model="form.name"
-                class="field-input"
-                :class="{ 'input-error': errors.name }"
-                placeholder="ex: Direction des Ressources Humaines"
-              />
-              <div v-if="errors.name" class="field-error">{{ errors.name }}</div>
-            </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Type *</label>
+        <select v-model="form.type" :class="[cls.fieldSelect, errors.type && cls.inputError]">
+          <option value="">-- Choisir un type --</option>
+          <option value="direction">Direction</option>
+          <option value="department">Département</option>
+          <option value="service">Service</option>
+        </select>
+        <div v-if="errors.type" :class="cls.fieldError">{{ errors.type }}</div>
+      </div>
 
-            <div class="field">
-              <label class="field-label">Code * <span class="hint">(max 10 car.)</span></label>
-              <input
-                v-model="form.code"
-                class="field-input"
-                :class="{ 'input-error': errors.code }"
-                placeholder="ex: DRH"
-                maxlength="10"
-                @input="form.code = form.code.toUpperCase()"
-              />
-              <div v-if="errors.code" class="field-error">{{ errors.code }}</div>
-            </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Entité parente</label>
+        <SearchableDropdown
+          v-model="form.parentId"
+          :items="entityItems"
+          placeholder="Rechercher une entité..."
+          :show-avatar="false"
+        />
+      </div>
 
-            <div class="field">
-              <label class="field-label">Type *</label>
-              <select v-model="form.type" class="field-input" :class="{ 'input-error': errors.type }">
-                <option value="">-- Choisir un type --</option>
-                <option value="direction">Direction</option>
-                <option value="department">Département</option>
-                <option value="service">Service</option>
-              </select>
-              <div v-if="errors.type" class="field-error">{{ errors.type }}</div>
-            </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Identifiant légal <span :class="hint">(optionnel)</span></label>
+        <input v-model="form.legalIdentifier" :class="cls.fieldInput" placeholder="ex: GPL-001" />
+      </div>
 
-            <div class="field">
-              <label class="field-label">Entité parente</label>
-              <SearchableDropdown
-                v-model="form.parentId"
-                :items="entityItems"
-                placeholder="Rechercher une entité..."
-                :show-avatar="false"
-              />
-            </div>
-
-            <div class="field">
-              <label class="field-label">Identifiant légal <span class="hint">(optionnel)</span></label>
-              <input v-model="form.legalIdentifier" class="field-input" placeholder="ex: GPL-001" />
-            </div>
-
-            <div class="field field-full">
-              <label class="field-label">Adresse <span class="hint">(optionnel)</span></label>
-              <textarea
-                v-model="form.address"
-                class="field-textarea"
-                rows="2"
-                placeholder="Adresse physique de l'entité…"
-              ></textarea>
-            </div>
-          </div>
-
-          <!-- Section 2 : Contact & Responsable -->
-          <div class="section-title">
-            <i class="ti ti-user" aria-hidden="true"></i>
-            Contact & Responsable
-          </div>
-
-          <div class="field-grid">
-            <div class="field">
-              <label class="field-label">Responsable</label>
-              <SearchableDropdown
-                v-model="form.responsibleId"
-                :items="employeeItems"
-                placeholder="Rechercher un responsable..."
-                :show-avatar="true"
-              />
-            </div>
-            <div class="field">
-              <label class="field-label">Téléphone principal</label>
-              <input v-model="form.phone" type="tel" class="field-input" placeholder="+230 2xx xxxx" />
-            </div>
-            <div class="field">
-              <label class="field-label">Courrier électronique</label>
-              <input
-                v-model="form.email"
-                type="email"
-                class="field-input"
-                :class="{ 'input-error': errors.email }"
-                placeholder="service@galana.com"
-              />
-              <div v-if="errors.email" class="field-error">{{ errors.email }}</div>
-            </div>
-          </div>
-
-          <!-- Section 3 : Pools de validation -->
-          <div class="section-title">
-            <i class="ti ti-shield-check" aria-hidden="true"></i>
-            Configuration des validateurs
-          </div>
-          <p class="section-desc">
-            Définissez qui approuve les demandes des employés de cette entité.
-          </p>
-
-          <div class="pools-grid">
-            <div v-for="level in ([1, 2, 3, 4] as const)" :key="level" class="pool-row">
-              <div class="pool-level">
-                <span class="level-badge">N+{{ level }}</span>
-              </div>
-              <div class="pool-content">
-                <template v-if="getPool(level)">
-                  <select
-                    class="field-input"
-                    :value="getPool(level)!.employeeId ?? ''"
-                    @change="updatePoolEmployee(level, ($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="">-- Choisir --</option>
-                    <optgroup label="Directeurs RH">
-                      <option
-                        v-for="e in empStore.employees.filter(x => x.role === 'hr_director')"
-                        :key="e.id" :value="e.id"
-                      >{{ e.name }} · {{ e.jobTitle }}</option>
-                    </optgroup>
-                    <optgroup label="Admins RH">
-                      <option
-                        v-for="e in empStore.employees.filter(x => x.role === 'hr_admin')"
-                        :key="e.id" :value="e.id"
-                      >{{ e.name }} · {{ e.jobTitle }}</option>
-                    </optgroup>
-                    <optgroup label="Validateurs">
-                      <option
-                        v-for="e in empStore.employees.filter(x => x.role === 'validator')"
-                        :key="e.id" :value="e.id"
-                      >{{ e.name }} · {{ e.jobTitle }}</option>
-                    </optgroup>
-                  </select>
-                  <div
-                    class="pool-avatar"
-                    :style="{ background: getPool(level)!.validatorColor }"
-                  >{{ getPool(level)!.validatorInitials }}</div>
-                  <button class="btn-icon-danger" @click="removePool(level)" title="Supprimer">
-                    <i class="ti ti-trash" aria-hidden="true"></i>
-                  </button>
-                </template>
-                <template v-else>
-                  <div class="pool-empty">Non configuré</div>
-                  <button class="btn btn-outline btn-sm" @click="addPool(level)">
-                    <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
-                  </button>
-                </template>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- ── Pied ── -->
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="handleDraft">
-            <i class="ti ti-device-floppy" aria-hidden="true"></i>
-            {{ isEditMode ? 'Enregistrer' : 'Brouillon' }}
-          </button>
-          <button class="btn btn-primary" @click="handleSubmit">
-            <i class="ti ti-send" aria-hidden="true"></i> Enregistrer et soumettre
-          </button>
-        </div>
-
+      <div :class="[cls.field, 'col-span-full']">
+        <label :class="cls.fieldLabel">Adresse <span :class="hint">(optionnel)</span></label>
+        <textarea
+          v-model="form.address"
+          :class="cls.fieldTextarea"
+          rows="2"
+          placeholder="Adresse physique de l'entité…"
+        ></textarea>
       </div>
     </div>
-  </Teleport>
+
+    <!-- Section 2 : Contact & Responsable -->
+    <div :class="sectionTitle">
+      <User class="w-[15px] h-[15px] text-primary" />
+      Contact & Responsable
+    </div>
+
+    <div :class="fieldGrid">
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Responsable</label>
+        <SearchableDropdown
+          v-model="form.responsibleId"
+          :items="employeeItems"
+          placeholder="Rechercher un responsable..."
+          :show-avatar="true"
+        />
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Téléphone principal</label>
+        <input v-model="form.phone" type="tel" :class="cls.fieldInput" placeholder="+230 2xx xxxx" />
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Courrier électronique</label>
+        <input
+          v-model="form.email"
+          type="email"
+          :class="[cls.fieldInput, errors.email && cls.inputError]"
+          placeholder="service@galana.com"
+        />
+        <div v-if="errors.email" :class="cls.fieldError">{{ errors.email }}</div>
+      </div>
+    </div>
+
+    <!-- Section 3 : Pools de validation -->
+    <div :class="sectionTitle">
+      <ShieldCheck class="w-[15px] h-[15px] text-primary" />
+      Configuration des validateurs
+    </div>
+    <p class="text-xs text-muted-foreground -mt-2">
+      Définissez qui approuve les demandes des employés de cette entité.
+    </p>
+
+    <div class="flex flex-col gap-2">
+      <div
+        v-for="level in ([1, 2, 3, 4] as const)" :key="level"
+        class="flex items-center gap-2.5 px-3 py-2 bg-background rounded-lg border border-border"
+      >
+        <div class="shrink-0">
+          <span class="text-[11px] font-bold px-2.5 py-[3px] rounded-full bg-primary/10 text-primary">N+{{ level }}</span>
+        </div>
+        <div class="flex-1 flex items-center gap-2">
+          <template v-if="getPool(level)">
+            <select
+              :class="cls.fieldSelect"
+              :value="getPool(level)!.employeeId ?? ''"
+              @change="updatePoolEmployee(level, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">-- Choisir --</option>
+              <optgroup label="Directeurs RH">
+                <option
+                  v-for="e in empStore.employees.filter(x => x.role === 'hr_director')"
+                  :key="e.id" :value="e.id"
+                >{{ e.name }} · {{ e.jobTitle }}</option>
+              </optgroup>
+              <optgroup label="Admins RH">
+                <option
+                  v-for="e in empStore.employees.filter(x => x.role === 'hr_admin')"
+                  :key="e.id" :value="e.id"
+                >{{ e.name }} · {{ e.jobTitle }}</option>
+              </optgroup>
+              <optgroup label="Validateurs">
+                <option
+                  v-for="e in empStore.employees.filter(x => x.role === 'validator')"
+                  :key="e.id" :value="e.id"
+                >{{ e.name }} · {{ e.jobTitle }}</option>
+              </optgroup>
+            </select>
+            <div
+              class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
+              :style="{ background: getPool(level)!.validatorColor }"
+            >{{ getPool(level)!.validatorInitials }}</div>
+            <button
+              class="w-7 h-7 rounded-md cursor-pointer flex items-center justify-center bg-danger-bg text-danger shrink-0 transition-opacity hover:opacity-75"
+              @click="removePool(level)" title="Supprimer"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+          </template>
+          <template v-else>
+            <div class="text-xs text-muted-foreground flex-1 italic">Non configuré</div>
+            <button :class="[cls.btnOutline, '!px-2.5 !py-[5px] !text-xs']" @click="addPool(level)">
+              <Plus class="w-3.5 h-3.5" /> Ajouter
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Pied ── -->
+    <template #footer>
+      <button :class="cls.btnOutline" @click="handleDraft">
+        <Save class="w-4 h-4" />
+        {{ isEditMode ? 'Enregistrer' : 'Brouillon' }}
+      </button>
+      <button :class="cls.btnPrimary" @click="handleSubmit">
+        <Send class="w-4 h-4" /> Enregistrer et soumettre
+      </button>
+    </template>
+
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
+import { Building, User, ShieldCheck, Trash2, Plus, Save, Send } from 'lucide-vue-next'
+import ModalShell from '../ui/ModalShell.vue'
 import SearchableDropdown from '../ui/SearchableDropdown.vue'
 import type { DropdownItem } from '../ui/SearchableDropdown.vue'
+import * as cls from '../../lib/formClasses'
 import { useEntityStore }   from '../../stores/entities'
 import { useEmployeeStore } from '../../stores/employees'
 import type { EntityType, ValidatorPool } from '../../types'
@@ -211,6 +203,11 @@ const emit = defineEmits<{
   'update:modelValue': [v: boolean]
   'saved': []
 }>()
+
+// ── Classes du design system ─────────────────────────────────
+const sectionTitle = 'flex items-center gap-2 text-[13px] font-semibold text-foreground pb-2.5 border-b border-border'
+const fieldGrid = 'grid grid-cols-2 gap-3 max-sm:grid-cols-1'
+const hint = 'font-normal text-muted-foreground text-[11px]'
 
 const store    = useEntityStore()
 const empStore = useEmployeeStore()
@@ -382,102 +379,3 @@ function handleSubmit() {
   close()
 }
 </script>
-
-<style scoped>
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.4);
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
-}
-.modal-card {
-  background: var(--color-surface); border-radius: 12px;
-  max-width: 720px; width: 95%; max-height: 90vh;
-  display: flex; flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0,0,0,.18);
-}
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 24px; border-bottom: 0.5px solid var(--color-border); flex-shrink: 0;
-}
-.modal-title-text { font-size: 15px; font-weight: 600; color: var(--color-text); display: flex; align-items: center; gap: 8px; }
-.modal-title-text i { color: var(--color-primary); }
-.modal-close-btn {
-  width: 28px; height: 28px; border: none; background: var(--color-bg);
-  border-radius: 6px; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; color: var(--color-text-muted); font-size: 14px;
-}
-.modal-close-btn:hover { background: var(--color-border); }
-.modal-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
-.modal-footer {
-  display: flex; gap: 8px; justify-content: flex-end;
-  padding: 14px 24px; border-top: 0.5px solid var(--color-border); flex-shrink: 0;
-}
-
-.section-title {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; color: var(--color-text);
-  padding-bottom: 10px; border-bottom: 0.5px solid var(--color-border);
-}
-.section-title i { color: var(--color-primary); font-size: 15px; }
-.section-desc { font-size: 12px; color: var(--color-text-muted); margin-top: -8px; }
-
-.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.field { display: flex; flex-direction: column; gap: 4px; }
-.field-full { grid-column: 1 / -1; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--color-text); }
-.hint { font-weight: 400; color: var(--color-text-muted); font-size: 11px; }
-.field-input {
-  height: 34px; padding: 0 10px; border: 0.5px solid var(--color-border);
-  border-radius: 6px; font-size: 13px; color: var(--color-text);
-  background: var(--color-bg); outline: none; width: 100%; box-sizing: border-box;
-  transition: border-color .12s;
-}
-.field-input:focus { border-color: var(--color-primary); }
-.input-error { border-color: var(--color-danger) !important; }
-.field-textarea {
-  padding: 8px 10px; border: 0.5px solid var(--color-border); border-radius: 6px;
-  font-size: 13px; color: var(--color-text); background: var(--color-bg);
-  outline: none; resize: vertical; font-family: inherit; width: 100%; box-sizing: border-box;
-}
-.field-textarea:focus { border-color: var(--color-primary); }
-.field-error { font-size: 11px; color: var(--color-danger); }
-
-/* Pools */
-.pools-grid { display: flex; flex-direction: column; gap: 8px; }
-.pool-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px; background: var(--color-bg);
-  border-radius: 8px; border: 0.5px solid var(--color-border);
-}
-.pool-level { flex-shrink: 0; }
-.level-badge {
-  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px;
-  background: var(--color-primary-light); color: var(--color-primary);
-}
-.pool-content { flex: 1; display: flex; align-items: center; gap: 8px; }
-.pool-empty { font-size: 12px; color: var(--color-text-muted); flex: 1; font-style: italic; }
-.pool-avatar {
-  width: 28px; height: 28px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 9px; font-weight: 700; color: var(--color-surface); flex-shrink: 0;
-}
-.btn-icon-danger {
-  width: 28px; height: 28px; border-radius: 6px; border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--color-danger-bg); color: var(--color-danger);
-  font-size: 14px; flex-shrink: 0; transition: opacity .1s;
-}
-.btn-icon-danger:hover { opacity: .75; }
-
-/* Buttons */
-.btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; white-space: nowrap; }
-.btn-sm { padding: 5px 10px; font-size: 12px; }
-.btn-primary { background: var(--color-primary); color: var(--color-surface); }
-.btn-primary:hover { opacity: .88; }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-
-@media (max-width: 640px) {
-  .modal-card { width: 97%; max-height: 95vh; }
-  .field-grid { grid-template-columns: 1fr; }
-}
-</style>

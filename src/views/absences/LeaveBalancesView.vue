@@ -1,136 +1,128 @@
 <template>
-  <div class="app-shell">
+  <div :class="L.shell">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div :class="L.mainLayout">
       <AppSidebar />
-      <main class="content">
+      <main :class="L.content">
 
         <!-- ── En-tête ── -->
-        <div class="page-header">
+        <div class="flex items-start justify-between mb-4 gap-3 flex-wrap">
           <div>
-            <h1 class="page-title">Soldes de congés</h1>
-            <p class="page-sub">Vue d'ensemble des soldes par employé et par type</p>
+            <h1 class="text-xl font-bold text-foreground">Soldes de congés</h1>
+            <p class="text-[13px] text-muted-foreground mt-0.5">Vue d'ensemble des soldes par employé et par type</p>
           </div>
-          <div class="header-actions">
-            <button class="btn btn-outline"><i class="ti ti-file-export"></i> Exporter</button>
+          <div class="flex gap-2 items-center">
+            <button :class="L.btnOutline"><FileDown class="w-4 h-4" /> Exporter</button>
           </div>
         </div>
 
         <!-- ── KPIs ── -->
-        <div class="kpi-row">
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:var(--color-success-bg)">
-              <i class="ti ti-users" style="color:var(--color-success)"></i>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-val">{{ absenceStore.employeeBalances.length }}</div>
-              <div class="kpi-label">Employés suivis</div>
+        <div class="grid grid-cols-4 gap-3 mb-3.5 max-[1100px]:grid-cols-2 max-md:grid-cols-2">
+          <div :class="kpiCard">
+            <div :class="kpiIcon" class="bg-success-bg"><Users class="w-[18px] h-[18px] text-success" /></div>
+            <div>
+              <div :class="kpiVal">{{ absenceStore.employeeBalances.length }}</div>
+              <div :class="kpiLabel">Employés suivis</div>
             </div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:var(--color-primary-light)">
-              <i class="ti ti-sun" style="color:var(--color-primary)"></i>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-val">{{ totals['Congé annuel']?.remaining ?? 0 }}j</div>
-              <div class="kpi-label">Congés annuels restants</div>
+          <div :class="kpiCard">
+            <div :class="kpiIcon" class="bg-primary/10"><Sun class="w-[18px] h-[18px] text-primary" /></div>
+            <div>
+              <div :class="kpiVal">{{ totals['Congé annuel']?.remaining ?? 0 }}j</div>
+              <div :class="kpiLabel">Congés annuels restants</div>
             </div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:var(--color-warning-bg)">
-              <i class="ti ti-refresh" style="color:var(--color-warning)"></i>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-val">{{ totals['Récupération']?.remaining ?? 0 }}j</div>
-              <div class="kpi-label">Récupérations restantes</div>
+          <div :class="kpiCard">
+            <div :class="kpiIcon" class="bg-warning-bg"><RefreshCw class="w-[18px] h-[18px] text-warning" /></div>
+            <div>
+              <div :class="kpiVal">{{ totals['Récupération']?.remaining ?? 0 }}j</div>
+              <div :class="kpiLabel">Récupérations restantes</div>
             </div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:var(--color-info-bg)">
-              <i class="ti ti-home" style="color:var(--color-info)"></i>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-val">{{ totals['Télétravail']?.remaining ?? 0 }}j</div>
-              <div class="kpi-label">Télétravail restants</div>
+          <div :class="kpiCard">
+            <div :class="kpiIcon" class="bg-info-bg"><Home class="w-[18px] h-[18px] text-info" /></div>
+            <div>
+              <div :class="kpiVal">{{ totals['Télétravail']?.remaining ?? 0 }}j</div>
+              <div :class="kpiLabel">Télétravail restants</div>
             </div>
           </div>
         </div>
 
         <!-- ── Filtres ── -->
-        <div class="filters-bar">
-          <div class="search-box">
-            <i class="ti ti-search search-icon"></i>
-            <input v-model="search" type="text" placeholder="Rechercher un employé..." class="search-input" />
+        <div class="flex gap-2 mb-3.5 items-center flex-wrap">
+          <div :class="L.searchBox" class="!h-[34px]">
+            <Search class="w-3.5 h-3.5 text-muted-foreground" />
+            <input v-model="search" type="text" placeholder="Rechercher un employé..." :class="L.searchInput" class="!w-[180px]" />
           </div>
-          <select v-model="filterEntity" class="filter-select">
+          <select v-model="filterEntity" :class="filterSelect">
             <option value="">Toutes les entités</option>
             <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.name">{{ e.name }}</option>
           </select>
-          <select v-model="filterType" class="filter-select">
+          <select v-model="filterType" :class="filterSelect">
             <option value="">Tous les types</option>
             <option v-for="type in TYPES" :key="type" :value="type">{{ TYPE_LABELS[type] }}</option>
           </select>
-          <button v-if="hasFilters" class="reset-btn" @click="resetFilters">
-            <i class="ti ti-x"></i> Réinitialiser
+          <button v-if="hasFilters" class="inline-flex items-center gap-1 px-2.5 py-[5px] border border-border rounded-md bg-transparent text-muted-foreground text-xs cursor-pointer hover:text-danger hover:border-danger" @click="resetFilters">
+            <X class="w-3.5 h-3.5" /> Réinitialiser
           </button>
         </div>
 
         <!-- ── Table ── -->
-        <div class="table-card">
-          <div class="table-wrap">
-            <table class="bal-table">
+        <div :class="L.tableCard">
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse text-[13px]">
               <thead>
                 <tr>
-                  <th class="col-emp">Employé</th>
-                  <th v-for="type in visibleTypes" :key="type" class="col-type">
+                  <th class="px-3.5 py-2.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border whitespace-nowrap min-w-[200px]">Employé</th>
+                  <th v-for="type in visibleTypes" :key="type" class="px-3.5 py-2.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border whitespace-nowrap min-w-[110px]">
                     {{ TYPE_LABELS[type] }}
                   </th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="row in pageItems" :key="row.employeeId">
-                  <td>
-                    <div class="emp-cell">
+                <tr v-for="row in pageItems" :key="row.employeeId" class="hover:bg-background">
+                  <td class="px-3.5 py-2.5 border-b border-border align-middle">
+                    <div class="flex items-center gap-2">
                       <UserAvatar :name="row.employeeName" size="sm" />
                       <div>
-                        <div class="emp-name">{{ row.employeeName }}</div>
-                        <div class="emp-entity">{{ row.entityName }}</div>
+                        <div class="text-[13px] font-medium text-foreground">{{ row.employeeName }}</div>
+                        <div class="text-[11px] text-muted-foreground">{{ row.entityName }}</div>
                       </div>
                     </div>
                   </td>
-                  <td v-for="type in visibleTypes" :key="type" class="bal-cell">
+                  <td v-for="type in visibleTypes" :key="type" class="px-3.5 py-2.5 border-b border-border align-middle min-w-[110px]">
                     <template v-if="row.balances[type] && row.balances[type].total > 0">
-                      <div class="bal-value">{{ row.balances[type].remaining }}j</div>
-                      <div class="bal-bar-wrap">
-                        <div class="bal-bar" :style="barStyle(row.balances[type])"></div>
+                      <div class="text-sm font-semibold text-foreground mb-1">{{ row.balances[type].remaining }}j</div>
+                      <div class="h-1 bg-border rounded-sm overflow-hidden mb-[3px]">
+                        <div class="h-full rounded-sm transition-[width] duration-300" :style="barStyle(row.balances[type])"></div>
                       </div>
-                      <div class="bal-sub">{{ row.balances[type].used }}j / {{ row.balances[type].total }}j</div>
+                      <div class="text-[10px] text-muted-foreground">{{ row.balances[type].used }}j / {{ row.balances[type].total }}j</div>
                     </template>
-                    <span v-else class="bal-na">—</span>
+                    <span v-else class="text-[13px] text-muted-foreground">—</span>
                   </td>
                 </tr>
                 <tr v-if="pageItems.length === 0">
-                  <td :colspan="visibleTypes.length + 1" class="empty-row">Aucun résultat</td>
+                  <td :colspan="visibleTypes.length + 1" class="text-center p-8 text-muted-foreground text-[13px]">Aucun résultat</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <!-- Pagination -->
-          <div class="pagination">
-            <span class="pag-total">{{ filteredBalances.length }} employé(s)</span>
-            <div class="pag-perpage">
+          <div :class="L.pagination">
+            <span class="flex-1 whitespace-nowrap">{{ filteredBalances.length }} employé(s)</span>
+            <div class="flex items-center gap-1.5 whitespace-nowrap">
               Afficher
-              <select v-model.number="pageSize" class="pag-size-select">
+              <select v-model.number="pageSize" :class="L.pagSizeSelect">
                 <option :value="10">10</option>
                 <option :value="25">25</option>
                 <option :value="50">50</option>
               </select>
             </div>
-            <div class="pag-pages" v-if="totalPages > 1">
-              <button class="pag-btn pag-arrow" :disabled="page === 1" @click="page--"><i class="ti ti-chevron-left"></i></button>
-              <button v-for="p in totalPages" :key="p" class="pag-btn" :class="{ active: p === page }" @click="page = p">{{ p }}</button>
-              <button class="pag-btn pag-arrow" :disabled="page === totalPages" @click="page++"><i class="ti ti-chevron-right"></i></button>
+            <div class="flex items-center gap-[3px]" v-if="totalPages > 1">
+              <button :class="L.pagBtn" :disabled="page === 1" @click="page--"><ChevronLeft class="w-3.5 h-3.5" /></button>
+              <button v-for="p in totalPages" :key="p" :class="[L.pagBtn, p === page && L.pagBtnActive]" @click="page = p">{{ p }}</button>
+              <button :class="L.pagBtn" :disabled="page === totalPages" @click="page++"><ChevronRight class="w-3.5 h-3.5" /></button>
             </div>
           </div>
         </div>
@@ -142,8 +134,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { FileDown, Users, Sun, RefreshCw, Home, Search, X, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { AppSidebar, AppTopNav } from '../../components'
 import UserAvatar from '../../components/ui/UserAvatar.vue'
+import * as L from '../../lib/listClasses'
 import { useAuthStore }    from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'
 import { useEntityStore }  from '../../stores/entities'
@@ -151,6 +145,13 @@ import { useEntityStore }  from '../../stores/entities'
 const auth         = useAuthStore()
 const absenceStore = useAbsenceStore()
 const entityStore  = useEntityStore()
+
+// ── Classes du design system ─────────────────────────────────
+const kpiCard = 'bg-card border border-border rounded-[10px] p-3.5 flex items-center gap-3'
+const kpiIcon = 'w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0'
+const kpiVal = 'text-[22px] font-bold text-foreground leading-none'
+const kpiLabel = 'text-[11px] text-muted-foreground mt-0.5'
+const filterSelect = 'h-[34px] px-2 border border-border rounded-md bg-card text-[13px] text-foreground outline-none focus:border-primary'
 
 const search       = ref('')
 const filterEntity = ref('')
@@ -222,71 +223,3 @@ function barStyle(b: BalanceCell) {
   return { width: `${Math.min(100, pct)}%`, background: color }
 }
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; padding: 24px 28px; background: var(--color-bg); overflow-y: auto; }
-
-.page-header  { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
-.page-title   { font-size: 20px; font-weight: 700; color: var(--color-text); }
-.page-sub     { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-.header-actions { display: flex; gap: 8px; align-items: center; }
-
-.btn { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; text-decoration: none; }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-
-/* KPIs */
-.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
-.kpi-card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 12px; }
-.kpi-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-.kpi-val  { font-size: 22px; font-weight: 700; color: var(--color-text); line-height: 1; }
-.kpi-label { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
-
-/* Filters */
-.filters-bar { display: flex; gap: 8px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
-.search-box  { display: flex; align-items: center; gap: 6px; border: 0.5px solid var(--color-border); border-radius: 6px; padding: 0 8px; height: 34px; background: var(--color-surface); }
-.search-icon { color: var(--color-text-muted); font-size: 13px; }
-.search-input { border: none; outline: none; font-size: 12px; color: var(--color-text); background: transparent; width: 180px; }
-.filter-select { height: 34px; padding: 0 8px; border: 0.5px solid var(--color-border); border-radius: 6px; background: var(--color-surface); font-size: 13px; color: var(--color-text); outline: none; }
-.reset-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border: 0.5px solid var(--color-border); border-radius: 6px; background: none; color: var(--color-text-muted); font-size: 12px; cursor: pointer; }
-.reset-btn:hover { color: var(--color-danger); border-color: var(--color-danger); }
-
-/* Table */
-.table-card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; overflow: hidden; }
-.table-wrap { overflow-x: auto; }
-.bal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.bal-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .05em; background: var(--color-bg); border-bottom: 0.5px solid var(--color-border); white-space: nowrap; }
-.col-emp  { min-width: 200px; }
-.col-type { min-width: 110px; }
-.bal-table td { padding: 10px 14px; border-bottom: 0.5px solid var(--color-border); vertical-align: middle; }
-.bal-table tbody tr:last-child td { border-bottom: none; }
-.bal-table tbody tr:hover td { background: var(--color-bg); }
-.empty-row { text-align: center; padding: 32px; color: var(--color-text-muted); font-size: 13px; }
-
-.emp-cell   { display: flex; align-items: center; gap: 8px; }
-.emp-name   { font-size: 13px; font-weight: 500; color: var(--color-text); }
-.emp-entity { font-size: 11px; color: var(--color-text-muted); }
-
-.bal-cell   { min-width: 110px; }
-.bal-value  { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
-.bal-bar-wrap { height: 4px; background: var(--color-border); border-radius: 2px; overflow: hidden; margin-bottom: 3px; }
-.bal-bar    { height: 100%; border-radius: 2px; transition: width .3s; }
-.bal-sub    { font-size: 10px; color: var(--color-text-muted); }
-.bal-na     { font-size: 13px; color: var(--color-text-muted); }
-
-/* Pagination */
-.pagination { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 0.5px solid var(--color-border); font-size: 12px; color: var(--color-text-muted); }
-.pag-total  { flex: 1; white-space: nowrap; }
-.pag-perpage { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.pag-size-select { height: 26px; padding: 0 6px; border: 0.5px solid var(--color-border); border-radius: 5px; font-size: 12px; background: var(--color-surface); outline: none; }
-.pag-pages { display: flex; gap: 3px; }
-.pag-btn { min-width: 28px; height: 28px; padding: 0 6px; border-radius: 5px; font-size: 12px; cursor: pointer; border: 0.5px solid var(--color-border); background: var(--color-surface); color: var(--color-text); display: flex; align-items: center; justify-content: center; }
-.pag-btn:hover:not(:disabled) { background: var(--color-bg); }
-.pag-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.pag-btn:disabled { opacity: .35; cursor: not-allowed; }
-
-@media (max-width: 1100px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 768px)  { .kpi-row { grid-template-columns: 1fr 1fr; } .content { padding: 16px; } }
-</style>

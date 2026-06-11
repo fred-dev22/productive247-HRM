@@ -1,13 +1,13 @@
 <template>
   <!-- ── Barre d'onglets ── -->
-  <div class="tabs-bar">
+  <div class="flex border border-border bg-card rounded-t-lg px-1 mb-4">
     <div
       v-for="tab in TABS" :key="tab.key"
-      class="tab" :class="{ active: navStore.activeEntityTab === tab.key }"
+      :class="[tabClass, navStore.activeEntityTab === tab.key && tabActive]"
       @click="changeTab(tab.key)"
     >
-      <i :class="tab.icon"></i> {{ tab.label }}
-      <span v-if="tab.key === 'pending' && store.pendingEntities.length > 0" class="tab-badge">
+      <component :is="tab.icon" class="w-4 h-4" /> {{ tab.label }}
+      <span v-if="tab.key === 'pending' && store.pendingEntities.length > 0" class="bg-danger text-white text-[9px] font-bold px-[5px] py-px rounded-full">
         {{ store.pendingEntities.length }}
       </span>
     </div>
@@ -15,27 +15,27 @@
 
   <!-- ════════════ ONGLET : VUE HIÉRARCHIQUE ════════════ -->
   <template v-if="navStore.activeEntityTab === 'tree'">
-    <div class="org-toolbar">
-      <button class="btn btn-outline btn-sm" @click="expandAll">
-        <i class="ti ti-arrows-maximize"></i> Tout déplier
+    <div class="flex items-center gap-2 mb-3">
+      <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="expandAll">
+        <Maximize2 class="w-3.5 h-3.5" /> Tout déplier
       </button>
-      <button class="btn btn-outline btn-sm" @click="collapseAll">
-        <i class="ti ti-arrows-minimize"></i> Tout replier
+      <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="collapseAll">
+        <Minimize2 class="w-3.5 h-3.5" /> Tout replier
       </button>
-      <span class="org-hint">
-        <i class="ti ti-info-circle"></i>
+      <span :class="hint">
+        <Info class="w-3.5 h-3.5" />
         Cliquez sur ▾/▸ pour replier/déplier un nœud
       </span>
-      <div class="view-switcher">
-        <button class="switcher-btn active" title="Vue hiérarchique">
-          <i class="ti ti-list-tree"></i>
+      <div class="flex gap-1 ml-2">
+        <button :class="[switcherBtn, switcherActive]" title="Vue hiérarchique">
+          <ListTree class="w-4 h-4" />
         </button>
-        <button class="switcher-btn" title="Organigramme" @click="changeTab('orgchart')">
-          <i class="ti ti-hierarchy"></i>
+        <button :class="switcherBtn" title="Organigramme" @click="changeTab('orgchart')">
+          <Network class="w-4 h-4" />
         </button>
       </div>
     </div>
-    <div class="org-container">
+    <div class="overflow-x-auto px-1 pt-1 pb-4 min-w-0">
       <OrgNode
         v-for="root in store.buildTree"
         :key="root.id"
@@ -46,17 +46,17 @@
 
   <!-- ════════════ ONGLET : ORGANIGRAMME ════════════ -->
   <template v-else-if="navStore.activeEntityTab === 'orgchart'">
-    <div class="org-toolbar">
-      <span class="org-hint">
-        <i class="ti ti-info-circle"></i>
+    <div class="flex items-center gap-2 mb-3">
+      <span :class="hint">
+        <Info class="w-3.5 h-3.5" />
         Faites glisser · Clic sur un nœud pour le détail
       </span>
-      <div class="view-switcher">
-        <button class="switcher-btn" title="Vue hiérarchique" @click="changeTab('tree')">
-          <i class="ti ti-list-tree"></i>
+      <div class="flex gap-1 ml-2">
+        <button :class="switcherBtn" title="Vue hiérarchique" @click="changeTab('tree')">
+          <ListTree class="w-4 h-4" />
         </button>
-        <button class="switcher-btn active" title="Organigramme">
-          <i class="ti ti-hierarchy"></i>
+        <button :class="[switcherBtn, switcherActive]" title="Organigramme">
+          <Network class="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -65,85 +65,79 @@
 
   <!-- ════════════ ONGLET : LISTE ════════════ -->
   <template v-if="navStore.activeEntityTab === 'list'">
-    <div class="table-card">
-      <div class="filter-bar">
-        <select v-model="fType" class="filter-sel">
+    <div :class="L.tableCard">
+      <div class="flex gap-2 items-center px-3.5 py-2.5 border-b border-border flex-wrap">
+        <select v-model="fType" :class="filterSel">
           <option value="">Tous les types</option>
           <option value="direction">Direction</option>
           <option value="department">Département</option>
           <option value="service">Service</option>
         </select>
-        <select v-model="fStatus" class="filter-sel">
+        <select v-model="fStatus" :class="filterSel">
           <option value="">Tous les statuts</option>
           <option value="draft">Brouillon</option>
           <option value="pending_approval">En attente</option>
           <option value="approved">Approuvé</option>
           <option value="inactive">Inactif</option>
         </select>
-        <div class="search-box">
-          <i class="ti ti-search"></i>
-          <input v-model="fSearch" placeholder="Rechercher…" class="search-input" />
+        <div :class="L.searchBox">
+          <Search class="w-3.5 h-3.5 text-muted-foreground" />
+          <input v-model="fSearch" placeholder="Rechercher…" :class="L.searchInput" />
         </div>
-        <button v-if="fType || fStatus || fSearch" class="btn btn-outline btn-sm" @click="resetFilters">
-          <i class="ti ti-refresh"></i> Réinitialiser
+        <button v-if="fType || fStatus || fSearch" :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="resetFilters">
+          <RefreshCw class="w-3.5 h-3.5" /> Réinitialiser
         </button>
       </div>
 
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Nom</th>
-            <th>Type</th>
-            <th>Entité parente</th>
-            <th>Responsable</th>
-            <th>Effectif</th>
-            <th>Statut</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="e in listPageItems" :key="e.id">
-            <td><span class="code-chip">{{ e.code }}</span></td>
-            <td class="td-name">{{ e.name }}</td>
-            <td>
-              <span class="type-badge" :class="`type-${e.type}`">{{ typeLabel(e.type) }}</span>
-            </td>
-            <td class="td-muted">{{ parentName(e.parentId) }}</td>
-            <td class="td-muted">{{ e.responsibleName || '—' }}</td>
-            <td class="td-center">
-              <span class="headcount-chip"><i class="ti ti-users"></i> {{ e.headcount }}</span>
-            </td>
-            <td><StatusPill :status="e.status" /></td>
-            <td>
-              <div class="actions-cell">
-                <button class="act-btn" @click="navigateTo(e.id)">Voir →</button>
-                <button v-if="e.status === 'draft'"            class="act-btn act-warning" @click="store.submitEntity(e.id)">Soumettre</button>
-                <button v-if="e.status === 'pending_approval'" class="act-btn act-success" @click="store.approveEntity(e.id)">Approuver</button>
-                <button v-if="e.status === 'pending_approval'" class="act-btn act-danger"  @click="store.rejectEntity(e.id)">Rejeter</button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="listPageItems.length === 0">
-            <td colspan="8" class="empty-row">Aucune entité trouvée</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table :class="L.table">
+          <thead>
+            <tr>
+              <th :class="thUpper">Code</th>
+              <th :class="thUpper">Nom</th>
+              <th :class="thUpper">Type</th>
+              <th :class="thUpper">Entité parente</th>
+              <th :class="thUpper">Responsable</th>
+              <th :class="thUpper">Effectif</th>
+              <th :class="thUpper">Statut</th>
+              <th :class="thUpper">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="e in listPageItems" :key="e.id" :class="L.rowHover">
+              <td :class="L.td"><span class="text-[11px] font-bold px-[7px] py-0.5 rounded bg-primary/10 text-primary tracking-[0.04em]">{{ e.code }}</span></td>
+              <td :class="[L.td, 'font-medium']">{{ e.name }}</td>
+              <td :class="L.td">
+                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="typeBadge(e.type)">{{ typeLabel(e.type) }}</span>
+              </td>
+              <td :class="[L.td, 'text-muted-foreground text-xs']">{{ parentName(e.parentId) }}</td>
+              <td :class="[L.td, 'text-muted-foreground text-xs']">{{ e.responsibleName || '—' }}</td>
+              <td :class="[L.td, 'text-center']">
+                <span class="text-[11px] text-muted-foreground inline-flex items-center gap-[3px]"><Users class="w-3 h-3" /> {{ e.headcount }}</span>
+              </td>
+              <td :class="L.td"><StatusPill :status="e.status" /></td>
+              <td :class="L.td">
+                <div class="flex gap-1 flex-wrap">
+                  <button :class="L.actView" @click="navigateTo(e.id)">Voir →</button>
+                  <button v-if="e.status === 'draft'"            :class="actWarning" @click="store.submitEntity(e.id)">Soumettre</button>
+                  <button v-if="e.status === 'pending_approval'" :class="L.actApprove" @click="store.approveEntity(e.id)">Approuver</button>
+                  <button v-if="e.status === 'pending_approval'" :class="L.actReject"  @click="store.rejectEntity(e.id)">Rejeter</button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="listPageItems.length === 0">
+              <td colspan="8" class="text-center text-muted-foreground p-8 text-[13px]">Aucune entité trouvée</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      <div class="pagination" v-if="listTotalPages > 1">
-        <span class="pag-total">{{ filteredList.length }} entité(s)</span>
-        <div class="pag-pages">
-          <button class="pag-btn" :disabled="listPage === 1" @click="listPage--">
-            <i class="ti ti-chevron-left"></i>
-          </button>
-          <button
-            v-for="p in listTotalPages" :key="p"
-            class="pag-btn" :class="{ active: p === listPage }"
-            @click="listPage = p"
-          >{{ p }}</button>
-          <button class="pag-btn" :disabled="listPage === listTotalPages" @click="listPage++">
-            <i class="ti ti-chevron-right"></i>
-          </button>
+      <div :class="L.pagination" v-if="listTotalPages > 1">
+        <span class="flex-1">{{ filteredList.length }} entité(s)</span>
+        <div class="flex gap-[3px]">
+          <button :class="L.pagBtn" :disabled="listPage === 1" @click="listPage--"><ChevronLeft class="w-3.5 h-3.5" /></button>
+          <button v-for="p in listTotalPages" :key="p" :class="[L.pagBtn, p === listPage && L.pagBtnActive]" @click="listPage = p">{{ p }}</button>
+          <button :class="L.pagBtn" :disabled="listPage === listTotalPages" @click="listPage++"><ChevronRight class="w-3.5 h-3.5" /></button>
         </div>
       </div>
     </div>
@@ -151,57 +145,64 @@
 
   <!-- ════════════ ONGLET : EN ATTENTE ════════════ -->
   <template v-if="navStore.activeEntityTab === 'pending'">
-    <div v-if="store.pendingEntities.length === 0" class="empty-state">
-      <i class="ti ti-check-circle"></i>
-      <p>Aucune entité en attente d'approbation</p>
+    <div v-if="store.pendingEntities.length === 0" class="flex flex-col items-center p-[60px] gap-2.5 text-muted-foreground bg-card border border-border rounded-lg">
+      <CircleCheck class="w-10 h-10 text-success" />
+      <p class="text-sm">Aucune entité en attente d'approbation</p>
     </div>
-    <div v-else class="table-card">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Nom</th>
-            <th>Type</th>
-            <th>Responsable</th>
-            <th>Soumis le</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="e in store.pendingEntities" :key="e.id">
-            <td><span class="code-chip">{{ e.code }}</span></td>
-            <td class="td-name">{{ e.name }}</td>
-            <td>
-              <span class="type-badge" :class="`type-${e.type}`">{{ typeLabel(e.type) }}</span>
-            </td>
-            <td class="td-muted">{{ e.responsibleName || '—' }}</td>
-            <td class="td-muted">{{ e.submittedAt || '—' }}</td>
-            <td>
-              <div class="actions-cell">
-                <button class="act-btn" @click="navigateTo(e.id)">Voir →</button>
-                <button class="act-btn act-success" @click="store.approveEntity(e.id)">
-                  <i class="ti ti-check"></i> Approuver
-                </button>
-                <button class="act-btn act-danger" @click="store.rejectEntity(e.id)">
-                  <i class="ti ti-x"></i> Rejeter
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-else :class="L.tableCard">
+      <div class="overflow-x-auto">
+        <table :class="L.table">
+          <thead>
+            <tr>
+              <th :class="thUpper">Code</th>
+              <th :class="thUpper">Nom</th>
+              <th :class="thUpper">Type</th>
+              <th :class="thUpper">Responsable</th>
+              <th :class="thUpper">Soumis le</th>
+              <th :class="thUpper">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="e in store.pendingEntities" :key="e.id" :class="L.rowHover">
+              <td :class="L.td"><span class="text-[11px] font-bold px-[7px] py-0.5 rounded bg-primary/10 text-primary tracking-[0.04em]">{{ e.code }}</span></td>
+              <td :class="[L.td, 'font-medium']">{{ e.name }}</td>
+              <td :class="L.td">
+                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="typeBadge(e.type)">{{ typeLabel(e.type) }}</span>
+              </td>
+              <td :class="[L.td, 'text-muted-foreground text-xs']">{{ e.responsibleName || '—' }}</td>
+              <td :class="[L.td, 'text-muted-foreground text-xs']">{{ e.submittedAt || '—' }}</td>
+              <td :class="L.td">
+                <div class="flex gap-1 flex-wrap">
+                  <button :class="L.actView" @click="navigateTo(e.id)">Voir →</button>
+                  <button :class="L.actApprove" @click="store.approveEntity(e.id)">
+                    <Check class="w-3.5 h-3.5" /> Approuver
+                  </button>
+                  <button :class="L.actReject" @click="store.rejectEntity(e.id)">
+                    <X class="w-3.5 h-3.5" /> Rejeter
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </template>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, provide, onMounted, watch } from 'vue'
+import { ref, computed, provide, onMounted, watch, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import {
+  ListTree, Network, List, Clock, Maximize2, Minimize2, Info, Search,
+  RefreshCw, Users, Check, X, CircleCheck, ChevronLeft, ChevronRight,
+} from 'lucide-vue-next'
 import { useEntityStore }     from '../../stores/entities'
 import { useNavigationStore } from '../../stores/navigation'
 import OrgNode      from '../../views/entities/OrgNode.vue'
 import OrgChartView from '../OrgChartView.vue'
 import StatusPill   from '../ui/StatusPill.vue'
+import * as L from '../../lib/listClasses'
 import type { EntityType } from '../../types'
 
 const router   = useRouter()
@@ -209,15 +210,34 @@ const route    = useRoute()
 const store    = useEntityStore()
 const navStore = useNavigationStore()
 
+// ── Classes du design system ─────────────────────────────────
+const tabClass = 'px-[18px] py-2.5 text-[13px] text-muted-foreground cursor-pointer border-b-2 border-transparent flex items-center gap-1.5 transition-colors hover:text-foreground'
+const tabActive = '!text-primary !border-primary font-medium'
+const hint = 'text-[11px] text-muted-foreground flex items-center gap-1 ml-auto'
+const switcherBtn = 'px-2 py-1.5 rounded-md border-0 cursor-pointer flex items-center justify-center bg-transparent text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary'
+const switcherActive = '!bg-primary/10 !text-primary'
+const filterSel = 'h-[30px] px-2 border border-border rounded-md text-xs text-foreground bg-card outline-none focus:border-primary'
+const thUpper = 'px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground bg-background uppercase tracking-[0.04em] border-b border-border whitespace-nowrap'
+const actWarning = L.actBtn + ' bg-warning-bg text-warning'
+
+function typeBadge(type: string): string {
+  const m: Record<string, string> = {
+    direction:  'bg-danger-bg text-danger',
+    department: 'bg-success-bg text-success',
+    service:    'bg-primary/10 text-primary',
+  }
+  return m[type] ?? 'bg-neutral-bg text-neutral'
+}
+
 // ── Onglets ────────────────────────────────────────────────────
 const VALID_TABS = ['tree', 'orgchart', 'list', 'pending'] as const
 type TabKey = typeof VALID_TABS[number]
 
-const TABS = [
-  { key: 'tree'     as TabKey, label: 'Vue hiérarchique', icon: 'ti ti-list-tree' },
-  { key: 'orgchart' as TabKey, label: 'Organigramme',     icon: 'ti ti-hierarchy' },
-  { key: 'list'     as TabKey, label: 'Liste',            icon: 'ti ti-list' },
-  { key: 'pending'  as TabKey, label: 'En attente',       icon: 'ti ti-clock' },
+const TABS: { key: TabKey; label: string; icon: Component }[] = [
+  { key: 'tree',     label: 'Vue hiérarchique', icon: ListTree },
+  { key: 'orgchart', label: 'Organigramme',     icon: Network },
+  { key: 'list',     label: 'Liste',            icon: List },
+  { key: 'pending',  label: 'En attente',       icon: Clock },
 ]
 
 function changeTab(key: TabKey) {
@@ -299,101 +319,3 @@ function parentName(parentId: string | null): string {
   return store.getEntityById(parentId)?.name ?? '—'
 }
 </script>
-
-<style scoped>
-/* ── Onglets ── */
-.tabs-bar {
-  display: flex; border-bottom: 0.5px solid var(--color-border);
-  margin-bottom: 16px; background: var(--color-surface);
-  border-radius: 8px 8px 0 0; padding: 0 4px;
-  border: 0.5px solid var(--color-border);
-}
-.tab {
-  padding: 10px 18px; font-size: 13px; color: var(--color-text-muted);
-  cursor: pointer; border-bottom: 2px solid transparent;
-  display: flex; align-items: center; gap: 6px; transition: color .1s;
-}
-.tab:hover { color: var(--color-text); }
-.tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 500; }
-.tab-badge { background: var(--color-danger); color: white; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
-
-/* ── Org toolbar ── */
-.org-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.org-hint { font-size: 11px; color: var(--color-text-muted); display: flex; align-items: center; gap: 4px; margin-left: auto; }
-.org-hint i { font-size: 13px; }
-
-/* ── Switcher ── */
-.view-switcher { display: flex; gap: 4px; margin-left: 8px; }
-.switcher-btn {
-  padding: 6px 8px; border-radius: 6px; border: none;
-  cursor: pointer; font-size: 16px; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  background: transparent; color: var(--color-text-muted); transition: all .12s;
-}
-.switcher-btn:hover { background: var(--color-primary-light); color: var(--color-primary); }
-.switcher-btn.active { background: var(--color-primary-light); color: var(--color-primary); }
-
-/* ── Org container ── */
-.org-container { overflow-x: auto; padding: 4px 4px 16px; min-width: 0; }
-
-/* ── Buttons ── */
-.btn { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; }
-.btn-sm { padding: 5px 12px; font-size: 12px; }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-
-/* ── Table card ── */
-.table-card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 8px; overflow: hidden; }
-
-/* ── Filter bar ── */
-.filter-bar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-bottom: 0.5px solid var(--color-border); flex-wrap: wrap; }
-.filter-sel { height: 30px; padding: 0 8px; border: 0.5px solid var(--color-border); border-radius: 6px; font-size: 12px; color: var(--color-text); background: var(--color-surface); outline: none; }
-.filter-sel:focus { border-color: var(--color-primary); }
-.search-box { display: flex; align-items: center; gap: 6px; border: 0.5px solid var(--color-border); border-radius: 6px; padding: 0 8px; height: 30px; background: var(--color-surface); }
-.search-box i { color: var(--color-text-muted); font-size: 13px; }
-.search-input { border: none; outline: none; font-size: 12px; width: 160px; background: transparent; }
-
-/* ── Table ── */
-.table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.table th { padding: 10px 13px; text-align: left; font-size: 11px; font-weight: 600; color: var(--color-text-muted); background: var(--color-bg); text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
-.table td { padding: 10px 13px; border-bottom: 0.5px solid var(--color-border); vertical-align: middle; }
-.table tbody tr:last-child td { border-bottom: none; }
-.table tbody tr:hover td { background: var(--color-primary-light); }
-
-/* ── Cellules ── */
-.td-name   { font-weight: 500; }
-.td-muted  { color: var(--color-text-muted); font-size: 12px; }
-.td-center { text-align: center; }
-.empty-row { text-align: center; color: var(--color-text-muted); padding: 32px; font-size: 13px; }
-
-.code-chip { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: var(--color-primary-light); color: var(--color-primary); letter-spacing: .04em; }
-
-.type-badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
-.type-badge.type-direction  { background: var(--galana-red-light);   color: var(--galana-red); }
-.type-badge.type-department { background: var(--galana-green-light); color: var(--galana-green); }
-.type-badge.type-service    { background: var(--color-primary-light); color: var(--color-primary); }
-
-.headcount-chip { font-size: 11px; color: var(--color-text-muted); display: inline-flex; align-items: center; gap: 3px; }
-
-/* ── Actions ── */
-.actions-cell { display: flex; gap: 4px; flex-wrap: wrap; }
-.act-btn { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer; border: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; background: var(--color-bg); color: var(--color-text-muted); transition: all .1s; }
-.act-btn:hover { background: var(--color-border); color: var(--color-text); }
-.act-success   { background: var(--color-success-bg); color: var(--color-success); }
-.act-danger    { background: var(--color-danger-bg);  color: var(--color-danger); }
-.act-warning   { background: var(--color-warning-bg); color: var(--color-warning); }
-
-/* ── Pagination ── */
-.pagination { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 0.5px solid var(--color-border); font-size: 12px; color: var(--color-text-muted); }
-.pag-total  { flex: 1; }
-.pag-pages  { display: flex; gap: 3px; }
-.pag-btn    { min-width: 28px; height: 28px; padding: 0 6px; border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--color-border); background: var(--color-surface); color: var(--color-text); display: flex; align-items: center; justify-content: center; }
-.pag-btn:hover:not(:disabled) { background: var(--color-bg); }
-.pag-btn.active   { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.pag-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-/* ── Empty state ── */
-.empty-state { display: flex; flex-direction: column; align-items: center; padding: 60px; gap: 10px; color: var(--color-text-muted); background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 8px; }
-.empty-state i { font-size: 40px; color: var(--color-success); }
-.empty-state p { font-size: 14px; }
-</style>

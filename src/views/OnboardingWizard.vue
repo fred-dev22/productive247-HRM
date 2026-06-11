@@ -1,117 +1,110 @@
 <template>
-  <div class="ob-shell" :class="{ 'ob-shell--leaving': leaving }">
+  <div class="min-h-screen flex flex-col transition-opacity duration-[250ms]" :class="{ 'opacity-0': leaving }" :style="bgStyle">
 
     <!-- ── En-tête minimal ── -->
-    <header class="ob-header">
-      <div class="ob-header-left">
-        <img src="/galana.webp" alt="Galana" class="ob-logo" />
-        <span class="ob-sep" aria-hidden="true"></span>
-        <span class="ob-brand">GALANA</span>
+    <header class="h-[60px] shrink-0 bg-card border-b border-border shadow-[0_1px_4px_rgba(0,0,0,0.06)] px-10 flex items-center justify-between max-[480px]:px-4">
+      <div class="flex items-center">
+        <img src="/galana.webp" alt="Galana" class="h-[34px] block" />
+        <span class="w-px h-5 mx-3.5 bg-border" aria-hidden="true"></span>
+        <span class="text-base font-extrabold tracking-[0.05em] text-foreground">GALANA</span>
       </div>
-      <span class="ob-badge">Configuration initiale</span>
+      <span class="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-[11px] font-semibold">Configuration initiale</span>
     </header>
 
     <!-- ── Zone centrale ── -->
-    <div class="ob-center">
+    <div class="flex-1 flex flex-col items-center max-w-[860px] w-full mx-auto px-6 py-10 max-md:px-4 max-md:py-6">
 
       <!-- Titre principal -->
-      <div class="ob-title-wrap">
-        <h1 class="ob-title">Bienvenue sur Productive 247 HRM</h1>
-        <p class="ob-subtitle">Configurez votre espace en 3 étapes avant de commencer</p>
+      <div class="text-center mb-10">
+        <h1 class="text-[28px] font-extrabold text-foreground m-0 max-md:text-[22px]">Bienvenue sur Productive 247 HRM</h1>
+        <p class="text-[15px] text-muted-foreground mt-2">Configurez votre espace en 3 étapes avant de commencer</p>
       </div>
 
       <!-- Barre de progression -->
-      <div class="ob-steps">
+      <div class="flex items-start max-w-[600px] w-full mx-auto mb-10">
         <template v-for="(label, i) in STEP_LABELS" :key="label">
-          <div class="ob-step" :class="stepState(i + 1)" @click="i + 1 < ob.currentStep && ob.goToStep(i + 1)">
-            <div class="ob-step-circle">
-              <i v-if="i + 1 < ob.currentStep" class="ti ti-check" aria-hidden="true"></i>
+          <div class="flex flex-col items-center shrink-0" :class="{ 'cursor-pointer': stepState(i + 1) === 'done' }" @click="i + 1 < ob.currentStep && ob.goToStep(i + 1)">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-base transition-all shrink-0"
+              :class="stepCircleClass(i + 1)">
+              <Check v-if="i + 1 < ob.currentStep" class="w-[18px] h-[18px]" />
               <span v-else>{{ i + 1 }}</span>
             </div>
-            <span class="ob-step-label">{{ label }}</span>
+            <span class="text-xs font-medium mt-2 text-center max-md:hidden" :class="stepState(i + 1) === 'pending' ? 'text-muted-foreground' : 'text-primary'">{{ label }}</span>
           </div>
-          <div v-if="i < STEP_LABELS.length - 1" class="ob-connector" :class="{ done: i + 1 < ob.currentStep }"></div>
+          <div v-if="i < STEP_LABELS.length - 1" class="flex-1 h-[3px] rounded-sm self-center mb-5 transition-colors max-md:mb-0" :class="i + 1 < ob.currentStep ? 'bg-primary' : 'bg-border'"></div>
         </template>
       </div>
 
       <!-- Card contenu principale -->
-      <div class="ob-card">
+      <div class="max-w-[860px] w-full bg-card rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.10)] border border-border overflow-hidden">
         <Transition name="step" mode="out-in">
           <div :key="ob.currentStep">
 
             <!-- En-tête de la card -->
-            <div class="card-head">
-              <div class="card-head-icon">
-                <i :class="`ti ${currentMeta.icon}`" aria-hidden="true"></i>
+            <div class="px-7 py-5 border-b border-border bg-background flex items-center gap-3.5 max-md:px-4">
+              <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <component :is="currentMeta.icon" class="w-6 h-6 text-primary" />
               </div>
               <div>
-                <div class="card-head-title">{{ currentMeta.title }}</div>
-                <div class="card-head-sub">{{ currentMeta.sub }}</div>
+                <div class="text-lg font-bold text-foreground">{{ currentMeta.title }}</div>
+                <div class="text-[13px] text-muted-foreground mt-1">{{ currentMeta.sub }}</div>
               </div>
             </div>
 
             <!-- ══ ÉTAPE 1 : Calendrier ══ -->
             <template v-if="ob.currentStep === 1">
-              <div class="card-body">
+              <div :class="cardBody">
                 <WorkingDaysConfig />
-                <div v-if="calendarStore.daysPerWeek > 0" class="success-card">
-                  <i class="ti ti-circle-check" aria-hidden="true"></i>
+                <div v-if="calendarStore.daysPerWeek > 0" class="bg-success-bg border border-success rounded-lg px-4 py-2.5 flex items-center gap-2 text-[13px] text-success">
+                  <CircleCheck class="w-4 h-4" />
                   {{ calendarStore.daysPerWeek }} jour{{ calendarStore.daysPerWeek > 1 ? 's' : '' }} configuré{{ calendarStore.daysPerWeek > 1 ? 's' : '' }}
                   · {{ calendarStore.formatMinutes(calendarStore.weeklyMinutes) }} par semaine
                 </div>
               </div>
-              <div class="card-foot card-foot--end">
-                <button
-                  class="btn btn-primary"
-                  :disabled="calendarStore.daysPerWeek === 0"
-                  @click="ob.nextStep()"
-                >Continuer →</button>
+              <div :class="[cardFoot, 'justify-end']">
+                <button :class="btnPrimary" :disabled="calendarStore.daysPerWeek === 0" @click="ob.nextStep()">Continuer →</button>
               </div>
             </template>
 
             <!-- ══ ÉTAPE 2 : Structure ══ -->
             <template v-else-if="ob.currentStep === 2">
-              <div class="card-body">
+              <div :class="cardBody">
 
-                <div class="info-card">
-                  <i class="ti ti-info-circle" aria-hidden="true"></i>
+                <div :class="infoCard">
+                  <Info class="w-4 h-4 text-info shrink-0 mt-px" />
                   La Direction Générale a été créée automatiquement.
                   Ajoutez vos départements et services.
                 </div>
 
                 <!-- Liste hiérarchique des entités -->
-                <div class="entity-list">
+                <div class="flex flex-col gap-1">
                   <div
                     v-for="{ entity, depth } in flatEntities"
                     :key="entity.id"
-                    class="entity-row"
+                    class="flex items-center gap-2.5 px-2.5 py-2 bg-background border border-border rounded-lg"
                     :style="{ paddingLeft: `${10 + depth * 24}px` }"
                   >
-                    <span class="entity-type-badge" :class="`type-${entity.type}`">
+                    <span class="text-[10px] font-bold px-2 py-[3px] rounded whitespace-nowrap shrink-0 tracking-[0.03em]" :class="entTypeBadge(entity.type)">
                       {{ TYPE_LABELS[entity.type] ?? entity.type }}
                     </span>
-                    <span class="entity-name">{{ entity.name }}</span>
-                    <span v-if="entity.responsibleName" class="entity-responsible">
-                      <i class="ti ti-user" aria-hidden="true"></i> {{ entity.responsibleName }}
+                    <span class="flex-1 text-[13px] font-medium text-foreground">{{ entity.name }}</span>
+                    <span v-if="entity.responsibleName" class="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
+                      <User class="w-3 h-3" /> {{ entity.responsibleName }}
                     </span>
                   </div>
                 </div>
 
-                <button class="btn btn-outline" @click="showEntityModal = true">
-                  <i class="ti ti-plus" aria-hidden="true"></i> Ajouter une entité
+                <button :class="btnOutline" @click="showEntityModal = true">
+                  <Plus class="w-4 h-4" /> Ajouter une entité
                 </button>
 
               </div>
-              <div class="card-foot card-foot--between">
-                <button class="btn btn-outline" @click="ob.prevStep()">← Précédent</button>
-                <div class="foot-right">
-                  <button class="btn-skip" @click="ob.nextStep()">Passer →</button>
+              <div :class="[cardFoot, 'justify-between max-[480px]:flex-col max-[480px]:gap-2.5 max-[480px]:items-stretch']">
+                <button :class="btnOutline" @click="ob.prevStep()">← Précédent</button>
+                <div class="flex items-center max-[480px]:flex-col max-[480px]:gap-2.5">
+                  <button class="bg-transparent border-0 cursor-pointer text-xs text-muted-foreground mr-3 py-1 transition-colors hover:text-foreground max-[480px]:mr-0" @click="ob.nextStep()">Passer →</button>
                   <span :title="entityStore.entities.length < 2 ? 'Créez au moins un département pour continuer' : ''">
-                    <button
-                      class="btn btn-primary"
-                      :disabled="entityStore.entities.length < 2"
-                      @click="ob.nextStep()"
-                    >Continuer →</button>
+                    <button :class="btnPrimary" :disabled="entityStore.entities.length < 2" @click="ob.nextStep()">Continuer →</button>
                   </span>
                 </div>
               </div>
@@ -119,48 +112,40 @@
 
             <!-- ══ ÉTAPE 3 : Équipe ══ -->
             <template v-else>
-              <div class="card-body">
+              <div :class="cardBody">
 
-                <div class="info-card">
-                  <i class="ti ti-info-circle" aria-hidden="true"></i>
+                <div :class="infoCard">
+                  <Info class="w-4 h-4 text-info shrink-0 mt-px" />
                   Les employés sans accès numérique peuvent quand même avoir
                   des demandes soumises par leur manager.
                 </div>
 
                 <!-- État vide -->
-                <div v-if="empStore.employees.length === 0" class="empty-state">
-                  <i class="ti ti-users" aria-hidden="true"></i>
-                  <div class="empty-title">Aucun employé créé</div>
-                  <div class="empty-sub">Commencez par ajouter votre premier collaborateur</div>
+                <div v-if="empStore.employees.length === 0" class="flex flex-col items-center gap-1.5 px-4 py-7 text-center">
+                  <Users class="w-12 h-12 text-muted-foreground" />
+                  <div class="text-sm font-semibold text-foreground">Aucun employé créé</div>
+                  <div class="text-xs text-muted-foreground">Commencez par ajouter votre premier collaborateur</div>
                 </div>
 
                 <!-- Liste compacte -->
-                <div v-else class="employee-list">
-                  <div v-for="emp in empStore.employees" :key="emp.id" class="employee-row">
+                <div v-else class="flex flex-col gap-1">
+                  <div v-for="emp in empStore.employees" :key="emp.id" class="flex items-center gap-2.5 px-2.5 py-2 bg-background border border-border rounded-lg">
                     <UserAvatar :name="emp.name" size="sm" />
-                    <span class="employee-name">{{ emp.name }}</span>
-                    <span class="employee-entity">{{ emp.entityName }}</span>
-                    <span class="role-badge">{{ ROLE_LABELS[emp.role] ?? emp.role }}</span>
+                    <span class="text-[13px] font-medium text-foreground">{{ emp.name }}</span>
+                    <span class="flex-1 text-xs text-muted-foreground">{{ emp.entityName }}</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap shrink-0">{{ ROLE_LABELS[emp.role] ?? emp.role }}</span>
                   </div>
                 </div>
 
-                <button class="btn btn-outline" @click="showEmployeeModal = true">
-                  <i class="ti ti-user-plus" aria-hidden="true"></i> Ajouter un employé
+                <button :class="btnOutline" @click="showEmployeeModal = true">
+                  <UserPlus class="w-4 h-4" /> Ajouter un employé
                 </button>
 
               </div>
-              <div class="card-foot card-foot--between">
-                <button class="btn btn-outline" @click="ob.prevStep()">← Précédent</button>
-                <button
-                  v-if="empStore.employees.length === 0"
-                  class="btn btn-outline"
-                  @click="finish(false)"
-                >Passer et accéder →</button>
-                <button
-                  v-else
-                  class="btn btn-primary"
-                  @click="finish(true)"
-                >Accéder à l'application →</button>
+              <div :class="[cardFoot, 'justify-between max-[480px]:flex-col max-[480px]:gap-2.5 max-[480px]:items-stretch']">
+                <button :class="btnOutline" @click="ob.prevStep()">← Précédent</button>
+                <button v-if="empStore.employees.length === 0" :class="btnOutline" @click="finish(false)">Passer et accéder →</button>
+                <button v-else :class="btnPrimary" @click="finish(true)">Accéder à l'application →</button>
               </div>
             </template>
 
@@ -171,7 +156,7 @@
     </div>
 
     <!-- ── Pied de page ── -->
-    <footer class="ob-footer">
+    <footer class="h-12 shrink-0 bg-card border-t border-border flex items-center justify-center text-[11px] text-muted-foreground">
       Vous pourrez modifier ces configurations à tout moment dans le menu Configuration
     </footer>
 
@@ -183,8 +168,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
+import { Check, CalendarDays, Building, Users, CircleCheck, Info, User, Plus, UserPlus } from 'lucide-vue-next'
 import { useAuthStore }       from '../stores/auth'
 import { useCalendarStore }   from '../stores/calendar'
 import { useEntityStore }     from '../stores/entities'
@@ -203,6 +189,34 @@ const empStore      = useEmployeeStore()
 const ob            = useOnboardingStore()
 const router        = useRouter()
 
+// ── Classes du design system ─────────────────────────────────
+const cardBody = 'px-7 py-6 flex flex-col gap-4 max-md:px-4 max-md:py-5'
+const cardFoot = 'px-7 py-4 border-t border-border flex items-center max-md:px-4'
+const infoCard = 'bg-info-bg border-l-[3px] border-info rounded-lg px-4 py-3 flex items-start gap-2 text-[13px] text-foreground leading-relaxed'
+const btnPrimary = 'inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold cursor-pointer border-0 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap max-[480px]:w-full max-[480px]:justify-center'
+const btnOutline = 'inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold cursor-pointer bg-card text-foreground border border-border transition-colors hover:bg-background whitespace-nowrap max-[480px]:w-full max-[480px]:justify-center'
+
+// Dégradé de fond (vert clair → blanc → rouge clair Galana)
+const bgStyle = {
+  background: 'linear-gradient(135deg, var(--galana-green-light) 0%, #ffffff 50%, var(--galana-red-light) 100%)',
+}
+
+function stepCircleClass(step: number): string {
+  const state = stepState(step)
+  if (state === 'pending') return 'bg-card text-muted-foreground border-2 border-border'
+  // done / current : cercle plein vert avec halo
+  return 'bg-primary text-white shadow-[0_0_0_4px_var(--color-primary-light)]' + (state === 'current' ? ' ob-pulse' : '')
+}
+
+function entTypeBadge(type: string): string {
+  const m: Record<string, string> = {
+    direction:  'bg-danger text-white',
+    department: 'bg-success text-white',
+    service:    'bg-card text-success border border-success',
+  }
+  return m[type] ?? 'bg-neutral-bg text-neutral'
+}
+
 // Vérification auth manuelle (la route n'a pas requiresAuth pour éviter les boucles)
 onMounted(() => {
   if (!auth.isLoggedIn)         router.replace({ path: '/' })
@@ -216,10 +230,10 @@ const leaving           = ref(false)
 // ── Steps ────────────────────────────────────────────────────────────
 const STEP_LABELS = ['Calendrier', 'Structure', 'Équipe'] as const
 
-const STEP_META: Record<number, { icon: string; title: string; sub: string }> = {
-  1: { icon: 'ti-calendar-event', title: 'Configurez votre calendrier', sub: 'Définissez les jours et horaires de travail de votre entreprise' },
-  2: { icon: 'ti-building',       title: 'Créez votre structure',       sub: 'Définissez la hiérarchie de votre organisation' },
-  3: { icon: 'ti-users',          title: 'Ajoutez votre équipe',        sub: 'Créez les comptes de vos collaborateurs' },
+const STEP_META: Record<number, { icon: Component; title: string; sub: string }> = {
+  1: { icon: CalendarDays, title: 'Configurez votre calendrier', sub: 'Définissez les jours et horaires de travail de votre entreprise' },
+  2: { icon: Building,     title: 'Créez votre structure',       sub: 'Définissez la hiérarchie de votre organisation' },
+  3: { icon: Users,        title: 'Ajoutez votre équipe',        sub: 'Créez les comptes de vos collaborateurs' },
 }
 const currentMeta = computed(() => STEP_META[ob.currentStep]!)
 
@@ -268,359 +282,16 @@ function finish(withFade: boolean) {
 </script>
 
 <style scoped>
-/* ── Layout général ── */
-.ob-shell {
-  min-height: 100vh;
-  background: linear-gradient(
-    135deg,
-    var(--galana-green-light) 0%,
-    #ffffff 50%,
-    var(--galana-red-light) 100%
-  );
-  display: flex;
-  flex-direction: column;
-  transition: opacity 0.25s ease;
-}
-.ob-shell--leaving { opacity: 0; }
-
-/* ── En-tête minimal ── */
-.ob-header {
-  height: 60px;
-  flex-shrink: 0;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  padding: 0 40px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.ob-header-left { display: flex; align-items: center; }
-.ob-logo { height: 34px; display: block; }
-.ob-sep {
-  width: 1px;
-  height: 20px;
-  margin: 0 14px;
-  background: var(--color-border);
-}
-.ob-brand { font-size: 16px; font-weight: 800; letter-spacing: 0.05em; color: var(--color-text); }
-.ob-badge {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary-mid);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-/* ── Zone centrale ── */
-.ob-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 860px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 40px 24px;
-}
-
-/* ── Titre principal ── */
-.ob-title-wrap { text-align: center; margin-bottom: 40px; }
-.ob-title    { font-size: 28px; font-weight: 800; color: var(--color-text); margin: 0; }
-.ob-subtitle { font-size: 15px; color: var(--color-text-muted); margin: 8px 0 0; }
-
-/* ── Barre de progression ── */
-.ob-steps {
-  display: flex;
-  align-items: flex-start;
-  max-width: 600px;
-  width: 100%;
-  margin: 0 auto 40px;
-}
-.ob-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-.ob-step.done { cursor: pointer; }
-.ob-step-circle {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
-}
-.ob-step.done .ob-step-circle,
-.ob-step.current .ob-step-circle {
-  background: var(--color-primary);
-  color: #fff;
-  box-shadow: 0 0 0 4px var(--color-primary-light);
-}
-.ob-step.done .ob-step-circle i { font-size: 18px; }
-.ob-step.current .ob-step-circle { animation: pulse 2s infinite; }
-.ob-step.pending .ob-step-circle {
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  border: 2px solid var(--color-border);
-}
+/* Animation pulse du cercle d'étape courante + transition entre étapes
+   (non exprimables en utilitaires Tailwind) */
+.ob-pulse { animation: pulse 2s infinite; }
 @keyframes pulse {
   0%, 100% { box-shadow: 0 0 0 4px var(--color-primary-light); }
   50%      { box-shadow: 0 0 0 10px transparent; }
 }
-.ob-step-label {
-  font-size: 12px;
-  font-weight: 500;
-  margin-top: 8px;
-  text-align: center;
-  color: var(--color-text-muted);
-}
-.ob-step.done .ob-step-label,
-.ob-step.current .ob-step-label { color: var(--color-primary); }
 
-.ob-connector {
-  flex: 1;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--color-border);
-  transition: background 0.4s ease;
-  margin-bottom: 20px;
-  align-self: center;
-}
-.ob-connector.done { background: var(--color-primary); }
-
-/* ── Card contenu principale ── */
-.ob-card {
-  max-width: 860px;
-  width: 100%;
-  background: var(--color-surface);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
-  border: 1px solid var(--color-border);
-  overflow: hidden;
-}
-
-/* Transition entre étapes */
 .step-enter-active,
 .step-leave-active { transition: all 0.25s ease; }
 .step-enter-from { opacity: 0; transform: translateX(16px); }
 .step-leave-to   { opacity: 0; transform: translateX(-16px); }
-
-/* ── En-tête de la card ── */
-.card-head {
-  padding: 20px 28px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg);
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.card-head-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: var(--color-primary-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.card-head-icon i  { font-size: 24px; color: var(--color-primary); }
-.card-head-title   { font-size: 18px; font-weight: 700; color: var(--color-text); }
-.card-head-sub     { font-size: 13px; color: var(--color-text-muted); margin-top: 4px; }
-
-/* ── Corps de la card ── */
-.card-body {
-  padding: 24px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* ── Pied de la card (boutons) ── */
-.card-foot {
-  padding: 16px 28px;
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-}
-.card-foot--end     { justify-content: flex-end; }
-.card-foot--between { justify-content: space-between; }
-.foot-right { display: flex; align-items: center; }
-
-/* ── Card succès (étape 1) ── */
-.success-card {
-  background: var(--color-success-bg);
-  border: 1px solid var(--color-success);
-  border-radius: 8px;
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-success);
-}
-.success-card i { font-size: 16px; }
-
-/* ── Card info (étapes 2 & 3) ── */
-.info-card {
-  background: var(--color-info-bg);
-  border-left: 3px solid var(--color-info);
-  border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text);
-  line-height: 1.5;
-}
-.info-card i { color: var(--color-info); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-
-/* ── Liste des entités ── */
-.entity-list { display: flex; flex-direction: column; gap: 4px; }
-.entity-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  background: var(--color-bg);
-  border: 0.5px solid var(--color-border);
-  border-radius: 8px;
-}
-.entity-type-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 4px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  letter-spacing: 0.03em;
-}
-.type-direction  { background: var(--galana-red);   color: var(--color-surface); }
-.type-department { background: var(--galana-green); color: var(--color-surface); }
-.type-service    { background: var(--color-surface); color: var(--galana-green); border: 1px solid var(--galana-green); }
-.entity-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--color-text); }
-.entity-responsible {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-/* ── Liste des employés ── */
-.employee-list { display: flex; flex-direction: column; gap: 4px; }
-.employee-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  background: var(--color-bg);
-  border: 0.5px solid var(--color-border);
-  border-radius: 8px;
-}
-.employee-name   { font-size: 13px; font-weight: 500; color: var(--color-text); }
-.employee-entity { flex: 1; font-size: 12px; color: var(--color-text-muted); }
-.role-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* ── État vide (étape 3) ── */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 28px 16px;
-  text-align: center;
-}
-.empty-state i { font-size: 48px; color: var(--color-text-muted); }
-.empty-title   { font-size: 14px; font-weight: 600; color: var(--color-text); }
-.empty-sub     { font-size: 12px; color: var(--color-text-muted); }
-
-/* ── Boutons ── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 20px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: background 0.12s, opacity 0.12s;
-  white-space: nowrap;
-}
-.btn-primary { background: var(--color-primary); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--color-primary-dark); }
-.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-outline {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 0.5px solid var(--color-border);
-}
-.btn-outline:hover { background: var(--color-bg); }
-.btn-skip {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  margin-right: 12px;
-  padding: 4px 0;
-  transition: color 0.12s;
-}
-.btn-skip:hover { color: var(--color-text); }
-
-/* ── Pied de page ── */
-.ob-footer {
-  height: 48px;
-  flex-shrink: 0;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .ob-center  { padding: 24px 16px; }
-  .ob-card    { max-width: 100%; }
-  .card-body,
-  .card-head,
-  .card-foot  { padding-left: 16px; padding-right: 16px; }
-  .card-body  { padding-top: 20px; padding-bottom: 20px; }
-  .ob-step-label { display: none; }
-  .ob-connector  { margin-bottom: 0; }
-  .ob-title   { font-size: 22px; }
-}
-@media (max-width: 480px) {
-  .ob-header { padding: 0 16px; }
-  .ob-title  { font-size: 18px; }
-  .card-foot,
-  .card-foot--between,
-  .foot-right { flex-direction: column; gap: 10px; align-items: stretch; }
-  .foot-right .btn-skip { margin-right: 0; }
-  .btn { width: 100%; justify-content: center; }
-}
 </style>

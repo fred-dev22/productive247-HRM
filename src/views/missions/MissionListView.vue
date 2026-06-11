@@ -1,20 +1,20 @@
 <template>
-  <div class="app-shell">
+  <div :class="L.shell">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div :class="L.mainLayout">
       <AppSidebar />
-      <main class="content">
+      <main :class="L.content">
 
         <!-- ── En-tête ── -->
-        <div class="page-header">
+        <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
           <div>
-            <h1 class="page-title">{{ isRh ? 'Gestion des missions' : 'Mes missions' }}</h1>
-            <p class="page-sub">
+            <h1 class="text-xl font-bold text-foreground">{{ isRh ? 'Gestion des missions' : 'Mes missions' }}</h1>
+            <p class="text-[13px] text-muted-foreground mt-0.5">
               {{ isRh ? 'Toutes les ordres de mission' : 'Vos ordres de mission' }}
             </p>
           </div>
-          <button class="btn btn-primary" @click="openCreate">
-            <i class="ti ti-plus" aria-hidden="true"></i> Nouvelle mission
+          <button :class="L.btnPrimary" @click="openCreate">
+            <Plus class="w-4 h-4" /> Nouvelle mission
           </button>
         </div>
 
@@ -26,7 +26,7 @@
           row-key="id"
         >
           <template #filters>
-            <select v-model="filterStatus" class="filter-select">
+            <select v-model="filterStatus" class="h-[34px] px-2.5 border border-border rounded-md bg-card text-[13px] text-foreground outline-none focus:border-primary">
               <option value="">Tous les statuts</option>
               <option value="draft">Brouillon</option>
               <option value="pending">En attente</option>
@@ -38,30 +38,30 @@
           </template>
 
           <template #cell-code="{ row }">
-            <span class="mission-code">{{ row.code }}</span>
+            <span class="font-mono text-xs font-semibold text-primary">{{ row.code }}</span>
           </template>
 
           <template #cell-employeeName="{ row }" v-if="isRh">
-            <div class="emp-cell">
+            <div class="flex items-center gap-2">
               <UserAvatar :name="row.employeeName" size="sm" />
               <span>{{ row.employeeName }}</span>
             </div>
           </template>
 
           <template #cell-dates="{ row }">
-            <div class="date-cell">
+            <div class="flex items-center gap-1 text-xs">
               <span>{{ shortDate(row.departureDate) }}</span>
-              <span class="date-arrow">→</span>
+              <span class="text-muted-foreground">→</span>
               <span>{{ shortDate(row.returnDate) }}</span>
             </div>
           </template>
 
           <template #cell-numberOfDays="{ row }">
-            <span class="days-badge">{{ row.numberOfDays }}j</span>
+            <span class="bg-info-bg text-info text-[11px] font-semibold px-2 py-0.5 rounded-full">{{ row.numberOfDays }}j</span>
           </template>
 
           <template #cell-totalMission="{ row }">
-            <span class="amount-cell">{{ fmtNum(row.totalMission) }} MGA</span>
+            <span class="text-xs font-semibold text-foreground whitespace-nowrap">{{ fmtNum(row.totalMission) }} MGA</span>
           </template>
 
           <template #cell-status="{ row }">
@@ -69,32 +69,24 @@
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="actions-cell">
-              <button class="act-btn act-view" @click="openDetail(row.id)">
-                <i class="ti ti-eye" aria-hidden="true"></i> Voir
+            <div class="flex gap-1 flex-wrap">
+              <button :class="actView" @click="openDetail(row.id)">
+                <Eye class="w-3.5 h-3.5" /> Voir
               </button>
               <template v-if="isRh && row.status === 'pending'">
-                <button class="act-btn act-approve" @click="approve(row.id)">
-                  <i class="ti ti-check" aria-hidden="true"></i> Approuver
+                <button :class="L.actApprove" @click="approve(row.id)">
+                  <Check class="w-3.5 h-3.5" /> Approuver
                 </button>
-                <button class="act-btn act-reject" @click="openRejectModal(row.id)">
-                  <i class="ti ti-x" aria-hidden="true"></i> Refuser
+                <button :class="L.actReject" @click="openRejectModal(row.id)">
+                  <X class="w-3.5 h-3.5" /> Refuser
                 </button>
               </template>
               <template v-if="!isRh">
-                <button
-                  v-if="row.status === 'draft'"
-                  class="act-btn act-submit"
-                  @click="submitMission(row.id)"
-                >
-                  <i class="ti ti-send" aria-hidden="true"></i> Soumettre
+                <button v-if="row.status === 'draft'" :class="L.actBtn" class="bg-info-bg text-primary" @click="submitMission(row.id)">
+                  <Send class="w-3.5 h-3.5" /> Soumettre
                 </button>
-                <button
-                  v-if="row.status === 'draft' || row.status === 'returned'"
-                  class="act-btn act-cancel"
-                  @click="cancelMission(row.id)"
-                >
-                  <i class="ti ti-trash" aria-hidden="true"></i>
+                <button v-if="row.status === 'draft' || row.status === 'returned'" :class="L.actReject" @click="cancelMission(row.id)">
+                  <Trash2 class="w-3.5 h-3.5" />
                 </button>
               </template>
             </div>
@@ -125,65 +117,36 @@
   />
 
   <!-- ── Modal Refus ── -->
-  <Teleport to="body">
-    <div v-if="rejectModal.open" class="modal-overlay" @click.self="rejectModal.open = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">Refuser la mission</span>
-          <button class="modal-close-btn" @click="rejectModal.open = false">
-            <i class="ti ti-x"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Motif de refus *</span>
-            <textarea v-model="rejectModal.reason" class="field-textarea" rows="4"
-              placeholder="Indiquez le motif du refus..."></textarea>
-            <span v-if="rejectModal.error" class="field-error">{{ rejectModal.error }}</span>
-          </label>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="rejectModal.open = false">Annuler</button>
-          <button class="btn btn-danger" @click="confirmReject">
-            <i class="ti ti-x" aria-hidden="true"></i> Confirmer le refus
-          </button>
-        </div>
-      </div>
+  <ModalShell :open="rejectModal.open" title="Refuser la mission" max-width="max-w-[440px]" @close="rejectModal.open = false">
+    <div :class="cls.field">
+      <span :class="cls.fieldLabel">Motif de refus *</span>
+      <textarea v-model="rejectModal.reason" :class="cls.fieldTextarea" rows="4" placeholder="Indiquez le motif du refus..."></textarea>
+      <span v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</span>
     </div>
-  </Teleport>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="rejectModal.open = false">Annuler</button>
+      <button :class="cls.btnDestructive" @click="confirmReject"><X class="w-4 h-4" /> Confirmer le refus</button>
+    </template>
+  </ModalShell>
 
   <!-- ── Modal Retour ── -->
-  <Teleport to="body">
-    <div v-if="returnModal.open" class="modal-overlay" @click.self="returnModal.open = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">Retourner la mission</span>
-          <button class="modal-close-btn" @click="returnModal.open = false">
-            <i class="ti ti-x"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Commentaire obligatoire *</span>
-            <textarea v-model="returnModal.comment" class="field-textarea" rows="4"
-              placeholder="Expliquez ce qui doit être corrigé..."></textarea>
-            <span v-if="returnModal.error" class="field-error">{{ returnModal.error }}</span>
-          </label>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="returnModal.open = false">Annuler</button>
-          <button class="btn btn-return" @click="confirmReturn">
-            <i class="ti ti-arrow-back-up" aria-hidden="true"></i> Retourner
-          </button>
-        </div>
-      </div>
+  <ModalShell :open="returnModal.open" title="Retourner la mission" max-width="max-w-[440px]" @close="returnModal.open = false">
+    <div :class="cls.field">
+      <span :class="cls.fieldLabel">Commentaire obligatoire *</span>
+      <textarea v-model="returnModal.comment" :class="cls.fieldTextarea" rows="4" placeholder="Expliquez ce qui doit être corrigé..."></textarea>
+      <span v-if="returnModal.error" :class="cls.fieldError">{{ returnModal.error }}</span>
     </div>
-  </Teleport>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="returnModal.open = false">Annuler</button>
+      <button :class="cls.btnInfo" @click="confirmReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
+    </template>
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import { useRoute }         from 'vue-router'
+import { Plus, Eye, Check, X, Send, Trash2, Undo2 } from 'lucide-vue-next'
 import AppTopNav            from '../../components/AppTopNav.vue'
 import AppSidebar           from '../../components/AppSidebar.vue'
 import DataTable            from '../../components/ui/DataTable.vue'
@@ -191,6 +154,9 @@ import UserAvatar           from '../../components/ui/UserAvatar.vue'
 import StatusPill           from '../../components/ui/StatusPill.vue'
 import MissionFormModal     from '../../components/missions/MissionFormModal.vue'
 import MissionDetailModal   from '../../components/missions/MissionDetailModal.vue'
+import ModalShell           from '../../components/ui/ModalShell.vue'
+import * as cls             from '../../lib/formClasses'
+import * as L               from '../../lib/listClasses'
 import { useAuthStore }     from '../../stores/auth'
 import { useMissionStore }  from '../../stores/missions'
 import type { MissionStatus } from '../../types'
@@ -198,6 +164,8 @@ import type { MissionStatus } from '../../types'
 const auth         = useAuthStore()
 const missionStore = useMissionStore()
 const route        = useRoute()
+
+const actView = L.actBtn + ' bg-background text-muted-foreground border border-border hover:bg-border'
 
 const isRh = computed(() =>
   route.path.startsWith('/hr') ||
@@ -282,66 +250,3 @@ function confirmReturn() {
   returnModal.open = false
 }
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; padding: 24px 28px; background: var(--color-bg); overflow-y: auto; }
-
-.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
-.page-title  { font-size: 20px; font-weight: 700; color: var(--color-text); }
-.page-sub    { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-
-.btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; white-space: nowrap; }
-.btn-primary { background: var(--color-primary); color: #fff; }
-.btn-primary:hover { background: var(--color-primary-dark); }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-.btn-danger  { background: var(--color-danger); color: #fff; }
-.btn-danger:hover { opacity: .88; }
-.btn-return  { background: var(--color-info-bg); color: var(--color-info); border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-.btn-return:hover { background: var(--color-info); color: #fff; }
-
-.filter-select { height: 34px; padding: 0 10px; border: 0.5px solid var(--color-border); border-radius: 6px; background: var(--color-bg); font-size: 13px; color: var(--color-text); outline: none; }
-
-.mission-code { font-family: monospace; font-size: 12px; font-weight: 600; color: var(--color-primary); }
-.emp-cell     { display: flex; align-items: center; gap: 8px; }
-.date-cell    { display: flex; align-items: center; gap: 4px; font-size: 12px; }
-.date-arrow   { color: var(--color-text-muted); }
-.days-badge   { background: var(--color-info-bg); color: var(--color-info); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
-.amount-cell  { font-size: 12px; font-weight: 600; color: var(--color-text); white-space: nowrap; }
-
-.actions-cell { display: flex; gap: 4px; flex-wrap: wrap; }
-.act-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 5px; font-size: 11px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; white-space: nowrap; }
-.act-view    { background: var(--color-bg); color: var(--color-text-muted); border: 0.5px solid var(--color-border); }
-.act-view:hover    { background: var(--color-border); }
-.act-approve { background: var(--color-success-bg); color: var(--color-success); }
-.act-approve:hover { background: var(--color-success); color: #fff; }
-.act-reject  { background: var(--color-danger-bg); color: var(--color-danger); }
-.act-reject:hover  { background: var(--color-danger); color: #fff; }
-.act-submit  { background: var(--color-primary-bg, var(--color-info-bg)); color: var(--color-primary); }
-.act-submit:hover  { background: var(--color-primary); color: #fff; }
-.act-cancel  { background: var(--color-danger-bg); color: var(--color-danger); }
-.act-cancel:hover  { background: var(--color-danger); color: #fff; }
-
-/* Modals */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-card    { background: var(--color-surface); border-radius: 12px; padding: 24px; max-width: 440px; width: 95%; box-shadow: 0 8px 32px rgba(0,0,0,.16); }
-.modal-header  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.modal-title   { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.modal-close-btn { width: 28px; height: 28px; border: none; background: var(--color-bg); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: 14px; }
-.modal-close-btn:hover { background: var(--color-border); }
-.modal-body    { display: flex; flex-direction: column; gap: 14px; }
-.modal-footer  { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 0.5px solid var(--color-border); }
-
-.field         { display: flex; flex-direction: column; gap: 4px; }
-.field-label   { font-size: 12px; font-weight: 500; color: var(--color-text); }
-.field-textarea { padding: 8px 10px; border: 0.5px solid var(--color-border); border-radius: 6px; background: var(--color-bg); font-size: 13px; color: var(--color-text); outline: none; resize: vertical; font-family: inherit; width: 100%; box-sizing: border-box; }
-.field-textarea:focus { border-color: var(--color-primary); }
-.field-error   { font-size: 11px; color: var(--color-danger); }
-
-@media (max-width: 768px) {
-  .content { padding: 16px; }
-  .modal-card { width: 95%; padding: 18px; }
-}
-</style>

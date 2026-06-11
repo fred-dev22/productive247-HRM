@@ -1,251 +1,233 @@
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue" class="modal-overlay" @click.self="close">
-      <div class="modal-card">
+  <ModalShell
+    :open="modelValue"
+    :title="editId ? 'Modifier la mission' : 'Nouvelle mission'"
+    max-width="max-w-[640px]"
+    @close="close"
+  >
 
-        <!-- ── En-tête ── -->
-        <div class="modal-header">
-          <span class="modal-title-text">
-            {{ editId ? 'Modifier la mission' : 'Nouvelle mission' }}
-          </span>
-          <button class="modal-close-btn" @click="close">
-            <i class="ti ti-x" aria-hidden="true"></i>
-          </button>
+    <!-- Section : Informations générales -->
+    <div :class="sectionTitle">Informations générales</div>
+
+    <!-- Sélecteur de bénéficiaire -->
+    <ForWhomSelector
+      v-model="forWhom"
+      :available-employees="employeeItems"
+      :error-employee="errors.employee"
+    />
+
+    <!-- Badge employé avec catégorie -->
+    <div v-if="selectedEmployee" class="flex items-center gap-2.5 px-3.5 py-2.5 bg-background border border-border rounded-lg">
+      <UserAvatar :name="selectedEmployee.name" size="sm" />
+      <div class="flex flex-col gap-0.5">
+        <div class="text-[13px] font-medium text-foreground">{{ selectedEmployee.name }}</div>
+        <div class="text-[11px] text-muted-foreground flex items-center gap-1">
+          <Tag class="w-3 h-3" />
+          {{ perdiemCategoryLabel }}
         </div>
-
-        <div class="modal-body">
-
-          <!-- Section : Informations générales -->
-          <div class="section-title">Informations générales</div>
-
-          <!-- Sélecteur de bénéficiaire -->
-          <ForWhomSelector
-            v-model="forWhom"
-            :available-employees="employeeItems"
-            :error-employee="errors.employee"
-          />
-
-          <!-- Badge employé avec catégorie -->
-          <div v-if="selectedEmployee" class="emp-badge">
-            <UserAvatar :name="selectedEmployee.name" size="sm" />
-            <div class="emp-badge-info">
-              <div class="emp-badge-name">{{ selectedEmployee.name }}</div>
-              <div class="emp-badge-cat">
-                <i class="ti ti-tag" aria-hidden="true"></i>
-                {{ perdiemCategoryLabel }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Destination -->
-          <div class="field">
-            <label class="field-label">Destination *</label>
-            <input
-              v-model="form.destination"
-              class="field-input"
-              :class="{ 'input-error': errors.destination }"
-              placeholder="ex: Antananarivo, Toamasina..."
-            />
-            <div v-if="errors.destination" class="field-error">{{ errors.destination }}</div>
-          </div>
-
-          <!-- Objet / Motif -->
-          <div class="field">
-            <label class="field-label">Objet / Motif de la mission *</label>
-            <textarea
-              v-model="form.purpose"
-              class="field-textarea"
-              rows="2"
-              :class="{ 'input-error': errors.purpose }"
-              placeholder="Décrivez l'objet de la mission..."
-            ></textarea>
-            <div v-if="errors.purpose" class="field-error">{{ errors.purpose }}</div>
-          </div>
-
-          <!-- Section : Déplacement -->
-          <div class="section-title">Déplacement</div>
-
-          <div class="field-row">
-            <div class="field">
-              <label class="field-label">Date et heure de départ *</label>
-              <input
-                type="datetime-local"
-                v-model="form.departureDate"
-                class="field-input"
-                :class="{ 'input-error': errors.departureDate }"
-              />
-              <div v-if="errors.departureDate" class="field-error">{{ errors.departureDate }}</div>
-            </div>
-            <div class="field">
-              <label class="field-label">Date et heure de retour *</label>
-              <input
-                type="datetime-local"
-                v-model="form.returnDate"
-                class="field-input"
-                :class="{ 'input-error': errors.returnDate }"
-                :min="form.departureDate"
-              />
-              <div v-if="errors.returnDate" class="field-error">{{ errors.returnDate }}</div>
-            </div>
-          </div>
-
-          <div class="field-row">
-            <div class="field">
-              <label class="field-label">Transport aller</label>
-              <SearchableDropdown
-                :items="transportItems"
-                :model-value="form.transportMode"
-                :show-avatar="false"
-                @update:model-value="form.transportMode = $event as TransportMode"
-              />
-            </div>
-            <div class="field">
-              <label class="field-label">Transport retour</label>
-              <SearchableDropdown
-                :items="transportItems"
-                :model-value="form.transportModeReturn"
-                :show-avatar="false"
-                @update:model-value="form.transportModeReturn = $event as TransportMode"
-              />
-            </div>
-          </div>
-
-          <!-- Section : Indemnité per diem -->
-          <div class="section-title">Indemnité per diem</div>
-
-          <div v-if="selectedEmployee && form.departureDate && form.returnDate && perdiemRate" class="perdiem-card">
-            <div class="pd-row">
-              <span class="pd-label">Catégorie</span>
-              <span class="pd-val">{{ perdiemCategoryLabel }}</span>
-            </div>
-            <div class="pd-row">
-              <span class="pd-label">Taux journalier</span>
-              <span class="pd-val">{{ fmt(perdiemRate.ratePerDay) }} {{ perdiemRate.currency }}</span>
-            </div>
-            <div class="pd-row">
-              <span class="pd-label">Nombre de jours</span>
-              <span class="pd-val">{{ computedDays }} jour(s)</span>
-            </div>
-            <div class="pd-divider"></div>
-            <div class="pd-row pd-total">
-              <span class="pd-label">Total per diem</span>
-              <span class="pd-val">{{ fmt(perdiemTotal) }} {{ perdiemRate.currency }}</span>
-            </div>
-          </div>
-          <div v-else class="allowance-empty">
-            <i class="ti ti-calculator" aria-hidden="true"></i>
-            {{
-              !selectedEmployee
-                ? 'Sélectionnez un employé et des dates pour calculer le per diem'
-                : 'Sélectionnez des dates pour calculer le per diem'
-            }}
-          </div>
-
-          <!-- Section : Frais supplémentaires -->
-          <div class="section-title">
-            Frais supplémentaires
-            <span class="section-opt">(optionnel)</span>
-          </div>
-
-          <div v-if="expenseLines.length > 0" class="expense-table">
-            <div class="expense-header">
-              <span>Catégorie</span>
-              <span>Description</span>
-              <span>Montant</span>
-              <span></span>
-            </div>
-            <div v-for="(line, i) in expenseLines" :key="i" class="expense-row">
-              <select v-model="line.category" class="field-input field-input-sm">
-                <option v-for="cat in EXPENSE_CATS" :key="cat.value" :value="cat.value">{{ cat.label }}</option>
-              </select>
-              <input
-                v-model="line.description"
-                class="field-input field-input-sm"
-                placeholder="Description..."
-              />
-              <input
-                v-model.number="line.amount"
-                type="number"
-                class="field-input field-input-sm"
-                min="0"
-                placeholder="0"
-              />
-              <button class="remove-line-btn" @click="removeLine(i)" title="Supprimer">
-                <i class="ti ti-trash" aria-hidden="true"></i>
-              </button>
-            </div>
-          </div>
-
-          <button class="add-line-btn" @click="addLine">
-            <i class="ti ti-plus" aria-hidden="true"></i> Ajouter un frais
-          </button>
-
-          <!-- Section : Récapitulatif -->
-          <template v-if="perdiemRate || expenseLines.length > 0">
-            <div class="section-title">Récapitulatif</div>
-            <div class="recap-card">
-              <div v-if="perdiemRate" class="recap-row">
-                <span>Per diem ({{ computedDays }}j × {{ fmt(perdiemRate.ratePerDay) }})</span>
-                <span>{{ fmt(perdiemTotal) }} {{ perdiemRate.currency }}</span>
-              </div>
-              <div v-if="expenseLines.length > 0" class="recap-row">
-                <span>Frais supplémentaires</span>
-                <span>{{ fmt(expenseTotal) }} {{ perdiemRate?.currency ?? 'MGA' }}</span>
-              </div>
-              <div class="recap-divider"></div>
-              <div class="recap-row recap-total">
-                <span>TOTAL MISSION</span>
-                <span>{{ fmt(grandTotal) }} {{ perdiemRate?.currency ?? 'MGA' }}</span>
-              </div>
-              <div class="field" style="margin-top:12px">
-                <label class="field-label">Acompte demandé (optionnel)</label>
-                <input
-                  type="number"
-                  v-model.number="form.advance"
-                  class="field-input"
-                  :max="grandTotal"
-                  min="0"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </template>
-
-          <!-- Section : Notes -->
-          <div class="section-title">Notes</div>
-          <div class="field">
-            <label class="field-label">Description (optionnelle)</label>
-            <textarea
-              v-model="form.description"
-              class="field-textarea"
-              rows="2"
-              placeholder="Informations complémentaires..."
-            ></textarea>
-          </div>
-
-        </div>
-
-        <!-- ── Pied ── -->
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="handleDraft">
-            <i class="ti ti-device-floppy" aria-hidden="true"></i> Brouillon
-          </button>
-          <button class="btn btn-primary" @click="handleSubmit">
-            <i class="ti ti-send" aria-hidden="true"></i> Soumettre
-          </button>
-        </div>
-
       </div>
     </div>
-  </Teleport>
+
+    <!-- Destination -->
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Destination *</label>
+      <input
+        v-model="form.destination"
+        :class="[cls.fieldInput, errors.destination && cls.inputError]"
+        placeholder="ex: Antananarivo, Toamasina..."
+      />
+      <div v-if="errors.destination" :class="cls.fieldError">{{ errors.destination }}</div>
+    </div>
+
+    <!-- Objet / Motif -->
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Objet / Motif de la mission *</label>
+      <textarea
+        v-model="form.purpose"
+        :class="[cls.fieldTextarea, errors.purpose && cls.inputError]"
+        rows="2"
+        placeholder="Décrivez l'objet de la mission..."
+      ></textarea>
+      <div v-if="errors.purpose" :class="cls.fieldError">{{ errors.purpose }}</div>
+    </div>
+
+    <!-- Section : Déplacement -->
+    <div :class="sectionTitle">Déplacement</div>
+
+    <div :class="cls.fieldRow">
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Date et heure de départ *</label>
+        <input
+          type="datetime-local"
+          v-model="form.departureDate"
+          :class="[cls.fieldInput, errors.departureDate && cls.inputError]"
+        />
+        <div v-if="errors.departureDate" :class="cls.fieldError">{{ errors.departureDate }}</div>
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Date et heure de retour *</label>
+        <input
+          type="datetime-local"
+          v-model="form.returnDate"
+          :class="[cls.fieldInput, errors.returnDate && cls.inputError]"
+          :min="form.departureDate"
+        />
+        <div v-if="errors.returnDate" :class="cls.fieldError">{{ errors.returnDate }}</div>
+      </div>
+    </div>
+
+    <div :class="cls.fieldRow">
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Transport aller</label>
+        <SearchableDropdown
+          :items="transportItems"
+          :model-value="form.transportMode"
+          :show-avatar="false"
+          @update:model-value="form.transportMode = $event as TransportMode"
+        />
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Transport retour</label>
+        <SearchableDropdown
+          :items="transportItems"
+          :model-value="form.transportModeReturn"
+          :show-avatar="false"
+          @update:model-value="form.transportModeReturn = $event as TransportMode"
+        />
+      </div>
+    </div>
+
+    <!-- Section : Indemnité per diem -->
+    <div :class="sectionTitle">Indemnité per diem</div>
+
+    <div v-if="selectedEmployee && form.departureDate && form.returnDate && perdiemRate" class="bg-background border border-border rounded-lg p-3.5 flex flex-col gap-2">
+      <div :class="pdRow">
+        <span class="text-muted-foreground">Catégorie</span>
+        <span class="font-medium text-foreground">{{ perdiemCategoryLabel }}</span>
+      </div>
+      <div :class="pdRow">
+        <span class="text-muted-foreground">Taux journalier</span>
+        <span class="font-medium text-foreground">{{ fmt(perdiemRate.ratePerDay) }} {{ perdiemRate.currency }}</span>
+      </div>
+      <div :class="pdRow">
+        <span class="text-muted-foreground">Nombre de jours</span>
+        <span class="font-medium text-foreground">{{ computedDays }} jour(s)</span>
+      </div>
+      <div class="h-px bg-border"></div>
+      <div :class="pdRow">
+        <span class="font-bold text-foreground">Total per diem</span>
+        <span class="text-[15px] font-bold text-primary">{{ fmt(perdiemTotal) }} {{ perdiemRate.currency }}</span>
+      </div>
+    </div>
+    <div v-else class="bg-background border border-dashed border-border rounded-lg p-5 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+      <Calculator class="w-4 h-4" />
+      {{
+        !selectedEmployee
+          ? 'Sélectionnez un employé et des dates pour calculer le per diem'
+          : 'Sélectionnez des dates pour calculer le per diem'
+      }}
+    </div>
+
+    <!-- Section : Frais supplémentaires -->
+    <div :class="sectionTitle">
+      Frais supplémentaires
+      <span class="font-normal normal-case tracking-normal italic">(optionnel)</span>
+    </div>
+
+    <div v-if="expenseLines.length > 0" class="flex flex-col gap-1.5">
+      <div :class="[expenseGrid, 'text-[10px] font-bold text-muted-foreground uppercase tracking-[0.05em] px-0.5']">
+        <span>Catégorie</span>
+        <span>Description</span>
+        <span>Montant</span>
+        <span></span>
+      </div>
+      <div v-for="(line, i) in expenseLines" :key="i" :class="[expenseGrid, 'items-center']">
+        <select v-model="line.category" :class="cellInput">
+          <option v-for="cat in EXPENSE_CATS" :key="cat.value" :value="cat.value">{{ cat.label }}</option>
+        </select>
+        <input v-model="line.description" :class="cellInput" placeholder="Description..." />
+        <input v-model.number="line.amount" type="number" :class="cellInput" min="0" placeholder="0" />
+        <button
+          class="w-8 h-8 rounded-md cursor-pointer flex items-center justify-center bg-danger-bg text-danger shrink-0 transition-opacity hover:opacity-75"
+          @click="removeLine(i)" title="Supprimer"
+        >
+          <Trash2 class="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+
+    <button
+      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer border border-dashed border-border bg-transparent text-muted-foreground transition-colors self-start hover:border-primary hover:text-primary hover:bg-primary/10"
+      @click="addLine"
+    >
+      <Plus class="w-3.5 h-3.5" /> Ajouter un frais
+    </button>
+
+    <!-- Section : Récapitulatif -->
+    <template v-if="perdiemRate || expenseLines.length > 0">
+      <div :class="sectionTitle">Récapitulatif</div>
+      <div class="bg-background border border-border rounded-lg p-3.5 flex flex-col gap-2">
+        <div v-if="perdiemRate" :class="[pdRow, 'text-muted-foreground']">
+          <span>Per diem ({{ computedDays }}j × {{ fmt(perdiemRate.ratePerDay) }})</span>
+          <span>{{ fmt(perdiemTotal) }} {{ perdiemRate.currency }}</span>
+        </div>
+        <div v-if="expenseLines.length > 0" :class="[pdRow, 'text-muted-foreground']">
+          <span>Frais supplémentaires</span>
+          <span>{{ fmt(expenseTotal) }} {{ perdiemRate?.currency ?? 'MGA' }}</span>
+        </div>
+        <div class="h-px bg-border"></div>
+        <div :class="[pdRow, 'font-bold text-foreground']">
+          <span>TOTAL MISSION</span>
+          <span class="text-[15px] text-primary">{{ fmt(grandTotal) }} {{ perdiemRate?.currency ?? 'MGA' }}</span>
+        </div>
+        <div :class="[cls.field, 'mt-3']">
+          <label :class="cls.fieldLabel">Acompte demandé (optionnel)</label>
+          <input
+            type="number"
+            v-model.number="form.advance"
+            :class="cls.fieldInput"
+            :max="grandTotal"
+            min="0"
+            placeholder="0"
+          />
+        </div>
+      </div>
+    </template>
+
+    <!-- Section : Notes -->
+    <div :class="sectionTitle">Notes</div>
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Description (optionnelle)</label>
+      <textarea
+        v-model="form.description"
+        :class="cls.fieldTextarea"
+        rows="2"
+        placeholder="Informations complémentaires..."
+      ></textarea>
+    </div>
+
+    <!-- ── Pied ── -->
+    <template #footer>
+      <button :class="cls.btnOutline" @click="handleDraft">
+        <Save class="w-4 h-4" /> Brouillon
+      </button>
+      <button :class="cls.btnPrimary" @click="handleSubmit">
+        <Send class="w-4 h-4" /> Soumettre
+      </button>
+    </template>
+
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref, computed, watch } from 'vue'
+import { Tag, Calculator, Trash2, Plus, Save, Send } from 'lucide-vue-next'
+import ModalShell from '../ui/ModalShell.vue'
 import SearchableDropdown from '../ui/SearchableDropdown.vue'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
 import UserAvatar         from '../ui/UserAvatar.vue'
+import * as cls from '../../lib/formClasses'
 import { useMissionStore }  from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
 import { useAuthStore }     from '../../stores/auth'
@@ -263,6 +245,12 @@ const emit = defineEmits<{
   'submitted': []
   'drafted':   []
 }>()
+
+// ── Classes du design system ─────────────────────────────────
+const sectionTitle = 'text-[11px] font-bold text-muted-foreground uppercase tracking-[0.06em] py-1 border-b border-border mt-1 flex items-center gap-1.5'
+const pdRow = 'flex items-center justify-between text-[13px]'
+const expenseGrid = 'grid grid-cols-[130px_1fr_110px_32px] gap-1.5 max-sm:grid-cols-[100px_1fr_90px_32px]'
+const cellInput = 'w-full h-8 px-2.5 border border-border rounded-md bg-background text-xs text-foreground outline-none focus:border-primary'
 
 const missionStore  = useMissionStore()
 const employeeStore = useEmployeeStore()
@@ -458,131 +446,3 @@ function handleSubmit() {
   emit('submitted')
 }
 </script>
-
-<style scoped>
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.4);
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
-}
-.modal-card {
-  background: var(--color-surface); border-radius: 12px;
-  max-width: 640px; width: 95%; max-height: 92vh;
-  display: flex; flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0,0,0,.18);
-}
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 24px; border-bottom: 0.5px solid var(--color-border); flex-shrink: 0;
-}
-.modal-title-text { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.modal-close-btn {
-  width: 28px; height: 28px; border: none; background: var(--color-bg);
-  border-radius: 6px; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; color: var(--color-text-muted); font-size: 14px;
-}
-.modal-close-btn:hover { background: var(--color-border); }
-.modal-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
-.modal-footer {
-  display: flex; gap: 8px; justify-content: flex-end;
-  padding: 14px 24px; border-top: 0.5px solid var(--color-border); flex-shrink: 0;
-}
-
-.section-title {
-  font-size: 11px; font-weight: 700; color: var(--color-text-muted);
-  text-transform: uppercase; letter-spacing: .06em;
-  padding: 4px 0; border-bottom: 0.5px solid var(--color-border); margin-top: 4px;
-  display: flex; align-items: center; gap: 6px;
-}
-.section-opt { font-weight: 400; text-transform: none; letter-spacing: 0; font-style: italic; }
-
-
-.emp-badge {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; background: var(--color-bg);
-  border: 0.5px solid var(--color-border); border-radius: 8px;
-}
-.emp-badge-info { display: flex; flex-direction: column; gap: 2px; }
-.emp-badge-name { font-size: 13px; font-weight: 500; color: var(--color-text); }
-.emp-badge-cat  { font-size: 11px; color: var(--color-text-muted); display: flex; align-items: center; gap: 4px; }
-
-.field { display: flex; flex-direction: column; gap: 4px; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--color-text); }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.field-input {
-  height: 38px; padding: 0 10px; border: 0.5px solid var(--color-border); border-radius: 6px;
-  background: var(--color-bg); font-size: 13px; color: var(--color-text);
-  outline: none; width: 100%; box-sizing: border-box; transition: border-color .12s;
-}
-.field-input:focus { border-color: var(--color-primary); }
-.field-input.input-error { border-color: var(--color-danger) !important; }
-.field-input-sm { height: 32px; font-size: 12px; }
-.field-textarea {
-  padding: 8px 10px; border: 0.5px solid var(--color-border); border-radius: 6px;
-  background: var(--color-bg); font-size: 13px; color: var(--color-text);
-  outline: none; resize: vertical; font-family: inherit; width: 100%; box-sizing: border-box;
-}
-.field-textarea:focus { border-color: var(--color-primary); }
-.field-error { font-size: 11px; color: var(--color-danger); }
-
-.perdiem-card {
-  background: var(--color-bg); border: 0.5px solid var(--color-border);
-  border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px;
-}
-.pd-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-.pd-label { color: var(--color-text-muted); }
-.pd-val   { font-weight: 500; color: var(--color-text); }
-.pd-divider { height: 0.5px; background: var(--color-border); }
-.pd-total .pd-label { font-weight: 700; color: var(--color-text); }
-.pd-total .pd-val   { font-size: 15px; font-weight: 700; color: var(--color-primary); }
-
-.allowance-empty {
-  background: var(--color-bg); border: 0.5px dashed var(--color-border);
-  border-radius: 8px; padding: 20px; text-align: center;
-  font-size: 12px; color: var(--color-text-muted);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-
-.expense-table { display: flex; flex-direction: column; gap: 6px; }
-.expense-header {
-  display: grid; grid-template-columns: 130px 1fr 110px 32px; gap: 6px;
-  font-size: 10px; font-weight: 700; color: var(--color-text-muted);
-  text-transform: uppercase; letter-spacing: .05em; padding: 0 2px;
-}
-.expense-row { display: grid; grid-template-columns: 130px 1fr 110px 32px; gap: 6px; align-items: center; }
-.remove-line-btn {
-  width: 32px; height: 32px; border: none; border-radius: 6px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--color-danger-bg); color: var(--color-danger); font-size: 14px;
-  transition: opacity .1s; flex-shrink: 0;
-}
-.remove-line-btn:hover { opacity: .75; }
-.add-line-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
-  cursor: pointer; border: 0.5px dashed var(--color-border);
-  background: none; color: var(--color-text-muted); transition: all .12s; align-self: flex-start;
-}
-.add-line-btn:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-light); }
-
-.recap-card {
-  background: var(--color-bg); border: 0.5px solid var(--color-border);
-  border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px;
-}
-.recap-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--color-text-muted); }
-.recap-divider { height: 0.5px; background: var(--color-border); }
-.recap-total { font-weight: 700; color: var(--color-text); }
-.recap-total span:last-child { font-size: 15px; color: var(--color-primary); }
-
-.btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; white-space: nowrap; }
-.btn-primary { background: var(--color-primary); color: var(--color-surface); }
-.btn-primary:hover { opacity: .88; }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-
-@media (max-width: 600px) {
-  .modal-card { width: 97%; }
-  .field-row { grid-template-columns: 1fr; }
-  .expense-header, .expense-row { grid-template-columns: 100px 1fr 90px 32px; }
-  .mode-toggle { flex-wrap: wrap; }
-}
-</style>

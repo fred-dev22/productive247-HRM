@@ -1,121 +1,114 @@
 <template>
-  <div class="app-shell">
+  <div :class="L.shell">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div :class="L.mainLayout">
       <AppSidebar />
-      <main class="content">
+      <main :class="L.content">
 
         <!-- ── En-tête ── -->
-        <div class="page-header">
-          <div class="header-text">
-            <h1 class="page-title">Calendrier de l'entreprise</h1>
-            <p class="page-subtitle">Configuration des jours ouvrables, fériés et règles de congés</p>
-            <span class="update-badge">
-              <i class="ti ti-clock-edit" aria-hidden="true"></i>
+        <div class="flex items-start justify-between gap-4 mb-5 flex-wrap">
+          <div>
+            <h1 class="text-xl font-bold text-foreground">Calendrier de l'entreprise</h1>
+            <p class="text-[13px] text-muted-foreground mt-0.5">Configuration des jours ouvrables, fériés et règles de congés</p>
+            <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-card border border-border rounded-full px-2.5 py-[3px] mt-2">
+              <ClockArrowDown class="w-3 h-3" />
               Dernière mise à jour : {{ calendar.updatedAt }} par {{ calendar.updatedBy }}
             </span>
           </div>
-          <button class="btn btn-primary" :disabled="saveDisabled" @click="saveChanges">
-            <i class="ti ti-device-floppy" aria-hidden="true"></i>
+          <button :class="L.btnPrimary" class="disabled:opacity-45 disabled:cursor-not-allowed" :disabled="saveDisabled" @click="saveChanges">
+            <Save class="w-4 h-4" />
             Enregistrer les modifications
           </button>
         </div>
 
         <!-- ── Toast ── -->
-        <Transition name="toast">
-          <div v-if="showToast" class="toast-notif">
-            <i class="ti ti-check" aria-hidden="true"></i>
-            Calendrier mis à jour
-          </div>
-        </Transition>
+        <div v-if="showToast" class="fixed bottom-6 right-6 bg-success text-white px-5 py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 z-[2000] shadow-[0_4px_16px_rgba(0,0,0,0.16)]">
+          <Check class="w-4 h-4" />
+          Calendrier mis à jour
+        </div>
 
         <!-- ── Tabs ── -->
-        <div class="tabs-bar">
+        <div class="flex gap-1 border-b-[1.5px] border-border mb-5 overflow-x-auto">
           <button
             v-for="tab in TABS" :key="tab.id"
-            class="tab-btn" :class="{ active: activeTab === tab.id }"
+            :class="[tabBtn, activeTab === tab.id && tabActive]"
             @click="activeTab = tab.id"
           >
-            <i :class="`ti ${tab.icon}`" aria-hidden="true"></i>
+            <component :is="tab.icon" class="w-4 h-4" />
             {{ tab.label }}
           </button>
         </div>
 
         <!-- ══════════ Onglet 1 : Jours de travail ══════════ -->
-        <div v-if="activeTab === 'working-days'" class="tab-content">
-
-          <div class="section-card">
-            <h2 class="section-title">Jours ouvrables</h2>
+        <div v-if="activeTab === 'working-days'">
+          <div :class="sectionCard">
+            <h2 class="text-[15px] font-semibold text-foreground mb-4">Jours ouvrables</h2>
             <!-- Source unique : composant réutilisé dans l'onboarding -->
             <WorkingDaysConfig />
           </div>
-
         </div>
 
         <!-- ══════════ Onglet 2 : Jours fériés ══════════ -->
-        <div v-if="activeTab === 'holidays'" class="tab-content">
+        <div v-if="activeTab === 'holidays'">
 
-          <!-- Bannière info -->
-          
-
-          <div class="section-card">
-            <div class="section-header">
-              <h2 class="section-title">Fériés annuels</h2>
-              <div class="header-actions">
-                <button class="btn btn-outline btn-sm" @click="importCSV">
-                  <i class="ti ti-upload" aria-hidden="true"></i> Importer CSV
+          <div :class="sectionCard">
+            <div :class="sectionHeader">
+              <h2 class="text-[15px] font-semibold text-foreground">Fériés annuels</h2>
+              <div class="flex gap-2 items-center">
+                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="importCSV">
+                  <Upload class="w-3.5 h-3.5" /> Importer CSV
                 </button>
-                <button class="btn btn-outline btn-sm" @click="openAddModal('annual')">
-                  <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
+                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="openAddModal('annual')">
+                  <Plus class="w-3.5 h-3.5" /> Ajouter
                 </button>
               </div>
             </div>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead><tr><th>Nom</th><th>Date</th><th>Actions</th></tr></thead>
+            <div class="overflow-x-auto">
+              <table :class="dataTable">
+                <thead><tr><th :class="th">Nom</th><th :class="th">Date</th><th :class="th">Actions</th></tr></thead>
                 <tbody>
-                  <tr v-for="h in annualHolidays" :key="h.id">
-                    <td>{{ h.name }}</td>
-                    <td><span class="date-badge">{{ formatAnnualDate(h.date) }}</span></td>
-                    <td class="actions-cell">
-                      <button class="icon-btn" @click="openEditModal(h)"><i class="ti ti-edit"></i></button>
-                      <button class="icon-btn icon-btn--danger" @click="deleteHoliday(h.id)"><i class="ti ti-trash"></i></button>
+                  <tr v-for="h in annualHolidays" :key="h.id" class="hover:bg-background">
+                    <td :class="td">{{ h.name }}</td>
+                    <td :class="td"><span :class="dateBadge">{{ formatAnnualDate(h.date) }}</span></td>
+                    <td :class="[td, 'flex gap-1']">
+                      <button :class="iconBtn" @click="openEditModal(h)"><Pencil class="w-3.5 h-3.5" /></button>
+                      <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteHoliday(h.id)"><Trash2 class="w-3.5 h-3.5" /></button>
                     </td>
                   </tr>
-                  <tr v-if="annualHolidays.length === 0"><td colspan="3" class="empty-cell">Aucun férié annuel</td></tr>
+                  <tr v-if="annualHolidays.length === 0"><td colspan="3" class="text-center text-muted-foreground p-5">Aucun férié annuel</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <div class="section-card">
-            <div class="section-header">
-              <h2 class="section-title">Fériés ponctuels</h2>
-              <div class="header-actions">
-                <button class="btn btn-outline btn-sm" @click="importCSV">
-                  <i class="ti ti-upload" aria-hidden="true"></i> Importer CSV
+          <div :class="sectionCard">
+            <div :class="sectionHeader">
+              <h2 class="text-[15px] font-semibold text-foreground">Fériés ponctuels</h2>
+              <div class="flex gap-2 items-center">
+                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="importCSV">
+                  <Upload class="w-3.5 h-3.5" /> Importer CSV
                 </button>
-                <button class="btn btn-outline btn-sm" @click="openAddModal('ponctual')">
-                  <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
+                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="openAddModal('ponctual')">
+                  <Plus class="w-3.5 h-3.5" /> Ajouter
                 </button>
               </div>
             </div>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead><tr><th>Nom</th><th>Date</th><th>Actions</th></tr></thead>
+            <div class="overflow-x-auto">
+              <table :class="dataTable">
+                <thead><tr><th :class="th">Nom</th><th :class="th">Date</th><th :class="th">Actions</th></tr></thead>
                 <tbody>
-                  <tr v-for="h in ponctualHolidays" :key="h.id">
-                    <td>{{ h.name }}</td>
-                    <td>
-                      <span class="date-badge">{{ h.date }}</span>
-                      <span class="year-badge">{{ h.date.slice(0, 4) }}</span>
+                  <tr v-for="h in ponctualHolidays" :key="h.id" class="hover:bg-background">
+                    <td :class="td">{{ h.name }}</td>
+                    <td :class="td">
+                      <span :class="dateBadge">{{ h.date }}</span>
+                      <span class="text-[10px] font-bold text-white bg-danger rounded px-1.5 py-px ml-1">{{ h.date.slice(0, 4) }}</span>
                     </td>
-                    <td class="actions-cell">
-                      <button class="icon-btn" @click="openEditModal(h)"><i class="ti ti-edit"></i></button>
-                      <button class="icon-btn icon-btn--danger" @click="deleteHoliday(h.id)"><i class="ti ti-trash"></i></button>
+                    <td :class="[td, 'flex gap-1']">
+                      <button :class="iconBtn" @click="openEditModal(h)"><Pencil class="w-3.5 h-3.5" /></button>
+                      <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteHoliday(h.id)"><Trash2 class="w-3.5 h-3.5" /></button>
                     </td>
                   </tr>
-                  <tr v-if="ponctualHolidays.length === 0"><td colspan="3" class="empty-cell">Aucun férié ponctuel</td></tr>
+                  <tr v-if="ponctualHolidays.length === 0"><td colspan="3" class="text-center text-muted-foreground p-5">Aucun férié ponctuel</td></tr>
                 </tbody>
               </table>
             </div>
@@ -124,98 +117,78 @@
         </div>
 
         <!-- ══════════ Onglet 3 : Types & Règles de congés ══════════ -->
-        <div v-if="activeTab === 'leave-rules'" class="tab-content">
-
-          <!-- Tableau unifié types + règles -->
-          <div class="section-card">
-            <div class="section-header">
-              <h2 class="section-title">Types & Règles de congés</h2>
-              <div class="header-actions">
-                <button class="btn btn-outline btn-sm" @click="importCSV">
-                  <i class="ti ti-upload" aria-hidden="true"></i> Importer CSV
+        <div v-if="activeTab === 'leave-rules'">
+          <div :class="sectionCard">
+            <div :class="sectionHeader">
+              <h2 class="text-[15px] font-semibold text-foreground">Types & Règles de congés</h2>
+              <div class="flex gap-2 items-center">
+                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="importCSV">
+                  <Upload class="w-3.5 h-3.5" /> Importer CSV
                 </button>
-                <button class="btn btn-outline btn-sm" @click="openAddLT">
-                  <i class="ti ti-plus" aria-hidden="true"></i> Ajouter un type
+                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="openAddLT">
+                  <Plus class="w-3.5 h-3.5" /> Ajouter un type
                 </button>
               </div>
             </div>
-            <div class="table-wrap">
-              <table class="data-table">
+            <div class="overflow-x-auto">
+              <table :class="dataTable">
                 <thead>
                   <tr>
-                    <th style="width:36px"></th>
-                    <th>Nom</th>
-                    <th style="width:80px; text-align:center">Jours/an</th>
-                    <th style="width:90px; text-align:center">Accum./mois</th>
-                    <th style="width:70px; text-align:center">Préavis</th>
-                    <th style="width:70px; text-align:center">Justif.</th>
-                    <th style="width:60px; text-align:center">Actif</th>
-                    <th style="width:60px; text-align:center">Actions</th>
+                    <th :class="th" style="width:36px"></th>
+                    <th :class="th">Nom</th>
+                    <th :class="[th, 'text-center']" style="width:80px">Jours/an</th>
+                    <th :class="[th, 'text-center']" style="width:90px">Accum./mois</th>
+                    <th :class="[th, 'text-center']" style="width:70px">Préavis</th>
+                    <th :class="[th, 'text-center']" style="width:70px">Justif.</th>
+                    <th :class="[th, 'text-center']" style="width:60px">Actif</th>
+                    <th :class="[th, 'text-center']" style="width:60px">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="{ lt, rule } in unifiedTypes" :key="lt.id">
-                    <td>
-                      <div class="lt-icon-cell" :style="{ background: lt.color }">
+                  <tr v-for="{ lt, rule } in unifiedTypes" :key="lt.id" class="hover:bg-background">
+                    <td :class="td">
+                      <div class="w-7 h-7 rounded-md flex items-center justify-center text-white text-[13px]" :style="{ background: lt.color }">
                         <i :class="`ti ${lt.icon}`" aria-hidden="true"></i>
                       </div>
                     </td>
-                    <td>
-                      <span class="lt-name">{{ lt.name }}</span>
-                      <i v-if="lt.isSystem" class="ti ti-lock lt-lock" title="Type système" aria-hidden="true"></i>
+                    <td :class="td">
+                      <span class="text-[13px] font-medium text-foreground mr-1">{{ lt.name }}</span>
+                      <Lock v-if="lt.isSystem" class="w-3 h-3 text-muted-foreground inline-block align-middle" title="Type système" />
                     </td>
-                    <td style="text-align:center">
-                      <input
-                        v-if="rule" type="number" min="0"
-                        class="rule-cell-input"
-                        :value="rule.daysPerYear"
-                        @input="updateRule(lt.name, 'daysPerYear', +($event.target as HTMLInputElement).value)"
-                      />
+                    <td :class="[td, 'text-center']">
+                      <input v-if="rule" type="number" min="0" :class="ruleInput" :value="rule.daysPerYear"
+                        @input="updateRule(lt.name, 'daysPerYear', +($event.target as HTMLInputElement).value)" />
                       <span v-else>—</span>
                     </td>
-                    <td style="text-align:center">
-                      <input
-                        v-if="rule" type="number" min="0" step="0.5"
-                        class="rule-cell-input"
-                        :value="rule.daysPerMonth"
-                        @input="updateRule(lt.name, 'daysPerMonth', +($event.target as HTMLInputElement).value)"
-                      />
+                    <td :class="[td, 'text-center']">
+                      <input v-if="rule" type="number" min="0" step="0.5" :class="ruleInput" :value="rule.daysPerMonth"
+                        @input="updateRule(lt.name, 'daysPerMonth', +($event.target as HTMLInputElement).value)" />
                       <span v-else>—</span>
                     </td>
-                    <td style="text-align:center">
-                      <input
-                        v-if="rule" type="number" min="0"
-                        class="rule-cell-input"
-                        :value="rule.noticeDays"
-                        @input="updateRule(lt.name, 'noticeDays', +($event.target as HTMLInputElement).value)"
-                      />
+                    <td :class="[td, 'text-center']">
+                      <input v-if="rule" type="number" min="0" :class="ruleInput" :value="rule.noticeDays"
+                        @input="updateRule(lt.name, 'noticeDays', +($event.target as HTMLInputElement).value)" />
                       <span v-else>—</span>
                     </td>
-                    <td style="text-align:center">
-                      <label v-if="rule" class="toggle-wrap">
-                        <input
-                          type="checkbox" class="toggle-input"
-                          :checked="rule.requiresDocument"
-                          @change="updateRule(lt.name, 'requiresDocument', ($event.target as HTMLInputElement).checked)"
-                        />
-                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    <td :class="[td, 'text-center']">
+                      <label v-if="rule" class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer" :checked="rule.requiresDocument"
+                          @change="updateRule(lt.name, 'requiresDocument', ($event.target as HTMLInputElement).checked)" />
+                        <span :class="toggleTrack"></span>
                       </label>
                       <span v-else>—</span>
                     </td>
-                    <td style="text-align:center">
-                      <label class="toggle-wrap" :title="lt.isSystem ? 'Toujours actif' : ''">
-                        <input
-                          type="checkbox" class="toggle-input"
-                          :checked="lt.isActive" :disabled="lt.isSystem"
-                          @change="leaveTypesStore.toggleLeaveType(lt.id)"
-                        />
-                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    <td :class="[td, 'text-center']">
+                      <label class="relative inline-flex items-center cursor-pointer" :title="lt.isSystem ? 'Toujours actif' : ''">
+                        <input type="checkbox" class="sr-only peer" :checked="lt.isActive" :disabled="lt.isSystem"
+                          @change="leaveTypesStore.toggleLeaveType(lt.id)" />
+                        <span :class="[toggleTrack, 'peer-disabled:opacity-50 peer-disabled:cursor-not-allowed']"></span>
                       </label>
                     </td>
-                    <td style="text-align:center">
-                      <div class="actions-cell">
-                        <button class="icon-btn" title="Modifier" @click="openEditLT(lt.id)">
-                          <i class="ti ti-edit" aria-hidden="true"></i>
+                    <td :class="[td, 'text-center']">
+                      <div class="flex gap-1 items-center justify-center">
+                        <button :class="iconBtn" title="Modifier" @click="openEditLT(lt.id)">
+                          <Pencil class="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -224,7 +197,6 @@
               </table>
             </div>
           </div>
-
         </div>
 
       </main>
@@ -236,80 +208,66 @@
 
   <!-- ── Import CSV toast ── -->
   <Teleport to="body">
-    <Transition name="toast">
-      <div v-if="showImportToast" class="toast-notif toast-notif--info">
-        <i class="ti ti-info-circle" aria-hidden="true"></i>
-        {{ importToastMsg }}
-      </div>
-    </Transition>
-  </Teleport>
-
-  <!-- ── Modals fériés ── -->
-  <Teleport to="body">
-    <div v-if="showModal === 'annual'" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">{{ editingHoliday ? 'Modifier' : 'Ajouter un férié annuel' }}</span>
-          <button class="modal-close" @click="closeModal"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Nom *</span>
-            <input type="text" class="field-input" v-model="hForm.name" placeholder="Ex : Fête du Travail" />
-          </label>
-          <div class="field">
-            <span class="field-label">Date (mois — jour)</span>
-            <div class="date-selects">
-              <select class="field-input" v-model="hForm.month">
-                <option v-for="m in MONTHS" :key="m.v" :value="m.v">{{ m.l }}</option>
-              </select>
-              <select class="field-input" v-model="hForm.day">
-                <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="closeModal">Annuler</button>
-          <button class="btn btn-primary" @click="saveAnnualHoliday">Enregistrer</button>
-        </div>
-      </div>
+    <div v-if="showImportToast" class="fixed bottom-6 right-6 bg-primary text-white px-5 py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 z-[2000] shadow-[0_4px_16px_rgba(0,0,0,0.16)] max-w-md">
+      <Info class="w-[15px] h-[15px] shrink-0" />
+      {{ importToastMsg }}
     </div>
   </Teleport>
 
-  <Teleport to="body">
-    <div v-if="showModal === 'ponctual'" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">{{ editingHoliday ? 'Modifier' : 'Ajouter un férié ponctuel' }}</span>
-          <button class="modal-close" @click="closeModal"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Nom *</span>
-            <input type="text" class="field-input" v-model="hForm.name" placeholder="Ex : Aïd el-Fitr 2026" />
-          </label>
-          <label class="field">
-            <span class="field-label">Date complète</span>
-            <input type="date" class="field-input" v-model="hForm.fullDate" />
-          </label>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="closeModal">Annuler</button>
-          <button class="btn btn-primary" @click="savePonctualHoliday">Enregistrer</button>
-        </div>
+  <!-- ── Modal férié annuel ── -->
+  <ModalShell :open="showModal === 'annual'" :title="editingHoliday ? 'Modifier' : 'Ajouter un férié annuel'" max-width="max-w-[420px]" @close="closeModal">
+    <label :class="cls.field">
+      <span :class="cls.fieldLabel">Nom *</span>
+      <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Fête du Travail" />
+    </label>
+    <div :class="cls.field">
+      <span :class="cls.fieldLabel">Date (mois — jour)</span>
+      <div class="flex gap-2">
+        <select :class="cls.fieldSelect" v-model="hForm.month">
+          <option v-for="m in MONTHS" :key="m.v" :value="m.v">{{ m.l }}</option>
+        </select>
+        <select :class="cls.fieldSelect" v-model="hForm.day">
+          <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
+        </select>
       </div>
     </div>
-  </Teleport>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="closeModal">Annuler</button>
+      <button :class="cls.btnPrimary" @click="saveAnnualHoliday">Enregistrer</button>
+    </template>
+  </ModalShell>
+
+  <!-- ── Modal férié ponctuel ── -->
+  <ModalShell :open="showModal === 'ponctual'" :title="editingHoliday ? 'Modifier' : 'Ajouter un férié ponctuel'" max-width="max-w-[420px]" @close="closeModal">
+    <label :class="cls.field">
+      <span :class="cls.fieldLabel">Nom *</span>
+      <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Aïd el-Fitr 2026" />
+    </label>
+    <label :class="cls.field">
+      <span :class="cls.fieldLabel">Date complète</span>
+      <input type="date" :class="cls.fieldInput" v-model="hForm.fullDate" />
+    </label>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="closeModal">Annuler</button>
+      <button :class="cls.btnPrimary" @click="savePonctualHoliday">Enregistrer</button>
+    </template>
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
+import {
+  ClockArrowDown, Save, Check, Clock, CalendarDays, ListChecks, Upload, Plus,
+  Pencil, Trash2, Lock, Info,
+} from 'lucide-vue-next'
 import AppTopNav  from '../../components/AppTopNav.vue'
 import AppSidebar from '../../components/AppSidebar.vue'
 import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
 import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
+import ModalShell from '../../components/ui/ModalShell.vue'
+import * as cls from '../../lib/formClasses'
+import * as L from '../../lib/listClasses'
 import { useAuthStore }       from '../../stores/auth'
 import { useCalendarStore }   from '../../stores/calendar'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
@@ -320,6 +278,19 @@ const calendarStore   = useCalendarStore()
 const leaveTypesStore = useLeaveTypesStore()
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
 
+// ── Classes du design system ─────────────────────────────────
+const tabBtn = 'flex items-center gap-1.5 px-[18px] py-2.5 text-[13px] font-medium text-muted-foreground bg-transparent border-0 border-b-2 border-transparent cursor-pointer whitespace-nowrap transition-colors hover:text-foreground'
+const tabActive = '!text-primary !border-primary'
+const sectionCard = 'bg-card border border-border rounded-[10px] p-5 mb-4'
+const sectionHeader = 'flex items-center justify-between mb-4 gap-3 flex-wrap'
+const dataTable = 'w-full border-collapse text-[13px]'
+const th = 'text-left px-3 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.06em] bg-background border-b border-border'
+const td = 'px-3 py-2.5 border-b border-border text-foreground'
+const dateBadge = 'text-xs font-medium bg-background border border-border rounded px-2 py-0.5 mr-1.5'
+const iconBtn = 'w-7 h-7 flex items-center justify-center border-0 rounded-md bg-background text-muted-foreground cursor-pointer transition-colors hover:bg-primary/10 hover:text-primary'
+const ruleInput = 'w-[60px] h-7 px-1.5 text-center border border-border rounded bg-background text-xs text-foreground outline-none focus:border-primary'
+const toggleTrack = "w-8 h-[18px] rounded-full bg-border transition-colors peer-checked:bg-primary relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3.5 after:h-3.5 after:bg-white after:rounded-full after:shadow after:transition-all peer-checked:after:left-[16px]"
+
 // ── Modal types d'absence ─────────────────────────────────────
 const showLTModal = ref(false)
 const editLTId    = ref<string | undefined>(undefined)
@@ -328,11 +299,11 @@ function openEditLT(id: string) { editLTId.value = id; showLTModal.value = true 
 
 // ── Tabs ──────────────────────────────────────────────────────
 const activeTab = ref<'working-days' | 'holidays' | 'leave-rules'>('working-days')
-const TABS = [
-  { id: 'working-days', label: 'Jours de travail',       icon: 'ti-clock'         },
-  { id: 'holidays',     label: 'Jours fériés',           icon: 'ti-calendar-event' },
-  { id: 'leave-rules',  label: 'Types & Règles de congés', icon: 'ti-list-check'   },
-] as const
+const TABS: { id: 'working-days' | 'holidays' | 'leave-rules'; label: string; icon: Component }[] = [
+  { id: 'working-days', label: 'Jours de travail',          icon: Clock        },
+  { id: 'holidays',     label: 'Jours fériés',              icon: CalendarDays },
+  { id: 'leave-rules',  label: 'Types & Règles de congés',  icon: ListChecks   },
+]
 
 const showToast = ref(false)
 function triggerToast() { showToast.value = true; setTimeout(() => { showToast.value = false }, 2500) }
@@ -357,8 +328,6 @@ function updateRule(typeName: string, field: string, value: number | boolean) {
 }
 
 // ── Save ──────────────────────────────────────────────────────
-// Les jours de travail sont écrits en direct dans le store par
-// WorkingDaysConfig — seules les règles de congés restent à enregistrer.
 const saveDisabled = computed(() => !rulesTouched.value)
 
 function saveChanges() {
@@ -434,121 +403,3 @@ function importCSV() {
   triggerImportToast('Import CSV disponible prochainement. Format attendu : Nom, Date (YYYY-MM-DD ou MM-DD pour annuels), Type (annual/ponctual)')
 }
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; padding: 24px 28px; background: var(--color-bg); overflow-y: auto; }
-
-.page-header   { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-.page-title    { font-size: 20px; font-weight: 700; color: var(--color-text); }
-.page-subtitle { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-.update-badge  { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-text-muted); background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 20px; padding: 3px 10px; margin-top: 8px; }
-
-.toast-notif { position: fixed; bottom: 24px; right: 24px; background: var(--color-success); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 2000; box-shadow: 0 4px 16px rgba(0,0,0,.16); }
-.toast-enter-active, .toast-leave-active { transition: all .25s; }
-.toast-enter-from, .toast-leave-to       { opacity: 0; transform: translateY(10px); }
-
-.tabs-bar { display: flex; gap: 4px; border-bottom: 1.5px solid var(--color-border); margin-bottom: 20px; overflow-x: auto; }
-.tab-btn  { display: flex; align-items: center; gap: 6px; padding: 10px 18px; font-size: 13px; font-weight: 500; color: var(--color-text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; transition: color .12s, border-color .12s; }
-.tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-.tab-btn:hover:not(.active) { color: var(--color-text); }
-
-.section-card   { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
-.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
-.section-title  { font-size: 15px; font-weight: 600; color: var(--color-text); margin-bottom: 16px; }
-.section-header .section-title { margin-bottom: 0; }
-.header-actions { display: flex; gap: 8px; align-items: center; }
-.toast-notif--info { background: var(--color-primary); }
-.toast-notif--info i { font-size: 15px; }
-
-/* Tables */
-.table-wrap { overflow-x: auto; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .06em; background: var(--color-bg); border-bottom: 0.5px solid var(--color-border); }
-.data-table td { padding: 10px 12px; border-bottom: 0.5px solid var(--color-border); color: var(--color-text); }
-.data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover { background: var(--color-bg); }
-.date-badge { font-size: 12px; font-weight: 500; background: var(--color-bg); border: 0.5px solid var(--color-border); border-radius: 4px; padding: 2px 8px; margin-right: 6px; }
-.year-badge { font-size: 10px; font-weight: 700; color: var(--color-surface); background: var(--color-accent); border-radius: 4px; padding: 1px 6px; }
-.info-banner { display: flex; align-items: flex-start; gap: 10px; background: var(--color-info-bg); border: 0.5px solid var(--color-info); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: var(--color-text); line-height: 1.5; }
-.info-banner-icon { color: var(--color-info); font-size: 16px; margin-top: 1px; flex-shrink: 0; }
-.actions-cell { display: flex; gap: 4px; }
-.icon-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: var(--color-bg); color: var(--color-text-muted); cursor: pointer; font-size: 14px; transition: background .12s, color .12s; }
-.icon-btn:hover         { background: var(--color-primary-light); color: var(--color-primary); }
-.icon-btn--danger:hover { background: var(--color-danger-bg);     color: var(--color-danger);  }
-.empty-cell { text-align: center; color: var(--color-text-muted); padding: 20px; }
-
-/* Leave types table */
-.lt-icon-cell { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
-.lt-icon-cell i { color: #fff; font-size: 13px; }
-.lt-name { font-size: 13px; font-weight: 500; color: var(--color-text); margin-right: 4px; }
-.lt-lock { font-size: 12px; color: var(--color-text-muted); vertical-align: middle; }
-.lt-code { font-size: 11px; font-weight: 700; font-family: monospace; background: var(--color-bg); border: 0.5px solid var(--color-border); border-radius: 4px; padding: 2px 6px; color: var(--color-text-muted); }
-.actions-cell { display: flex; gap: 4px; align-items: center; justify-content: center; }
-
-/* Toggle (réutilisé depuis leaveTypesView) */
-.toggle-wrap  { position: relative; display: inline-flex; align-items: center; }
-.toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
-.toggle-track { width: 32px; height: 18px; background: var(--color-border); border-radius: 9px; position: relative; cursor: pointer; transition: background .2s; }
-.toggle-input:checked + .toggle-track { background: var(--color-primary); }
-.toggle-input:disabled + .toggle-track { opacity: .5; cursor: not-allowed; }
-.toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
-.toggle-input:checked + .toggle-track .toggle-thumb { left: 16px; }
-
-/* Rule cell inputs (unified table) */
-.rule-cell-input {
-  width: 60px; height: 28px; padding: 0 6px; text-align: center;
-  border: 0.5px solid var(--color-border); border-radius: 5px;
-  background: var(--color-bg); font-size: 12px; color: var(--color-text); outline: none;
-}
-.rule-cell-input:focus { border-color: var(--color-primary); }
-
-/* Buttons */
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; white-space: nowrap; }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn-primary  { background: var(--color-primary); color: #fff; }
-.btn-primary:not(:disabled):hover { background: var(--color-primary-dark); }
-.btn-outline  { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-.btn-sm { padding: 6px 12px; font-size: 12px; }
-
-/* Modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-card    { background: var(--color-surface); border-radius: 12px; padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.16); }
-.modal-header  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.modal-title   { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.modal-close   { width: 28px; height: 28px; border: none; background: var(--color-bg); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: 14px; }
-.modal-close:hover { background: var(--color-border); }
-.modal-body    { display: flex; flex-direction: column; gap: 14px; }
-.modal-footer  { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 0.5px solid var(--color-border); }
-.field         { display: flex; flex-direction: column; gap: 4px; }
-.field-label   { font-size: 12px; font-weight: 500; color: var(--color-text); }
-.field-input   { height: 36px; padding: 0 10px; border: 0.5px solid var(--color-border); border-radius: 6px; background: var(--color-bg); font-size: 13px; color: var(--color-text); outline: none; width: 100%; box-sizing: border-box; }
-.field-input:focus { border-color: var(--color-primary); background: var(--color-surface); }
-.date-selects  { display: flex; gap: 8px; }
-.date-selects .field-input { flex: 1; }
-
-/* Perdiem */
-.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.section-note   { font-size: 11px; color: var(--color-warning); margin-bottom: 14px; font-style: italic; }
-.btn-sm { padding: 5px 12px; font-size: 12px; }
-.pd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pd-table th { padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .05em; background: var(--color-bg); border-bottom: 0.5px solid var(--color-border); }
-.pd-table td { padding: 10px 12px; border-bottom: 0.5px solid var(--color-border); color: var(--color-text); }
-.pd-table tbody tr:last-child td { border-bottom: none; }
-.pd-cat      { font-weight: 600; }
-.pd-desc     { color: var(--color-text-muted); font-size: 12px; }
-.pd-rate     { font-weight: 600; text-align: right; }
-.pd-currency { color: var(--color-text-muted); }
-.pd-actions  { display: flex; gap: 4px; }
-.pd-btn      { width: 28px; height: 28px; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; }
-.pd-edit     { background: var(--color-info-bg); color: var(--color-info); }
-.pd-del      { background: var(--color-danger-bg); color: var(--color-danger); }
-.pd-empty    { text-align: center; padding: 20px; color: var(--color-text-muted); font-style: italic; }
-
-@media (max-width: 768px) {
-  .content { padding: 16px; }
-  .page-header { flex-direction: column; }
-}
-</style>

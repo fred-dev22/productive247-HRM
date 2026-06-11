@@ -1,42 +1,42 @@
 <template>
-  <div class="app-shell">
+  <div :class="L.shell">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div :class="L.mainLayout">
       <AppSidebar />
-      <main class="content">
+      <main :class="L.content">
 
         <!-- ── En-tête ── -->
-        <div class="page-header">
+        <div :class="L.pageHeader">
           <div>
-            <div class="page-title">{{ t('absence.my_title') }}</div>
-            <div class="page-sub">{{ auth.user?.name }}</div>
+            <div :class="L.pageTitle">{{ t('absence.my_title') }}</div>
+            <div :class="L.pageSub">{{ auth.user?.name }}</div>
           </div>
-          <button class="btn btn-primary" @click="showModal = true">
-            <i class="ti ti-plus" aria-hidden="true"></i> {{ t('absence.new') }}
+          <button :class="L.btnPrimary" @click="showModal = true">
+            <Plus class="w-4 h-4" /> {{ t('absence.new') }}
           </button>
         </div>
 
         <!-- ── Soldes rapides ── -->
-        <div class="kpi-row">
-          <div class="kpi-card" style="border-top: 3px solid var(--color-primary)">
-            <div class="kpi-label">{{ t('balances.annual') }}</div>
-            <div class="kpi-value" style="color:var(--color-primary)">12</div>
-            <div class="kpi-sub">{{ t('balances.on', { total: 24 }) }}</div>
+        <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
+          <div :class="kpiCard" class="border-t-[3px] border-t-primary">
+            <div :class="kpiLabel">{{ t('balances.annual') }}</div>
+            <div :class="kpiValue" class="text-primary">12</div>
+            <div :class="kpiSub">{{ t('balances.on', { total: 24 }) }}</div>
           </div>
-          <div class="kpi-card" style="border-top: 3px solid var(--color-success)">
-            <div class="kpi-label">{{ t('balances.recovery') }}</div>
-            <div class="kpi-value" style="color:var(--color-success)">3</div>
-            <div class="kpi-sub">{{ t('balances.acquired') }}</div>
+          <div :class="kpiCard" class="border-t-[3px] border-t-success">
+            <div :class="kpiLabel">{{ t('balances.recovery') }}</div>
+            <div :class="kpiValue" class="text-success">3</div>
+            <div :class="kpiSub">{{ t('balances.acquired') }}</div>
           </div>
-          <div class="kpi-card" style="border-top: 3px solid var(--color-success)">
-            <div class="kpi-label">{{ t('balances.sick') }}</div>
-            <div class="kpi-value" style="color:var(--color-success)">8</div>
-            <div class="kpi-sub">{{ t('balances.available') }}</div>
+          <div :class="kpiCard" class="border-t-[3px] border-t-success">
+            <div :class="kpiLabel">{{ t('balances.sick') }}</div>
+            <div :class="kpiValue" class="text-success">8</div>
+            <div :class="kpiSub">{{ t('balances.available') }}</div>
           </div>
-          <div class="kpi-card" style="border-top: 3px solid #854F0B">
-            <div class="kpi-label">{{ t('balances.remote') }}</div>
-            <div class="kpi-value" style="color:#854F0B">5</div>
-            <div class="kpi-sub">{{ t('balances.used') }}</div>
+          <div :class="kpiCard" class="border-t-[3px]" style="border-top-color:#854F0B">
+            <div :class="kpiLabel">{{ t('balances.remote') }}</div>
+            <div :class="kpiValue" style="color:#854F0B">5</div>
+            <div :class="kpiSub">{{ t('balances.used') }}</div>
           </div>
         </div>
 
@@ -49,7 +49,7 @@
         >
           <!-- Filtres -->
           <template #filters>
-            <select v-model="filterStatus" class="filter-select">
+            <select v-model="filterStatus" :class="filterSelect">
               <option value="">{{ t('absence.filters.all_statuses') }}</option>
               <option value="pending">{{ t('absence.status.pending') }}</option>
               <option value="approved">{{ t('absence.status.approved') }}</option>
@@ -57,44 +57,44 @@
               <option value="cancelled">{{ t('absence.status.cancelled') }}</option>
               <option value="draft">{{ t('absence.status.draft') }}</option>
             </select>
-            <select v-model="filterType" class="filter-select">
+            <select v-model="filterType" :class="filterSelect">
               <option value="">{{ t('absence.filters.all_types') }}</option>
               <option v-for="lt in allLeaveTypes" :key="lt" :value="lt">{{ typeLabel(lt) }}</option>
             </select>
-            <button class="btn-reset" @click="resetFilters">{{ t('absence.actions.reset_filters') }}</button>
-            <span class="total-label" style="margin-left:auto">{{ t('absence.total', { count: totalCount }) }}</span>
+            <button :class="btnReset" @click="resetFilters">{{ t('absence.actions.reset_filters') }}</button>
+            <span class="text-xs text-muted-foreground whitespace-nowrap ml-auto">{{ t('absence.total', { count: totalCount }) }}</span>
           </template>
 
           <!-- Cellules personnalisées -->
           <template #cell-type="{ row }">
-            <span class="td-type">{{ typeLabel(row.type) }}</span>
+            <span class="text-muted-foreground whitespace-nowrap">{{ typeLabel(row.type) }}</span>
           </template>
           <template #cell-dates="{ row }">
-            <span class="td-dates">{{ row.startDate }} → {{ row.endDate }}</span>
+            <span class="whitespace-nowrap text-[11px]">{{ row.startDate }} → {{ row.endDate }}</span>
           </template>
           <template #cell-days="{ row }">
-            <span class="td-days">{{ row.workingDays }}j</span>
+            <span class="font-medium whitespace-nowrap">{{ row.workingDays }}j</span>
           </template>
           <template #cell-submitted="{ row }">
-            <span class="td-muted">{{ row.submittedAt }}</span>
+            <span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ row.submittedAt }}</span>
           </template>
           <template #cell-status="{ row }">
             <StatusPill :status="row.status" />
           </template>
           <template #cell-actions="{ row }">
-            <div class="action-btns">
-              <button v-if="row.status === 'pending'" class="act-btn act-cancel" @click.stop="absenceStore.cancelLeave(row.id)">
+            <div class="flex gap-1">
+              <button v-if="row.status === 'pending'" :class="L.actBtn" class="bg-warning-bg text-warning" @click.stop="absenceStore.cancelLeave(row.id)">
                 {{ t('absence.actions.cancel') }}
               </button>
               <template v-else-if="row.status === 'draft'">
-                <button class="act-btn act-approve" @click.stop="absenceStore.submitDraft(row.id)">
+                <button :class="L.actApprove" @click.stop="absenceStore.submitDraft(row.id)">
                   {{ t('absence.actions.submit_draft') }}
                 </button>
-                <button class="act-btn act-reject" @click.stop="absenceStore.deleteLeave(row.id)">
+                <button :class="L.actReject" @click.stop="absenceStore.deleteLeave(row.id)">
                   {{ t('absence.actions.delete') }}
                 </button>
               </template>
-              <button v-else class="act-btn act-view" @click.stop="toggleDetail(row.id)">
+              <button v-else :class="L.actView" @click.stop="toggleDetail(row.id)">
                 {{ expandedId === row.id ? '↑ Fermer' : t('absence.actions.view') }}
               </button>
             </div>
@@ -102,23 +102,23 @@
 
           <!-- Ligne détail dépliable -->
           <template #row-after="{ row }">
-            <tr v-if="expandedId === row.id" class="detail-row">
-              <td :colspan="columns.length">
-                <div class="detail-panel">
-                  <div class="detail-meta">
+            <tr v-if="expandedId === row.id">
+              <td :colspan="columns.length" class="p-0">
+                <div class="bg-background border-t border-border p-4 flex flex-col gap-2.5 text-xs">
+                  <div class="flex gap-4 text-[11px] text-muted-foreground flex-wrap">
                     <span>{{ t('absence.fields.start_date') }} : {{ row.startDate }}</span>
                     <span>{{ t('absence.fields.end_date') }} : {{ row.endDate }}</span>
                     <span>{{ t('absence.fields.working_days', { count: row.workingDays }) }}</span>
                   </div>
-                  <div v-if="row.reason" class="detail-reason">
-                    <span class="detail-label">{{ t('absence.fields.reason') }} :</span> {{ row.reason }}
+                  <div v-if="row.reason" class="text-xs text-muted-foreground">
+                    <span class="font-medium text-[11px]">{{ t('absence.fields.reason') }} :</span> {{ row.reason }}
                   </div>
-                  <div v-if="row.returnComment" class="return-comment">
-                    <i class="ti ti-arrow-back" aria-hidden="true"></i>
-                    <span class="detail-label">Commentaire retour :</span> {{ row.returnComment }}
+                  <div v-if="row.returnComment" class="flex items-center gap-1.5 text-warning text-xs bg-warning-bg rounded-md px-2.5 py-1.5">
+                    <CornerUpLeft class="w-3.5 h-3.5" />
+                    <span class="font-medium text-[11px]">Commentaire retour :</span> {{ row.returnComment }}
                   </div>
-                  <div v-if="row.validationHistory?.length" class="timeline-section">
-                    <div class="timeline-title">Historique de validation</div>
+                  <div v-if="row.validationHistory?.length" class="mt-1">
+                    <div class="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.06em] mb-2.5">Historique de validation</div>
                     <ValidationTimeline :history="row.validationHistory" />
                   </div>
                 </div>
@@ -128,28 +128,20 @@
 
           <!-- Pagination -->
           <template #pagination>
-            <div class="pagination">
-              <span class="pag-total">{{ t('absence.total', { count: totalCount }) }}</span>
-              <div class="pag-perpage">
+            <div class="flex items-center gap-3 text-xs text-muted-foreground flex-wrap w-full">
+              <span class="flex-1 whitespace-nowrap">{{ t('absence.total', { count: totalCount }) }}</span>
+              <div class="flex items-center gap-1.5 whitespace-nowrap">
                 {{ t('absence.per_page') }}
-                <select v-model.number="pageSize" class="pag-size-select">
+                <select v-model.number="pageSize" :class="L.pagSizeSelect">
                   <option :value="10">10</option>
                   <option :value="25">25</option>
                   <option :value="50">50</option>
                 </select>
               </div>
-              <div class="pag-pages">
-                <button class="pag-btn" :disabled="page === 1" @click="page--">
-                  <i class="ti ti-chevron-left" aria-hidden="true"></i>
-                </button>
-                <button
-                  v-for="p in totalPages" :key="p"
-                  class="pag-btn" :class="{ active: p === page }"
-                  @click="page = p"
-                >{{ p }}</button>
-                <button class="pag-btn" :disabled="page === totalPages" @click="page++">
-                  <i class="ti ti-chevron-right" aria-hidden="true"></i>
-                </button>
+              <div class="flex items-center gap-[3px]">
+                <button :class="L.pagBtn" :disabled="page === 1" @click="page--"><ChevronLeft class="w-3.5 h-3.5" /></button>
+                <button v-for="p in totalPages" :key="p" :class="[L.pagBtn, p === page && L.pagBtnActive]" @click="page = p">{{ p }}</button>
+                <button :class="L.pagBtn" :disabled="page === totalPages" @click="page++"><ChevronRight class="w-3.5 h-3.5" /></button>
               </div>
             </div>
           </template>
@@ -161,21 +153,22 @@
 
   <AbsenceRequestModal
     v-model="showModal"
-    mode="self"
     @submitted="showToast(t('absence.submitted_toast'))"
     @drafted="showToast(t('absence.draft_saved'))"
   />
 
-  <div v-if="toastMsg" class="toast-fixed">
-    <i class="ti ti-check" aria-hidden="true"></i> {{ toastMsg }}
+  <div v-if="toastMsg" class="fixed bottom-6 right-6 bg-success-bg text-success px-[18px] py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,0.12)] z-[2000]">
+    <Check class="w-4 h-4" /> {{ toastMsg }}
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Plus, CornerUpLeft, ChevronLeft, ChevronRight, Check } from 'lucide-vue-next'
 import { AppSidebar, AppTopNav, AbsenceRequestModal, StatusPill, DataTable } from '../../components'
 import ValidationTimeline from '../../components/ui/ValidationTimeline.vue'
+import * as L from '../../lib/listClasses'
 import { useAuthStore }    from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'
 import type { LeaveType } from '../../types'
@@ -183,6 +176,14 @@ import type { LeaveType } from '../../types'
 const auth         = useAuthStore()
 const absenceStore = useAbsenceStore()
 const { t }        = useI18n()
+
+// ── Classes du design system ─────────────────────────────────
+const kpiCard = 'bg-card border border-border rounded-lg px-3.5 py-3'
+const kpiLabel = 'text-[13px] text-muted-foreground mb-1'
+const kpiValue = 'text-[28px] font-semibold leading-none'
+const kpiSub = 'text-xs text-muted-foreground mt-[3px]'
+const filterSelect = 'h-[30px] px-2 border border-border rounded-md text-xs text-foreground bg-card outline-none focus:border-primary'
+const btnReset = 'h-[30px] px-3 border border-border rounded-md text-xs text-muted-foreground bg-card cursor-pointer transition-colors hover:text-primary hover:border-primary'
 
 const columns = computed(() => [
   { key: 'type',      label: t('absence.fields.type') },
@@ -245,78 +246,3 @@ function showToast(msg: string) {
   setTimeout(() => { toastMsg.value = '' }, 3000)
 }
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; overflow-y: auto; padding: 24px 28px; background: var(--color-bg); }
-
-.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.page-title  { font-size: 18px; font-weight: 600; }
-.page-sub    { font-size: 13px; color: var(--color-text-muted); margin-top: 1px; }
-
-.btn         { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; transition: all .12s; }
-.btn-primary { background: var(--color-primary); color: white; }
-.btn-primary:hover { background: var(--color-primary-dark); }
-
-.kpi-row  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-.kpi-card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 8px; padding: 12px 14px; }
-.kpi-label { font-size: 13px; color: var(--color-text-muted); margin-bottom: 4px; }
-.kpi-value { font-size: 28px; font-weight: 600; line-height: 1; }
-.kpi-sub   { font-size: 12px; color: var(--color-text-muted); margin-top: 3px; }
-
-/* Filtres (dans le slot DataTable#filters) */
-.filter-select { height: 30px; padding: 0 8px; border: 0.5px solid var(--color-border); border-radius: 6px; font-size: 12px; color: var(--color-text); background: var(--color-surface); outline: none; }
-.filter-select:focus { border-color: var(--color-primary); }
-.btn-reset { height: 30px; padding: 0 12px; border: 0.5px solid var(--color-border); border-radius: 6px; font-size: 12px; color: var(--color-text-muted); background: var(--color-surface); cursor: pointer; transition: all .12s; }
-.btn-reset:hover { color: var(--color-primary); border-color: var(--color-primary); }
-.total-label { font-size: 12px; color: var(--color-text-muted); white-space: nowrap; }
-
-/* Cellules */
-.td-type  { color: var(--color-text-muted); white-space: nowrap; }
-.td-dates { white-space: nowrap; font-size: 11px; }
-.td-days  { font-weight: 500; white-space: nowrap; }
-.td-muted { color: var(--color-text-muted); white-space: nowrap; font-size: 11px; }
-
-/* Actions */
-.action-btns { display: flex; gap: 4px; }
-.act-btn     { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer; border: none; white-space: nowrap; transition: opacity .12s; }
-.act-btn:hover { opacity: 0.82; }
-.act-approve { background: var(--color-success-bg); color: var(--color-success); }
-.act-reject  { background: var(--color-danger-bg);  color: var(--color-danger);  }
-.act-cancel  { background: var(--color-warning-bg); color: var(--color-warning); }
-.act-view    { background: var(--color-bg);          color: var(--color-text-muted); }
-
-/* Ligne détail */
-.detail-row td { padding: 0; }
-.detail-panel  { background: var(--color-bg); border-top: 0.5px solid var(--color-border); padding: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
-.detail-label  { font-weight: 500; font-size: 11px; }
-.detail-meta   { display: flex; gap: 16px; font-size: 11px; color: var(--color-text-muted); flex-wrap: wrap; }
-.detail-reason { font-size: 12px; color: var(--color-text-muted); }
-.return-comment { display: flex; align-items: center; gap: 6px; color: var(--color-warning); font-size: 12px; background: var(--color-warning-bg); border-radius: 6px; padding: 6px 10px; }
-.timeline-section { margin-top: 4px; }
-.timeline-title { font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
-
-/* Pagination */
-.pagination     { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--color-text-muted); flex-wrap: wrap; }
-.pag-total      { flex: 1; white-space: nowrap; }
-.pag-perpage    { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.pag-size-select { height: 26px; padding: 0 6px; border: 0.5px solid var(--color-border); border-radius: 5px; font-size: 12px; color: var(--color-text); background: var(--color-surface); outline: none; cursor: pointer; }
-.pag-pages      { display: flex; align-items: center; gap: 3px; }
-.pag-btn        { min-width: 28px; height: 28px; padding: 0 6px; border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--color-border); background: var(--color-surface); color: var(--color-text); display: flex; align-items: center; justify-content: center; transition: all .12s; }
-.pag-btn:hover:not(:disabled) { background: var(--color-bg); }
-.pag-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.pag-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-/* Toast */
-.toast-fixed {
-  position: fixed; bottom: 24px; right: 24px;
-  background: var(--color-success-bg); color: var(--color-success);
-  padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
-  display: flex; align-items: center; gap: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); z-index: 2000;
-}
-
-@media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 600px) { .kpi-row { grid-template-columns: 1fr; } .content { padding: 16px; } }
-</style>

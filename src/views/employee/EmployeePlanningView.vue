@@ -1,146 +1,147 @@
 <template>
-  <div class="app-shell">
+  <div :class="L.shell">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div :class="L.mainLayout">
       <AppSidebar />
-      <main class="content">
-  <div class="planning-view">
+      <main class="flex-1 overflow-y-auto bg-background">
+        <div class="p-6 max-w-[1100px] mx-auto max-md:p-4">
 
-    <!-- ── En-tête ── -->
-    <div class="page-header">
-      <div class="header-left">
-        <h1 class="page-title">Mon Planning</h1>
-        <span class="month-badge">{{ monthYearLabel }}</span>
-      </div>
+          <!-- ── En-tête ── -->
+          <div class="flex items-center justify-between gap-4 mb-5 flex-wrap max-md:flex-col max-md:items-start">
+            <div class="flex items-center gap-3">
+              <h1 class="text-xl font-bold text-foreground">Mon Planning</h1>
+              <span class="text-xs font-medium text-primary bg-primary/10 rounded-full px-3 py-[3px]">{{ monthYearLabel }}</span>
+            </div>
 
-      <div class="week-nav">
-        <button class="nav-btn" @click="prevWeek" title="Semaine précédente">
-          <i class="ti ti-chevron-left" aria-hidden="true"></i>
-        </button>
-        <span class="week-label">{{ weekRangeLabel }}</span>
-        <button class="nav-btn" @click="nextWeek" title="Semaine suivante">
-          <i class="ti ti-chevron-right" aria-hidden="true"></i>
-        </button>
-        <button class="btn btn-outline btn-sm" @click="goToday">Aujourd'hui</button>
-      </div>
-    </div>
-
-    <!-- ── Grille semaine ── -->
-    <div class="week-scroll">
-      <div class="week-grid">
-        <div
-          v-for="day in weekDays"
-          :key="day.date"
-          class="day-card"
-          :class="[dayCardClass(day), { 'day-card--today': day.date === today }]"
-        >
-
-          <!-- En-tête du jour -->
-          <div class="day-card-header" :class="{ 'day-card-header--today': day.date === today }">
-            <span class="day-abbr" :class="{ 'day-abbr--today': day.date === today }">{{ dayAbbr(day.date) }}</span>
-            <span class="day-num"  :class="{ 'day-num--today':  day.date === today }">{{ dayNum(day.date) }}</span>
-            <span v-if="day.date === today" class="today-badge">Aujourd'hui</span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button :class="navBtn" @click="prevWeek" title="Semaine précédente">
+                <ChevronLeft class="w-4 h-4" />
+              </button>
+              <span class="text-[13px] font-medium text-foreground whitespace-nowrap">{{ weekRangeLabel }}</span>
+              <button :class="navBtn" @click="nextWeek" title="Semaine suivante">
+                <ChevronRight class="w-4 h-4" />
+              </button>
+              <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="goToday">Aujourd'hui</button>
+            </div>
           </div>
 
-          <!-- Jour ouvrable normal -->
-          <template v-if="day.isWorkingDay && !day.isAbsence && !day.isHoliday">
-            <div class="day-card-body">
-              <div class="day-info-row">
-                <i class="ti ti-clock" aria-hidden="true"></i>
-                <span>{{ day.hours?.start }} → {{ day.hours?.end }}</span>
+          <!-- ── Grille semaine ── -->
+          <div class="overflow-x-auto mb-5">
+            <div class="grid grid-cols-7 gap-2 min-w-[700px]" style="grid-template-columns: repeat(7, minmax(130px, 1fr))">
+              <div
+                v-for="day in weekDays"
+                :key="day.date"
+                class="rounded-[10px] border overflow-hidden min-h-[130px] flex flex-col"
+                :class="dayCardClass(day)"
+              >
+                <!-- En-tête du jour -->
+                <div class="flex items-center justify-between px-2.5 py-2 border-b border-border">
+                  <span class="text-[11px] font-bold uppercase tracking-[0.06em]" :class="day.date === today ? 'text-primary' : 'text-muted-foreground'">{{ dayAbbr(day.date) }}</span>
+                  <span class="text-lg font-bold" :class="day.date === today ? 'text-primary' : 'text-foreground'">{{ dayNum(day.date) }}</span>
+                  <span v-if="day.date === today" class="ml-auto bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-[0.03em]">Aujourd'hui</span>
+                </div>
+
+                <!-- Jour ouvrable normal -->
+                <template v-if="day.isWorkingDay && !day.isAbsence && !day.isHoliday">
+                  <div class="p-2.5 flex flex-col gap-1.5 flex-1">
+                    <div :class="infoRow">
+                      <Clock class="w-3.5 h-3.5 shrink-0" />
+                      <span>{{ day.hours?.start }} → {{ day.hours?.end }}</span>
+                    </div>
+                    <div :class="infoRow">
+                      <Coffee class="w-3.5 h-3.5 shrink-0" />
+                      <span>Pause {{ day.hours?.breakStart }} → {{ day.hours?.breakEnd }}</span>
+                    </div>
+                    <div class="text-[11px] font-semibold text-primary mt-1">{{ effectiveHoursLabel(day.hours) }} effectives</div>
+                  </div>
+                </template>
+
+                <!-- Jour absent (congé approuvé) -->
+                <template v-else-if="day.isAbsence && day.absenceStatus === 'approved'">
+                  <div :class="bodyCentered">
+                    <span class="inline-block text-[11px] font-semibold text-primary bg-primary/10 rounded-md px-2 py-[3px] text-center break-words">{{ day.absenceType }}</span>
+                    <span :class="[statusPill, 'bg-success-bg text-success']">Approuvé</span>
+                  </div>
+                </template>
+
+                <!-- Jour absent (congé en attente) -->
+                <template v-else-if="day.isAbsence && day.absenceStatus === 'pending'">
+                  <div :class="bodyCentered">
+                    <span class="inline-block text-[11px] font-semibold text-warning bg-warning-bg rounded-md px-2 py-[3px] text-center break-words">{{ day.absenceType }}</span>
+                    <span :class="[statusPill, 'bg-warning-bg text-warning']">En attente de validation</span>
+                  </div>
+                </template>
+
+                <!-- Jour férié -->
+                <template v-else-if="day.isHoliday">
+                  <div :class="bodyCentered">
+                    <span class="text-xs font-semibold text-info text-center break-words mb-1">{{ day.holidayName }}</span>
+                    <span :class="[statusPill, 'bg-info-bg text-info']">Jour férié</span>
+                  </div>
+                </template>
+
+                <!-- Jour non ouvrable -->
+                <template v-else>
+                  <div :class="[bodyCentered, 'text-muted-foreground text-xs']">
+                    <Moon class="w-5 h-5 mb-1" />
+                    <span>Non ouvrable</span>
+                  </div>
+                </template>
+
               </div>
-              <div class="day-info-row">
-                <i class="ti ti-coffee" aria-hidden="true"></i>
-                <span>Pause {{ day.hours?.breakStart }} → {{ day.hours?.breakEnd }}</span>
+            </div>
+          </div>
+
+          <!-- ── Récapitulatif semaine ── -->
+          <div class="bg-card border border-border rounded-[10px] p-5">
+            <h2 class="text-sm font-semibold text-foreground mb-4">Résumé de la semaine</h2>
+            <div class="grid grid-cols-3 gap-3 mb-4 max-md:grid-cols-1">
+              <div :class="summaryItem">
+                <Briefcase class="w-5 h-5 text-primary shrink-0" />
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-lg font-bold text-foreground">{{ workedDays }}/{{ workableMax }}</span>
+                  <span class="text-[11px] text-muted-foreground">Jours travaillés</span>
+                </div>
               </div>
-              <div class="day-subtotal">{{ effectiveHoursLabel(day.hours) }} effectives</div>
+              <div :class="summaryItem">
+                <CalendarOff class="w-5 h-5 text-primary shrink-0" />
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-lg font-bold text-foreground">{{ absenceDays }}</span>
+                  <span class="text-[11px] text-muted-foreground">Jour(s) d'absence</span>
+                </div>
+              </div>
+              <div :class="summaryItem">
+                <Clock class="w-5 h-5 text-primary shrink-0" />
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-lg font-bold text-foreground">{{ effectiveHoursTotal }}</span>
+                  <span class="text-[11px] text-muted-foreground">Heures effectives prévues</span>
+                </div>
+              </div>
             </div>
-          </template>
 
-          <!-- Jour absent (congé approuvé) -->
-          <template v-else-if="day.isAbsence && day.absenceStatus === 'approved'">
-            <div class="day-card-body day-card-body--centered">
-              <span class="absence-badge">{{ day.absenceType }}</span>
-              <span class="status-pill status-pill--approved">Approuvé</span>
+            <div class="pt-3 border-t border-border">
+              <span class="text-xs font-semibold text-muted-foreground block mb-2.5">Soldes restants</span>
+              <div class="flex gap-2 flex-wrap">
+                <div v-for="b in balanceSummary" :key="b.label" class="flex items-center gap-1.5 bg-background border border-border rounded-full px-3 py-1 text-xs">
+                  <span class="text-muted-foreground">{{ b.label }}</span>
+                  <span class="font-bold text-primary">{{ b.days }}j</span>
+                </div>
+              </div>
             </div>
-          </template>
-
-          <!-- Jour absent (congé en attente) -->
-          <template v-else-if="day.isAbsence && day.absenceStatus === 'pending'">
-            <div class="day-card-body day-card-body--centered">
-              <span class="absence-badge absence-badge--pending">{{ day.absenceType }}</span>
-              <span class="status-pill status-pill--pending">En attente de validation</span>
-            </div>
-          </template>
-
-          <!-- Jour férié -->
-          <template v-else-if="day.isHoliday">
-            <div class="day-card-body day-card-body--centered">
-              <span class="holiday-name">{{ day.holidayName }}</span>
-              <span class="status-pill status-pill--holiday">Jour férié</span>
-            </div>
-          </template>
-
-          <!-- Jour non ouvrable -->
-          <template v-else>
-            <div class="day-card-body day-card-body--centered day-card-body--off">
-              <i class="ti ti-moon" aria-hidden="true"></i>
-              <span>Non ouvrable</span>
-            </div>
-          </template>
-
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Récapitulatif semaine ── -->
-    <div class="summary-card">
-      <h2 class="summary-title">Résumé de la semaine</h2>
-      <div class="summary-grid">
-        <div class="summary-item">
-          <i class="ti ti-briefcase" aria-hidden="true"></i>
-          <div>
-            <span class="summary-value">{{ workedDays }}/{{ workableMax }}</span>
-            <span class="summary-label">Jours travaillés</span>
           </div>
-        </div>
-        <div class="summary-item">
-          <i class="ti ti-calendar-off" aria-hidden="true"></i>
-          <div>
-            <span class="summary-value">{{ absenceDays }}</span>
-            <span class="summary-label">Jour(s) d'absence</span>
-          </div>
-        </div>
-        <div class="summary-item">
-          <i class="ti ti-clock" aria-hidden="true"></i>
-          <div>
-            <span class="summary-value">{{ effectiveHoursTotal }}</span>
-            <span class="summary-label">Heures effectives prévues</span>
-          </div>
-        </div>
-      </div>
 
-      <div class="balances-row">
-        <span class="balances-title">Soldes restants</span>
-        <div class="balances-list">
-          <div v-for="b in balanceSummary" :key="b.label" class="balance-chip">
-            <span class="balance-label">{{ b.label }}</span>
-            <span class="balance-days">{{ b.days }}j</span>
-          </div>
         </div>
-      </div>
-    </div>
-
-  </div><!-- .planning-view -->
       </main>
     </div>
-  </div><!-- .app-shell -->
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { ChevronLeft, ChevronRight, Clock, Coffee, Moon, Briefcase, CalendarOff } from 'lucide-vue-next'
 import AppTopNav  from '../../components/AppTopNav.vue'
 import AppSidebar from '../../components/AppSidebar.vue'
+import * as L from '../../lib/listClasses'
 import { useAuthStore }     from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'
 import { useAbsenceStore }  from '../../stores/absences'
@@ -151,7 +152,23 @@ const auth          = useAuthStore()
 const calendarStore = useCalendarStore()
 const absenceStore  = useAbsenceStore()
 
+// ── Classes du design system ─────────────────────────────────
+const navBtn = 'w-8 h-8 flex items-center justify-center border border-border rounded-md bg-card text-foreground cursor-pointer transition-colors hover:bg-background'
+const infoRow = 'flex items-center gap-1.5 text-[11px] text-muted-foreground'
+const bodyCentered = 'p-2.5 flex flex-col gap-1.5 flex-1 items-center justify-center text-center'
+const statusPill = 'inline-flex items-center text-[10px] font-bold rounded-full px-2 py-0.5 uppercase tracking-[0.05em]'
+const summaryItem = 'flex items-center gap-3 p-3 bg-background rounded-lg'
+
 const today = new Date().toISOString().split('T')[0] ?? ''
+
+function dayCardClass(day: DayPlanning): string {
+  if (day.date === today) return '!bg-primary/10 !border-2 !border-primary'
+  if (day.isWorkingDay && !day.isAbsence && !day.isHoliday) return 'bg-card border-border'
+  if (day.isAbsence && day.absenceStatus === 'approved') return 'bg-primary/10 border-primary'
+  if (day.isAbsence && day.absenceStatus === 'pending') return 'bg-warning-bg border-warning'
+  if (day.isHoliday) return 'bg-info-bg border-info'
+  return 'bg-background border-border opacity-60'
+}
 
 // ── Week navigation ───────────────────────────────────────────
 function parseLocal(dateStr: string): Date {
@@ -244,16 +261,6 @@ function dayNum(dateStr: string): string {
   return String(parseLocal(dateStr).getDate())
 }
 
-function dayCardClass(day: DayPlanning): Record<string, boolean> {
-  return {
-    'day-card--working': day.isWorkingDay && !day.isAbsence && !day.isHoliday,
-    'day-card--approved': day.isAbsence && day.absenceStatus === 'approved',
-    'day-card--pending':  day.isAbsence && day.absenceStatus === 'pending',
-    'day-card--holiday':  day.isHoliday && !day.isAbsence,
-    'day-card--off':      !day.isWorkingDay && !day.isHoliday,
-  }
-}
-
 function effectiveHoursLabel(hours?: WorkingHours): string {
   if (!hours) return '0h'
   const toMin  = (t: string) => { const p = t.split(':').map(Number); return (p[0] ?? 0) * 60 + (p[1] ?? 0) }
@@ -300,210 +307,3 @@ const balanceSummary = [
   { label: 'Télétravail',   days: 5  },
 ]
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; overflow-y: auto; background: var(--color-bg); }
-
-.planning-view {
-  padding: 24px;
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-/* ── Header ── */
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-.header-left { display: flex; align-items: center; gap: 12px; }
-.page-title  { font-size: 20px; font-weight: 700; color: var(--color-text); }
-.month-badge {
-  font-size: 12px; font-weight: 500;
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-  border-radius: 20px;
-  padding: 3px 12px;
-}
-
-.week-nav {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-}
-.nav-btn {
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  border: 0.5px solid var(--color-border); border-radius: 6px;
-  background: var(--color-surface); color: var(--color-text);
-  cursor: pointer; font-size: 16px;
-  transition: background .12s;
-}
-.nav-btn:hover { background: var(--color-bg); }
-.week-label { font-size: 13px; font-weight: 500; color: var(--color-text); white-space: nowrap; }
-
-/* ── Week grid ── */
-.week-scroll { overflow-x: auto; margin-bottom: 20px; }
-.week-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(130px, 1fr));
-  gap: 8px;
-  min-width: 700px;
-}
-
-.day-card {
-  border-radius: 10px;
-  border: 0.5px solid var(--color-border);
-  background: var(--color-surface);
-  overflow: hidden;
-  min-height: 130px;
-  display: flex;
-  flex-direction: column;
-}
-
-.day-card--working  { background: var(--color-surface); }
-.day-card--approved { background: var(--color-primary-light); border-color: var(--color-primary); }
-.day-card--pending  { background: var(--color-warning-bg);    border-color: var(--color-warning); }
-.day-card--holiday  { background: var(--color-info-bg);       border-color: var(--color-info); }
-.day-card--off      { background: var(--color-bg); opacity: .6; }
-.day-card--today    { background: var(--color-primary-light) !important; border: 2px solid var(--color-primary) !important; }
-
-.day-card-header--today { background: none; }
-.day-abbr--today { color: var(--color-primary); font-weight: 700; }
-.day-num--today  { color: var(--color-primary); }
-.today-badge {
-  margin-left: auto;
-  background: var(--color-primary); color: #fff;
-  font-size: 9px; font-weight: 700; padding: 2px 6px;
-  border-radius: 10px; letter-spacing: .03em;
-}
-
-.day-card-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 10px;
-  border-bottom: 0.5px solid var(--color-border);
-}
-.day-abbr { font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .06em; }
-.day-num  { font-size: 18px; font-weight: 700; color: var(--color-text); }
-
-.day-card-body {
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-}
-.day-card-body--centered {
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-.day-card-body--off {
-  color: var(--color-text-muted);
-  font-size: 12px;
-}
-.day-card-body--off i { font-size: 20px; margin-bottom: 4px; }
-
-.day-info-row {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; color: var(--color-text-muted);
-}
-.day-info-row i { font-size: 13px; flex-shrink: 0; }
-.day-subtotal {
-  font-size: 11px; font-weight: 600;
-  color: var(--color-primary);
-  margin-top: 4px;
-}
-
-.absence-badge {
-  display: inline-block;
-  font-size: 11px; font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-  border-radius: 6px;
-  padding: 3px 8px;
-  text-align: center;
-  word-break: break-word;
-}
-.absence-badge--pending {
-  color: var(--color-warning);
-  background: var(--color-warning-bg);
-}
-
-.holiday-name {
-  font-size: 12px; font-weight: 600;
-  color: var(--color-info);
-  text-align: center;
-  word-break: break-word;
-  margin-bottom: 4px;
-}
-
-/* ── Status pill ── */
-.status-pill {
-  display: inline-flex; align-items: center;
-  font-size: 10px; font-weight: 700;
-  border-radius: 20px;
-  padding: 2px 8px;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-}
-.status-pill--approved { background: var(--color-success-bg); color: var(--color-success); }
-.status-pill--pending  { background: var(--color-warning-bg); color: var(--color-warning); }
-.status-pill--holiday  { background: var(--color-info-bg);    color: var(--color-info);    }
-
-/* ── Summary card ── */
-.summary-card {
-  background: var(--color-surface);
-  border: 0.5px solid var(--color-border);
-  border-radius: 10px;
-  padding: 20px;
-}
-.summary-title {
-  font-size: 14px; font-weight: 600; color: var(--color-text);
-  margin-bottom: 16px;
-}
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.summary-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px; background: var(--color-bg); border-radius: 8px;
-}
-.summary-item i { font-size: 20px; color: var(--color-primary); flex-shrink: 0; }
-.summary-item > div { display: flex; flex-direction: column; gap: 2px; }
-.summary-value { font-size: 18px; font-weight: 700; color: var(--color-text); }
-.summary-label { font-size: 11px; color: var(--color-text-muted); }
-
-.balances-row { padding-top: 12px; border-top: 0.5px solid var(--color-border); }
-.balances-title { font-size: 12px; font-weight: 600; color: var(--color-text-muted); display: block; margin-bottom: 10px; }
-.balances-list  { display: flex; gap: 8px; flex-wrap: wrap; }
-.balance-chip {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--color-bg);
-  border: 0.5px solid var(--color-border);
-  border-radius: 20px;
-  padding: 4px 12px;
-  font-size: 12px;
-}
-.balance-label { color: var(--color-text-muted); }
-.balance-days  { font-weight: 700; color: var(--color-primary); }
-
-/* ── Buttons ── */
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; white-space: nowrap; }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-.btn-sm { padding: 5px 12px; font-size: 12px; }
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .planning-view { padding: 16px; }
-  .page-header   { flex-direction: column; align-items: flex-start; }
-  .summary-grid  { grid-template-columns: 1fr; }
-}
-</style>

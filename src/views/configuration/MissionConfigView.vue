@@ -1,25 +1,25 @@
 <template>
-  <div class="app-shell">
+  <div :class="L.shell">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div :class="L.mainLayout">
       <AppSidebar />
-      <main class="content">
+      <main :class="L.content" class="flex flex-col gap-4">
 
         <!-- En-tête -->
-        <div class="page-header">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 class="page-title">Configuration des missions</h1>
-            <p class="page-sub">Définissez les types de frais et leurs règles par catégorie d'employé</p>
+            <h1 class="text-xl font-bold text-foreground">Configuration des missions</h1>
+            <p class="text-[13px] text-muted-foreground mt-0.5">Définissez les types de frais et leurs règles par catégorie d'employé</p>
           </div>
-          <button class="btn btn-outline" @click="showImportToast">
-            <i class="ti ti-upload" aria-hidden="true"></i>
+          <button :class="L.btnOutline" @click="showImportToast">
+            <Upload class="w-4 h-4" />
             Importer
           </button>
         </div>
 
         <!-- Banner avertissement -->
-        <div class="warning-banner">
-          <i class="ti ti-alert-triangle warning-icon" aria-hidden="true"></i>
+        <div class="flex items-start gap-2.5 bg-warning-bg border-l-4 border-warning rounded-md px-4 py-3 text-[13px] text-foreground leading-relaxed">
+          <TriangleAlert class="w-4 h-4 text-warning shrink-0 mt-px" />
           <span>
             Les catégories et montants affichés sont <strong>provisoires</strong>.
             Ils doivent être validés avec la direction avant la mise en production.
@@ -27,30 +27,28 @@
         </div>
 
         <!-- Toast -->
-        <Transition name="toast">
-          <div v-if="showToast" class="toast-notif">
-            <i class="ti ti-check" aria-hidden="true"></i>
-            {{ toastMsg }}
-          </div>
-        </Transition>
+        <div v-if="showToast" class="fixed bottom-6 right-6 bg-success text-white px-5 py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 z-[2000] shadow-[0_4px_16px_rgba(0,0,0,0.16)]">
+          <Check class="w-4 h-4" />
+          {{ toastMsg }}
+        </div>
 
         <!-- Section 1 : Catégories d'employés -->
-        <div class="section-card">
-          <div class="section-header">
+        <div :class="L.tableCard">
+          <div class="flex items-start justify-between px-5 pt-4 gap-3">
             <div>
-              <h2 class="section-title">Catégories d'employés</h2>
-              <p class="section-note">⚠️ À valider avec la direction — les catégories sont provisoires</p>
+              <h2 class="text-[15px] font-semibold text-foreground">Catégories d'employés</h2>
+              <p class="text-[11px] text-warning mt-0.5">⚠️ À valider avec la direction — les catégories sont provisoires</p>
             </div>
-            <button class="btn btn-outline btn-sm" @click="showCatModal = true">
-              <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
+            <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="showCatModal = true">
+              <Plus class="w-3.5 h-3.5" /> Ajouter
             </button>
           </div>
 
           <DataTable :columns="catColumns" :rows="store.categories" row-key="id">
             <template #cell-actions="{ row }">
-              <div class="actions-cell">
-                <button class="icon-btn" title="Modifier" @click="openEditCat(row)">
-                  <i class="ti ti-edit" aria-hidden="true"></i>
+              <div class="flex gap-1 justify-center">
+                <button :class="iconBtn" title="Modifier" @click="openEditCat(row)">
+                  <Pencil class="w-3.5 h-3.5" />
                 </button>
               </div>
             </template>
@@ -58,39 +56,39 @@
         </div>
 
         <!-- Section 2 : Types de frais -->
-        <div class="section-card">
-          <div class="section-header">
-            <h2 class="section-title">Types de frais</h2>
-            <button class="btn btn-outline btn-sm" @click="openAddFee">
-              <i class="ti ti-plus" aria-hidden="true"></i> Ajouter un type de frais
+        <div :class="L.tableCard">
+          <div class="flex items-start justify-between px-5 pt-4 gap-3">
+            <h2 class="text-[15px] font-semibold text-foreground">Types de frais</h2>
+            <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="openAddFee">
+              <Plus class="w-3.5 h-3.5" /> Ajouter un type de frais
             </button>
           </div>
 
-          <div class="fee-table-wrap">
-            <table class="fee-table">
+          <div class="overflow-x-auto pb-1">
+            <table class="w-full border-collapse text-[13px] min-w-[700px]">
               <thead>
                 <tr>
-                  <th>Type de frais</th>
-                  <th v-for="cat in store.categories" :key="cat.id">{{ cat.code }}</th>
-                  <th>Justif.</th>
-                  <th>Actions</th>
+                  <th :class="thUpper">Type de frais</th>
+                  <th v-for="cat in store.categories" :key="cat.id" :class="thUpper">{{ cat.code }}</th>
+                  <th :class="thUpper">Justif.</th>
+                  <th :class="thUpper">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="ft in store.feeTypes" :key="ft.id">
-                  <td>
-                    <div class="fee-name">
-                      <span class="fee-label">{{ ft.name }}</span>
-                      <span class="fee-unit">{{ unitLabel(ft.unit) }}</span>
+                <tr v-for="ft in store.feeTypes" :key="ft.id" class="hover:bg-background">
+                  <td :class="tdCell">
+                    <div class="flex flex-col gap-0.5">
+                      <span class="font-medium text-foreground">{{ ft.name }}</span>
+                      <span class="text-[11px] text-muted-foreground">{{ unitLabel(ft.unit) }}</span>
                     </div>
                   </td>
-                  <td v-for="cat in store.categories" :key="cat.id">
-                    <div class="amount-cell">
+                  <td v-for="cat in store.categories" :key="cat.id" :class="tdCell">
+                    <div class="flex items-center gap-1">
                       <template v-if="editing?.feeId === ft.id && editing?.catId === cat.id">
                         <input
                           type="number"
                           min="0"
-                          class="amount-input"
+                          class="w-[90px] h-7 px-1.5 border border-primary rounded text-[13px] bg-card outline-none"
                           :value="getAmount(ft.id, cat.id)"
                           @change="onAmountChange(ft.id, cat.id, $event)"
                           @blur="editing = null"
@@ -100,41 +98,39 @@
                       <template v-else>
                         <span
                           v-if="getAmount(ft.id, cat.id) === 0"
-                          class="badge-reel"
+                          class="text-[11px] font-semibold bg-info-bg text-info rounded px-[7px] py-0.5 cursor-pointer whitespace-nowrap hover:opacity-75"
                           @click="startEdit(ft.id, cat.id)"
                         >Au réel</span>
                         <span
                           v-else
-                          class="amount-val"
+                          class="text-[13px] font-medium text-foreground cursor-pointer whitespace-nowrap hover:text-primary"
                           @click="startEdit(ft.id, cat.id)"
-                        >{{ fmt(getAmount(ft.id, cat.id)) }}<span class="amount-unit">MGA/j</span></span>
+                        >{{ fmt(getAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">MGA/j</span></span>
                       </template>
                     </div>
                   </td>
-                  <td class="center">
-                    <i
-                      :class="ft.requiresReceipt ? 'ti ti-check text-success' : 'ti ti-minus text-muted'"
-                      aria-hidden="true"
-                    ></i>
+                  <td :class="[tdCell, 'text-center']">
+                    <Check v-if="ft.requiresReceipt" class="w-4 h-4 text-success inline-block" />
+                    <Minus v-else class="w-4 h-4 text-muted-foreground inline-block" />
                   </td>
-                  <td>
-                    <div class="actions-cell">
-                      <button class="icon-btn" @click="openEditFee(ft.id)">
-                        <i class="ti ti-edit" aria-hidden="true"></i>
+                  <td :class="tdCell">
+                    <div class="flex gap-1 justify-center">
+                      <button :class="iconBtn" @click="openEditFee(ft.id)">
+                        <Pencil class="w-3.5 h-3.5" />
                       </button>
-                      <button class="icon-btn icon-btn--danger" @click="deleteFee(ft.id, ft.name)">
-                        <i class="ti ti-trash" aria-hidden="true"></i>
+                      <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteFee(ft.id, ft.name)">
+                        <Trash2 class="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>
                 </tr>
                 <tr v-if="store.feeTypes.length === 0">
-                  <td :colspan="store.categories.length + 3" class="empty-cell">Aucun type de frais configuré</td>
+                  <td :colspan="store.categories.length + 3" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p class="table-hint">Cliquez sur un montant pour le modifier. "Au réel" signifie remboursement sur justificatif.</p>
+          <p class="text-[11px] text-muted-foreground px-4 pt-2 pb-3">Cliquez sur un montant pour le modifier. "Au réel" signifie remboursement sur justificatif.</p>
         </div>
 
       </main>
@@ -142,88 +138,77 @@
   </div>
 
   <!-- Modal catégorie -->
-  <Teleport to="body">
-    <div v-if="showCatModal" class="modal-overlay" @click.self="showCatModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">{{ editingCat ? 'Modifier la catégorie' : 'Nouvelle catégorie' }}</span>
-          <button class="modal-close" @click="showCatModal = false"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="modal-body">
-          <div class="field">
-            <label class="field-label">Code *</label>
-            <input v-model="catForm.code" class="field-input" placeholder="ex: CAT-E" />
-          </div>
-          <div class="field">
-            <label class="field-label">Libellé *</label>
-            <input v-model="catForm.label" class="field-input" placeholder="ex: Stagiaire" />
-          </div>
-          <div class="field">
-            <label class="field-label">Description</label>
-            <input v-model="catForm.description" class="field-input" placeholder="Description optionnelle..." />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="showCatModal = false">Annuler</button>
-          <button class="btn btn-primary" @click="saveCat">Enregistrer</button>
-        </div>
-      </div>
+  <ModalShell :open="showCatModal" :title="editingCat ? 'Modifier la catégorie' : 'Nouvelle catégorie'" max-width="max-w-[440px]" @close="showCatModal = false">
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Code *</label>
+      <input v-model="catForm.code" :class="cls.fieldInput" placeholder="ex: CAT-E" />
     </div>
-  </Teleport>
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Libellé *</label>
+      <input v-model="catForm.label" :class="cls.fieldInput" placeholder="ex: Stagiaire" />
+    </div>
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Description</label>
+      <input v-model="catForm.description" :class="cls.fieldInput" placeholder="Description optionnelle..." />
+    </div>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="showCatModal = false">Annuler</button>
+      <button :class="cls.btnPrimary" @click="saveCat">Enregistrer</button>
+    </template>
+  </ModalShell>
 
   <!-- Modal type de frais -->
-  <Teleport to="body">
-    <div v-if="showFeeModal" class="modal-overlay" @click.self="showFeeModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">{{ editingFeeId ? 'Modifier le type de frais' : 'Nouveau type de frais' }}</span>
-          <button class="modal-close" @click="showFeeModal = false"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="modal-body">
-          <div class="field">
-            <label class="field-label">Nom *</label>
-            <input v-model="feeForm.name" class="field-input" placeholder="ex: Repas" />
-          </div>
-          <div class="field">
-            <label class="field-label">Code</label>
-            <input v-model="feeForm.code" class="field-input" placeholder="ex: REPAS" />
-          </div>
-          <div class="field">
-            <label class="field-label">Unité</label>
-            <select v-model="feeForm.unit" class="field-input">
-              <option value="per_day">Par jour</option>
-              <option value="flat">Forfait</option>
-              <option value="real">Au réel</option>
-            </select>
-          </div>
-          <div class="toggle-row">
-            <span class="field-label">Justificatif obligatoire</span>
-            <label class="toggle-wrap">
-              <input type="checkbox" class="toggle-input" v-model="feeForm.requiresReceipt" />
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </label>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="showFeeModal = false">Annuler</button>
-          <button class="btn btn-primary" @click="saveFee">Enregistrer</button>
-        </div>
-      </div>
+  <ModalShell :open="showFeeModal" :title="editingFeeId ? 'Modifier le type de frais' : 'Nouveau type de frais'" max-width="max-w-[440px]" @close="showFeeModal = false">
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Nom *</label>
+      <input v-model="feeForm.name" :class="cls.fieldInput" placeholder="ex: Repas" />
     </div>
-  </Teleport>
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Code</label>
+      <input v-model="feeForm.code" :class="cls.fieldInput" placeholder="ex: REPAS" />
+    </div>
+    <div :class="cls.field">
+      <label :class="cls.fieldLabel">Unité</label>
+      <select v-model="feeForm.unit" :class="cls.fieldSelect">
+        <option value="per_day">Par jour</option>
+        <option value="flat">Forfait</option>
+        <option value="real">Au réel</option>
+      </select>
+    </div>
+    <div class="flex items-center justify-between">
+      <span :class="cls.fieldLabel">Justificatif obligatoire</span>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" class="sr-only peer" v-model="feeForm.requiresReceipt" />
+        <span class="w-9 h-5 rounded-full bg-foreground/20 transition-colors peer-checked:bg-primary relative after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:w-3.5 after:h-3.5 after:bg-white after:rounded-full after:transition-all peer-checked:after:left-[19px]"></span>
+      </label>
+    </div>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="showFeeModal = false">Annuler</button>
+      <button :class="cls.btnPrimary" @click="saveFee">Enregistrer</button>
+    </template>
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, nextTick } from 'vue'
+import { Upload, TriangleAlert, Check, Plus, Pencil, Trash2, Minus } from 'lucide-vue-next'
 import AppTopNav  from '../../components/AppTopNav.vue'
 import AppSidebar from '../../components/AppSidebar.vue'
 import DataTable  from '../../components/ui/DataTable.vue'
+import ModalShell from '../../components/ui/ModalShell.vue'
+import * as cls from '../../lib/formClasses'
+import * as L from '../../lib/listClasses'
 import { useAuthStore }         from '../../stores/auth'
 import { useMissionConfigStore } from '../../stores/missionConfig'
 import type { EmpCategory, MissionFeeType } from '../../stores/missionConfig'
 
 const auth  = useAuthStore()
 const store = useMissionConfigStore()
+
+// ── Classes du design system ─────────────────────────────────
+const thUpper = 'px-3 py-2.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border whitespace-nowrap'
+const tdCell = 'px-3 py-2.5 border-b border-border'
+const iconBtn = 'w-7 h-7 flex items-center justify-center border-0 rounded-md bg-background text-muted-foreground cursor-pointer transition-colors hover:bg-primary/10 hover:text-primary'
 
 const showToast = ref(false)
 const toastMsg  = ref('')
@@ -347,91 +332,3 @@ function deleteFee(id: string, name: string) {
   }
 }
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; padding: 24px 28px; background: var(--color-bg); overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-
-.page-header  { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.page-title   { font-size: 20px; font-weight: 700; color: var(--color-text); }
-.page-sub     { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-
-.warning-banner {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: var(--color-warning-bg);
-  border-left: 4px solid var(--color-warning);
-  border-radius: 6px; padding: 12px 16px;
-  font-size: 13px; color: var(--color-text); line-height: 1.5;
-}
-.warning-icon { color: var(--color-warning); font-size: 16px; margin-top: 1px; flex-shrink: 0; }
-
-.toast-notif { position: fixed; bottom: 24px; right: 24px; background: var(--color-success); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 2000; box-shadow: 0 4px 16px rgba(0,0,0,.16); }
-.toast-enter-active, .toast-leave-active { transition: all .25s; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(10px); }
-
-.section-card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; overflow: hidden; }
-.section-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 20px 0; gap: 12px; }
-.section-title  { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.section-note   { font-size: 11px; color: var(--color-warning); margin-top: 2px; }
-
-.fee-table-wrap { overflow-x: auto; padding: 0 0 4px; }
-.fee-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 700px; }
-.fee-table th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .05em; background: var(--color-bg); border-bottom: 0.5px solid var(--color-border); white-space: nowrap; }
-.fee-table td { padding: 10px 12px; border-bottom: 0.5px solid var(--color-border); }
-.fee-table tbody tr:last-child td { border-bottom: none; }
-.fee-table tbody tr:hover { background: var(--color-bg); }
-
-.fee-name { display: flex; flex-direction: column; gap: 2px; }
-.fee-label { font-weight: 500; color: var(--color-text); }
-.fee-unit  { font-size: 11px; color: var(--color-text-muted); }
-
-.amount-cell { display: flex; align-items: center; gap: 4px; }
-.badge-reel { font-size: 11px; font-weight: 600; background: var(--color-info-bg); color: var(--color-info); border-radius: 4px; padding: 2px 7px; cursor: pointer; white-space: nowrap; }
-.badge-reel:hover { opacity: .75; }
-.amount-val { font-size: 13px; font-weight: 500; color: var(--color-text); cursor: pointer; white-space: nowrap; }
-.amount-val:hover { color: var(--color-primary); }
-.amount-unit { font-size: 10px; color: var(--color-text-muted); margin-left: 2px; }
-.amount-input { width: 90px; height: 28px; padding: 0 6px; border: 1px solid var(--color-primary); border-radius: 4px; font-size: 13px; background: var(--color-surface); outline: none; }
-
-.center { text-align: center; }
-.text-success { color: var(--color-success); }
-.text-muted   { color: var(--color-text-muted); }
-.actions-cell { display: flex; gap: 4px; justify-content: center; }
-.empty-cell { text-align: center; padding: 24px; color: var(--color-text-muted); font-style: italic; }
-.table-hint { font-size: 11px; color: var(--color-text-muted); padding: 8px 16px 12px; }
-
-.icon-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: var(--color-bg); color: var(--color-text-muted); cursor: pointer; font-size: 14px; transition: all .12s; }
-.icon-btn:hover { background: var(--color-primary-light); color: var(--color-primary); }
-.icon-btn--danger:hover { background: var(--color-danger-bg); color: var(--color-danger); }
-
-/* Modals */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-card    { background: var(--color-surface); border-radius: 12px; padding: 24px; max-width: 440px; width: 95%; box-shadow: 0 8px 32px rgba(0,0,0,.18); }
-.modal-header  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.modal-title   { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.modal-close   { width: 28px; height: 28px; border: none; background: var(--color-bg); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: 14px; }
-.modal-close:hover { background: var(--color-border); }
-.modal-body    { display: flex; flex-direction: column; gap: 14px; }
-.modal-footer  { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 0.5px solid var(--color-border); }
-
-.field       { display: flex; flex-direction: column; gap: 4px; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--color-text); }
-.field-input { height: 38px; padding: 0 10px; border: 0.5px solid var(--color-border); border-radius: 6px; background: var(--color-bg); font-size: 13px; color: var(--color-text); outline: none; width: 100%; box-sizing: border-box; }
-.field-input:focus { border-color: var(--color-primary); }
-
-.toggle-row  { display: flex; align-items: center; justify-content: space-between; }
-.toggle-wrap { position: relative; display: inline-flex; }
-.toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
-.toggle-track { width: 36px; height: 20px; background: var(--color-border-strong); border-radius: 10px; position: relative; cursor: pointer; transition: background .2s; }
-.toggle-input:checked + .toggle-track { background: var(--color-primary); }
-.toggle-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: left .2s; }
-.toggle-input:checked + .toggle-track .toggle-thumb { left: 19px; }
-
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; white-space: nowrap; }
-.btn-primary { background: var(--color-primary); color: #fff; }
-.btn-primary:hover { opacity: .88; }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-.btn-sm { padding: 6px 12px; font-size: 12px; }
-</style>

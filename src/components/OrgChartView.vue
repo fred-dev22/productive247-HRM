@@ -2,7 +2,7 @@
   <div class="orgchart-wrap">
     <div class="orgchart-toolbar">
       <span class="orgchart-hint">
-        <i class="ti ti-hand-finger"></i>
+        <Pointer class="w-3.5 h-3.5" />
         Faites glisser · Molette pour zoomer · Clic sur un nœud pour le détail
       </span>
     </div>
@@ -31,7 +31,7 @@
 
             <div class="org-node__footer">
               <span class="org-node__headcount">
-                <i class="ti ti-users"></i> {{ item.headcount }}
+                <Users class="w-3 h-3 inline-block align-[-1px]" /> {{ item.headcount }}
               </span>
               <StatusPill :status="item.status" />
             </div>
@@ -41,14 +41,15 @@
               class="org-node__toggle"
               @click.stop="toggleChildren"
             >
-              <i :class="open ? 'ti ti-minus' : 'ti ti-plus'"></i>
+              <Minus v-if="open" class="w-2.5 h-2.5" />
+              <Plus v-else class="w-2.5 h-2.5" />
             </button>
           </div>
         </template>
       </Vue3OrgChart>
 
       <div v-else class="orgchart-empty">
-        <i class="ti ti-hierarchy"></i>
+        <Network class="w-9 h-9" />
         Aucune entité à afficher
       </div>
     </div>
@@ -59,6 +60,7 @@
 import { useRouter } from 'vue-router'
 import { Vue3OrgChart } from 'vue3-org-chart'
 import 'vue3-org-chart/dist/style.css'
+import { Pointer, Users, Minus, Plus, Network } from 'lucide-vue-next'
 import { useEntityStore }     from '../stores/entities'
 import { useNavigationStore } from '../stores/navigation'
 import UserAvatar from './ui/UserAvatar.vue'

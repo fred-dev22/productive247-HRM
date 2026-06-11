@@ -1,31 +1,30 @@
 <template>
-  <div class="timeline">
+  <div class="flex flex-col py-1">
     <div
       v-for="(s, i) in history"
       :key="i"
-      class="timeline-step"
-      :class="`step--${s.action}`"
+      class="flex items-start gap-3 relative pb-4 last:pb-0"
     >
       <!-- Connecteur vertical -->
-      <div v-if="i < history.length - 1" class="timeline-connector" />
+      <div v-if="i < history.length - 1" class="absolute left-[11px] top-6 w-0.5 h-[calc(100%-8px)] bg-border z-0"></div>
 
       <!-- Dot -->
-      <div class="timeline-dot">
-        <i :class="dotIcon(s.action)" aria-hidden="true"></i>
+      <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 relative z-[1] border-2 border-current" :class="dotColor(s.action)">
+        <component :is="dotIcon(s.action)" class="w-3 h-3" />
       </div>
 
       <!-- Contenu -->
-      <div class="timeline-content">
-        <div class="timeline-header">
+      <div class="flex flex-col gap-1 pt-0.5 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
           <UserAvatar :name="s.actorName" size="sm" />
-          <span class="actor-name">{{ s.actorName }}</span>
-          <span class="level-badge">{{ levelLabel(s.level) }}</span>
-          <span v-if="s.date" class="timeline-date">{{ formatDate(s.date) }}</span>
+          <span class="text-[13px] font-semibold text-foreground">{{ s.actorName }}</span>
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-neutral-bg text-neutral whitespace-nowrap">{{ levelLabel(s.level) }}</span>
+          <span v-if="s.date" class="text-[11px] text-muted-foreground ml-auto whitespace-nowrap">{{ formatDate(s.date) }}</span>
         </div>
-        <div class="timeline-action">{{ actionLabel(s.action) }}</div>
-        <div v-if="s.comment" class="timeline-comment">"{{ s.comment }}"</div>
-        <div v-if="s.action === 'pending'" class="timeline-pending">
-          <i class="ti ti-dots" aria-hidden="true"></i> En attente de validation...
+        <div class="text-xs" :class="actionColor(s.action)">{{ actionLabel(s.action) }}</div>
+        <div v-if="s.comment" class="text-xs text-muted-foreground italic bg-background border-l-2 border-border px-2 py-1 rounded-r">"{{ s.comment }}"</div>
+        <div v-if="s.action === 'pending'" class="text-[11px] text-neutral flex items-center gap-1 italic">
+          <MoreHorizontal class="w-3.5 h-3.5" /> En attente de validation...
         </div>
       </div>
     </div>
@@ -33,20 +32,43 @@
 </template>
 
 <script setup lang="ts">
+import { Send, Check, X, CornerUpLeft, Clock, Circle, MoreHorizontal } from 'lucide-vue-next'
 import UserAvatar from './UserAvatar.vue'
 import type { ValidationStep } from '../../types'
 
 defineProps<{ history: ValidationStep[] }>()
 
-function dotIcon(action: ValidationStep['action']): string {
-  const m: Record<ValidationStep['action'], string> = {
-    submitted: 'ti ti-send',
-    approved:  'ti ti-check',
-    rejected:  'ti ti-x',
-    returned:  'ti ti-arrow-back',
-    pending:   'ti ti-clock',
+function dotIcon(action: ValidationStep['action']) {
+  const m: Record<ValidationStep['action'], typeof Send> = {
+    submitted: Send,
+    approved:  Check,
+    rejected:  X,
+    returned:  CornerUpLeft,
+    pending:   Clock,
   }
-  return m[action] ?? 'ti ti-circle'
+  return m[action] ?? Circle
+}
+
+function dotColor(action: ValidationStep['action']): string {
+  const m: Record<string, string> = {
+    submitted: 'text-info bg-info-bg',
+    approved:  'text-success bg-success-bg',
+    rejected:  'text-danger bg-danger-bg',
+    returned:  'text-warning bg-warning-bg',
+    pending:   'text-neutral bg-neutral-bg',
+  }
+  return m[action] ?? 'text-neutral bg-neutral-bg'
+}
+
+function actionColor(action: ValidationStep['action']): string {
+  const m: Record<string, string> = {
+    approved:  'text-success font-medium',
+    rejected:  'text-danger font-medium',
+    returned:  'text-warning font-medium',
+    submitted: 'text-info font-medium',
+    pending:   'text-muted-foreground',
+  }
+  return m[action] ?? 'text-muted-foreground'
 }
 
 function actionLabel(action: ValidationStep['action']): string {
@@ -83,99 +105,3 @@ function formatDate(iso: string): string {
   })
 }
 </script>
-
-<style scoped>
-.timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 4px 0;
-}
-
-.timeline-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  position: relative;
-  padding-bottom: 16px;
-}
-.timeline-step:last-child { padding-bottom: 0; }
-
-.timeline-connector {
-  position: absolute;
-  left: 11px;
-  top: 24px;
-  width: 2px;
-  height: calc(100% - 8px);
-  background: var(--color-border);
-  z-index: 0;
-}
-
-.timeline-dot {
-  width: 24px; height: 24px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; flex-shrink: 0; position: relative; z-index: 1;
-  border: 2px solid currentColor;
-}
-
-/* Dot colors by action */
-.step--submitted .timeline-dot { color: var(--color-info);    background: var(--color-info-bg); }
-.step--approved  .timeline-dot { color: var(--color-success); background: var(--color-success-bg); }
-.step--rejected  .timeline-dot { color: var(--color-danger);  background: var(--color-danger-bg); }
-.step--returned  .timeline-dot { color: var(--color-warning); background: var(--color-warning-bg); }
-.step--pending   .timeline-dot { color: var(--color-neutral); background: var(--color-neutral-bg); }
-
-.timeline-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-top: 2px;
-  flex: 1;
-}
-
-.timeline-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.actor-name { font-size: 13px; font-weight: 600; color: var(--color-text); }
-
-.level-badge {
-  font-size: 10px; font-weight: 600;
-  padding: 2px 8px; border-radius: 20px;
-  background: var(--color-neutral-bg); color: var(--color-neutral);
-  white-space: nowrap;
-}
-
-.timeline-date {
-  font-size: 11px; color: var(--color-text-muted);
-  margin-left: auto; white-space: nowrap;
-}
-
-.timeline-action {
-  font-size: 12px; color: var(--color-text-muted);
-}
-
-.step--approved  .timeline-action { color: var(--color-success); font-weight: 500; }
-.step--rejected  .timeline-action { color: var(--color-danger);  font-weight: 500; }
-.step--returned  .timeline-action { color: var(--color-warning); font-weight: 500; }
-.step--submitted .timeline-action { color: var(--color-info);    font-weight: 500; }
-
-.timeline-comment {
-  font-size: 12px; color: var(--color-text-muted);
-  font-style: italic;
-  background: var(--color-bg);
-  border-left: 2px solid var(--color-border);
-  padding: 4px 8px;
-  border-radius: 0 4px 4px 0;
-}
-
-.timeline-pending {
-  font-size: 11px; color: var(--color-neutral);
-  display: flex; align-items: center; gap: 4px;
-  font-style: italic;
-}
-</style>

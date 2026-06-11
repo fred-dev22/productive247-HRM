@@ -1,68 +1,66 @@
 <template>
-  <div class="sd-wrap" ref="rootEl">
+  <div class="relative" ref="rootEl">
 
     <!-- Trigger -->
     <button
       type="button"
-      class="sd-trigger"
-      :class="{ 'sd-trigger--open': open, 'sd-trigger--selected': !!selected }"
+      class="flex items-center gap-2 w-full h-[38px] px-2.5 border rounded-md bg-background text-[13px] cursor-pointer transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+      :class="open || selected ? 'border-primary bg-card' : 'border-border hover:border-primary'"
       :disabled="disabled"
       @click="toggle"
     >
       <template v-if="selected">
-        <span v-if="showAvatar" class="sd-avatar" :style="avatarStyle(selected)">
+        <span v-if="showAvatar" :class="avatarClass" :style="avatarStyle(selected)">
           {{ avatarText(selected) }}
         </span>
-        <span class="sd-trigger-label">{{ selected.label }}</span>
-        <button type="button" class="sd-clear" @click.stop="clear">
-          <i class="ti ti-x" aria-hidden="true"></i>
+        <span class="flex-1 text-foreground font-medium">{{ selected.label }}</span>
+        <button type="button" class="flex items-center justify-center w-5 h-5 border-0 bg-border rounded-full cursor-pointer text-muted-foreground shrink-0 transition-colors hover:bg-danger-bg hover:text-danger" @click.stop="clear">
+          <X class="w-3 h-3" />
         </button>
       </template>
       <template v-else>
-        <i v-if="showAvatar" class="ti ti-user sd-placeholder-icon" aria-hidden="true"></i>
-        <span class="sd-trigger-placeholder">{{ placeholder }}</span>
-        <i class="ti ti-chevron-down sd-arrow" aria-hidden="true"></i>
+        <User v-if="showAvatar" class="w-3.5 h-3.5 text-muted-foreground" />
+        <span class="flex-1 text-muted-foreground">{{ placeholder }}</span>
+        <ChevronDown class="w-3 h-3 text-muted-foreground transition-transform shrink-0" :class="{ 'rotate-180': open }" />
       </template>
     </button>
 
     <!-- Dropdown -->
-    <Transition name="sd-drop">
-      <div v-if="open" class="sd-dropdown">
-        <div class="sd-search-wrap">
-          <i class="ti ti-search sd-search-icon" aria-hidden="true"></i>
-          <input
-            ref="searchEl"
-            v-model="query"
-            type="text"
-            class="sd-search-input"
-            placeholder="Rechercher..."
-            @keydown.escape="close"
-          />
-        </div>
-        <div class="sd-list">
-          <button
-            v-for="item in filtered"
-            :key="item.id"
-            type="button"
-            class="sd-item"
-            :class="{ 'sd-item--active': modelValue === item.id }"
-            @click="select(item.id)"
-          >
-            <span v-if="showAvatar" class="sd-avatar" :style="avatarStyle(item)">
-              {{ avatarText(item) }}
-            </span>
-            <span class="sd-item-info">
-              <span class="sd-item-label">{{ item.label }}</span>
-              <span v-if="item.sublabel" class="sd-item-sub">{{ item.sublabel }}</span>
-            </span>
-            <i v-if="modelValue === item.id" class="ti ti-check sd-check" aria-hidden="true"></i>
-          </button>
-          <div v-if="filtered.length === 0" class="sd-empty">
-            Aucun résultat{{ query ? ` pour « ${query} »` : '' }}
-          </div>
+    <div v-if="open" class="absolute top-[calc(100%+4px)] left-0 z-[200] min-w-[260px] w-full bg-popover border border-border rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] overflow-hidden">
+      <div class="relative p-2 pb-1 border-b border-border">
+        <Search class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-3.5 h-3.5 pointer-events-none" />
+        <input
+          ref="searchEl"
+          v-model="query"
+          type="text"
+          class="w-full h-8 pl-8 pr-2.5 border border-border rounded-md bg-background text-[13px] text-foreground outline-none focus:border-primary"
+          placeholder="Rechercher..."
+          @keydown.escape="close"
+        />
+      </div>
+      <div class="max-h-60 overflow-y-auto p-1">
+        <button
+          v-for="item in filtered"
+          :key="item.id"
+          type="button"
+          class="flex items-center gap-2 w-full px-2 py-[7px] border-0 rounded-md bg-transparent cursor-pointer text-left transition-colors hover:bg-primary/10"
+          :class="{ 'bg-primary/10': modelValue === item.id }"
+          @click="select(item.id)"
+        >
+          <span v-if="showAvatar" :class="avatarClass" :style="avatarStyle(item)">
+            {{ avatarText(item) }}
+          </span>
+          <span class="flex-1 flex flex-col gap-px min-w-0">
+            <span class="text-[13px] font-medium text-foreground truncate">{{ item.label }}</span>
+            <span v-if="item.sublabel" class="text-[11px] text-muted-foreground truncate">{{ item.sublabel }}</span>
+          </span>
+          <Check v-if="modelValue === item.id" class="w-3.5 h-3.5 text-primary shrink-0" />
+        </button>
+        <div v-if="filtered.length === 0" class="p-3.5 text-center text-[13px] text-muted-foreground">
+          Aucun résultat{{ query ? ` pour « ${query} »` : '' }}
         </div>
       </div>
-    </Transition>
+    </div>
 
   </div>
 </template>
@@ -70,6 +68,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { onClickOutside } from '@vueuse/core'
+import { X, User, ChevronDown, Search, Check } from 'lucide-vue-next'
 
 export interface DropdownItem {
   id:          string
@@ -92,6 +91,8 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{ 'update:modelValue': [id: string] }>()
+
+const avatarClass = 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0'
 
 const rootEl   = ref<HTMLElement | null>(null)
 const searchEl = ref<HTMLInputElement | null>(null)
@@ -151,88 +152,3 @@ function clear() {
 
 onClickOutside(rootEl, close)
 </script>
-
-<style scoped>
-.sd-wrap { position: relative; }
-
-.sd-trigger {
-  display: flex; align-items: center; gap: 8px;
-  width: 100%; height: 38px; padding: 0 10px;
-  border: 0.5px solid var(--color-border);
-  border-radius: 6px; background: var(--color-bg);
-  font-size: 13px; color: var(--color-text-muted);
-  cursor: pointer; transition: border-color .12s, background .12s;
-  text-align: left;
-}
-.sd-trigger:hover:not(:disabled)      { border-color: var(--color-primary); }
-.sd-trigger--open, .sd-trigger--selected { border-color: var(--color-primary); background: var(--color-surface); }
-.sd-trigger:disabled                   { opacity: .5; cursor: not-allowed; }
-
-.sd-trigger-placeholder { flex: 1; color: var(--color-text-muted); }
-.sd-trigger-label       { flex: 1; color: var(--color-text); font-weight: 500; }
-.sd-placeholder-icon    { font-size: 14px; color: var(--color-text-muted); }
-.sd-arrow               { font-size: 12px; color: var(--color-text-muted); transition: transform .15s; flex-shrink: 0; }
-.sd-trigger--open .sd-arrow { transform: rotate(180deg); }
-
-.sd-clear {
-  display: flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; border: none;
-  background: var(--color-border); border-radius: 50%;
-  cursor: pointer; color: var(--color-text-muted); font-size: 11px;
-  flex-shrink: 0; transition: background .12s;
-}
-.sd-clear:hover { background: var(--color-danger-bg); color: var(--color-danger); }
-
-.sd-avatar {
-  width: 24px; height: 24px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; flex-shrink: 0;
-}
-
-.sd-dropdown {
-  position: absolute; top: calc(100% + 4px); left: 0;
-  z-index: 200; min-width: 260px; width: 100%;
-  background: var(--color-surface);
-  border: 0.5px solid var(--color-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  overflow: hidden;
-}
-
-.sd-search-wrap {
-  position: relative;
-  padding: 8px 8px 4px;
-  border-bottom: 0.5px solid var(--color-border);
-}
-.sd-search-icon {
-  position: absolute; left: 16px; top: 50%;
-  transform: translateY(-50%) translateY(2px);
-  color: var(--color-text-muted); font-size: 13px; pointer-events: none;
-}
-.sd-search-input {
-  width: 100%; height: 32px; padding: 0 10px 0 32px;
-  border: 0.5px solid var(--color-border); border-radius: 6px;
-  background: var(--color-bg); font-size: 13px; color: var(--color-text); outline: none;
-}
-.sd-search-input:focus { border-color: var(--color-primary); }
-
-.sd-list { max-height: 240px; overflow-y: auto; padding: 4px; }
-
-.sd-item {
-  display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 7px 8px; border: none; border-radius: 6px;
-  background: none; cursor: pointer; text-align: left; transition: background .1s;
-}
-.sd-item:hover   { background: var(--color-primary-light); }
-.sd-item--active { background: var(--color-primary-light); }
-
-.sd-item-info  { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.sd-item-label { font-size: 13px; font-weight: 500; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sd-item-sub   { font-size: 11px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sd-check      { color: var(--color-primary); font-size: 14px; flex-shrink: 0; }
-
-.sd-empty { padding: 14px; text-align: center; font-size: 13px; color: var(--color-text-muted); }
-
-.sd-drop-enter-active, .sd-drop-leave-active { transition: all .15s; }
-.sd-drop-enter-from, .sd-drop-leave-to       { opacity: 0; transform: translateY(-4px); }
-</style>

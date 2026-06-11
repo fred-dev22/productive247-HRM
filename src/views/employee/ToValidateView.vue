@@ -1,30 +1,30 @@
 <template>
-  <div class="app-shell">
+  <div :class="L.shell">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div :class="L.mainLayout">
       <AppSidebar />
-      <main class="content">
+      <main :class="L.content">
 
         <!-- ── En-tête ── -->
-        <div class="page-header">
+        <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
           <div>
-            <h1 class="page-title">Demandes à valider</h1>
-            <p class="page-sub">Demandes en attente de votre validation</p>
+            <h1 class="text-xl font-bold text-foreground">Demandes à valider</h1>
+            <p class="text-[13px] text-muted-foreground mt-0.5">Demandes en attente de votre validation</p>
           </div>
-          <span v-if="totalPending > 0" class="count-badge">{{ totalPending }} en attente</span>
+          <span v-if="totalPending > 0" class="bg-warning-bg text-warning text-xs font-semibold px-3 py-1 rounded-full">{{ totalPending }} en attente</span>
         </div>
 
         <!-- ── Tabs ── -->
-        <div class="tabs-bar">
-          <button class="tab-btn" :class="{ active: activeTab === 'absences' }" @click="activeTab = 'absences'">
-            <i class="ti ti-calendar-off"></i>
+        <div class="flex gap-1 mb-4 border-b border-border">
+          <button :class="[tabBtn, activeTab === 'absences' && tabActive]" @click="activeTab = 'absences'">
+            <CalendarOff class="w-4 h-4" />
             Absences
-            <span v-if="pendingAbsences.length > 0" class="tab-badge">{{ pendingAbsences.length }}</span>
+            <span v-if="pendingAbsences.length > 0" :class="tabBadge">{{ pendingAbsences.length }}</span>
           </button>
-          <button class="tab-btn" :class="{ active: activeTab === 'missions' }" @click="activeTab = 'missions'">
-            <i class="ti ti-plane"></i>
+          <button :class="[tabBtn, activeTab === 'missions' && tabActive]" @click="activeTab = 'missions'">
+            <Plane class="w-4 h-4" />
             Missions
-            <span v-if="pendingMissions.length > 0" class="tab-badge">{{ pendingMissions.length }}</span>
+            <span v-if="pendingMissions.length > 0" :class="tabBadge">{{ pendingMissions.length }}</span>
           </button>
         </div>
 
@@ -37,14 +37,14 @@
             row-key="id"
           >
             <template #filters>
-              <select v-model="filterType" class="filter-select">
+              <select v-model="filterType" class="h-[34px] px-2.5 border border-border rounded-md bg-card text-[13px] text-foreground outline-none focus:border-primary">
                 <option value="">Tous les types</option>
                 <option v-for="lt in LEAVE_TYPES" :key="lt" :value="lt">{{ lt }}</option>
               </select>
             </template>
 
             <template #cell-employeeName="{ row }">
-              <div class="emp-cell">
+              <div class="flex items-center gap-2">
                 <UserAvatar :name="row.employeeName" size="sm" />
                 <span>{{ row.employeeName }}</span>
               </div>
@@ -55,39 +55,39 @@
             </template>
 
             <template #cell-actions="{ row }">
-              <div class="actions-cell">
-                <button v-if="row.status === 'pending'" class="act-btn act-approve" @click="approveAbsence(row.id)">
-                  <i class="ti ti-check"></i> Approuver
+              <div class="flex gap-1 flex-wrap">
+                <button v-if="row.status === 'pending'" :class="L.actApprove" @click="approveAbsence(row.id)">
+                  <Check class="w-3.5 h-3.5" /> Approuver
                 </button>
-                <button v-if="row.status === 'pending'" class="act-btn act-return" @click="openReturnModal(row)">
-                  <i class="ti ti-arrow-back-up"></i> Retourner
+                <button v-if="row.status === 'pending'" :class="L.actReturn" @click="openReturnModal(row)">
+                  <Undo2 class="w-3.5 h-3.5" /> Retourner
                 </button>
-                <button v-if="row.status === 'pending'" class="act-btn act-reject" @click="openRejectModal(row)">
-                  <i class="ti ti-x"></i> Refuser
+                <button v-if="row.status === 'pending'" :class="L.actReject" @click="openRejectModal(row)">
+                  <X class="w-3.5 h-3.5" /> Refuser
                 </button>
-                <button class="act-btn act-view" @click="toggleAbsenceDetail(row.id)">
+                <button :class="L.actView" @click="toggleAbsenceDetail(row.id)">
                   {{ expandedAbsence === row.id ? '↑' : 'Voir' }}
                 </button>
               </div>
             </template>
 
             <template #row-after="{ row }">
-              <tr v-if="expandedAbsence === row.id" class="detail-row">
-                <td :colspan="absenceColumns.length">
-                  <div class="detail-panel">
-                    <div class="detail-meta">
+              <tr v-if="expandedAbsence === row.id">
+                <td :colspan="absenceColumns.length" class="p-0">
+                  <div class="bg-background border-t border-border p-4 flex flex-col gap-2.5 text-xs">
+                    <div class="flex gap-4 text-[11px] text-muted-foreground flex-wrap">
                       <span>Début : {{ row.startDate }}</span>
                       <span>Fin : {{ row.endDate }}</span>
                       <span>{{ row.workingDays }} jour(s)</span>
                       <span>Soumis le {{ row.submittedAt }}</span>
                     </div>
-                    <div v-if="row.reason" class="detail-reason"><span class="detail-label">Motif :</span> {{ row.reason }}</div>
-                    <div v-if="row.returnComment" class="return-comment">
-                      <i class="ti ti-arrow-back"></i>
-                      <span class="detail-label">Retour :</span> {{ row.returnComment }}
+                    <div v-if="row.reason" class="text-muted-foreground"><span class="font-medium text-[11px]">Motif :</span> {{ row.reason }}</div>
+                    <div v-if="row.returnComment" class="flex items-center gap-1.5 text-warning bg-warning-bg rounded-md px-2.5 py-1.5">
+                      <CornerUpLeft class="w-3.5 h-3.5" />
+                      <span class="font-medium text-[11px]">Retour :</span> {{ row.returnComment }}
                     </div>
-                    <div v-if="row.validationHistory?.length" class="timeline-section">
-                      <div class="timeline-title">Historique</div>
+                    <div v-if="row.validationHistory?.length" class="mt-1">
+                      <div class="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.06em] mb-2.5">Historique</div>
                       <ValidationTimeline :history="row.validationHistory" />
                     </div>
                   </div>
@@ -106,18 +106,18 @@
             row-key="id"
           >
             <template #cell-employeeName="{ row }">
-              <div class="emp-cell">
+              <div class="flex items-center gap-2">
                 <UserAvatar :name="row.employeeName" size="sm" />
                 <span>{{ row.employeeName }}</span>
               </div>
             </template>
 
             <template #cell-dates="{ row }">
-              <span class="date-range">{{ row.departureDate?.slice(0,10) }} → {{ row.returnDate?.slice(0,10) }}</span>
+              <span class="text-xs whitespace-nowrap">{{ row.departureDate?.slice(0,10) }} → {{ row.returnDate?.slice(0,10) }}</span>
             </template>
 
             <template #cell-totalMission="{ row }">
-              <span class="amount">{{ fmt(row.totalMission) }} {{ row.hotelAllowance > 0 ? 'MGA' : '' }}</span>
+              <span class="font-semibold">{{ fmt(row.totalMission) }} {{ row.hotelAllowance > 0 ? 'MGA' : '' }}</span>
             </template>
 
             <template #cell-status="{ row }">
@@ -125,15 +125,15 @@
             </template>
 
             <template #cell-actions="{ row }">
-              <div class="actions-cell">
-                <button v-if="row.status === 'pending'" class="act-btn act-approve" @click="approveMission(row.id)">
-                  <i class="ti ti-check"></i> Approuver
+              <div class="flex gap-1 flex-wrap">
+                <button v-if="row.status === 'pending'" :class="L.actApprove" @click="approveMission(row.id)">
+                  <Check class="w-3.5 h-3.5" /> Approuver
                 </button>
-                <button v-if="row.status === 'pending'" class="act-btn act-return" @click="openMissionReturnModal(row)">
-                  <i class="ti ti-arrow-back-up"></i> Retourner
+                <button v-if="row.status === 'pending'" :class="L.actReturn" @click="openMissionReturnModal(row)">
+                  <Undo2 class="w-3.5 h-3.5" /> Retourner
                 </button>
-                <button v-if="row.status === 'pending'" class="act-btn act-reject" @click="openMissionRejectModal(row)">
-                  <i class="ti ti-x"></i> Refuser
+                <button v-if="row.status === 'pending'" :class="L.actReject" @click="openMissionRejectModal(row)">
+                  <X class="w-3.5 h-3.5" /> Refuser
                 </button>
               </div>
             </template>
@@ -145,109 +145,71 @@
   </div>
 
   <!-- ── Modal Retourner (absence) ── -->
-  <Teleport to="body">
-    <div v-if="returnModal.open" class="modal-overlay" @click.self="closeReturnModal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">Retourner la demande de {{ returnModal.employeeName }}</span>
-          <button class="modal-close" @click="closeReturnModal"><i class="ti ti-x"></i></button>
-        </div>
-        <p class="modal-sub">La demande sera renvoyée à l'employé pour corrections.</p>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Commentaire *</span>
-            <textarea v-model="returnModal.comment" class="field-textarea" rows="4" placeholder="Expliquez ce qui doit être corrigé..."></textarea>
-            <span v-if="returnModal.error" class="field-error">{{ returnModal.error }}</span>
-          </label>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="closeReturnModal">Annuler</button>
-          <button class="btn btn-primary" @click="confirmReturn">
-            <i class="ti ti-arrow-back-up"></i> Retourner
-          </button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+  <ModalShell :open="returnModal.open" :title="`Retourner la demande de ${returnModal.employeeName}`" max-width="max-w-[440px]" @close="closeReturnModal">
+    <p class="text-xs text-muted-foreground -mt-2">La demande sera renvoyée à l'employé pour corrections.</p>
+    <label :class="cls.field">
+      <span :class="cls.fieldLabel">Commentaire *</span>
+      <textarea v-model="returnModal.comment" :class="cls.fieldTextarea" rows="4" placeholder="Expliquez ce qui doit être corrigé..."></textarea>
+      <span v-if="returnModal.error" :class="cls.fieldError">{{ returnModal.error }}</span>
+    </label>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="closeReturnModal">Annuler</button>
+      <button :class="cls.btnPrimary" @click="confirmReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
+    </template>
+  </ModalShell>
 
   <!-- ── Modal Refuser (absence) ── -->
-  <Teleport to="body">
-    <div v-if="rejectModal.open" class="modal-overlay" @click.self="closeRejectModal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">Refuser la demande de {{ rejectModal.employeeName }}</span>
-          <button class="modal-close" @click="closeRejectModal"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Motif *</span>
-            <textarea v-model="rejectModal.reason" class="field-textarea" rows="4" placeholder="Indiquez le motif du refus..."></textarea>
-            <span v-if="rejectModal.error" class="field-error">{{ rejectModal.error }}</span>
-          </label>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="closeRejectModal">Annuler</button>
-          <button class="btn btn-danger" @click="confirmReject"><i class="ti ti-x"></i> Confirmer le refus</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+  <ModalShell :open="rejectModal.open" :title="`Refuser la demande de ${rejectModal.employeeName}`" max-width="max-w-[440px]" @close="closeRejectModal">
+    <label :class="cls.field">
+      <span :class="cls.fieldLabel">Motif *</span>
+      <textarea v-model="rejectModal.reason" :class="cls.fieldTextarea" rows="4" placeholder="Indiquez le motif du refus..."></textarea>
+      <span v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</span>
+    </label>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="closeRejectModal">Annuler</button>
+      <button :class="cls.btnDestructive" @click="confirmReject"><X class="w-4 h-4" /> Confirmer le refus</button>
+    </template>
+  </ModalShell>
 
   <!-- ── Modal Retourner (mission) ── -->
-  <Teleport to="body">
-    <div v-if="missionReturnModal.open" class="modal-overlay" @click.self="missionReturnModal.open = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">Retourner la mission de {{ missionReturnModal.employeeName }}</span>
-          <button class="modal-close" @click="missionReturnModal.open = false"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Commentaire *</span>
-            <textarea v-model="missionReturnModal.comment" class="field-textarea" rows="4" placeholder="Expliquez les corrections requises..."></textarea>
-            <span v-if="missionReturnModal.error" class="field-error">{{ missionReturnModal.error }}</span>
-          </label>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="missionReturnModal.open = false">Annuler</button>
-          <button class="btn btn-primary" @click="confirmMissionReturn"><i class="ti ti-arrow-back-up"></i> Retourner</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+  <ModalShell :open="missionReturnModal.open" :title="`Retourner la mission de ${missionReturnModal.employeeName}`" max-width="max-w-[440px]" @close="missionReturnModal.open = false">
+    <label :class="cls.field">
+      <span :class="cls.fieldLabel">Commentaire *</span>
+      <textarea v-model="missionReturnModal.comment" :class="cls.fieldTextarea" rows="4" placeholder="Expliquez les corrections requises..."></textarea>
+      <span v-if="missionReturnModal.error" :class="cls.fieldError">{{ missionReturnModal.error }}</span>
+    </label>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="missionReturnModal.open = false">Annuler</button>
+      <button :class="cls.btnPrimary" @click="confirmMissionReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
+    </template>
+  </ModalShell>
 
   <!-- ── Modal Refuser (mission) ── -->
-  <Teleport to="body">
-    <div v-if="missionRejectModal.open" class="modal-overlay" @click.self="missionRejectModal.open = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="modal-title">Refuser la mission de {{ missionRejectModal.employeeName }}</span>
-          <button class="modal-close" @click="missionRejectModal.open = false"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="modal-body">
-          <label class="field">
-            <span class="field-label">Motif *</span>
-            <textarea v-model="missionRejectModal.reason" class="field-textarea" rows="4" placeholder="Indiquez le motif du refus..."></textarea>
-            <span v-if="missionRejectModal.error" class="field-error">{{ missionRejectModal.error }}</span>
-          </label>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="missionRejectModal.open = false">Annuler</button>
-          <button class="btn btn-danger" @click="confirmMissionReject"><i class="ti ti-x"></i> Confirmer</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+  <ModalShell :open="missionRejectModal.open" :title="`Refuser la mission de ${missionRejectModal.employeeName}`" max-width="max-w-[440px]" @close="missionRejectModal.open = false">
+    <label :class="cls.field">
+      <span :class="cls.fieldLabel">Motif *</span>
+      <textarea v-model="missionRejectModal.reason" :class="cls.fieldTextarea" rows="4" placeholder="Indiquez le motif du refus..."></textarea>
+      <span v-if="missionRejectModal.error" :class="cls.fieldError">{{ missionRejectModal.error }}</span>
+    </label>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="missionRejectModal.open = false">Annuler</button>
+      <button :class="cls.btnDestructive" @click="confirmMissionReject"><X class="w-4 h-4" /> Confirmer</button>
+    </template>
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
+import { CalendarOff, Plane, Check, Undo2, X, CornerUpLeft } from 'lucide-vue-next'
 import AppTopNav  from '../../components/AppTopNav.vue'
 import AppSidebar from '../../components/AppSidebar.vue'
 import DataTable          from '../../components/ui/DataTable.vue'
 import UserAvatar         from '../../components/ui/UserAvatar.vue'
 import StatusPill         from '../../components/ui/StatusPill.vue'
 import ValidationTimeline from '../../components/ui/ValidationTimeline.vue'
+import ModalShell from '../../components/ui/ModalShell.vue'
+import * as cls from '../../lib/formClasses'
+import * as L from '../../lib/listClasses'
 import { useAuthStore }    from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'
 import { useMissionStore } from '../../stores/missions'
@@ -256,6 +218,11 @@ import type { LeaveRequest, LeaveType, MissionOrder } from '../../types'
 const auth         = useAuthStore()
 const absenceStore = useAbsenceStore()
 const missionStore = useMissionStore()
+
+// ── Classes du design system ─────────────────────────────────
+const tabBtn = 'inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-muted-foreground bg-transparent border-0 border-b-2 border-transparent cursor-pointer -mb-px transition-colors hover:text-foreground hover:bg-background'
+const tabActive = '!text-primary !border-primary font-semibold'
+const tabBadge = 'bg-warning-bg text-warning text-[10px] font-bold px-1.5 py-px rounded-full'
 
 const activeTab = ref<'absences' | 'missions'>('absences')
 
@@ -370,73 +337,3 @@ function confirmMissionReject() {
   missionRejectModal.open = false
 }
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; padding: 24px 28px; background: var(--color-bg); overflow-y: auto; }
-
-.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-.page-title  { font-size: 20px; font-weight: 700; color: var(--color-text); }
-.page-sub    { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-.count-badge { background: var(--color-warning-bg); color: var(--color-warning); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
-
-.tabs-bar { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--color-border); }
-.tab-btn  { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--color-text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
-.tab-btn:hover { color: var(--color-text); background: var(--color-bg); }
-.tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
-.tab-badge { background: var(--color-warning-bg); color: var(--color-warning); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
-
-.filter-select { height: 34px; padding: 0 10px; border: 0.5px solid var(--color-border); border-radius: 6px; background: var(--color-bg); font-size: 13px; color: var(--color-text); outline: none; }
-
-.emp-cell { display: flex; align-items: center; gap: 8px; }
-.date-range { font-size: 12px; white-space: nowrap; }
-.amount { font-weight: 600; }
-
-.actions-cell { display: flex; gap: 4px; flex-wrap: wrap; }
-.act-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 5px; font-size: 11px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; white-space: nowrap; }
-.act-approve { background: var(--color-success-bg); color: var(--color-success); }
-.act-approve:hover { background: var(--color-success); color: #fff; }
-.act-return  { background: var(--color-info-bg); color: var(--color-info); }
-.act-return:hover { background: var(--color-info); color: #fff; }
-.act-reject  { background: var(--color-danger-bg); color: var(--color-danger); }
-.act-reject:hover { background: var(--color-danger); color: #fff; }
-.act-view    { background: var(--color-bg); color: var(--color-text-muted); }
-
-/* Modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-card    { background: var(--color-surface); border-radius: 12px; padding: 24px; max-width: 440px; width: 95%; box-shadow: 0 8px 32px rgba(0,0,0,.16); }
-.modal-header  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.modal-title   { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.modal-sub     { font-size: 12px; color: var(--color-text-muted); margin-bottom: 16px; }
-.modal-close   { width: 28px; height: 28px; border: none; background: var(--color-bg); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: 14px; }
-.modal-body    { display: flex; flex-direction: column; gap: 14px; }
-.modal-footer  { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 0.5px solid var(--color-border); }
-
-.field         { display: flex; flex-direction: column; gap: 4px; }
-.field-label   { font-size: 12px; font-weight: 500; color: var(--color-text); }
-.field-textarea { padding: 8px 10px; border: 0.5px solid var(--color-border); border-radius: 6px; background: var(--color-bg); font-size: 13px; color: var(--color-text); outline: none; resize: vertical; font-family: inherit; width: 100%; box-sizing: border-box; }
-.field-textarea:focus { border-color: var(--color-primary); }
-.field-error   { font-size: 11px; color: var(--color-danger); }
-
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; white-space: nowrap; }
-.btn-primary { background: var(--color-primary); color: #fff; }
-.btn-primary:hover { background: var(--color-primary-dark); }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-.btn-danger  { background: var(--color-danger); color: #fff; }
-
-.detail-row td { padding: 0; }
-.detail-panel  { background: var(--color-bg); border-top: 0.5px solid var(--color-border); padding: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
-.detail-label  { font-weight: 500; font-size: 11px; }
-.detail-meta   { display: flex; gap: 16px; font-size: 11px; color: var(--color-text-muted); flex-wrap: wrap; }
-.detail-reason { color: var(--color-text-muted); }
-.return-comment { display: flex; align-items: center; gap: 6px; color: var(--color-warning); background: var(--color-warning-bg); border-radius: 6px; padding: 6px 10px; }
-.timeline-section { margin-top: 4px; }
-.timeline-title { font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
-
-@media (max-width: 768px) {
-  .content { padding: 16px; }
-  .modal-card { width: 95%; padding: 18px; }
-}
-</style>

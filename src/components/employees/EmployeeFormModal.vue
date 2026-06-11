@@ -1,182 +1,171 @@
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue" class="modal-overlay" @click.self="close">
-      <div class="modal-card">
+  <ModalShell
+    :open="modelValue"
+    :title="isEditMode ? 'Modifier l\'employé' : 'Nouvel employé'"
+    max-width="max-w-[680px]"
+    @close="close"
+  >
 
-        <!-- ── En-tête ── -->
-        <div class="modal-header">
-          <span class="modal-title-text">
-            <i class="ti ti-user-plus" aria-hidden="true"></i>
-            {{ isEditMode ? 'Modifier l\'employé' : 'Nouvel employé' }}
-          </span>
-          <button class="modal-close-btn" @click="close">
-            <i class="ti ti-x" aria-hidden="true"></i>
-          </button>
-        </div>
+    <!-- Section : Identité -->
+    <div :class="sectionTitle">
+      <User class="w-3.5 h-3.5 text-primary" />
+      Identité
+    </div>
 
-        <div class="modal-body">
-
-          <!-- Section : Identité -->
-          <div class="section-title">
-            <i class="ti ti-user" aria-hidden="true"></i>
-            Identité
-          </div>
-
-          <div class="field-grid">
-            <div class="field">
-              <label class="field-label">Prénom *</label>
-              <input
-                v-model="form.firstName"
-                class="field-input"
-                :class="{ 'input-error': errors.firstName }"
-                placeholder="ex: Aminata"
-              />
-              <div v-if="errors.firstName" class="field-error">{{ errors.firstName }}</div>
-            </div>
-            <div class="field">
-              <label class="field-label">Nom *</label>
-              <input
-                v-model="form.lastName"
-                class="field-input"
-                :class="{ 'input-error': errors.lastName }"
-                placeholder="ex: Diallo"
-              />
-              <div v-if="errors.lastName" class="field-error">{{ errors.lastName }}</div>
-            </div>
-            <div class="field field-full">
-              <label class="field-label">Poste / Intitulé du poste *</label>
-              <input
-                v-model="form.jobTitle"
-                class="field-input"
-                :class="{ 'input-error': errors.jobTitle }"
-                placeholder="ex: Assistante RH"
-              />
-              <div v-if="errors.jobTitle" class="field-error">{{ errors.jobTitle }}</div>
-            </div>
-            <div class="field">
-              <label class="field-label">Email professionnel</label>
-              <input
-                v-model="form.email"
-                type="email"
-                class="field-input"
-                :class="{ 'input-error': errors.email }"
-                placeholder="prenom.nom@galana.com"
-              />
-              <div v-if="errors.email" class="field-error">{{ errors.email }}</div>
-            </div>
-            <div class="field">
-              <label class="field-label">Téléphone</label>
-              <input v-model="form.phone" type="tel" class="field-input" placeholder="+230 5xx xxxx" />
-            </div>
-          </div>
-
-          <!-- Section : Affectation -->
-          <div class="section-title">
-            <i class="ti ti-building" aria-hidden="true"></i>
-            Affectation
-          </div>
-
-          <div class="field-grid">
-            <div class="field">
-              <label class="field-label">Entité *</label>
-              <select v-model="form.entityId" class="field-input" :class="{ 'input-error': errors.entityId }" @change="onEntityChange">
-                <option value="">-- Choisir une entité --</option>
-                <option v-for="e in selectableEntities" :key="e.id" :value="e.id">
-                  {{ e.code }} — {{ e.name }}
-                </option>
-              </select>
-              <div v-if="errors.entityId" class="field-error">{{ errors.entityId }}</div>
-            </div>
-            <div class="field">
-              <label class="field-label">Rôle *</label>
-              <select v-model="form.role" class="field-input" :class="{ 'input-error': errors.role }">
-                <option value="">-- Choisir un rôle --</option>
-                <option value="employee">Employé</option>
-                <option value="validator">Validateur / Manager</option>
-                <option value="hr_admin">Administrateur RH</option>
-                <option value="hr_director">Directeur RH</option>
-              </select>
-              <div v-if="errors.role" class="field-error">{{ errors.role }}</div>
-            </div>
-            <div class="field field-full">
-              <label class="field-label">
-                Manager direct
-                <span class="auto-badge"><i class="ti ti-lock" aria-hidden="true"></i> Auto</span>
-              </label>
-              <div class="manager-readonly" :class="{ 'manager-readonly--empty': !directManager }">
-                <template v-if="directManager">
-                  <div class="manager-avatar" :style="{ background: directManager.avatarColor }">
-                    {{ directManager.initials }}
-                  </div>
-                  <span class="manager-name">{{ directManager.name }}</span>
-                  <span class="manager-role">· Responsable d'entité</span>
-                </template>
-                <span v-else class="manager-empty-text">Sélectionnez une entité pour voir le manager</span>
-              </div>
-              <span class="field-hint">
-                <i class="ti ti-info-circle" aria-hidden="true"></i>
-                Défini automatiquement depuis le responsable de l'entité de rattachement
-              </span>
-            </div>
-          </div>
-
-          <!-- Section : Contrat -->
-          <div class="section-title">
-            <i class="ti ti-file-text" aria-hidden="true"></i>
-            Contrat
-          </div>
-
-          <div class="field-grid">
-            <div class="field">
-              <label class="field-label">Type de contrat *</label>
-              <select v-model="form.contractType" class="field-input" :class="{ 'input-error': errors.contractType }">
-                <option value="">-- Choisir --</option>
-                <option value="CDI">CDI</option>
-                <option value="CDD">CDD</option>
-                <option value="Stage">Stage</option>
-                <option value="Freelance">Freelance</option>
-              </select>
-              <div v-if="errors.contractType" class="field-error">{{ errors.contractType }}</div>
-            </div>
-            <div class="field">
-              <label class="field-label">Date d'embauche *</label>
-              <input
-                v-model="form.hireDate"
-                type="date"
-                class="field-input"
-                :class="{ 'input-error': errors.hireDate }"
-              />
-              <div v-if="errors.hireDate" class="field-error">{{ errors.hireDate }}</div>
-            </div>
-            <div class="field">
-              <label class="field-label">Statut</label>
-              <select v-model="form.status" class="field-input">
-                <option value="active">Actif</option>
-                <option value="trial">Période d'essai</option>
-                <option value="onleave">En congé</option>
-                <option value="inactive">Inactif</option>
-              </select>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- ── Pied ── -->
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="close">Annuler</button>
-          <button class="btn btn-primary" @click="handleSave">
-            <i class="ti ti-check" aria-hidden="true"></i>
-            {{ isEditMode ? 'Enregistrer' : 'Créer l\'employé' }}
-          </button>
-        </div>
-
+    <div :class="fieldGrid">
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Prénom *</label>
+        <input
+          v-model="form.firstName"
+          :class="[cls.fieldInput, errors.firstName && cls.inputError]"
+          placeholder="ex: Aminata"
+        />
+        <div v-if="errors.firstName" :class="cls.fieldError">{{ errors.firstName }}</div>
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Nom *</label>
+        <input
+          v-model="form.lastName"
+          :class="[cls.fieldInput, errors.lastName && cls.inputError]"
+          placeholder="ex: Diallo"
+        />
+        <div v-if="errors.lastName" :class="cls.fieldError">{{ errors.lastName }}</div>
+      </div>
+      <div :class="[cls.field, 'col-span-full']">
+        <label :class="cls.fieldLabel">Poste / Intitulé du poste *</label>
+        <input
+          v-model="form.jobTitle"
+          :class="[cls.fieldInput, errors.jobTitle && cls.inputError]"
+          placeholder="ex: Assistante RH"
+        />
+        <div v-if="errors.jobTitle" :class="cls.fieldError">{{ errors.jobTitle }}</div>
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Email professionnel</label>
+        <input
+          v-model="form.email"
+          type="email"
+          :class="[cls.fieldInput, errors.email && cls.inputError]"
+          placeholder="prenom.nom@galana.com"
+        />
+        <div v-if="errors.email" :class="cls.fieldError">{{ errors.email }}</div>
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Téléphone</label>
+        <input v-model="form.phone" type="tel" :class="cls.fieldInput" placeholder="+230 5xx xxxx" />
       </div>
     </div>
-  </Teleport>
+
+    <!-- Section : Affectation -->
+    <div :class="sectionTitle">
+      <Building class="w-3.5 h-3.5 text-primary" />
+      Affectation
+    </div>
+
+    <div :class="fieldGrid">
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Entité *</label>
+        <select v-model="form.entityId" :class="[cls.fieldSelect, errors.entityId && cls.inputError]" @change="onEntityChange">
+          <option value="">-- Choisir une entité --</option>
+          <option v-for="e in selectableEntities" :key="e.id" :value="e.id">
+            {{ e.code }} — {{ e.name }}
+          </option>
+        </select>
+        <div v-if="errors.entityId" :class="cls.fieldError">{{ errors.entityId }}</div>
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Rôle *</label>
+        <select v-model="form.role" :class="[cls.fieldSelect, errors.role && cls.inputError]">
+          <option value="">-- Choisir un rôle --</option>
+          <option value="employee">Employé</option>
+          <option value="validator">Validateur / Manager</option>
+          <option value="hr_admin">Administrateur RH</option>
+          <option value="hr_director">Directeur RH</option>
+        </select>
+        <div v-if="errors.role" :class="cls.fieldError">{{ errors.role }}</div>
+      </div>
+      <div :class="[cls.field, 'col-span-full']">
+        <label :class="cls.fieldLabel">
+          Manager direct
+          <span class="inline-flex items-center gap-[3px] text-[10px] font-semibold text-muted-foreground bg-background border border-border rounded-full px-1.5 py-px ml-1.5 align-middle">
+            <Lock class="w-2.5 h-2.5" /> Auto
+          </span>
+        </label>
+        <div
+          class="flex items-center gap-2 h-9 px-2.5 border border-border rounded-md bg-background text-[13px] text-foreground"
+          :class="{ 'text-muted-foreground italic': !directManager }"
+        >
+          <template v-if="directManager">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" :style="{ background: directManager.avatarColor }">
+              {{ directManager.initials }}
+            </div>
+            <span class="font-medium">{{ directManager.name }}</span>
+            <span class="text-muted-foreground text-xs">· Responsable d'entité</span>
+          </template>
+          <span v-else class="text-xs text-muted-foreground">Sélectionnez une entité pour voir le manager</span>
+        </div>
+        <span class="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Info class="w-3 h-3 text-primary" />
+          Défini automatiquement depuis le responsable de l'entité de rattachement
+        </span>
+      </div>
+    </div>
+
+    <!-- Section : Contrat -->
+    <div :class="sectionTitle">
+      <FileText class="w-3.5 h-3.5 text-primary" />
+      Contrat
+    </div>
+
+    <div :class="fieldGrid">
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Type de contrat *</label>
+        <select v-model="form.contractType" :class="[cls.fieldSelect, errors.contractType && cls.inputError]">
+          <option value="">-- Choisir --</option>
+          <option value="CDI">CDI</option>
+          <option value="CDD">CDD</option>
+          <option value="Stage">Stage</option>
+          <option value="Freelance">Freelance</option>
+        </select>
+        <div v-if="errors.contractType" :class="cls.fieldError">{{ errors.contractType }}</div>
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Date d'embauche *</label>
+        <input
+          v-model="form.hireDate"
+          type="date"
+          :class="[cls.fieldInput, errors.hireDate && cls.inputError]"
+        />
+        <div v-if="errors.hireDate" :class="cls.fieldError">{{ errors.hireDate }}</div>
+      </div>
+      <div :class="cls.field">
+        <label :class="cls.fieldLabel">Statut</label>
+        <select v-model="form.status" :class="cls.fieldSelect">
+          <option value="active">Actif</option>
+          <option value="trial">Période d'essai</option>
+          <option value="onleave">En congé</option>
+          <option value="inactive">Inactif</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── Pied ── -->
+    <template #footer>
+      <button :class="cls.btnOutline" @click="close">Annuler</button>
+      <button :class="cls.btnPrimary" @click="handleSave">
+        <Check class="w-4 h-4" />
+        {{ isEditMode ? 'Enregistrer' : 'Créer l\'employé' }}
+      </button>
+    </template>
+
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
 import { reactive, computed, watch } from 'vue'
+import { User, Building, FileText, Lock, Info, Check } from 'lucide-vue-next'
+import ModalShell from '../ui/ModalShell.vue'
+import * as cls from '../../lib/formClasses'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore }   from '../../stores/entities'
 import type { UserRole, ContractType, EmployeeStatus } from '../../types'
@@ -190,6 +179,10 @@ const emit = defineEmits<{
   'update:modelValue': [v: boolean]
   'saved': []
 }>()
+
+// ── Classes du design system ─────────────────────────────────
+const sectionTitle = 'flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-[0.06em] pb-2 border-b border-border'
+const fieldGrid = 'grid grid-cols-2 gap-3 max-sm:grid-cols-1'
 
 const store       = useEmployeeStore()
 const entityStore = useEntityStore()
@@ -331,92 +324,3 @@ function handleSave() {
   close()
 }
 </script>
-
-<style scoped>
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.4);
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
-}
-.modal-card {
-  background: var(--color-surface); border-radius: 12px;
-  max-width: 680px; width: 95%; max-height: 90vh;
-  display: flex; flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0,0,0,.18);
-}
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 24px; border-bottom: 0.5px solid var(--color-border); flex-shrink: 0;
-}
-.modal-title-text {
-  font-size: 15px; font-weight: 600; color: var(--color-text);
-  display: flex; align-items: center; gap: 8px;
-}
-.modal-title-text i { color: var(--color-primary); }
-.modal-close-btn {
-  width: 28px; height: 28px; border: none; background: var(--color-bg);
-  border-radius: 6px; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; color: var(--color-text-muted); font-size: 14px;
-}
-.modal-close-btn:hover { background: var(--color-border); }
-.modal-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
-.modal-footer {
-  display: flex; gap: 8px; justify-content: flex-end;
-  padding: 14px 24px; border-top: 0.5px solid var(--color-border); flex-shrink: 0;
-}
-
-.section-title {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12px; font-weight: 700; color: var(--color-text-muted);
-  text-transform: uppercase; letter-spacing: .06em;
-  padding-bottom: 8px; border-bottom: 0.5px solid var(--color-border);
-}
-.section-title i { color: var(--color-primary); font-size: 14px; }
-
-.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.field { display: flex; flex-direction: column; gap: 4px; }
-.field-full { grid-column: 1 / -1; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--color-text); }
-.field-input {
-  height: 36px; padding: 0 10px; border: 0.5px solid var(--color-border);
-  border-radius: 6px; font-size: 13px; color: var(--color-text);
-  background: var(--color-bg); outline: none; width: 100%; box-sizing: border-box;
-  transition: border-color .12s;
-}
-.field-input:focus { border-color: var(--color-primary); }
-.input-error { border-color: var(--color-danger) !important; }
-.field-error { font-size: 11px; color: var(--color-danger); }
-
-.auto-badge {
-  display: inline-flex; align-items: center; gap: 3px;
-  font-size: 10px; font-weight: 600; color: var(--color-text-muted);
-  background: var(--color-bg); border: 0.5px solid var(--color-border);
-  border-radius: 10px; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
-}
-.manager-readonly {
-  display: flex; align-items: center; gap: 8px;
-  height: 36px; padding: 0 10px; border: 0.5px solid var(--color-border);
-  border-radius: 6px; background: var(--color-bg); font-size: 13px; color: var(--color-text);
-}
-.manager-readonly--empty { color: var(--color-text-muted); font-style: italic; }
-.manager-avatar {
-  width: 24px; height: 24px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
-}
-.manager-name { font-weight: 500; }
-.manager-role { color: var(--color-text-muted); font-size: 12px; }
-.manager-empty-text { font-size: 12px; color: var(--color-text-muted); }
-.field-hint { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-text-muted); }
-.field-hint i { font-size: 13px; color: var(--color-primary); }
-
-.btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; white-space: nowrap; }
-.btn-primary { background: var(--color-primary); color: var(--color-surface); }
-.btn-primary:hover { opacity: .88; }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-
-@media (max-width: 580px) {
-  .modal-card { width: 97%; max-height: 95vh; }
-  .field-grid { grid-template-columns: 1fr; }
-}
-</style>

@@ -1,131 +1,123 @@
 <template>
-  <div class="app-shell">
+  <div :class="L.shell">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div :class="L.mainLayout">
       <AppSidebar />
-      <main class="content">
+      <main :class="L.content">
 
-        <div class="page-header">
+        <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
           <div>
-            <div class="page-title">Statistiques RH</div>
-            <div class="page-sub">Vue d'ensemble — {{ currentYear }}</div>
+            <div class="text-xl font-bold text-foreground">Statistiques RH</div>
+            <div class="text-[13px] text-muted-foreground mt-0.5">Vue d'ensemble — {{ currentYear }}</div>
           </div>
-          <div class="header-actions">
-            <select v-model="selectedYear" class="filter-select">
+          <div class="flex gap-2 items-center">
+            <select v-model="selectedYear" class="h-[34px] px-2.5 border border-border rounded-md bg-card text-[13px] text-foreground outline-none focus:border-primary">
               <option :value="2026">2026</option>
               <option :value="2025">2025</option>
             </select>
-            <button class="btn btn-outline"><i class="ti ti-file-export"></i> Exporter</button>
+            <button :class="L.btnOutline"><FileDown class="w-4 h-4" /> Exporter</button>
           </div>
         </div>
 
         <!-- ── KPIs globaux ── -->
-        <div class="kpi-row">
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:var(--color-success-bg)">
-              <i class="ti ti-users" style="color:var(--color-success)"></i>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-val">{{ totalEmployees }}</div>
-              <div class="kpi-label">Effectif total</div>
-              <div class="kpi-sub">+2 ce mois</div>
+        <div class="grid grid-cols-4 gap-3 mb-5 max-[1100px]:grid-cols-2 max-md:grid-cols-1">
+          <div :class="kpiCard">
+            <div :class="kpiIcon" class="bg-success-bg"><Users class="w-5 h-5 text-success" /></div>
+            <div>
+              <div :class="kpiVal">{{ totalEmployees }}</div>
+              <div :class="kpiLabel">Effectif total</div>
+              <div :class="kpiSub">+2 ce mois</div>
             </div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:var(--color-warning-bg)">
-              <i class="ti ti-calendar-off" style="color:var(--color-warning)"></i>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-val">{{ absenteeismRate }}%</div>
-              <div class="kpi-label">Taux d'absentéisme</div>
-              <div class="kpi-sub">Cumul {{ selectedYear }}</div>
+          <div :class="kpiCard">
+            <div :class="kpiIcon" class="bg-warning-bg"><CalendarOff class="w-5 h-5 text-warning" /></div>
+            <div>
+              <div :class="kpiVal">{{ absenteeismRate }}%</div>
+              <div :class="kpiLabel">Taux d'absentéisme</div>
+              <div :class="kpiSub">Cumul {{ selectedYear }}</div>
             </div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:var(--color-primary-light)">
-              <i class="ti ti-plane" style="color:var(--color-primary)"></i>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-val">{{ totalMissions }}</div>
-              <div class="kpi-label">Ordres de mission</div>
-              <div class="kpi-sub">Soumis {{ selectedYear }}</div>
+          <div :class="kpiCard">
+            <div :class="kpiIcon" class="bg-primary/10"><Plane class="w-5 h-5 text-primary" /></div>
+            <div>
+              <div :class="kpiVal">{{ totalMissions }}</div>
+              <div :class="kpiLabel">Ordres de mission</div>
+              <div :class="kpiSub">Soumis {{ selectedYear }}</div>
             </div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:var(--color-neutral-bg)">
-              <i class="ti ti-check" style="color:var(--color-neutral)"></i>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-val">{{ approvalRate }}%</div>
-              <div class="kpi-label">Taux d'approbation</div>
-              <div class="kpi-sub">Congés approuvés</div>
+          <div :class="kpiCard">
+            <div :class="kpiIcon" class="bg-neutral-bg"><Check class="w-5 h-5 text-neutral" /></div>
+            <div>
+              <div :class="kpiVal">{{ approvalRate }}%</div>
+              <div :class="kpiLabel">Taux d'approbation</div>
+              <div :class="kpiSub">Congés approuvés</div>
             </div>
           </div>
         </div>
 
         <!-- ── Section absences ── -->
-        <div class="section-title"><i class="ti ti-calendar-off"></i> Absences par type</div>
-        <div class="two-col">
-          <div class="card">
-            <div class="card-title">Répartition des congés</div>
-            <div class="absence-bars">
-              <div class="ab-row" v-for="ab in absencesByType" :key="ab.key">
-                <div class="ab-type">{{ ab.label }}</div>
-                <div class="ab-bar-wrap">
-                  <div class="ab-bar" :style="{ width: ab.pct + '%', background: ab.color }"></div>
+        <div :class="sectionTitle"><CalendarOff class="w-4 h-4 text-primary" /> Absences par type</div>
+        <div :class="twoCol">
+          <div :class="card">
+            <div :class="cardTitle">Répartition des congés</div>
+            <div class="flex flex-col gap-2.5">
+              <div class="flex items-center gap-2.5" v-for="ab in absencesByType" :key="ab.key">
+                <div class="text-xs text-muted-foreground w-[90px] shrink-0">{{ ab.label }}</div>
+                <div class="flex-1 h-2 bg-border rounded overflow-hidden">
+                  <div class="h-full rounded transition-[width] duration-300" :style="{ width: ab.pct + '%', background: ab.color }"></div>
                 </div>
-                <div class="ab-count">{{ ab.count }}j</div>
+                <div class="text-xs font-semibold text-foreground w-[30px] text-right">{{ ab.count }}j</div>
               </div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-title">Statut des demandes</div>
-            <div class="status-list">
-              <div class="stat-row" v-for="s in leaveStats" :key="s.label">
-                <span class="stat-dot" :style="{ background: s.color }"></span>
-                <span class="stat-label">{{ s.label }}</span>
-                <span class="stat-val">{{ s.count }}</span>
+          <div :class="card">
+            <div :class="cardTitle">Statut des demandes</div>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center gap-2" v-for="s in leaveStats" :key="s.label">
+                <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: s.color }"></span>
+                <span class="flex-1 text-[13px] text-foreground">{{ s.label }}</span>
+                <span class="text-sm font-semibold text-foreground">{{ s.count }}</span>
               </div>
             </div>
           </div>
         </div>
 
         <!-- ── Structure organisationnelle ── -->
-        <div class="section-title"><i class="ti ti-sitemap"></i> Structure</div>
-        <div class="structure-row">
-          <div class="card struct-card" v-for="s in structureStats" :key="s.label">
-            <div class="struct-val">{{ s.value }}</div>
-            <div class="struct-label">{{ s.label }}</div>
+        <div :class="sectionTitle"><Network class="w-4 h-4 text-primary" /> Structure</div>
+        <div class="grid grid-cols-4 gap-3 mb-2 max-[1100px]:grid-cols-2 max-md:grid-cols-1">
+          <div :class="[card, 'text-center !py-5']" v-for="s in structureStats" :key="s.label">
+            <div class="text-[28px] font-bold text-primary">{{ s.value }}</div>
+            <div class="text-xs text-muted-foreground mt-1">{{ s.label }}</div>
           </div>
         </div>
 
         <!-- ── Missions ── -->
-        <div class="section-title"><i class="ti ti-plane"></i> Missions</div>
-        <div class="two-col">
-          <div class="card">
-            <div class="card-title">Missions par statut</div>
-            <div class="status-list">
-              <div class="stat-row" v-for="m in missionStats" :key="m.label">
-                <span class="stat-dot" :style="{ background: m.color }"></span>
-                <span class="stat-label">{{ m.label }}</span>
-                <span class="stat-val">{{ m.count }}</span>
+        <div :class="sectionTitle"><Plane class="w-4 h-4 text-primary" /> Missions</div>
+        <div :class="twoCol">
+          <div :class="card">
+            <div :class="cardTitle">Missions par statut</div>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center gap-2" v-for="m in missionStats" :key="m.label">
+                <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: m.color }"></span>
+                <span class="flex-1 text-[13px] text-foreground">{{ m.label }}</span>
+                <span class="text-sm font-semibold text-foreground">{{ m.count }}</span>
               </div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-title">Montants engagés</div>
-            <div class="mission-amounts">
-              <div class="amount-row">
-                <span class="amount-label">Total approuvé</span>
-                <span class="amount-val">{{ fmt(missionAmounts.approved) }} MGA</span>
+          <div :class="card">
+            <div :class="cardTitle">Montants engagés</div>
+            <div class="flex flex-col gap-2.5">
+              <div class="flex justify-between py-1.5 border-b border-border">
+                <span class="text-[13px] text-muted-foreground">Total approuvé</span>
+                <span class="text-[13px] font-semibold text-foreground">{{ fmt(missionAmounts.approved) }} MGA</span>
               </div>
-              <div class="amount-row">
-                <span class="amount-label">En attente</span>
-                <span class="amount-val">{{ fmt(missionAmounts.pending) }} MGA</span>
+              <div class="flex justify-between py-1.5 border-b border-border">
+                <span class="text-[13px] text-muted-foreground">En attente</span>
+                <span class="text-[13px] font-semibold text-foreground">{{ fmt(missionAmounts.pending) }} MGA</span>
               </div>
-              <div class="amount-row total-row">
-                <span class="amount-label">Total global</span>
-                <span class="amount-val amount-total">{{ fmt(missionAmounts.total) }} MGA</span>
+              <div class="flex justify-between pt-2.5 mt-1 border-t border-border">
+                <span class="text-[13px] text-muted-foreground">Total global</span>
+                <span class="text-[15px] font-semibold text-primary">{{ fmt(missionAmounts.total) }} MGA</span>
               </div>
             </div>
           </div>
@@ -138,7 +130,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { FileDown, Users, CalendarOff, Plane, Check, Network } from 'lucide-vue-next'
 import { AppSidebar, AppTopNav } from '../../components'
+import * as L from '../../lib/listClasses'
 import { useAuthStore }    from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'
 import { useMissionStore } from '../../stores/missions'
@@ -148,6 +142,17 @@ const auth          = useAuthStore()
 const absenceStore  = useAbsenceStore()
 const missionStore  = useMissionStore()
 const employeeStore = useEmployeeStore()
+
+// ── Classes du design system ─────────────────────────────────
+const kpiCard = 'bg-card border border-border rounded-[10px] p-4 flex items-center gap-3.5'
+const kpiIcon = 'w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0'
+const kpiVal = 'text-2xl font-bold text-foreground leading-none'
+const kpiLabel = 'text-xs text-muted-foreground mt-0.5'
+const kpiSub = 'text-[11px] text-muted-foreground mt-[3px]'
+const sectionTitle = 'text-sm font-bold text-foreground flex items-center gap-2 mt-5 mb-3'
+const twoCol = 'grid grid-cols-2 gap-3.5 mb-2 max-md:grid-cols-1'
+const card = 'bg-card border border-border rounded-[10px] p-4'
+const cardTitle = 'text-[13px] font-semibold text-foreground mb-3.5'
 
 const selectedYear = ref(2026)
 const currentYear  = computed(() => selectedYear.value)
@@ -213,69 +218,3 @@ const missionAmounts = computed(() => {
 
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; padding: 24px 28px; background: var(--color-bg); overflow-y: auto; }
-
-.page-header  { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
-.page-title   { font-size: 20px; font-weight: 700; color: var(--color-text); }
-.page-sub     { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-.header-actions { display: flex; gap: 8px; align-items: center; }
-
-.btn { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-.filter-select { height: 34px; padding: 0 10px; border: 0.5px solid var(--color-border); border-radius: 6px; background: var(--color-surface); font-size: 13px; color: var(--color-text); outline: none; }
-
-/* KPIs */
-.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-.kpi-card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; padding: 16px; display: flex; align-items: center; gap: 14px; }
-.kpi-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; }
-.kpi-val  { font-size: 24px; font-weight: 700; color: var(--color-text); line-height: 1; }
-.kpi-label { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
-.kpi-sub  { font-size: 11px; color: var(--color-text-muted); margin-top: 3px; }
-
-/* Section title */
-.section-title { font-size: 14px; font-weight: 700; color: var(--color-text); display: flex; align-items: center; gap: 8px; margin: 20px 0 12px; }
-.section-title i { color: var(--color-primary); }
-
-/* Cards */
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
-.card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; padding: 16px; }
-.card-title { font-size: 13px; font-weight: 600; color: var(--color-text); margin-bottom: 14px; }
-
-/* Absence bars */
-.absence-bars { display: flex; flex-direction: column; gap: 10px; }
-.ab-row  { display: flex; align-items: center; gap: 10px; }
-.ab-type { font-size: 12px; color: var(--color-text-muted); width: 90px; flex-shrink: 0; }
-.ab-bar-wrap { flex: 1; height: 8px; background: var(--color-border); border-radius: 4px; overflow: hidden; }
-.ab-bar  { height: 100%; border-radius: 4px; transition: width .3s; }
-.ab-count { font-size: 12px; font-weight: 600; color: var(--color-text); width: 30px; text-align: right; }
-
-/* Status list */
-.status-list { display: flex; flex-direction: column; gap: 8px; }
-.stat-row  { display: flex; align-items: center; gap: 8px; }
-.stat-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.stat-label { flex: 1; font-size: 13px; color: var(--color-text); }
-.stat-val   { font-size: 14px; font-weight: 600; color: var(--color-text); }
-
-/* Structure */
-.structure-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 8px; }
-.struct-card { text-align: center; padding: 20px 16px; }
-.struct-val  { font-size: 28px; font-weight: 700; color: var(--color-primary); }
-.struct-label { font-size: 12px; color: var(--color-text-muted); margin-top: 4px; }
-
-/* Amounts */
-.mission-amounts { display: flex; flex-direction: column; gap: 10px; }
-.amount-row  { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 0.5px solid var(--color-border); }
-.amount-row:last-child { border-bottom: none; }
-.total-row   { padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--color-border); }
-.amount-label { font-size: 13px; color: var(--color-text-muted); }
-.amount-val   { font-size: 13px; font-weight: 600; color: var(--color-text); }
-.amount-total { font-size: 15px; color: var(--color-primary); }
-
-@media (max-width: 1100px) { .kpi-row { grid-template-columns: 1fr 1fr; } .structure-row { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 768px)  { .kpi-row, .two-col, .structure-row { grid-template-columns: 1fr; } .content { padding: 16px; } }
-</style>

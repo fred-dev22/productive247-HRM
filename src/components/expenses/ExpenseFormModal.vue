@@ -1,119 +1,124 @@
 <template>
-  <Teleport to="body">
-    <div class="overlay" @click.self="$emit('update:modelValue', false)">
-      <div class="modal">
-        <div class="modal-header">
-          <h2 class="modal-title">{{ editId ? 'Modifier la note de frais' : 'Nouvelle note de frais' }}</h2>
-          <button class="close-btn" @click="$emit('update:modelValue', false)"><i class="ti ti-x"></i></button>
+  <ModalShell
+    :open="modelValue"
+    :title="editId ? 'Modifier la note de frais' : 'Nouvelle note de frais'"
+    max-width="max-w-[800px]"
+    @close="$emit('update:modelValue', false)"
+  >
+
+    <!-- Bénéficiaire -->
+    <ForWhomSelector
+      v-model="forWhom"
+      :available-employees="availableEmployees"
+    />
+
+    <!-- Infos générales -->
+    <div class="flex flex-col gap-3">
+      <div :class="sectionTitle">Informations générales</div>
+      <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+        <div :class="[cls.field, 'col-span-full']">
+          <label :class="cls.fieldLabel">Titre *</label>
+          <input v-model="form.title" :class="cls.fieldInput" type="text" placeholder="Ex: Mission Antananarivo – Juin 2026" />
         </div>
-
-        <div class="modal-body">
-
-          <!-- Bénéficiaire -->
-          <div class="section">
-            <ForWhomSelector
-              v-model="forWhom"
-              :available-employees="availableEmployees"
-            />
-          </div>
-
-          <!-- Infos générales -->
-          <div class="section">
-            <div class="section-title">Informations générales</div>
-            <div class="form-grid">
-              <div class="form-field form-full">
-                <label class="field-label">Titre *</label>
-                <input v-model="form.title" class="field-input" type="text" placeholder="Ex: Mission Antananarivo – Juin 2026" />
-              </div>
-              <div class="form-field">
-                <label class="field-label">Mission liée (optionnel)</label>
-                <select v-model="form.missionId" class="field-input">
-                  <option value="">Aucune</option>
-                  <option v-for="m in missionStore.missions.filter(m => m.status === 'approved')" :key="m.id" :value="m.id">
-                    {{ m.code }} — {{ m.destination }}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Lignes de dépense -->
-          <div class="section">
-            <div class="section-header">
-              <div class="section-title">Lignes de dépense</div>
-              <button class="add-line-btn" @click="addLine"><i class="ti ti-plus"></i> Ajouter</button>
-            </div>
-            <table class="lines-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Catégorie</th>
-                  <th>Description</th>
-                  <th>Montant (MGA)</th>
-                  <th>Justif.</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(line, idx) in form.lines" :key="line.id">
-                  <td><input v-model="line.date" class="cell-input" type="date" /></td>
-                  <td>
-                    <select v-model="line.category" class="cell-input">
-                      <option v-for="(label, key) in CATEGORY_LABELS" :key="key" :value="key">{{ label }}</option>
-                    </select>
-                  </td>
-                  <td><input v-model="line.description" class="cell-input" type="text" placeholder="Description..." /></td>
-                  <td><input v-model.number="line.amount" class="cell-input cell-amount" type="number" min="0" /></td>
-                  <td class="center">
-                    <input type="checkbox" v-model="line.receipt" />
-                  </td>
-                  <td>
-                    <button class="remove-line-btn" @click="removeLine(idx)"><i class="ti ti-trash"></i></button>
-                  </td>
-                </tr>
-                <tr v-if="form.lines.length === 0">
-                  <td colspan="6" class="no-lines">Aucune ligne — cliquez "Ajouter" pour commencer</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Récapitulatif -->
-          <div class="recap">
-            <div class="recap-row">
-              <span class="recap-label">Nombre de lignes</span>
-              <span class="recap-val">{{ form.lines.length }}</span>
-            </div>
-            <div class="recap-row">
-              <span class="recap-label">Lignes avec justificatif</span>
-              <span class="recap-val">{{ form.lines.filter(l => l.receipt).length }} / {{ form.lines.length }}</span>
-            </div>
-            <div class="recap-row recap-total">
-              <span class="recap-label">Total</span>
-              <span class="recap-val">{{ fmt(totalAmount) }} MGA</span>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="$emit('update:modelValue', false)">Annuler</button>
-          <button class="btn btn-secondary" @click="saveDraft">
-            <i class="ti ti-device-floppy"></i> Brouillon
-          </button>
-          <button class="btn btn-primary" @click="submit">
-            <i class="ti ti-send"></i> Soumettre
-          </button>
+        <div :class="cls.field">
+          <label :class="cls.fieldLabel">Mission liée (optionnel)</label>
+          <select v-model="form.missionId" :class="cls.fieldSelect">
+            <option value="">Aucune</option>
+            <option v-for="m in missionStore.missions.filter(m => m.status === 'approved')" :key="m.id" :value="m.id">
+              {{ m.code }} — {{ m.destination }}
+            </option>
+          </select>
         </div>
       </div>
     </div>
-  </Teleport>
+
+    <!-- Lignes de dépense -->
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <div :class="sectionTitle">Lignes de dépense</div>
+        <button
+          class="inline-flex items-center gap-1 px-3 py-[5px] rounded-md bg-primary/10 text-primary text-xs font-semibold cursor-pointer transition-colors hover:bg-primary/20"
+          @click="addLine"
+        >
+          <Plus class="w-3.5 h-3.5" /> Ajouter
+        </button>
+      </div>
+      <table class="w-full border-collapse text-xs">
+        <thead>
+          <tr>
+            <th :class="thClass">Date</th>
+            <th :class="thClass">Catégorie</th>
+            <th :class="thClass">Description</th>
+            <th :class="thClass">Montant (MGA)</th>
+            <th :class="thClass">Justif.</th>
+            <th :class="thClass"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(line, idx) in form.lines" :key="line.id">
+            <td :class="tdClass"><input v-model="line.date" :class="cellInput" type="date" /></td>
+            <td :class="tdClass">
+              <select v-model="line.category" :class="cellInput">
+                <option v-for="(label, key) in CATEGORY_LABELS" :key="key" :value="key">{{ label }}</option>
+              </select>
+            </td>
+            <td :class="tdClass"><input v-model="line.description" :class="cellInput" type="text" placeholder="Description..." /></td>
+            <td :class="tdClass"><input v-model.number="line.amount" :class="[cellInput, 'text-right']" type="number" min="0" /></td>
+            <td :class="[tdClass, 'text-center']">
+              <input type="checkbox" class="accent-primary" v-model="line.receipt" />
+            </td>
+            <td :class="tdClass">
+              <button
+                class="w-[26px] h-[26px] bg-danger-bg text-danger rounded cursor-pointer flex items-center justify-center transition-colors hover:bg-danger hover:text-white"
+                @click="removeLine(idx)"
+              >
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
+            </td>
+          </tr>
+          <tr v-if="form.lines.length === 0">
+            <td colspan="6" class="text-center p-5 text-muted-foreground italic">Aucune ligne — cliquez "Ajouter" pour commencer</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Récapitulatif -->
+    <div class="bg-background rounded-lg px-4 py-3 flex flex-col gap-1.5 border border-border">
+      <div class="flex justify-between text-[13px]">
+        <span class="text-muted-foreground">Nombre de lignes</span>
+        <span class="font-medium text-foreground">{{ form.lines.length }}</span>
+      </div>
+      <div class="flex justify-between text-[13px]">
+        <span class="text-muted-foreground">Lignes avec justificatif</span>
+        <span class="font-medium text-foreground">{{ form.lines.filter(l => l.receipt).length }} / {{ form.lines.length }}</span>
+      </div>
+      <div class="flex justify-between text-[13px] pt-2 mt-1 border-t border-border">
+        <span class="text-muted-foreground">Total</span>
+        <span class="text-base font-bold text-primary">{{ fmt(totalAmount) }} MGA</span>
+      </div>
+    </div>
+
+    <template #footer>
+      <button :class="cls.btnOutline" @click="$emit('update:modelValue', false)">Annuler</button>
+      <button :class="cls.btnInfo" @click="saveDraft">
+        <Save class="w-4 h-4" /> Brouillon
+      </button>
+      <button :class="cls.btnPrimary" @click="submit">
+        <Send class="w-4 h-4" /> Soumettre
+      </button>
+    </template>
+
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+import { Plus, Trash2, Save, Send } from 'lucide-vue-next'
+import ModalShell from '../ui/ModalShell.vue'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
+import * as cls from '../../lib/formClasses'
 import { useAuthStore }     from '../../stores/auth'
 import { useExpenseStore }  from '../../stores/expenses'
 import { useMissionStore }  from '../../stores/missions'
@@ -128,6 +133,12 @@ const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
   (e: 'submitted'): void
 }>()
+
+// ── Classes du design system ─────────────────────────────────
+const sectionTitle = 'text-[13px] font-bold text-foreground uppercase tracking-[0.04em]'
+const thClass = 'px-2 py-[7px] text-left text-[11px] font-semibold text-muted-foreground bg-background border-b border-border whitespace-nowrap'
+const tdClass = 'px-1.5 py-[5px] border-b border-border'
+const cellInput = 'w-full h-[30px] px-1.5 border border-border rounded text-xs bg-card text-foreground outline-none focus:border-primary'
 
 const auth          = useAuthStore()
 const expenseStore  = useExpenseStore()
@@ -237,52 +248,3 @@ function submit() {
   emit('submitted')
 }
 </script>
-
-<style scoped>
-.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
-.modal   { background: var(--color-surface); border-radius: 12px; width: 800px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,.2); }
-
-.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 0.5px solid var(--color-border); flex-shrink: 0; }
-.modal-title  { font-size: 16px; font-weight: 700; color: var(--color-text); }
-.close-btn    { width: 30px; height: 30px; border: none; background: var(--color-bg); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: 16px; }
-
-.modal-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-
-.section { display: flex; flex-direction: column; gap: 12px; }
-.section-header { display: flex; align-items: center; justify-content: space-between; }
-.section-title { font-size: 13px; font-weight: 700; color: var(--color-text); text-transform: uppercase; letter-spacing: .04em; }
-
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.form-full { grid-column: 1 / -1; }
-.form-field { display: flex; flex-direction: column; gap: 4px; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--color-text-muted); }
-.field-input { height: 36px; padding: 0 10px; border: 0.5px solid var(--color-border); border-radius: 6px; font-size: 13px; color: var(--color-text); background: var(--color-bg); outline: none; }
-.field-input:focus { border-color: var(--color-primary); }
-
-.add-line-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 6px; border: none; background: var(--color-primary-light); color: var(--color-primary); font-size: 12px; font-weight: 600; cursor: pointer; }
-
-.lines-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.lines-table th { padding: 7px 8px; text-align: left; font-size: 11px; font-weight: 600; color: var(--color-text-muted); background: var(--color-bg); border-bottom: 0.5px solid var(--color-border); white-space: nowrap; }
-.lines-table td { padding: 5px 6px; border-bottom: 0.5px solid var(--color-border); }
-.cell-input { width: 100%; height: 30px; padding: 0 6px; border: 0.5px solid var(--color-border); border-radius: 5px; font-size: 12px; background: var(--color-surface); color: var(--color-text); outline: none; box-sizing: border-box; }
-.cell-input:focus { border-color: var(--color-primary); }
-.cell-amount { text-align: right; }
-.center { text-align: center; }
-.remove-line-btn { width: 26px; height: 26px; border: none; background: var(--color-danger-bg); color: var(--color-danger); border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.no-lines { text-align: center; padding: 20px; color: var(--color-text-muted); font-style: italic; }
-
-.recap { background: var(--color-bg); border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; border: 0.5px solid var(--color-border); }
-.recap-row { display: flex; justify-content: space-between; font-size: 13px; }
-.recap-label { color: var(--color-text-muted); }
-.recap-val   { font-weight: 500; color: var(--color-text); }
-.recap-total { padding-top: 8px; margin-top: 4px; border-top: 0.5px solid var(--color-border); }
-.recap-total .recap-val { font-size: 16px; font-weight: 700; color: var(--color-primary); }
-
-.modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 14px 20px; border-top: 0.5px solid var(--color-border); flex-shrink: 0; }
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; }
-.btn-primary   { background: var(--color-primary); color: #fff; }
-.btn-secondary { background: var(--color-info-bg); color: var(--color-info); }
-.btn-outline   { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-
-@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } .modal-body { padding: 14px; } }
-</style>

@@ -1,5 +1,8 @@
 <template>
-  <span class="status-pill" :style="{ background: cfg.bg, color: cfg.color }">
+  <span
+    class="inline-flex items-center px-2.5 py-[3px] rounded-full text-[11px] font-medium whitespace-nowrap"
+    :class="cfg.class"
+  >
     {{ cfg.label }}
   </span>
 </template>
@@ -9,38 +12,26 @@ import { computed } from 'vue'
 
 const props = defineProps<{ status: string }>()
 
-interface PillConfig { label: string; bg: string; color: string }
+interface PillConfig { label: string; class: string }
 
 const CONFIG: Record<string, PillConfig> = {
-  draft:            { label: 'Brouillon',  bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
-  returned:         { label: 'Retourné',   bg: 'var(--color-info-bg)',    color: 'var(--color-info)'    },
-  pending:          { label: 'En attente', bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
-  pending_approval: { label: 'En attente', bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
-  approved:         { label: 'Approuvé',   bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
-  rejected:         { label: 'Refusé',     bg: 'var(--color-danger-bg)',  color: 'var(--color-danger)'  },
-  cancelled:        { label: 'Annulé',     bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
-  inactive:         { label: 'Inactif',     bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
-  active:           { label: 'Actif',       bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
-  trial:            { label: 'En essai',    bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
-  onleave:          { label: 'En congé',    bg: 'var(--color-info-bg)',    color: 'var(--color-info)'    },
-  registered:       { label: 'Enregistré', bg: 'var(--color-info-bg)',    color: 'var(--color-info)'    },
-  done:             { label: 'Effectué',   bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
-  regularized:      { label: 'Régularisé', bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' },
+  draft:            { label: 'Brouillon',  class: 'bg-neutral-bg text-neutral' },
+  returned:         { label: 'Retourné',   class: 'bg-info-bg text-info'       },
+  pending:          { label: 'En attente', class: 'bg-warning-bg text-warning' },
+  pending_approval: { label: 'En attente', class: 'bg-warning-bg text-warning' },
+  approved:         { label: 'Approuvé',   class: 'bg-success-bg text-success' },
+  rejected:         { label: 'Refusé',     class: 'bg-danger-bg text-danger'   },
+  cancelled:        { label: 'Annulé',     class: 'bg-neutral-bg text-neutral' },
+  inactive:         { label: 'Inactif',    class: 'bg-neutral-bg text-neutral' },
+  active:           { label: 'Actif',      class: 'bg-success-bg text-success' },
+  trial:            { label: 'En essai',   class: 'bg-warning-bg text-warning' },
+  onleave:          { label: 'En congé',   class: 'bg-info-bg text-info'       },
+  registered:       { label: 'Enregistré', class: 'bg-info-bg text-info'       },
+  done:             { label: 'Effectué',   class: 'bg-success-bg text-success' },
+  regularized:      { label: 'Régularisé', class: 'bg-neutral-bg text-neutral' },
 }
 
 const cfg = computed<PillConfig>(() =>
-  CONFIG[props.status] ?? { label: props.status, bg: 'var(--color-neutral-bg)', color: 'var(--color-neutral)' }
+  CONFIG[props.status] ?? { label: props.status, class: 'bg-neutral-bg text-neutral' }
 )
 </script>
-
-<style scoped>
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-</style>

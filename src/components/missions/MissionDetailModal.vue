@@ -1,17 +1,20 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue && mission" class="modal-overlay" @click.self="close">
-      <div class="modal-card" id="mission-print-area">
+    <div v-if="modelValue && mission" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[1000]" @click.self="close">
+      <div class="modal-card relative bg-card text-card-foreground rounded-xl p-7 max-w-[680px] w-[95%] shadow-[0_8px_32px_rgba(0,0,0,0.16)] max-h-[92vh] overflow-y-auto flex flex-col" id="mission-print-area">
 
         <!-- ── En-tête (screen uniquement) ── -->
-        <div class="modal-header no-print">
-          <span class="modal-title-text">Ordre de mission — {{ mission.code }}</span>
-          <div class="header-actions">
-            <button class="btn btn-outline" @click="print">
-              <i class="ti ti-printer" aria-hidden="true"></i> Imprimer
+        <div class="no-print flex items-center justify-between mb-[18px] gap-3">
+          <span class="text-[15px] font-semibold text-foreground">Ordre de mission — {{ mission.code }}</span>
+          <div class="flex items-center gap-2">
+            <button :class="cls.btnOutline" @click="print">
+              <Printer class="w-4 h-4" /> Imprimer
             </button>
-            <button class="modal-close-btn" @click="close">
-              <i class="ti ti-x" aria-hidden="true"></i>
+            <button
+              class="w-7 h-7 bg-background rounded-md cursor-pointer flex items-center justify-center text-muted-foreground transition-colors hover:bg-border hover:text-foreground"
+              @click="close"
+            >
+              <X class="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -29,104 +32,104 @@
           </div>
 
           <!-- Statut (screen) -->
-          <div class="status-bar no-print">
+          <div class="no-print flex items-center gap-2.5 mb-3.5">
             <StatusPill :status="mission.status" />
-            <span class="created-at">Créé le {{ fmt(mission.createdAt) }}</span>
+            <span class="text-[11px] text-muted-foreground">Créé le {{ fmt(mission.createdAt) }}</span>
           </div>
 
           <!-- Informations employé -->
-          <div class="info-section">
-            <div class="section-title">Employé</div>
-            <div class="info-grid">
-              <div class="info-item">
-                <span class="info-label">Nom</span>
-                <span class="info-value">{{ mission.employeeName }}</span>
+          <div class="info-section mb-[18px]">
+            <div :class="sectionTitle">Employé</div>
+            <div :class="infoGrid">
+              <div :class="infoItem">
+                <span :class="infoLabel">Nom</span>
+                <span :class="infoValue">{{ mission.employeeName }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">Catégorie</span>
-                <span class="info-value">{{ CAT_LABELS[mission.employeeCategory] }}</span>
+              <div :class="infoItem">
+                <span :class="infoLabel">Catégorie</span>
+                <span :class="infoValue">{{ CAT_LABELS[mission.employeeCategory] }}</span>
               </div>
             </div>
           </div>
 
           <!-- Informations mission -->
-          <div class="info-section">
-            <div class="section-title">Mission</div>
-            <div class="info-grid">
-              <div class="info-item">
-                <span class="info-label">Destination</span>
-                <span class="info-value">{{ mission.destination }}</span>
+          <div class="info-section mb-[18px]">
+            <div :class="sectionTitle">Mission</div>
+            <div :class="infoGrid">
+              <div :class="infoItem">
+                <span :class="infoLabel">Destination</span>
+                <span :class="infoValue">{{ mission.destination }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">Objet</span>
-                <span class="info-value">{{ mission.purpose }}</span>
+              <div :class="infoItem">
+                <span :class="infoLabel">Objet</span>
+                <span :class="infoValue">{{ mission.purpose }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">Départ</span>
-                <span class="info-value">{{ fmtDate(mission.departureDate) }}</span>
+              <div :class="infoItem">
+                <span :class="infoLabel">Départ</span>
+                <span :class="infoValue">{{ fmtDate(mission.departureDate) }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">Retour</span>
-                <span class="info-value">{{ fmtDate(mission.returnDate) }}</span>
+              <div :class="infoItem">
+                <span :class="infoLabel">Retour</span>
+                <span :class="infoValue">{{ fmtDate(mission.returnDate) }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">Durée</span>
-                <span class="info-value">{{ mission.numberOfDays }} jour(s)</span>
+              <div :class="infoItem">
+                <span :class="infoLabel">Durée</span>
+                <span :class="infoValue">{{ mission.numberOfDays }} jour(s)</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">Transport aller</span>
-                <span class="info-value">{{ TRANSPORT_LABELS[mission.transportMode] }}</span>
+              <div :class="infoItem">
+                <span :class="infoLabel">Transport aller</span>
+                <span :class="infoValue">{{ TRANSPORT_LABELS[mission.transportMode] }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">Transport retour</span>
-                <span class="info-value">{{ TRANSPORT_LABELS[mission.transportModeReturn] }}</span>
+              <div :class="infoItem">
+                <span :class="infoLabel">Transport retour</span>
+                <span :class="infoValue">{{ TRANSPORT_LABELS[mission.transportModeReturn] }}</span>
               </div>
             </div>
-            <div v-if="mission.description" class="info-description">
+            <div v-if="mission.description" class="mt-2.5 text-xs text-muted-foreground bg-background rounded-md px-2.5 py-2">
               {{ mission.description }}
             </div>
           </div>
 
           <!-- Tableau des indemnités -->
-          <div class="info-section">
-            <div class="section-title">Indemnités</div>
-            <table class="allow-table">
+          <div class="info-section mb-[18px]">
+            <div :class="sectionTitle">Indemnités</div>
+            <table class="allow-table w-full border-collapse text-[13px]">
               <thead>
                 <tr>
-                  <th>Nature</th>
-                  <th class="col-right">Base</th>
-                  <th class="col-right">Jours</th>
-                  <th class="col-right">Montant</th>
+                  <th :class="thClass">Nature</th>
+                  <th :class="[thClass, 'text-right']">Base</th>
+                  <th :class="[thClass, 'text-right']">Jours</th>
+                  <th :class="[thClass, 'text-right']">Montant</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>Indemnité hôtel</td>
-                  <td class="col-right">{{ fmtNum(mission.hotelAllowance / mission.numberOfDays) }} MGA/j</td>
-                  <td class="col-right">{{ mission.numberOfDays }}</td>
-                  <td class="col-right">{{ fmtNum(mission.hotelAllowance) }} MGA</td>
+                  <td :class="tdClass">Indemnité hôtel</td>
+                  <td :class="[tdClass, 'text-right']">{{ fmtNum(mission.hotelAllowance / mission.numberOfDays) }} MGA/j</td>
+                  <td :class="[tdClass, 'text-right']">{{ mission.numberOfDays }}</td>
+                  <td :class="[tdClass, 'text-right']">{{ fmtNum(mission.hotelAllowance) }} MGA</td>
                 </tr>
                 <tr>
-                  <td>Indemnité transport</td>
-                  <td class="col-right">Forfait</td>
-                  <td class="col-right">—</td>
-                  <td class="col-right">{{ fmtNum(mission.transportAllowance) }} MGA</td>
+                  <td :class="tdClass">Indemnité transport</td>
+                  <td :class="[tdClass, 'text-right']">Forfait</td>
+                  <td :class="[tdClass, 'text-right']">—</td>
+                  <td :class="[tdClass, 'text-right']">{{ fmtNum(mission.transportAllowance) }} MGA</td>
                 </tr>
                 <tr>
-                  <td>Indemnité repas</td>
-                  <td class="col-right">{{ fmtNum(mission.mealAllowance / mission.numberOfDays) }} MGA/j</td>
-                  <td class="col-right">{{ mission.numberOfDays }}</td>
-                  <td class="col-right">{{ fmtNum(mission.mealAllowance) }} MGA</td>
+                  <td :class="tdClass">Indemnité repas</td>
+                  <td :class="[tdClass, 'text-right']">{{ fmtNum(mission.mealAllowance / mission.numberOfDays) }} MGA/j</td>
+                  <td :class="[tdClass, 'text-right']">{{ mission.numberOfDays }}</td>
+                  <td :class="[tdClass, 'text-right']">{{ fmtNum(mission.mealAllowance) }} MGA</td>
                 </tr>
               </tbody>
               <tfoot>
-                <tr class="total-row">
-                  <td colspan="3"><strong>TOTAL MISSION</strong></td>
-                  <td class="col-right"><strong>{{ fmtNum(mission.totalMission) }} MGA</strong></td>
+                <tr>
+                  <td colspan="3" class="px-2.5 py-2 bg-background font-semibold"><strong>TOTAL MISSION</strong></td>
+                  <td class="px-2.5 py-2 bg-background font-semibold text-right"><strong>{{ fmtNum(mission.totalMission) }} MGA</strong></td>
                 </tr>
-                <tr v-if="mission.advanceRequested > 0" class="advance-row">
-                  <td colspan="3">Acompte demandé</td>
-                  <td class="col-right">{{ fmtNum(mission.advanceRequested) }} MGA</td>
+                <tr v-if="mission.advanceRequested > 0">
+                  <td colspan="3" class="px-2.5 py-2 text-xs text-muted-foreground">Acompte demandé</td>
+                  <td class="px-2.5 py-2 text-xs text-muted-foreground text-right">{{ fmtNum(mission.advanceRequested) }} MGA</td>
                 </tr>
               </tfoot>
             </table>
@@ -152,29 +155,29 @@
           </div>
 
           <!-- Historique de validation (screen) -->
-          <div v-if="mission.validationHistory?.length" class="info-section no-print">
-            <div class="section-title">Historique de validation</div>
+          <div v-if="mission.validationHistory?.length" class="no-print info-section mb-[18px]">
+            <div :class="sectionTitle">Historique de validation</div>
             <ValidationTimeline :history="mission.validationHistory" />
           </div>
 
         </div>
 
         <!-- ── Actions (screen uniquement) ── -->
-        <div v-if="showActions" class="modal-footer no-print">
+        <div v-if="showActions" class="no-print flex gap-2 justify-end mt-5 pt-4 border-t border-border flex-wrap">
           <template v-if="mission.status === 'pending'">
-            <button class="btn btn-outline btn-return" @click="$emit('return', mission.id)">
-              <i class="ti ti-arrow-back-up" aria-hidden="true"></i> Retourner
+            <button :class="cls.btnInfo" @click="$emit('return', mission.id)">
+              <Undo2 class="w-4 h-4" /> Retourner
             </button>
-            <button class="btn btn-danger" @click="$emit('reject', mission.id)">
-              <i class="ti ti-x" aria-hidden="true"></i> Refuser
+            <button :class="cls.btnDestructive" @click="$emit('reject', mission.id)">
+              <X class="w-4 h-4" /> Refuser
             </button>
-            <button class="btn btn-success" @click="$emit('approve', mission.id)">
-              <i class="ti ti-check" aria-hidden="true"></i> Approuver
+            <button :class="btnSuccess" @click="$emit('approve', mission.id)">
+              <Check class="w-4 h-4" /> Approuver
             </button>
           </template>
           <template v-else-if="mission.status === 'draft'">
-            <button class="btn btn-primary" @click="$emit('submit', mission.id)">
-              <i class="ti ti-send" aria-hidden="true"></i> Soumettre
+            <button :class="cls.btnPrimary" @click="$emit('submit', mission.id)">
+              <Send class="w-4 h-4" /> Soumettre
             </button>
           </template>
         </div>
@@ -186,8 +189,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Printer, X, Undo2, Check, Send } from 'lucide-vue-next'
 import StatusPill        from '../ui/StatusPill.vue'
 import ValidationTimeline from '../ui/ValidationTimeline.vue'
+import * as cls from '../../lib/formClasses'
 import { useMissionStore } from '../../stores/missions'
 import type { EmployeeCategory, TransportMode } from '../../types'
 
@@ -204,6 +209,16 @@ const emit = defineEmits<{
   'return':  [id: string]
   'submit':  [id: string]
 }>()
+
+// ── Classes du design system ─────────────────────────────────
+const sectionTitle = 'text-[11px] font-bold text-muted-foreground uppercase tracking-[0.06em] pb-1.5 border-b border-border mb-2.5'
+const infoGrid = 'grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5'
+const infoItem = 'flex flex-col gap-0.5'
+const infoLabel = 'text-[11px] text-muted-foreground'
+const infoValue = 'text-[13px] font-medium text-foreground'
+const thClass = 'text-left px-2.5 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border'
+const tdClass = 'px-2.5 py-2 border-b border-border'
+const btnSuccess = cls.btn + ' bg-success-bg text-success hover:bg-success hover:text-white'
 
 const missionStore = useMissionStore()
 
@@ -241,94 +256,13 @@ function print() { window.print() }
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.4);
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
-}
-.modal-card {
-  background: var(--color-surface); border-radius: 12px; padding: 28px;
-  max-width: 680px; width: 95%; box-shadow: 0 8px 32px rgba(0,0,0,.16);
-  max-height: 92vh; overflow-y: auto; display: flex; flex-direction: column;
-}
-
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 18px; gap: 12px;
-}
-.modal-title-text { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.header-actions   { display: flex; align-items: center; gap: 8px; }
-.modal-close-btn {
-  width: 28px; height: 28px; border: none; background: var(--color-bg);
-  border-radius: 6px; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; color: var(--color-text-muted); font-size: 14px;
-}
-.modal-close-btn:hover { background: var(--color-border); }
-
-.status-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.created-at { font-size: 11px; color: var(--color-text-muted); }
-
-.info-section { margin-bottom: 18px; }
-.section-title {
-  font-size: 11px; font-weight: 700; color: var(--color-text-muted);
-  text-transform: uppercase; letter-spacing: .06em;
-  padding-bottom: 6px; border-bottom: 0.5px solid var(--color-border);
-  margin-bottom: 10px;
-}
-.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-.info-item { display: flex; flex-direction: column; gap: 2px; }
-.info-label { font-size: 11px; color: var(--color-text-muted); }
-.info-value { font-size: 13px; font-weight: 500; color: var(--color-text); }
-.info-description {
-  margin-top: 10px; font-size: 12px; color: var(--color-text-muted);
-  background: var(--color-bg); border-radius: 6px; padding: 8px 10px;
-}
-
-.allow-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.allow-table th {
-  text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 700;
-  color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .05em;
-  background: var(--color-bg); border-bottom: 0.5px solid var(--color-border);
-}
-.allow-table td { padding: 8px 10px; border-bottom: 0.5px solid var(--color-border); }
-.allow-table tfoot tr:last-child td { border-bottom: none; }
-.col-right { text-align: right; }
-.total-row td { background: var(--color-bg); font-weight: 600; }
-.advance-row td { font-size: 12px; color: var(--color-text-muted); }
-
-.modal-footer {
-  display: flex; gap: 8px; justify-content: flex-end;
-  margin-top: 20px; padding-top: 16px; border-top: 0.5px solid var(--color-border);
-  flex-wrap: wrap;
-}
-.btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; }
-.btn-primary { background: var(--color-primary); color: #fff; }
-.btn-primary:hover { background: var(--color-primary-dark); }
-.btn-outline { background: var(--color-surface); color: var(--color-text); border: 0.5px solid var(--color-border); }
-.btn-outline:hover { background: var(--color-bg); }
-.btn-danger  { background: var(--color-danger-bg); color: var(--color-danger); }
-.btn-danger:hover  { background: var(--color-danger); color: #fff; }
-.btn-return  { background: var(--color-info-bg); color: var(--color-info); }
-.btn-return:hover  { background: var(--color-info); color: #fff; }
-.btn-success { background: var(--color-success-bg); color: var(--color-success); }
-.btn-success:hover { background: var(--color-success); color: #fff; }
-
-/* ── Signature zones (print only) ── */
-.signature-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 32px;
-}
-.sig-box { display: flex; flex-direction: column; gap: 12px; }
-.sig-title { font-size: 12px; font-weight: 600; text-align: center; }
-.sig-line { height: 1px; background: #000; margin-top: 40px; }
-.sig-name { font-size: 11px; text-align: center; }
-
-/* ── Print styles ── */
+/* Styles d'impression — non exprimables en utilitaires Tailwind (@media print) */
 .print-only { display: none; }
 
 @media print {
   .no-print { display: none !important; }
   .print-only { display: block !important; }
 
-  .modal-overlay { position: static !important; background: none !important; }
   .modal-card {
     max-height: none !important; overflow: visible !important;
     box-shadow: none !important; border-radius: 0 !important;
@@ -341,7 +275,12 @@ function print() { window.print() }
   .print-code { font-size: 12px; color: #666; }
 
   .allow-table th, .allow-table td { border: 1px solid #ccc !important; }
-  .signature-grid { display: grid !important; }
+
+  .signature-grid { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 32px; }
+  .sig-box { display: flex; flex-direction: column; gap: 12px; }
+  .sig-title { font-size: 12px; font-weight: 600; text-align: center; }
+  .sig-line { height: 1px; background: #000; margin-top: 40px; }
+  .sig-name { font-size: 11px; text-align: center; }
 
   .info-section { break-inside: avoid; }
 }

@@ -1,96 +1,222 @@
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@import 'tailwindcss';
+
+/*
+ * Design system P247 — tokens alignés sur P247_FD_LWL_APP/src/style.css,
+ * thème "Vert Galana" (le frontdesk LWL est en orange, seul --color-primary
+ * et ses dérivés changent — la structure des tokens est identique).
+ *
+ * `static` : émet tous les tokens même non référencés — indispensable tant
+ * que des <style scoped> legacy consomment les variables via var().
+ */
+@theme static {
+  /* Green Professional Theme Colors (Galana) */
+  --color-background: oklch(97.5% 0.005 155);
+  --color-foreground: oklch(15% 0.01 155);
+
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(11% 0.02 155);
+
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(11% 0.02 155);
+
+  /* Primary Green — vert Galana #006B3C */
+  --color-primary: #006b3c;
+  --color-primary-foreground: oklch(100% 0 0);
+
+  --color-secondary: oklch(89% 0.015 155);
+  --color-secondary-foreground: oklch(11% 0.02 155);
+
+  --color-muted: oklch(93% 0.01 155);
+  --color-muted-foreground: oklch(47% 0.015 155);
+
+  --color-accent: oklch(93% 0.01 155);
+  --color-accent-foreground: oklch(11% 0.02 155);
+
+  /* Destructive — rouge Galana #C8102E */
+  --color-destructive: #c8102e;
+  --color-destructive-foreground: oklch(100% 0 0);
+
+  --color-border: oklch(88% 0.01 155);
+  --color-input: oklch(88% 0.01 155);
+  --color-ring: #006b3c;
+
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.5rem;
+
+  /* Custom theme font variables */
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Libre Caslon Text', ui-serif, Georgia, serif;
+  --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+  /* Header & Navigation */
+  --color-header: #1a1a1a;
+  --color-header-foreground: oklch(100% 0 0);
+  --color-nav: oklch(100% 0 0);
+  --color-nav-foreground: oklch(11% 0.02 155);
+  --color-nav-hover: oklch(93% 0.01 155);
+  --color-nav-active: #006b3c;
+
+  /* Cue colors */
+  --color-cue-blue: oklch(65% 0.25 240);
+  --color-cue-green: oklch(50% 0.18 145);
+  --color-cue-yellow: oklch(70% 0.2 85);
+  --color-cue-red: oklch(60% 0.22 25);
+  --color-cue-purple: oklch(55% 0.25 300);
+  --color-cue-orange: oklch(68% 0.23 55);
+
+  /* Status colors (extension HRM — pills, badges, alertes) */
+  --color-success: #006b3c;
+  --color-success-bg: #e6f4ed;
+  --color-warning: #8a5a0a;
+  --color-warning-bg: #fef5e1;
+  --color-danger: #c8102e;
+  --color-danger-bg: #fdecea;
+  --color-info: #185fa5;
+  --color-info-bg: #e6f1fb;
+  --color-neutral: #6b6b68;
+  --color-neutral-bg: #f0f0ee;
+
+  /* Sidebar colors */
+  --color-sidebar: oklch(100% 0 0);
+  --color-sidebar-foreground: oklch(11% 0.02 155);
+  --color-sidebar-primary: #006b3c;
+  --color-sidebar-primary-foreground: oklch(100% 0 0);
+  --color-sidebar-accent: #e6f4ed;
+  --color-sidebar-accent-foreground: #006b3c;
+  --color-sidebar-border: oklch(88% 0.01 155);
+  --color-sidebar-ring: #006b3c;
+
+  /* Chart colors */
+  --color-chart-1: #006b3c;
+  --color-chart-2: oklch(65% 0.25 240);
+  --color-chart-3: oklch(70% 0.2 85);
+  --color-chart-4: oklch(68% 0.23 55);
+  --color-chart-5: oklch(55% 0.25 300);
 }
 
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    font-size: 14px; /* densité HRM conservée (défaut navigateur 16px ailleurs) */
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  .dark {
+    --color-background: oklch(8% 0.02 155);
+    --color-foreground: oklch(98% 0.01 155);
+
+    --color-card: oklch(11% 0.02 155);
+    --color-card-foreground: oklch(98% 0.01 155);
+
+    --color-popover: oklch(11% 0.02 155);
+    --color-popover-foreground: oklch(98% 0.01 155);
+
+    --color-primary: oklch(62% 0.13 155);
+    --color-primary-foreground: oklch(11% 0.02 155);
+
+    --color-secondary: oklch(17% 0.02 155);
+    --color-secondary-foreground: oklch(98% 0.01 155);
+
+    --color-muted: oklch(17% 0.02 155);
+    --color-muted-foreground: oklch(65% 0.015 155);
+
+    --color-accent: oklch(17% 0.02 155);
+    --color-accent-foreground: oklch(98% 0.01 155);
+
+    --color-destructive: oklch(45% 0.18 20);
+    --color-destructive-foreground: oklch(98% 0.01 155);
+
+    --color-border: oklch(17% 0.02 155);
+    --color-input: oklch(17% 0.02 155);
+    --color-ring: oklch(70% 0.13 155);
+
+    --color-sidebar: oklch(11% 0.02 155);
+    --color-sidebar-foreground: oklch(98% 0.01 155);
+    --color-sidebar-primary: oklch(70% 0.13 155);
+    --color-sidebar-primary-foreground: oklch(11% 0.02 155);
+    --color-sidebar-accent: oklch(17% 0.02 155);
+    --color-sidebar-accent-foreground: oklch(98% 0.01 155);
+    --color-sidebar-border: oklch(17% 0.02 155);
+    --color-sidebar-ring: oklch(70% 0.13 155);
+
+    --color-chart-1: oklch(70% 0.13 155);
+    --color-chart-2: oklch(65% 0.25 240);
+    --color-chart-3: oklch(70% 0.2 85);
+    --color-chart-4: oklch(68% 0.23 55);
+    --color-chart-5: oklch(55% 0.25 300);
+  }
+}
+
+/*
+ * ── Couche de compatibilité legacy ──────────────────────────────────
+ * Variables consommées par les <style scoped> non encore migrés vers
+ * Tailwind. Chaque alias pointe vers un token @theme ci-dessus.
+ * À SUPPRIMER en phase 5, une fois toutes les vues converties.
+ */
 :root {
-  /* ── Palette Galana ── */
-  --galana-green:        #006B3C;
-  --galana-green-dark:   #00522E;
-  --galana-green-xdark:  #004D2B;
-  --galana-green-light:  #E6F4ED;
-  --galana-green-mid:    #CCE9D9;
+  /* Palette Galana brute */
+  --galana-green: #006b3c;
+  --galana-green-dark: #00522e;
+  --galana-green-xdark: #004d2b;
+  --galana-green-light: #e6f4ed;
+  --galana-green-mid: #cce9d9;
 
-  --galana-red:          #C8102E;
-  --galana-red-dark:     #A00D24;
-  --galana-red-light:    #FDECEA;
+  --galana-red: #c8102e;
+  --galana-red-dark: #a00d24;
+  --galana-red-light: #fdecea;
 
-  --galana-white:        #FFFFFF;
+  --galana-white: #ffffff;
 
-  /* ── Niveaux organigramme ── */
-  --galana-direction-bg:   #8B0000;
-  --galana-department-bg:  #006B3C;
-  --galana-service-bg:     #FFFFFF;
-  --galana-service-border: #006B3C;
+  /* Niveaux organigramme */
+  --galana-direction-bg: #8b0000;
+  --galana-department-bg: #006b3c;
+  --galana-service-bg: #ffffff;
+  --galana-service-border: #006b3c;
 
-  /* ── Couleurs sémantiques — UTILISER CES VARIABLES dans les composants ── */
-  --color-primary:       var(--galana-green);
-  --color-primary-dark:  var(--galana-green-dark);
+  /* Dérivés primaires (hors @theme : pas d'utilitaires générés) */
+  --color-primary-dark: var(--galana-green-dark);
   --color-primary-light: var(--galana-green-light);
-  --color-primary-mid:   var(--galana-green-mid);
+  --color-primary-mid: var(--galana-green-mid);
 
-  --color-accent:        var(--galana-red);
-  --color-accent-dark:   var(--galana-red-dark);
-  --color-accent-light:  var(--galana-red-light);
+  /* Surfaces */
+  --color-bg: var(--color-background);
+  --color-surface: var(--color-card);
+  --color-border-strong: rgba(0, 0, 0, 0.2);
 
-  /* ── Surfaces ── */
-  --color-bg:            #F5F5F5;
-  --color-surface:       #FFFFFF;
-  --color-border:        rgba(0, 0, 0, 0.10);
-  --color-border-strong: rgba(0, 0, 0, 0.20);
+  /* Texte */
+  --color-text: var(--color-foreground);
+  --color-text-muted: var(--color-muted-foreground);
+  --color-text-light: #9b9b98;
 
-  /* ── Texte ── */
-  --color-text:          #1A1A1A;
-  --color-text-muted:    #6B6B68;
-  --color-text-light:    #9B9B98;
-
-  /* ── Statuts ── */
-  --color-success:       #006B3C;
-  --color-success-bg:    #E6F4ED;
-  --color-warning:       #8A5A0A;
-  --color-warning-bg:    #FEF5E1;
-  --color-danger:        #C8102E;
-  --color-danger-bg:     #FDECEA;
-  --color-info:          #185FA5;
-  --color-info-bg:       #E6F1FB;
-  --color-neutral:       #6B6B68;
-  --color-neutral-bg:    #F0F0EE;
-
-  /* ── Navigation ── */
-  --color-topbar-bg:     #1A1A1A;
-  --color-navbar-bg:     #FFFFFF;
+  /* Navigation */
+  --color-topbar-bg: var(--color-header);
+  --color-navbar-bg: var(--color-nav);
   --color-navbar-border: rgba(0, 0, 0, 0.08);
 
-  /* ── Aliases rétro-compat — pointer sur les nouvelles variables ── */
-  --p247-orange:         var(--color-primary);
-  --p247-orange-light:   var(--color-primary-light);
-  --p247-orange-dark:    var(--color-primary-dark);
+  /* Aliases rétro-compat p247 */
+  --p247-orange: var(--color-primary);
+  --p247-orange-light: var(--color-primary-light);
+  --p247-orange-dark: var(--color-primary-dark);
 
-  --p247-bg:             var(--color-bg);
-  --p247-white:          var(--color-surface);
-  --p247-text:           var(--color-text);
-  --p247-muted:          var(--color-text-muted);
-  --p247-border:         var(--color-border);
+  --p247-bg: var(--color-bg);
+  --p247-white: var(--color-surface);
+  --p247-text: var(--color-text);
+  --p247-muted: var(--color-text-muted);
+  --p247-border: var(--color-border);
 
-  --p247-success:        var(--color-success);
-  --p247-success-bg:     var(--color-success-bg);
-  --p247-warning:        var(--color-warning);
-  --p247-warning-bg:     var(--color-warning-bg);
-  --p247-danger:         var(--color-danger);
-  --p247-danger-bg:      var(--color-danger-bg);
-  --p247-info:           var(--color-info);
-  --p247-info-bg:        var(--color-info-bg);
+  --p247-success: var(--color-success);
+  --p247-success-bg: var(--color-success-bg);
+  --p247-warning: var(--color-warning);
+  --p247-warning-bg: var(--color-warning-bg);
+  --p247-danger: var(--color-danger);
+  --p247-danger-bg: var(--color-danger-bg);
+  --p247-info: var(--color-info);
+  --p247-info-bg: var(--color-info-bg);
 
-  --p247-topbar-bg:      var(--color-topbar-bg);
-  --p247-topbar-text:    #FFFFFF;
-  --p247-navbar-bg:      var(--color-navbar-bg);
-  --p247-navbar-border:  var(--color-navbar-border);
-}
-
-body {
-  font-family: 'Segoe UI', sans-serif;
-  font-size: 14px;
-  background: var(--color-bg);
-  color: var(--color-text);
+  --p247-topbar-bg: var(--color-topbar-bg);
+  --p247-topbar-text: #ffffff;
+  --p247-navbar-bg: var(--color-navbar-bg);
+  --p247-navbar-border: var(--color-navbar-border);
 }

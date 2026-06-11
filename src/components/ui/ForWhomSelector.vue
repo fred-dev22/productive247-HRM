@@ -1,24 +1,22 @@
 <template>
-  <div v-if="canSwitchMode" class="for-whom">
-    <div class="mode-toggle">
+  <div v-if="canSwitchMode" class="flex flex-col gap-2.5">
+    <div class="flex gap-1.5">
       <button
-        class="mode-btn"
-        :class="{ active: modelValue.mode === 'self' }"
+        :class="[modeBtn, modelValue.mode === 'self' && modeActive]"
         @click="setMode('self')"
       >
-        <i class="ti ti-user" aria-hidden="true"></i> Pour moi-même
+        <User class="w-3.5 h-3.5" /> Pour moi-même
       </button>
       <button
-        class="mode-btn"
-        :class="{ active: modelValue.mode === 'for-employee' }"
+        :class="[modeBtn, modelValue.mode === 'for-employee' && modeActive]"
         @click="setMode('for-employee')"
       >
-        <i class="ti ti-users" aria-hidden="true"></i> Pour un employé
+        <Users class="w-3.5 h-3.5" /> Pour un employé
       </button>
     </div>
 
-    <div v-if="modelValue.mode === 'for-employee'" class="field">
-      <label class="field-label">Employé concerné *</label>
+    <div v-if="modelValue.mode === 'for-employee'" class="flex flex-col gap-1">
+      <label class="text-xs font-medium text-foreground">Employé concerné *</label>
       <SearchableDropdown
         :items="availableEmployees"
         :model-value="modelValue.employeeId"
@@ -26,13 +24,14 @@
         :show-avatar="true"
         @update:model-value="updateEmployee($event)"
       />
-      <div v-if="errorEmployee" class="field-error">{{ errorEmployee }}</div>
+      <div v-if="errorEmployee" class="text-[11px] text-danger">{{ errorEmployee }}</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { User, Users } from 'lucide-vue-next'
 import SearchableDropdown from './SearchableDropdown.vue'
 import { useAuthStore } from '../../stores/auth'
 
@@ -61,6 +60,10 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 
+// ── Classes du design system ─────────────────────────────────
+const modeBtn = 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium cursor-pointer border border-border bg-background text-muted-foreground transition-colors hover:bg-card hover:text-foreground'
+const modeActive = '!bg-primary/10 !text-primary !border-primary'
+
 const canSwitchMode = computed(() =>
   ['hr_admin', 'hr_director', 'validator'].includes(auth.user?.role ?? '')
 )
@@ -73,24 +76,3 @@ function updateEmployee(employeeId: string) {
   emit('update:modelValue', { mode: 'for-employee', employeeId })
 }
 </script>
-
-<style scoped>
-.for-whom { display: flex; flex-direction: column; gap: 10px; }
-
-.mode-toggle { display: flex; gap: 6px; }
-.mode-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
-  cursor: pointer; border: 0.5px solid var(--color-border);
-  background: var(--color-bg); color: var(--color-text-muted); transition: all .12s;
-}
-.mode-btn.active {
-  background: var(--color-primary-light); color: var(--color-primary);
-  border-color: var(--color-primary);
-}
-.mode-btn:hover:not(.active) { background: var(--color-surface); color: var(--color-text); }
-
-.field { display: flex; flex-direction: column; gap: 4px; }
-.field-label { font-size: 12px; font-weight: 500; color: var(--color-text); }
-.field-error { font-size: 11px; color: var(--color-danger); }
-</style>

@@ -1,256 +1,212 @@
 <template>
-  <div class="app-shell">
+  <div class="flex flex-col min-h-screen">
     <AppTopNav :user="auth.user" />
-    <div class="main-layout">
+    <div class="flex flex-1 overflow-hidden">
       <AppSidebar />
-      <main class="content">
+      <main class="flex-1 px-7 py-6 bg-background overflow-y-auto max-w-[1400px] mx-auto w-full">
 
-        <div class="page-header">
+        <div class="flex items-center justify-between mb-3.5">
           <div>
-            <div class="page-title">{{ t('dashboard.welcome') }}</div>
-            <div class="page-sub">{{ t('dashboard.greeting') }} {{ auth.user?.name }} — {{ today }}</div>
+            <div class="text-lg font-semibold">{{ t('dashboard.welcome') }}</div>
+            <div class="text-[13px] text-muted-foreground mt-px">{{ t('dashboard.greeting') }} {{ auth.user?.name }} — {{ today }}</div>
           </div>
-          <div class="header-actions">
-            <button class="btn btn-outline">
-              <i class="ti ti-file-export" aria-hidden="true"></i> {{ t('dashboard.export') }}
+          <div class="flex gap-2">
+            <button :class="btnOutline">
+              <FileDown class="w-4 h-4" /> {{ t('dashboard.export') }}
             </button>
-            <button class="btn btn-primary" @click="absenceModalOpen = true">
-              <i class="ti ti-plus" aria-hidden="true"></i> {{ t('dashboard.new_request') }}
+            <button :class="btnPrimary" @click="absenceModalOpen = true">
+              <Plus class="w-4 h-4" /> {{ t('dashboard.new_request') }}
             </button>
           </div>
         </div>
 
         <!-- KPIs -->
-        <div class="kpi-row">
-          <div class="kpi-card">
-            <div class="kpi-accent" style="background:var(--color-success-bg)">
-              <i class="ti ti-users" style="color:var(--p247-success)" aria-hidden="true"></i>
-            </div>
-            <div class="kpi-label">{{ t('dashboard.active_employees') }}</div>
-            <div class="kpi-value">47</div>
-            <div class="kpi-sub">+2 {{ t('dashboard.this_month') }}</div>
+        <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
+          <div :class="kpiCard">
+            <div :class="kpiAccent" class="bg-success-bg"><Users class="w-[17px] h-[17px] text-success" /></div>
+            <div :class="kpiLabel">{{ t('dashboard.active_employees') }}</div>
+            <div :class="kpiValue">47</div>
+            <div :class="kpiSub">+2 {{ t('dashboard.this_month') }}</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-accent" style="background:var(--color-warning-bg)">
-              <i class="ti ti-clock" style="color:var(--color-warning)" aria-hidden="true"></i>
-            </div>
-            <div class="kpi-label">{{ t('dashboard.pending') }}</div>
-            <div class="kpi-value">{{ pending.length }}</div>
-            <div class="kpi-sub">{{ t('dashboard.to_process') }}</div>
+          <div :class="kpiCard">
+            <div :class="kpiAccent" class="bg-warning-bg"><Clock class="w-[17px] h-[17px] text-warning" /></div>
+            <div :class="kpiLabel">{{ t('dashboard.pending') }}</div>
+            <div :class="kpiValue">{{ pending.length }}</div>
+            <div :class="kpiSub">{{ t('dashboard.to_process') }}</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-accent" style="background:var(--color-success-bg)">
-              <i class="ti ti-check" style="color:var(--p247-success)" aria-hidden="true"></i>
-            </div>
-            <div class="kpi-label">{{ t('dashboard.approved_month') }}</div>
-            <div class="kpi-value">12</div>
-            <div class="kpi-sub">{{ t('dashboard.leaves_absences') }}</div>
+          <div :class="kpiCard">
+            <div :class="kpiAccent" class="bg-success-bg"><Check class="w-[17px] h-[17px] text-success" /></div>
+            <div :class="kpiLabel">{{ t('dashboard.approved_month') }}</div>
+            <div :class="kpiValue">12</div>
+            <div :class="kpiSub">{{ t('dashboard.leaves_absences') }}</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-accent" style="background:var(--p247-orange-light)">
-              <i class="ti ti-user-off" style="color:var(--p247-orange)" aria-hidden="true"></i>
-            </div>
-            <div class="kpi-label">{{ t('dashboard.absent_today') }}</div>
-            <div class="kpi-value">3</div>
-            <div class="kpi-sub">{{ t('dashboard.on_employees', { count: 47 }) }}</div>
+          <div :class="kpiCard">
+            <div :class="kpiAccent" class="bg-primary/10"><UserX class="w-[17px] h-[17px] text-primary" /></div>
+            <div :class="kpiLabel">{{ t('dashboard.absent_today') }}</div>
+            <div :class="kpiValue">3</div>
+            <div :class="kpiSub">{{ t('dashboard.on_employees', { count: 47 }) }}</div>
           </div>
         </div>
 
         <!-- Structure organisationnelle -->
-        <router-link :to="{ name: 'hr-entities' }" class="org-kpi-card">
-          <div class="org-kpi-left">
-            <div class="org-kpi-icon">
-              <i class="ti ti-sitemap"></i>
+        <router-link
+          :to="{ name: 'hr-entities' }"
+          class="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3.5 mb-3 no-underline text-foreground cursor-pointer transition-shadow hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:border-primary/20"
+        >
+          <div class="flex items-center gap-3">
+            <div class="w-[38px] h-[38px] rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Network class="w-5 h-5" />
             </div>
             <div>
-              <div class="org-kpi-title">Structure organisationnelle</div>
-              <div class="org-kpi-sub">
+              <div class="text-sm font-semibold">Structure organisationnelle</div>
+              <div class="text-xs text-muted-foreground mt-0.5">
                 {{ entityStore.approvedEntities.length }} entités approuvées ·
                 {{ entityStore.totalHeadcount }} employés rattachés
               </div>
             </div>
           </div>
-          <div class="org-kpi-right">
-            <span v-if="entityStore.pendingEntities.length > 0" class="org-pending-badge">
+          <div class="flex items-center gap-2">
+            <span v-if="entityStore.pendingEntities.length > 0" class="bg-danger-bg text-danger text-[11px] font-semibold px-2.5 py-[3px] rounded-full">
               {{ entityStore.pendingEntities.length }} en attente
             </span>
-            <i class="ti ti-chevron-right org-kpi-arrow"></i>
+            <ChevronRight class="w-4 h-4 text-muted-foreground" />
           </div>
         </router-link>
 
         <!-- Demandes -->
-        <div class="card" style="margin-bottom:12px">
-          <div class="card-header">
-            <div class="card-title">
-              <i class="ti ti-calendar-event" aria-hidden="true"></i>
+        <div :class="[card, 'mb-3']">
+          <div :class="cardHeader">
+            <div :class="cardTitle">
+              <CalendarClock class="w-4 h-4 text-primary" />
               {{ t('absence.pending_title') }}
-              <span class="badge-count">{{ pending.length }}</span>
+              <span class="bg-primary text-primary-foreground text-[11px] font-semibold px-[7px] py-px rounded-full">{{ pending.length }}</span>
             </div>
-            <router-link :to="{ name: 'hr-absences' }" class="link-small">{{ t('absence.see_all') }}</router-link>
+            <router-link :to="{ name: 'hr-absences' }" class="text-xs text-info no-underline cursor-pointer">{{ t('absence.see_all') }}</router-link>
           </div>
-          <div class="tabs">
-            <div class="tab" :class="{ active: tab === 'pending'  }" @click="tab = 'pending'">
+          <div class="flex border-b border-border mb-3.5">
+            <div :class="[tabClass, tab === 'pending' && tabActive]" @click="tab = 'pending'">
               {{ t('absence.tabs.pending', { count: pending.length }) }}
             </div>
-            <div class="tab" :class="{ active: tab === 'approved' }" @click="tab = 'approved'">
+            <div :class="[tabClass, tab === 'approved' && tabActive]" @click="tab = 'approved'">
               {{ t('absence.tabs.approved', { count: approved.length }) }}
             </div>
           </div>
-          <div v-for="r in activeRequests" :key="r.id" class="req-row">
-            <div class="req-avatar" :style="{ background: r.avatarColor, color: r.avatarTextColor }">
+          <div v-for="r in activeRequests" :key="r.id" class="flex items-center gap-2.5 py-2 border-b border-border last:border-b-0">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0" :style="{ background: r.avatarColor, color: r.avatarTextColor }">
               {{ r.employeeInitials }}
             </div>
-            <div class="req-info">
-              <div class="req-name">{{ r.employeeName }}</div>
-              <div class="req-detail">{{ typeLabel(r.type) }} · {{ r.startDate }} → {{ r.endDate }} · {{ r.workingDays }} jour{{ r.workingDays > 1 ? 's' : '' }}</div>
+            <div class="flex-1">
+              <div class="text-sm font-medium">{{ r.employeeName }}</div>
+              <div class="text-xs text-muted-foreground">{{ typeLabel(r.type) }} · {{ r.startDate }} → {{ r.endDate }} · {{ r.workingDays }} jour{{ r.workingDays > 1 ? 's' : '' }}</div>
             </div>
-            <span class="status-pill" :class="pillClass(r.status)">
+            <span class="text-xs font-medium px-2.5 py-[3px] rounded-full whitespace-nowrap" :class="pillClass(r.status)">
               {{ statusLabel(r.status) }}
             </span>
-            <div v-if="r.status === 'pending'" class="action-btns">
-              <button class="act-btn act-approve" @click="approve(r.id)">{{ t('absence.actions.approve') }}</button>
-              <button class="act-btn act-return"  @click="openReturnModal(r)"><i class="ti ti-arrow-back-up"></i></button>
-              <button class="act-btn act-reject"  @click="openRejectModal(r)">{{ t('absence.actions.reject') }}</button>
+            <div v-if="r.status === 'pending'" class="flex gap-1">
+              <button class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-success-bg text-success" @click="approve(r.id)">{{ t('absence.actions.approve') }}</button>
+              <button class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-info-bg text-info flex items-center" @click="openReturnModal(r)"><Undo2 class="w-3.5 h-3.5" /></button>
+              <button class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-danger-bg text-danger" @click="openRejectModal(r)">{{ t('absence.actions.reject') }}</button>
             </div>
-            <button v-else class="act-btn act-view">{{ t('absence.actions.view') }}</button>
+            <button v-else class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground">{{ t('absence.actions.view') }}</button>
           </div>
         </div>
 
         <!-- Soldes + Calendrier -->
-        <div class="two-col">
+        <div class="grid grid-cols-2 gap-3 max-lg:grid-cols-1">
 
           <!-- Soldes individuels -->
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                <i class="ti ti-chart-bar" aria-hidden="true"></i> {{ t('absence.balances_title') }}
+          <div :class="card">
+            <div :class="cardHeader">
+              <div :class="cardTitle">
+                <BarChart3 class="w-4 h-4 text-primary" /> {{ t('absence.balances_title') }}
               </div>
             </div>
-            <div class="bal-table-wrapper">
-              <table class="bal-table">
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse text-xs">
                 <thead>
                   <tr>
-                    <th @click="balSort('name')">
-                      <div class="th-inner">
-                        <span class="th-drag"><i class="ti ti-grip-vertical"></i></span>
+                    <th :class="balTh" @click="balSort('name')">
+                      <div class="flex items-center gap-1.5">
+                        <GripVertical class="w-3 h-3 text-foreground/30 cursor-grab" />
                         {{ t('absence.fields.employee') }}
-                        <span class="th-sort">
-                          <i v-if="balSortKey==='name'&&balSortDir==='asc'"  class="ti ti-arrow-up sort-active"></i>
-                          <i v-else-if="balSortKey==='name'&&balSortDir==='desc'" class="ti ti-arrow-down sort-active"></i>
-                          <i v-else class="ti ti-arrows-sort sort-idle"></i>
-                        </span>
+                        <span class="ml-auto"><component :is="sortIcon('name')" class="w-3 h-3" :class="balSortKey==='name' ? 'text-primary' : 'text-foreground/30'" /></span>
                       </div>
                     </th>
-                    <th @click="balSort('congeAnnuel')" :title="t('absence.types.annual')">
-                      <div class="th-inner">{{ t('absence.types.annual') }}
-                        <span class="th-sort">
-                          <i v-if="balSortKey==='congeAnnuel'&&balSortDir==='asc'"  class="ti ti-arrow-up sort-active"></i>
-                          <i v-else-if="balSortKey==='congeAnnuel'&&balSortDir==='desc'" class="ti ti-arrow-down sort-active"></i>
-                          <i v-else class="ti ti-arrows-sort sort-idle"></i>
-                        </span>
-                      </div>
-                    </th>
-                    <th @click="balSort('recuperation')" :title="t('absence.types.recovery')">
-                      <div class="th-inner">{{ t('absence.types.recovery') }}
-                        <span class="th-sort">
-                          <i v-if="balSortKey==='recuperation'&&balSortDir==='asc'"  class="ti ti-arrow-up sort-active"></i>
-                          <i v-else-if="balSortKey==='recuperation'&&balSortDir==='desc'" class="ti ti-arrow-down sort-active"></i>
-                          <i v-else class="ti ti-arrows-sort sort-idle"></i>
-                        </span>
-                      </div>
-                    </th>
-                    <th @click="balSort('maladie')" :title="t('absence.types.sick')">
-                      <div class="th-inner">{{ t('absence.types.sick') }}
-                        <span class="th-sort">
-                          <i v-if="balSortKey==='maladie'&&balSortDir==='asc'"  class="ti ti-arrow-up sort-active"></i>
-                          <i v-else-if="balSortKey==='maladie'&&balSortDir==='desc'" class="ti ti-arrow-down sort-active"></i>
-                          <i v-else class="ti ti-arrows-sort sort-idle"></i>
-                        </span>
-                      </div>
-                    </th>
-                    <th @click="balSort('teletravail')" :title="t('absence.types.remote')">
-                      <div class="th-inner">{{ t('absence.types.remote') }}
-                        <span class="th-sort">
-                          <i v-if="balSortKey==='teletravail'&&balSortDir==='asc'"  class="ti ti-arrow-up sort-active"></i>
-                          <i v-else-if="balSortKey==='teletravail'&&balSortDir==='desc'" class="ti ti-arrow-down sort-active"></i>
-                          <i v-else class="ti ti-arrows-sort sort-idle"></i>
-                        </span>
+                    <th v-for="col in balCols" :key="col.key" :class="balTh" :title="t(col.i18n)" @click="balSort(col.key)">
+                      <div class="flex items-center gap-1">{{ t(col.i18n) }}
+                        <span class="ml-auto"><component :is="sortIcon(col.key)" class="w-3 h-3" :class="balSortKey===col.key ? 'text-primary' : 'text-foreground/30'" /></span>
                       </div>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="e in sortedBalances" :key="e.name">
-                    <td>
-                      <div class="emp-cell">
-                        <div class="emp-avatar-sm" :style="{ background: e.avatarColor, color: e.avatarTextColor }">{{ e.initials }}</div>
+                  <tr v-for="e in sortedBalances" :key="e.name" class="hover:bg-primary/10">
+                    <td :class="balTd">
+                      <div class="flex items-center gap-1.5">
+                        <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-semibold shrink-0" :style="{ background: e.avatarColor, color: e.avatarTextColor }">{{ e.initials }}</div>
                         <span>{{ e.name }}</span>
                       </div>
                     </td>
-                    <td class="bal-num">{{ e.congeAnnuel }}j</td>
-                    <td class="bal-num">{{ e.recuperation }}j</td>
-                    <td class="bal-num">{{ e.maladie }}j</td>
-                    <td class="bal-num">{{ e.teletravail }}j</td>
+                    <td :class="[balTd, 'text-center font-medium']">{{ e.congeAnnuel }}j</td>
+                    <td :class="[balTd, 'text-center font-medium']">{{ e.recuperation }}j</td>
+                    <td :class="[balTd, 'text-center font-medium']">{{ e.maladie }}j</td>
+                    <td :class="[balTd, 'text-center font-medium']">{{ e.teletravail }}j</td>
                   </tr>
                 </tbody>
               </table>
               <!-- Pagination soldes -->
-              <div class="bal-pagination">
-                <span class="pag-total">{{ t('absence.employees_total', { count: employeeBalances.length }) }}</span>
-                <div class="pag-perpage">
+              <div class="flex items-center gap-3 px-2.5 py-2 border-t border-border text-xs text-muted-foreground">
+                <span class="flex-1 whitespace-nowrap text-[11px]">{{ t('absence.employees_total', { count: employeeBalances.length }) }}</span>
+                <div class="flex items-center gap-1.5 text-[11px] whitespace-nowrap">
                   {{ t('absence.per_page') }}
-                  <select v-model.number="balPageSize" class="pag-size-select">
+                  <select v-model.number="balPageSize" class="h-6 px-1.5 border border-border rounded text-[11px] text-foreground bg-card outline-none cursor-pointer focus:border-primary">
                     <option :value="5">5</option>
                     <option :value="10">10</option>
                     <option :value="25">25</option>
                   </select>
                 </div>
-                <div class="pag-pages" v-if="balTotalPages > 1">
-                  <button class="pag-btn pag-arrow" :disabled="balPage === 1" @click="balPage--">
-                    <i class="ti ti-chevron-left"></i>
-                  </button>
+                <div class="flex items-center gap-[3px]" v-if="balTotalPages > 1">
+                  <button :class="pagBtn" :disabled="balPage === 1" @click="balPage--"><ChevronLeft class="w-3 h-3" /></button>
                   <button
                     v-for="p in balTotalPages" :key="p"
-                    class="pag-btn" :class="{ active: p === balPage }"
+                    :class="[pagBtn, p === balPage && pagBtnActive]"
                     @click="balPage = p"
                   >{{ p }}</button>
-                  <button class="pag-btn pag-arrow" :disabled="balPage === balTotalPages" @click="balPage++">
-                    <i class="ti ti-chevron-right"></i>
-                  </button>
+                  <button :class="pagBtn" :disabled="balPage === balTotalPages" @click="balPage++"><ChevronRight class="w-3 h-3" /></button>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Calendrier dynamique -->
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                <i class="ti ti-calendar" aria-hidden="true"></i>
-                <span style="text-transform:capitalize">{{ calTitle }}</span>
+          <div :class="card">
+            <div :class="cardHeader">
+              <div :class="cardTitle">
+                <Calendar class="w-4 h-4 text-primary" />
+                <span class="capitalize">{{ calTitle }}</span>
               </div>
-              <div class="cal-nav">
-                <button class="cal-nav-btn" @click="prevMonth"><i class="ti ti-chevron-left"></i></button>
-                <button class="cal-nav-btn" @click="nextMonth"><i class="ti ti-chevron-right"></i></button>
+              <div class="flex gap-1">
+                <button :class="calNavBtn" @click="prevMonth"><ChevronLeft class="w-3 h-3" /></button>
+                <button :class="calNavBtn" @click="nextMonth"><ChevronRight class="w-3 h-3" /></button>
               </div>
             </div>
-            <div class="cal-grid">
-              <div v-for="d in weekDays" :key="d" class="cal-hdr">{{ d }}</div>
+            <div class="grid grid-cols-7 gap-0.5">
+              <div v-for="(d, i) in weekDays" :key="i" class="text-xs text-muted-foreground text-center py-[3px] font-medium">{{ d }}</div>
               <div
                 v-for="(day, i) in calDays"
                 :key="i"
-                class="cal-day"
-                :class="[day.cls, day.hasLeave ? 'has-leave' : '']"
+                class="text-xs text-center py-[5px] px-0.5 rounded cursor-pointer text-foreground relative hover:bg-background"
+                :class="dayClass(day)"
                 @mouseenter="day.dateStr ? showTooltip($event, day.dateStr) : undefined"
                 @mouseleave="hideTooltip"
               >
                 {{ day.n ?? '' }}
               </div>
             </div>
-            <div class="legend">
-              <span class="leg"><span class="leg-dot" style="background:#B5D4F4"></span>{{ t('absence.types.annual') }}</span>
-              <span class="leg"><span class="leg-dot" style="background:#FAC775"></span>{{ t('absence.types.remote') }}</span>
-              <span class="leg"><span class="leg-dot" style="background:var(--p247-orange)"></span>Aujourd'hui</span>
+            <div class="flex gap-3 mt-2.5 flex-wrap">
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0" style="background:#B5D4F4"></span>{{ t('absence.types.annual') }}</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0" style="background:#FAC775"></span>{{ t('absence.types.remote') }}</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-primary"></span>Aujourd'hui</span>
             </div>
           </div>
 
@@ -260,75 +216,110 @@
     </div>
   </div>
 
-<!-- Tooltip calendrier -->
-<Teleport to="body">
-  <div v-if="tooltip.visible" class="cal-tooltip" :style="tooltipStyle">
-    <div v-for="(line, idx) in tooltip.lines" :key="idx" class="tooltip-line">
-      <span v-if="line.color" class="tooltip-dot" :style="{ background: line.color }"></span>
-      {{ line.text }}
-    </div>
-  </div>
-</Teleport>
-
-<!-- Modale de création (AbsenceRequestModal réutilisable) -->
-<AbsenceRequestModal
-  v-model="absenceModalOpen"
-  @submitted="onAbsenceSubmitted"
-  @drafted="onAbsenceSubmitted"
-/>
-
-<!-- Modale de retour -->
-<Teleport to="body">
-  <div v-if="returnModal.open" class="overlay" @click.self="closeReturnModal">
-    <div class="modal-card">
-      <div class="modal-title">Retourner la demande de {{ returnModal.employeeName }}</div>
-      <label class="modal-label">Commentaire *</label>
-      <textarea v-model="returnModal.comment" class="modal-textarea" placeholder="Expliquez ce qui doit être corrigé..." rows="4"></textarea>
-      <div v-if="returnModal.error" class="modal-error">{{ returnModal.error }}</div>
-      <div class="modal-actions">
-        <button class="btn btn-primary" @click="confirmReturn"><i class="ti ti-arrow-back-up"></i> Retourner</button>
-        <button class="btn btn-outline" @click="closeReturnModal">{{ t('absence.actions.cancel') }}</button>
+  <!-- Tooltip calendrier -->
+  <Teleport to="body">
+    <div v-if="tooltip.visible" class="bg-card border border-border rounded-md px-2.5 py-2 text-[11px] text-foreground shadow-[0_2px_8px_rgba(0,0,0,0.12)] min-w-40 max-w-[240px]" :style="tooltipStyle">
+      <div v-for="(line, idx) in tooltip.lines" :key="idx" class="flex items-center gap-1.5 py-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+        <span v-if="line.color" class="w-[7px] h-[7px] rounded-full shrink-0" :style="{ background: line.color }"></span>
+        {{ line.text }}
       </div>
     </div>
-  </div>
-</Teleport>
+  </Teleport>
 
-<!-- Modale de refus -->
-<Teleport to="body">
-  <div v-if="rejectModal.open" class="overlay" @click.self="closeRejectModal">
-    <div class="modal-card">
-      <div class="modal-title">{{ t('absence.reject_modal.title', { name: rejectModal.employeeName }) }}</div>
-      <label class="modal-label">{{ t('absence.reject_modal.label') }}</label>
-      <textarea
-        v-model="rejectModal.reason"
-        class="modal-textarea"
-        :placeholder="t('absence.reject_modal.placeholder')"
-        rows="4"
-      ></textarea>
-      <div v-if="rejectModal.error" class="modal-error">{{ rejectModal.error }}</div>
-      <div class="modal-actions">
-        <button class="btn btn-primary" @click="confirmReject">{{ t('absence.actions.confirm_reject') }}</button>
-        <button class="btn btn-outline" @click="closeRejectModal">{{ t('absence.actions.cancel') }}</button>
-      </div>
-    </div>
-  </div>
-</Teleport>
+  <!-- Modale de création (AbsenceRequestModal réutilisable) -->
+  <AbsenceRequestModal
+    v-model="absenceModalOpen"
+    @submitted="onAbsenceSubmitted"
+    @drafted="onAbsenceSubmitted"
+  />
+
+  <!-- Modale de retour -->
+  <ModalShell :open="returnModal.open" :title="`Retourner la demande de ${returnModal.employeeName}`" max-width="max-w-[420px]" @close="closeReturnModal">
+    <label :class="cls.fieldLabel">Commentaire *</label>
+    <textarea v-model="returnModal.comment" :class="cls.fieldTextarea" placeholder="Expliquez ce qui doit être corrigé..." rows="4"></textarea>
+    <div v-if="returnModal.error" :class="cls.fieldError">{{ returnModal.error }}</div>
+    <template #footer>
+      <button :class="cls.btnPrimary" @click="confirmReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
+      <button :class="cls.btnOutline" @click="closeReturnModal">{{ t('absence.actions.cancel') }}</button>
+    </template>
+  </ModalShell>
+
+  <!-- Modale de refus -->
+  <ModalShell :open="rejectModal.open" :title="t('absence.reject_modal.title', { name: rejectModal.employeeName })" max-width="max-w-[420px]" @close="closeRejectModal">
+    <label :class="cls.fieldLabel">{{ t('absence.reject_modal.label') }}</label>
+    <textarea
+      v-model="rejectModal.reason"
+      :class="cls.fieldTextarea"
+      :placeholder="t('absence.reject_modal.placeholder')"
+      rows="4"
+    ></textarea>
+    <div v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</div>
+    <template #footer>
+      <button :class="cls.btnPrimary" @click="confirmReject">{{ t('absence.actions.confirm_reject') }}</button>
+      <button :class="cls.btnOutline" @click="closeRejectModal">{{ t('absence.actions.cancel') }}</button>
+    </template>
+  </ModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  FileDown, Plus, Users, Clock, Check, UserX, Network, ChevronRight, ChevronLeft,
+  CalendarClock, BarChart3, GripVertical, Calendar, Undo2, ArrowUp, ArrowDown, ArrowUpDown,
+} from 'lucide-vue-next'
 import { AppSidebar, AppTopNav } from '../components'
 import AbsenceRequestModal from '../components/AbsenceRequestModal.vue'
+import ModalShell from '../components/ui/ModalShell.vue'
+import * as cls from '../lib/formClasses'
 import { useAuthStore } from '../stores/auth'
 import { useAbsenceStore } from '../stores/absences'
 import { useEntityStore } from '../stores/entities'
-import type { LeaveRequest, LeaveStatus, LeaveType } from '../types'
+import type { LeaveRequest, LeaveStatus } from '../types'
 
 const auth        = useAuthStore()
 const leaves      = useAbsenceStore()
 const entityStore = useEntityStore()
 const { t, locale } = useI18n()
+
+// ── Classes du design system ─────────────────────────────────
+const btnPrimary = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-primary text-primary-foreground transition-colors hover:bg-primary/90'
+const btnOutline = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-card text-foreground border border-border transition-colors hover:bg-background'
+const kpiCard = 'bg-card border border-border rounded-lg px-3.5 py-3'
+const kpiAccent = 'w-8 h-8 rounded-md flex items-center justify-center mb-2'
+const kpiLabel = 'text-[13px] text-muted-foreground mb-1'
+const kpiValue = 'text-[28px] font-semibold leading-none'
+const kpiSub = 'text-xs text-muted-foreground mt-[3px]'
+const card = 'bg-card border border-border rounded-lg p-3.5'
+const cardHeader = 'flex items-center justify-between mb-3'
+const cardTitle = 'flex items-center gap-1.5 text-sm font-semibold text-foreground'
+const tabClass = 'px-3.5 py-2 text-[13px] text-muted-foreground cursor-pointer border-b-2 border-transparent'
+const tabActive = '!text-primary !border-primary font-medium'
+const balTh = 'px-2.5 py-2 text-left text-xs font-semibold text-foreground bg-primary/10 border-b border-primary/20 whitespace-nowrap cursor-pointer select-none hover:bg-primary/15'
+const balTd = 'px-2.5 py-2 border-b border-border'
+const pagBtn = 'min-w-[26px] h-[26px] px-1.5 rounded text-[11px] font-medium cursor-pointer border border-border bg-card text-foreground flex items-center justify-center transition-colors hover:bg-background disabled:opacity-35 disabled:cursor-not-allowed'
+const pagBtnActive = '!bg-primary !text-primary-foreground !border-primary'
+const calNavBtn = 'border border-border rounded w-[22px] h-[22px] flex items-center justify-center cursor-pointer text-muted-foreground transition-colors hover:bg-background hover:text-foreground'
+const legClass = 'flex items-center gap-1.5 text-xs text-muted-foreground'
+
+const balCols = [
+  { key: 'congeAnnuel',  i18n: 'absence.types.annual' },
+  { key: 'recuperation', i18n: 'absence.types.recovery' },
+  { key: 'maladie',      i18n: 'absence.types.sick' },
+  { key: 'teletravail',  i18n: 'absence.types.remote' },
+]
+
+function sortIcon(key: string) {
+  if (balSortKey.value !== key) return ArrowUpDown
+  return balSortDir.value === 'asc' ? ArrowUp : ArrowDown
+}
+
+function dayClass(day: CalDay): string {
+  if (day.cls === 'empty') return 'text-transparent pointer-events-none'
+  if (day.cls === 'today') return 'bg-primary text-primary-foreground font-semibold'
+  if (day.hasLeave) return 'bg-success-bg text-success font-medium'
+  return ''
+}
 
 const today = new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -411,9 +402,9 @@ function confirmReject() {
 
 function pillClass(s: LeaveStatus) {
   return {
-    'pill-pending':  s === 'pending',
-    'pill-approved': s === 'approved',
-    'pill-rejected': s === 'rejected',
+    'bg-warning-bg text-warning':  s === 'pending',
+    'bg-success-bg text-success': s === 'approved',
+    'bg-danger-bg text-danger': s === 'rejected',
   }
 }
 function statusLabel(s: LeaveStatus): string {
@@ -551,160 +542,3 @@ function showTooltip(event: MouseEvent, dateStr: string) {
 
 function hideTooltip() { tooltip.visible = false }
 </script>
-
-<style scoped>
-.app-shell   { display: flex; flex-direction: column; min-height: 100vh; }
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.content     { flex: 1; padding: 24px 28px; background: var(--p247-bg); overflow-y: auto; max-width: 1400px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-
-.page-header  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.page-title   { font-size: 18px; font-weight: 600; }
-.page-sub     { font-size: 13px; color: var(--p247-muted); margin-top: 1px; }
-.header-actions { display: flex; gap: 8px; }
-
-.btn { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: flex; align-items: center; gap: 6px; transition: all .12s; }
-.btn-primary  { background: var(--p247-orange); color: white; }
-.btn-primary:hover  { background: var(--p247-orange-dark); }
-.btn-outline  { background: white; color: var(--p247-text); border: 0.5px solid var(--p247-border); }
-.btn-outline:hover  { background: var(--p247-bg); }
-
-.kpi-row  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-.kpi-card { background: var(--p247-white); border: 0.5px solid var(--p247-border); border-radius: 8px; padding: 12px 14px; }
-.kpi-accent { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; font-size: 17px; }
-.kpi-label  { font-size: 13px; color: var(--p247-muted); margin-bottom: 4px; }
-.kpi-value  { font-size: 28px; font-weight: 600; line-height: 1; }
-.kpi-sub    { font-size: 12px; color: var(--p247-muted); margin-top: 3px; }
-
-.card       { background: var(--p247-white); border: 0.5px solid var(--p247-border); border-radius: 8px; padding: 14px; }
-.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.card-title  { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--p247-text); }
-.card-title i { color: var(--p247-orange); }
-.badge-count { background: var(--p247-orange); color: white; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; }
-.link-small  { font-size: 12px; color: var(--p247-info); cursor: pointer; text-decoration: none; }
-
-.tabs { display: flex; border-bottom: 0.5px solid var(--p247-border); margin-bottom: 14px; }
-.tab  { padding: 8px 14px; font-size: 13px; color: var(--p247-muted); cursor: pointer; border-bottom: 2px solid transparent; }
-.tab.active { color: var(--p247-orange); border-bottom-color: var(--p247-orange); font-weight: 500; }
-
-.req-row    { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--p247-border); }
-.req-row:last-child { border-bottom: none; }
-.req-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
-.req-info   { flex: 1; }
-.req-name   { font-size: 14px; font-weight: 500; }
-.req-detail { font-size: 12px; color: var(--p247-muted); }
-.status-pill { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
-.pill-pending  { background: var(--p247-warning-bg); color: var(--p247-warning); }
-.pill-approved { background: var(--color-success-bg); color: var(--p247-success); }
-.pill-rejected { background: var(--p247-danger-bg);  color: var(--p247-danger);  }
-.action-btns { display: flex; gap: 4px; }
-.act-btn     { padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; }
-.act-approve { background: var(--color-success-bg); color: var(--p247-success); }
-.act-return  { background: var(--color-info-bg);   color: var(--color-info);   }
-.act-reject  { background: var(--p247-danger-bg);  color: var(--p247-danger);  }
-.act-view    { background: var(--p247-bg); color: var(--p247-muted); }
-
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-.cal-nav     { display: flex; gap: 4px; }
-.cal-nav-btn { background: none; border: 0.5px solid var(--p247-border); border-radius: 4px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--p247-muted); font-size: 12px; transition: all .12s; }
-.cal-nav-btn:hover { background: var(--p247-bg); color: var(--p247-text); }
-
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.cal-hdr  { font-size: 12px; color: var(--p247-muted); text-align: center; padding: 3px 0; font-weight: 500; }
-.cal-day  { font-size: 12px; text-align: center; padding: 5px 2px; border-radius: 4px; cursor: pointer; color: var(--p247-text); position: relative; }
-.cal-day:hover   { background: var(--p247-bg); }
-.cal-day.today   { background: var(--p247-orange); color: white; font-weight: 600; }
-.cal-day.has-leave { background: var(--color-success-bg); color: var(--p247-success); font-weight: 500; }
-.cal-day.empty   { color: transparent; pointer-events: none; }
-.legend  { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-.leg     { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--p247-muted); }
-.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-
-/* Tooltip */
-.cal-tooltip { background: var(--p247-white); border: 0.5px solid var(--p247-border); border-radius: 6px; padding: 8px 10px; font-size: 11px; color: var(--p247-text); box-shadow: 0 2px 8px rgba(0,0,0,.12); min-width: 160px; max-width: 240px; }
-.tooltip-line { display: flex; align-items: center; gap: 6px; padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tooltip-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-
-/* Soldes individuels */
-.bal-table-wrapper { overflow-x: auto; }
-.bal-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.bal-table th {
-  padding: 9px 10px; text-align: left; font-size: 12px; font-weight: 600;
-  color: var(--p247-text); background: var(--p247-orange-light); border-bottom: 1px solid rgba(200, 16, 46, 0.2);
-  white-space: nowrap; cursor: pointer; user-select: none;
-}
-.bal-table th:hover { background: var(--color-primary-light); }
-.bal-table td { padding: 8px 10px; border-bottom: 0.5px solid var(--p247-border); }
-.bal-table tbody tr:last-child td { border-bottom: none; }
-.bal-table tbody tr:hover td { background: var(--color-primary-light); }
-
-.th-inner  { display: flex; align-items: center; gap: 5px; }
-.th-drag   { color: var(--color-text-light); font-size: 11px; cursor: grab; }
-.th-sort   { margin-left: auto; font-size: 11px; }
-.sort-idle   { color: var(--color-text-light); }
-.sort-active { color: var(--p247-orange); }
-.bal-num { text-align: center; font-weight: 500; color: var(--p247-text); }
-.emp-cell { display: flex; align-items: center; gap: 6px; }
-.emp-avatar-sm { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; flex-shrink: 0; }
-
-/* Pagination soldes */
-.bal-pagination {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 10px; border-top: 0.5px solid var(--p247-border);
-  font-size: 12px; color: var(--p247-muted);
-}
-.pag-total   { flex: 1; white-space: nowrap; font-size: 11px; }
-.pag-perpage { display: flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
-.pag-size-select {
-  height: 24px; padding: 0 5px; border: 0.5px solid var(--p247-border); border-radius: 4px;
-  font-size: 11px; color: var(--p247-text); background: var(--p247-white); outline: none; cursor: pointer;
-}
-.pag-size-select:focus { border-color: var(--p247-orange); }
-.pag-pages { display: flex; align-items: center; gap: 3px; }
-.pag-btn   {
-  min-width: 26px; height: 26px; padding: 0 5px;
-  border-radius: 4px; font-size: 11px; font-weight: 500;
-  cursor: pointer; border: 0.5px solid var(--p247-border);
-  background: var(--p247-white); color: var(--p247-text);
-  display: flex; align-items: center; justify-content: center; transition: all .12s;
-}
-.pag-btn:hover:not(:disabled) { background: var(--p247-bg); }
-.pag-btn.active  { background: var(--p247-orange); color: white; border-color: var(--p247-orange); }
-.pag-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.pag-arrow { color: var(--p247-muted); }
-
-/* ── Org KPI card ── */
-.org-kpi-card {
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--p247-white); border: 0.5px solid var(--p247-border);
-  border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;
-  text-decoration: none; color: var(--p247-text);
-  cursor: pointer; transition: box-shadow .15s, border-color .15s;
-}
-.org-kpi-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); border-color: rgba(200, 16, 46, 0.2); }
-.org-kpi-left { display: flex; align-items: center; gap: 12px; }
-.org-kpi-icon {
-  width: 38px; height: 38px; border-radius: 8px;
-  background: var(--p247-orange-light); color: var(--p247-orange);
-  display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
-}
-.org-kpi-title { font-size: 14px; font-weight: 600; }
-.org-kpi-sub   { font-size: 12px; color: var(--p247-muted); margin-top: 2px; }
-.org-kpi-right { display: flex; align-items: center; gap: 8px; }
-.org-pending-badge {
-  background: var(--p247-danger-bg); color: var(--p247-danger);
-  font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px;
-}
-.org-kpi-arrow { color: var(--p247-muted); font-size: 16px; }
-
-/* Reject modal (kept — used by the reject Teleport block) */
-.overlay       { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-card    { background: var(--p247-white); border-radius: 10px; padding: 24px; width: 420px; max-width: 90vw; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.18); }
-.modal-title   { font-size: 14px; font-weight: 600; }
-.modal-label   { font-size: 12px; font-weight: 500; }
-.modal-textarea { width: 100%; border: 0.5px solid var(--p247-border); border-radius: 6px; padding: 8px 10px; font-size: 12px; resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
-.modal-textarea:focus { border-color: var(--p247-orange); }
-.modal-error   { font-size: 11px; color: var(--p247-danger); }
-.modal-actions { display: flex; gap: 8px; }
-
-</style>

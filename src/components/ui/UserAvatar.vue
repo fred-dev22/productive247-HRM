@@ -1,7 +1,11 @@
 <template>
-  <div class="avatar" :class="`avatar--${size ?? 'md'}`">
-    <img v-if="photoUrl" :src="photoUrl" :alt="name" />
-    <span v-else :style="{ background: bgColor }">
+  <div class="inline-flex shrink-0 overflow-hidden rounded-full" :class="SIZES[size ?? 'md']">
+    <img v-if="photoUrl" :src="photoUrl" :alt="name" class="w-full h-full object-cover" />
+    <span
+      v-else
+      class="w-full h-full flex items-center justify-center text-white font-bold"
+      :style="{ background: bgColor }"
+    >
       {{ initials }}
     </span>
   </div>
@@ -15,6 +19,12 @@ const props = defineProps<{
   size?: 'sm' | 'md' | 'lg'
   photoUrl?: string
 }>()
+
+const SIZES: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'w-6 h-6 text-[9px]',
+  md: 'w-8 h-8 text-[11px]',
+  lg: 'w-10 h-10 text-sm',
+}
 
 const COLORS = [
   'var(--galana-green)',
@@ -42,24 +52,3 @@ const bgColor = computed(() => {
   return COLORS[Math.abs(hash) % COLORS.length]
 })
 </script>
-
-<style scoped>
-.avatar {
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  display: inline-flex;
-}
-.avatar--sm  { width: 24px; height: 24px; font-size:  9px; }
-.avatar--md  { width: 32px; height: 32px; font-size: 11px; }
-.avatar--lg  { width: 40px; height: 40px; font-size: 14px; }
-
-.avatar img  { width: 100%; height: 100%; object-fit: cover; }
-
-.avatar span {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  color: white; font-weight: 700;
-  font-size: inherit;
-}
-</style>
