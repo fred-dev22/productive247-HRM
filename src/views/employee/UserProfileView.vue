@@ -60,10 +60,10 @@
             <div class="card">
               <div class="card-title"><i class="ti ti-bolt"></i> Actions rapides</div>
               <div class="quick-actions">
-                <router-link :to="{ name: isHR ? 'rh' : 'employee-absences' }" class="quick-btn">
+                <router-link :to="{ name: isHR ? 'hr-absences' : 'employee-absences' }" class="quick-btn">
                   <i class="ti ti-calendar-plus"></i> Demande de congé
                 </router-link>
-                <router-link :to="{ name: isHR ? 'rh-missions' : 'employee-missions' }" class="quick-btn">
+                <router-link :to="{ name: isHR ? 'hr-missions' : 'employee-missions' }" class="quick-btn">
                   <i class="ti ti-plane"></i> Ordre de mission
                 </router-link>
                 <router-link :to="{ name: 'employee-planning' }" class="quick-btn">
@@ -180,7 +180,7 @@ const employeeStore = useEmployeeStore()
 const absenceStore  = useAbsenceStore()
 const route         = useRoute()
 
-const isHR = computed(() => route.path.startsWith('/rh'))
+const isHR = computed(() => route.path.startsWith('/hr'))
 
 const employee = computed(() => {
   return employeeStore.employees.find(e => e.id === auth.user?.id) ?? employeeStore.employees[0]

@@ -46,76 +46,8 @@
 
           <div class="section-card">
             <h2 class="section-title">Jours ouvrables</h2>
-
-            <div class="days-grid">
-              <div
-                v-for="key in DAY_ORDER" :key="key"
-                class="day-row" :class="{ 'day-row--on': localDays[key].enabled }"
-              >
-                <!-- Nom du jour -->
-                <span class="day-name">{{ DAY_LABELS[key] }}</span>
-
-                <!-- Toggle actif/inactif -->
-                <label class="toggle-wrap day-toggle-label">
-                  <input type="checkbox" class="toggle-input" v-model="localDays[key].enabled" />
-                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                </label>
-
-                <!-- Horaires + Pause (une seule ligne) -->
-                <template v-if="localDays[key].enabled">
-                  <input type="time" class="time-input" v-model="localDays[key].start" />
-                  <span class="hours-sep">→</span>
-                  <input type="time" class="time-input" v-model="localDays[key].end" />
-                  <span class="day-hours-total">{{ calcDayHours(localDays[key]) }} eff.</span>
-
-                  <!-- Séparateur visuel -->
-                  <span class="row-divider" aria-hidden="true">|</span>
-
-                  <!-- Toggle Pause -->
-                  <label class="break-toggle-label">
-                    <span class="toggle-wrap">
-                      <input type="checkbox" class="toggle-input" v-model="localDays[key].breakEnabled" />
-                      <span class="toggle-track toggle-track--sm"><span class="toggle-thumb toggle-thumb--sm"></span></span>
-                    </span>
-                    <span class="break-label-text">Pause</span>
-                  </label>
-
-                  <!-- Plage de pause -->
-                  <template v-if="localDays[key].breakEnabled">
-                    <input type="time" class="time-input time-input--sm" v-model="localDays[key].breakStart"
-                      :class="{ 'time-input--error': !!dayBreakError(key) }" />
-                    <span class="hours-sep">→</span>
-                    <input type="time" class="time-input time-input--sm" v-model="localDays[key].breakEnd"
-                      :class="{ 'time-input--error': !!dayBreakError(key) }" />
-                    <span v-if="dayBreakError(key)" class="break-error-inline">
-                      <i class="ti ti-alert-circle" aria-hidden="true"></i>
-                      {{ dayBreakError(key) }}
-                    </span>
-                  </template>
-                  <span v-else class="no-break-label">Aucune pause</span>
-                </template>
-                <span v-else class="day-disabled-label">Jour non travaillé</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Résumé hebdomadaire -->
-          <div class="section-card">
-            <h2 class="section-title">Résumé hebdomadaire</h2>
-            <div class="summary-grid">
-              <div class="summary-item">
-                <span class="summary-value">{{ daysPerWeek }}</span>
-                <span class="summary-label">Jours ouvrables / semaine</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-value">{{ hoursPerWeekLabel }}</span>
-                <span class="summary-label">Heures / semaine</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-value">{{ hoursPerMonthLabel }}</span>
-                <span class="summary-label">Heures / mois (× 4,33)</span>
-              </div>
-            </div>
+            <!-- Source unique : composant réutilisé dans l'onboarding -->
+            <WorkingDaysConfig />
           </div>
 
         </div>
@@ -377,10 +309,11 @@ import { storeToRefs } from 'pinia'
 import AppTopNav  from '../../components/AppTopNav.vue'
 import AppSidebar from '../../components/AppSidebar.vue'
 import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
+import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
 import { useAuthStore }       from '../../stores/auth'
 import { useCalendarStore }   from '../../stores/calendar'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
-import type { WorkingDays, WorkingDayConfig, Holiday, LeaveRule, LeaveType, HolidayType } from '../../types'
+import type { Holiday, LeaveRule, LeaveType } from '../../types'
 
 const auth            = useAuthStore()
 const calendarStore   = useCalendarStore()
@@ -404,14 +337,6 @@ const TABS = [
 const showToast = ref(false)
 function triggerToast() { showToast.value = true; setTimeout(() => { showToast.value = false }, 2500) }
 
-// ── Jours locaux ──────────────────────────────────────────────
-const DAY_ORDER: (keyof WorkingDays)[] = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
-const DAY_LABELS: Record<keyof WorkingDays, string> = {
-  monday:'Lundi', tuesday:'Mardi', wednesday:'Mercredi',
-  thursday:'Jeudi', friday:'Vendredi', saturday:'Samedi', sunday:'Dimanche',
-}
-const localDays = reactive<WorkingDays>(JSON.parse(JSON.stringify(calendar.value.workingDays)))
-
 // ── Règles locales ─────────────────────────────────────────────
 const localRules   = ref<LeaveRule[]>(JSON.parse(JSON.stringify(calendar.value.leaveRules)))
 const rulesTouched = ref(false)
@@ -431,63 +356,15 @@ function updateRule(typeName: string, field: string, value: number | boolean) {
   }
 }
 
-// ── Helpers temps ─────────────────────────────────────────────
-function toMin(t: string): number {
-  if (!t) return 0
-  const p = t.split(':').map(Number)
-  return (p[0] ?? 0) * 60 + (p[1] ?? 0)
-}
-function minToLabel(min: number): string {
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return m > 0 ? `${h}h${String(m).padStart(2,'0')}` : `${h}h`
-}
-
-function calcDayHours(day: WorkingDayConfig): string {
-  const workMin  = toMin(day.end) - toMin(day.start)
-  const breakMin = day.breakEnabled ? toMin(day.breakEnd) - toMin(day.breakStart) : 0
-  return minToLabel(Math.max(0, workMin - breakMin))
-}
-
-// ── Validation pause par jour ─────────────────────────────────
-function dayBreakError(key: keyof WorkingDays): string | null {
-  const day = localDays[key]
-  if (!day.enabled || !day.breakEnabled) return null
-  const bStart = toMin(day.breakStart), bEnd = toMin(day.breakEnd)
-  if (bEnd <= bStart)           return 'Fin avant début'
-  if (bStart < toMin(day.start)) return 'Avant l\'heure de début'
-  if (bEnd   > toMin(day.end))   return 'Après l\'heure de fin'
-  return null
-}
-const hasBreakError = computed(() => DAY_ORDER.some(k => !!dayBreakError(k)))
-
-// ── Résumé hebdo ──────────────────────────────────────────────
-const daysPerWeek = computed(() => DAY_ORDER.filter(k => localDays[k].enabled).length)
-const weeklyMinutes = computed(() =>
-  DAY_ORDER.reduce((total, key) => {
-    const day = localDays[key]
-    if (!day.enabled) return total
-    const w = toMin(day.end) - toMin(day.start)
-    const b = day.breakEnabled ? toMin(day.breakEnd) - toMin(day.breakStart) : 0
-    return total + Math.max(0, w - b)
-  }, 0)
-)
-const hoursPerWeekLabel  = computed(() => minToLabel(weeklyMinutes.value))
-const hoursPerMonthLabel = computed(() => minToLabel(Math.round(weeklyMinutes.value * 4.33)))
-
 // ── Save ──────────────────────────────────────────────────────
-const hasChanges   = computed(() =>
-  JSON.stringify(localDays) !== JSON.stringify(calendar.value.workingDays) || rulesTouched.value
-)
-const saveDisabled = computed(() => !hasChanges.value || hasBreakError.value)
+// Les jours de travail sont écrits en direct dans le store par
+// WorkingDaysConfig — seules les règles de congés restent à enregistrer.
+const saveDisabled = computed(() => !rulesTouched.value)
 
 function saveChanges() {
-  if (hasBreakError.value) return
-  calendarStore.updateWorkingDays(JSON.parse(JSON.stringify(localDays)))
-  if (rulesTouched.value) {
-    localRules.value.forEach(r => calendarStore.updateLeaveRule(r.type as LeaveType, r))
-    rulesTouched.value = false
-  }
+  if (!rulesTouched.value) return
+  localRules.value.forEach(r => calendarStore.updateLeaveRule(r.type as LeaveType, r))
+  rulesTouched.value = false
   triggerToast()
 }
 
@@ -585,60 +462,6 @@ function importCSV() {
 .toast-notif--info { background: var(--color-primary); }
 .toast-notif--info i { font-size: 15px; }
 
-/* ── Day rows — une seule ligne ── */
-.days-grid { display: flex; flex-direction: column; gap: 2px; }
-.day-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  transition: background .12s;
-  flex-wrap: nowrap;
-  min-height: 44px;
-}
-.day-row--on { background: var(--color-primary-light); }
-.day-name    { font-size: 13px; font-weight: 500; color: var(--color-text); width: 90px; flex-shrink: 0; }
-.day-toggle-label { cursor: pointer; flex-shrink: 0; }
-.day-disabled-label { font-size: 11px; color: var(--color-text-muted); font-style: italic; }
-.row-divider { color: var(--color-border); font-size: 16px; user-select: none; flex-shrink: 0; }
-
-/* Toggle switch */
-.toggle-wrap  { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; }
-.toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
-.toggle-track { width: 36px; height: 20px; background: var(--color-border-strong); border-radius: 10px; position: relative; transition: background .2s; cursor: pointer; flex-shrink: 0; }
-.toggle-input:checked + .toggle-track { background: var(--color-primary); }
-.toggle-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
-.toggle-input:checked + .toggle-track .toggle-thumb { left: 19px; }
-/* Small */
-.toggle-track--sm { width: 28px; height: 16px; }
-.toggle-thumb--sm { width: 10px; height: 10px; top: 3px; left: 3px; }
-.toggle-input:checked + .toggle-track--sm .toggle-thumb--sm { left: 15px; }
-
-.hours-sep   { color: var(--color-text-muted); font-size: 14px; flex-shrink: 0; }
-.time-input  { height: 32px; padding: 0 8px; border: 0.5px solid var(--color-border); border-radius: 6px; font-size: 13px; color: var(--color-text); background: var(--color-surface); outline: none; width: 96px; flex-shrink: 0; transition: border-color .12s; }
-.time-input--sm    { width: 80px; height: 28px; font-size: 12px; }
-.time-input:focus  { border-color: var(--color-primary); }
-.time-input--error { border-color: var(--color-danger) !important; }
-.day-hours-total   { font-size: 11px; font-weight: 600; color: var(--color-primary); background: var(--color-primary-light); border-radius: 4px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
-
-.break-toggle-label { display: flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; }
-.break-label-text   { font-size: 11px; color: var(--color-text-muted); white-space: nowrap; }
-.no-break-label     { font-size: 11px; color: var(--color-text-muted); font-style: italic; white-space: nowrap; }
-.break-error-inline { font-size: 10px; color: var(--color-danger); display: flex; align-items: center; gap: 3px; white-space: nowrap; flex-shrink: 0; }
-
-@media (max-width: 768px) {
-  .day-row { flex-wrap: wrap; }
-  .row-divider { display: none; }
-  .break-toggle-label { margin-left: 100px; }
-}
-
-/* Summary */
-.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.summary-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px; background: var(--color-bg); border-radius: 8px; }
-.summary-value { font-size: 24px; font-weight: 700; color: var(--color-primary); }
-.summary-label { font-size: 12px; color: var(--color-text-muted); text-align: center; }
-
 /* Tables */
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -727,6 +550,5 @@ function importCSV() {
 @media (max-width: 768px) {
   .content { padding: 16px; }
   .page-header { flex-direction: column; }
-  .summary-grid { grid-template-columns: 1fr; }
 }
 </style>

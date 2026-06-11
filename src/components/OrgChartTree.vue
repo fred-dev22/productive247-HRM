@@ -126,7 +126,7 @@ const OrgChartNode: any = defineComponent({
             transition: 'box-shadow 0.15s', boxSizing: 'border-box',
           },
           class: `oct-card oct-card--${node.type}`,
-          onClick: () => router.push({ name: 'entity-detail', params: { id: node.id } })
+          onClick: () => router.push({ name: 'hr-entity-detail', params: { id: node.id } })
         }, cardContent),
 
         hasChildren && !isCollapsed

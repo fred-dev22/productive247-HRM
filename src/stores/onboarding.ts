@@ -1,44 +1,43 @@
+// État en mémoire uniquement — réinitialisé à chaque rechargement (F5).
+// Le wizard s'affiche à chaque nouveau chargement mais disparaît
+// une fois complété, sans rechargement.
+
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useCalendarStore }  from './calendar'
-import { useEntityStore }    from './entities'
-import { useEmployeeStore }  from './employees'
 
 export const useOnboardingStore = defineStore('onboarding', () => {
-  const forceDone = ref(false)
+  // false au chargement → wizard visible
+  // true après complete() → wizard caché
+  // F5 → repart à false automatiquement
+  const isComplete = ref(false)
 
-  const isCalendarConfigured = computed(() => {
-    const calStore = useCalendarStore()
-    return Object.values(calStore.calendar.workingDays).some(d => d.enabled)
-  })
-
-  const isEntityCreated = computed(() => {
-    const entityStore = useEntityStore()
-    return entityStore.approvedEntities.length > 0
-  })
-
-  const isEmployeeCreated = computed(() => {
-    const empStore = useEmployeeStore()
-    return empStore.employees.length > 0
-  })
-
-  const allStepsComplete = computed(() =>
-    forceDone.value || (
-      isCalendarConfigured.value &&
-      isEntityCreated.value &&
-      isEmployeeCreated.value
-    )
-  )
+  const currentStep = ref(1)
 
   function complete() {
-    forceDone.value = true
+    isComplete.value = true
   }
 
+  function goToStep(step: number) {
+    currentStep.value = step
+  }
+
+  function nextStep() {
+    if (currentStep.value < 3) currentStep.value++
+  }
+
+  function prevStep() {
+    if (currentStep.value > 1) currentStep.value--
+  }
+
+  const allStepsComplete = computed(() => isComplete.value)
+
   return {
-    isCalendarConfigured,
-    isEntityCreated,
-    isEmployeeCreated,
+    isComplete,
+    currentStep,
     allStepsComplete,
     complete,
+    goToStep,
+    nextStep,
+    prevStep,
   }
 })

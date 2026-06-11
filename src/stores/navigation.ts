@@ -4,7 +4,7 @@ import { ref } from 'vue'
 export const useNavigationStore = defineStore('navigation', () => {
   const activeModule = ref('administration')
 
-  const previousEntityRoute = ref('/rh/entites')
+  const previousEntityRoute = ref('/hr/entities')
   const activeEntityTab     = ref('tree')
 
   function setModule(module: string) {

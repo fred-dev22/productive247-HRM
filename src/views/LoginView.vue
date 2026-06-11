@@ -100,7 +100,7 @@ function handleLogin() {
   }
   error.value = ''
   auth.login(selectedRole.value, userCode.value)
-  router.push(auth.isHRSide ? { name: 'rh' } : { name: 'employe' })
+  router.push(auth.isHRSide ? { name: 'hr-dashboard' } : { name: 'employee-dashboard' })
 }
 </script>
 

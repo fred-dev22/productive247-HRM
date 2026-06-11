@@ -13,7 +13,7 @@
           <div
             class="org-node"
             :class="`org-node--${item.type}`"
-            @click.stop="navStore.setPreviousRoute('/rh/entites?tab=orgchart'); router.push({ name: 'entity-detail', params: { id: item.id } })"
+            @click.stop="navStore.setPreviousRoute('/hr/entities?tab=orgchart'); router.push({ name: 'hr-entity-detail', params: { id: item.id } })"
           >
             <div class="org-node__code-badge">{{ item.code }}</div>
 

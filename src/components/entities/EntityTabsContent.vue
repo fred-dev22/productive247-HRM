@@ -234,8 +234,8 @@ onMounted(() => {
 
 // ── Navigation contextuelle ───────────────────────────────────
 function navigateTo(id: string) {
-  navStore.setPreviousRoute(`/rh/entites?tab=${navStore.activeEntityTab}`)
-  router.push({ name: 'entity-detail', params: { id } })
+  navStore.setPreviousRoute(`/hr/entities?tab=${navStore.activeEntityTab}`)
+  router.push({ name: 'hr-entity-detail', params: { id } })
 }
 
 // Fournit la navigation aux OrgNodes enfants

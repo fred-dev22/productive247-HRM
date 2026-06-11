@@ -57,7 +57,7 @@
         </div>
 
         <!-- Structure organisationnelle -->
-        <router-link :to="{ name: 'entities' }" class="org-kpi-card">
+        <router-link :to="{ name: 'hr-entities' }" class="org-kpi-card">
           <div class="org-kpi-left">
             <div class="org-kpi-icon">
               <i class="ti ti-sitemap"></i>
@@ -86,7 +86,7 @@
               {{ t('absence.pending_title') }}
               <span class="badge-count">{{ pending.length }}</span>
             </div>
-            <router-link :to="{ name: 'rh-absences' }" class="link-small">{{ t('absence.see_all') }}</router-link>
+            <router-link :to="{ name: 'hr-absences' }" class="link-small">{{ t('absence.see_all') }}</router-link>
           </div>
           <div class="tabs">
             <div class="tab" :class="{ active: tab === 'pending'  }" @click="tab = 'pending'">

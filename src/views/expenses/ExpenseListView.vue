@@ -180,7 +180,7 @@ const auth         = useAuthStore()
 const expenseStore = useExpenseStore()
 const route        = useRoute()
 
-const isRH = computed(() => route.path.startsWith('/rh') || auth.user?.role === 'hr_admin' || auth.user?.role === 'hr_director')
+const isRH = computed(() => route.path.startsWith('/hr') || auth.user?.role === 'hr_admin' || auth.user?.role === 'hr_director')
 
 const search       = ref('')
 const filterStatus = ref('')

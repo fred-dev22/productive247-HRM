@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore }      from '../stores/auth'
+import { useAuthStore }       from '../stores/auth'
 import { useOnboardingStore } from '../stores/onboarding'
-import LoginView        from '../views/LoginView.vue'
-import DashboardRH       from '../views/DashboardRH.vue'
+import LoginView         from '../views/LoginView.vue'
+import DashboardHR       from '../views/DashboardHR.vue'
 import DashboardEmployee from '../views/DashboardEmployee.vue'
 import CalendarView      from '../views/calendar/CalendarView.vue'
 
@@ -14,176 +14,179 @@ const router = createRouter({
     { path: '/', name: 'login', component: LoginView },
 
     // ── Dashboards ──────────────────────────────────────────────
-    { path: '/rh',     name: 'rh',     component: DashboardRH,       meta: { requiresAuth: true } },
-    { path: '/employe', name: 'employe', component: DashboardEmployee, meta: { requiresAuth: true } },
+    { path: '/hr',       name: 'hr-dashboard',       component: DashboardHR,       meta: { requiresAuth: true } },
+    { path: '/employee', name: 'employee-dashboard', component: DashboardEmployee, meta: { requiresAuth: true } },
 
     // ── Onboarding ───────────────────────────────────────────────
+    // Pas de requiresAuth — vérification manuelle dans le composant pour éviter les boucles
     {
       path: '/onboarding', name: 'onboarding',
       component: () => import('../views/OnboardingWizard.vue'),
-      meta: { requiresAuth: true },
     },
 
-    // ── Absences RH ─────────────────────────────────────────────
+    // ── HR Absences ─────────────────────────────────────────────
     {
-      path: '/rh/absences', name: 'rh-absences',
+      path: '/hr/absences', name: 'hr-absences',
       component: () => import('../views/absences/AbsenceListView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/rh/absences/soldes', name: 'rh-absence-balances',
-      component: () => import('../views/absences/AbsenceBalancesView.vue'),
+      path: '/hr/absences/balances', name: 'hr-leave-balances',
+      component: () => import('../views/absences/LeaveBalancesView.vue'),
       meta: { requiresAuth: true },
     },
 
-    // ── Administration RH ────────────────────────────────────────
+    // ── HR Administration ────────────────────────────────────────
     {
-      path: '/rh/employes', name: 'rh-employees',
+      path: '/hr/employees', name: 'hr-employees',
       component: () => import('../views/employees/EmployeeListView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/rh/employes/nouveau', name: 'rh-employee-create',
+      path: '/hr/employees/new', name: 'hr-employee-create',
       component: () => import('../views/employees/EmployeeFormView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/rh/employes/:id/modifier', name: 'rh-employee-edit',
+      path: '/hr/employees/:id/edit', name: 'hr-employee-edit',
       component: () => import('../views/employees/EmployeeFormView.vue'),
       meta: { requiresAuth: true },
     },
-    { path: '/rh/missions',       name: 'rh-missions',   component: () => import('../views/missions/MissionListView.vue'), meta: { requiresAuth: true } },
-    { path: '/rh/notes-de-frais', name: 'rh-expenses',   component: () => import('../views/expenses/ExpenseListView.vue'), meta: { requiresAuth: true } },
-    { path: '/rh/contrats',       name: 'rh-contracts',  component: PH, meta: { requiresAuth: true, title: 'Gestion des Contrats' } },
-    { path: '/rh/rapports/stats', name: 'rh-stats',      component: () => import('../views/reports/StatisticsView.vue'), meta: { requiresAuth: true } },
+    { path: '/hr/missions',           name: 'hr-missions',   component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true } },
+    { path: '/hr/expenses',           name: 'hr-expenses',   component: () => import('../views/expenses/ExpenseListView.vue'),   meta: { requiresAuth: true } },
+    { path: '/hr/contracts',          name: 'hr-contracts',  component: PH, meta: { requiresAuth: true, title: 'Gestion des Contrats' } },
+    { path: '/hr/reports/statistics', name: 'hr-statistics', component: () => import('../views/reports/StatisticsView.vue'),     meta: { requiresAuth: true } },
     {
-      path: '/rh/organigramme', name: 'rh-organigramme',
-      component: () => import('../views/rh/OrganigrammeView.vue'),
+      path: '/hr/org-chart', name: 'hr-org-chart',
+      component: () => import('../views/rh/OrgChartView.vue'),
+      meta: { requiresAuth: true },
+    },
+    { path: '/hr/planning', name: 'hr-planning',
+      component: () => import('../views/employee/EmployeePlanningView.vue'),
       meta: { requiresAuth: true },
     },
 
     // ── Configuration ─────────────────────────────────────────────
-    { path: '/rh/configuration', redirect: '/rh/configuration/calendrier' },
+    { path: '/hr/config', redirect: '/hr/config/calendar' },
     {
-      path: '/rh/configuration/calendrier', name: 'config-calendar',
+      path: '/hr/config/calendar', name: 'hr-config-calendar',
       component: CalendarView,
       meta: { requiresAuth: true },
     },
-    { path: '/rh/configuration/types-absence', name: 'config-leave-types', redirect: '/rh/configuration/calendrier' },
+    { path: '/hr/config/leave-types', name: 'hr-config-leave-types', redirect: '/hr/config/calendar' },
     {
-      path: '/rh/configuration/missions', name: 'config-missions',
+      path: '/hr/config/mission-fees', name: 'hr-config-mission-fees',
       component: () => import('../views/configuration/MissionConfigView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/rh/configuration/perdiems', name: 'config-perdiems',
+      path: '/hr/config/perdiems', name: 'hr-config-perdiems',
       component: () => import('../views/configuration/PerdiemView.vue'),
       meta: { requiresAuth: true },
     },
 
-    // Ancienne route calendrier → redirect pour compatibilité
-    { path: '/rh/calendrier', redirect: '/rh/configuration/calendrier' },
+    // Redirects de compatibilité (anciennes URLs)
+    { path: '/hr/calendar', redirect: '/hr/config/calendar' },
+    { path: '/rh', redirect: '/hr' },
+    { path: '/rh/:pathMatch(.*)*', redirect: (to) => ({ path: '/hr/' + (to.params.pathMatch as string[]).join('/') }) },
+    { path: '/employe', redirect: '/employee' },
+    { path: '/employe/:pathMatch(.*)*', redirect: (to) => ({ path: '/employee/' + (to.params.pathMatch as string[]).join('/') }) },
 
     // ── Entités ──────────────────────────────────────────────────
     {
-      path: '/rh/entites', name: 'entities',
+      path: '/hr/entities', name: 'hr-entities',
       component: () => import('../views/entities/EntityListView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/rh/entites/nouvelle', name: 'entity-create',
+      path: '/hr/entities/new', name: 'hr-entity-create',
       component: () => import('../views/entities/EntityFormView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/rh/entites/:id/modifier', name: 'entity-edit',
+      path: '/hr/entities/:id/edit', name: 'hr-entity-edit',
       component: () => import('../views/entities/EntityFormView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/rh/entites/:id', name: 'entity-detail',
+      path: '/hr/entities/:id', name: 'hr-entity-detail',
       component: () => import('../views/entities/EntityDetailView.vue'),
       meta: { requiresAuth: true },
     },
 
     // ── Module Recrutement ───────────────────────────────────────
-    { path: '/rh/recrutement',              name: 'rh-recrutement',              component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Recrutement' } },
-    { path: '/rh/recrutement/offres',       name: 'rh-recrutement-offres',       component: PH, meta: { requiresAuth: true, title: "Offres d'emploi" } },
-    { path: '/rh/recrutement/candidatures', name: 'rh-recrutement-candidatures', component: PH, meta: { requiresAuth: true, title: 'Candidatures' } },
-    { path: '/rh/recrutement/entretiens',   name: 'rh-recrutement-entretiens',   component: PH, meta: { requiresAuth: true, title: 'Entretiens' } },
-    { path: '/rh/recrutement/pipeline',     name: 'rh-recrutement-pipeline',     component: PH, meta: { requiresAuth: true, title: 'Pipeline de recrutement' } },
-    { path: '/rh/recrutement/cvtheque',     name: 'rh-recrutement-cvtheque',     component: PH, meta: { requiresAuth: true, title: 'CVthèque / Potentiels' } },
-    { path: '/rh/recrutement/spontanees',   name: 'rh-recrutement-spontanees',   component: PH, meta: { requiresAuth: true, title: 'Candidatures spontanées' } },
-    { path: '/rh/recrutement/stages',       name: 'rh-recrutement-stages',       component: PH, meta: { requiresAuth: true, title: 'Demandes de stage' } },
-    { path: '/rh/recrutement/besoins',      name: 'rh-recrutement-besoins',      component: PH, meta: { requiresAuth: true, title: "Expressions de besoin" } },
-    { path: '/rh/recrutement/contrats',     name: 'rh-recrutement-contrats',     component: PH, meta: { requiresAuth: true, title: 'Contrats à générer' } },
-    { path: '/rh/recrutement/essai',        name: 'rh-recrutement-essai',        component: PH, meta: { requiresAuth: true, title: "Périodes d'essai" } },
+    { path: '/hr/recruitment',              name: 'hr-recruitment',              component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Recrutement' } },
+    { path: '/hr/recruitment/positions',    name: 'hr-recruitment-positions',    component: PH, meta: { requiresAuth: true, title: "Offres d'emploi" } },
+    { path: '/hr/recruitment/applications', name: 'hr-recruitment-applications', component: PH, meta: { requiresAuth: true, title: 'Candidatures' } },
+    { path: '/hr/recruitment/interviews',   name: 'hr-recruitment-interviews',   component: PH, meta: { requiresAuth: true, title: 'Entretiens' } },
+    { path: '/hr/recruitment/pipeline',     name: 'hr-recruitment-pipeline',     component: PH, meta: { requiresAuth: true, title: 'Pipeline de recrutement' } },
+    { path: '/hr/recruitment/cv-library',   name: 'hr-recruitment-cv-library',   component: PH, meta: { requiresAuth: true, title: 'CVthèque / Potentiels' } },
+    { path: '/hr/recruitment/spontaneous',  name: 'hr-recruitment-spontaneous',  component: PH, meta: { requiresAuth: true, title: 'Candidatures spontanées' } },
+    { path: '/hr/recruitment/internships',  name: 'hr-recruitment-internships',  component: PH, meta: { requiresAuth: true, title: 'Demandes de stage' } },
+    { path: '/hr/recruitment/needs',        name: 'hr-recruitment-needs',        component: PH, meta: { requiresAuth: true, title: "Expressions de besoin" } },
+    { path: '/hr/recruitment/contracts',    name: 'hr-recruitment-contracts',    component: PH, meta: { requiresAuth: true, title: 'Contrats à générer' } },
+    { path: '/hr/recruitment/trial',        name: 'hr-recruitment-trial',        component: PH, meta: { requiresAuth: true, title: "Périodes d'essai" } },
 
     // ── Module Formation ─────────────────────────────────────────
-    { path: '/rh/formation',               name: 'rh-formation',               component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Formation' } },
-    { path: '/rh/formation/catalogue',     name: 'rh-formation-catalogue',     component: PH, meta: { requiresAuth: true, title: 'Catalogue formations' } },
-    { path: '/rh/formation/sessions',      name: 'rh-formation-sessions',      component: PH, meta: { requiresAuth: true, title: 'Sessions planifiées' } },
-    { path: '/rh/formation/inscriptions',  name: 'rh-formation-inscriptions',  component: PH, meta: { requiresAuth: true, title: 'Inscriptions' } },
-    { path: '/rh/formation/eval-chaud',    name: 'rh-formation-eval-chaud',    component: PH, meta: { requiresAuth: true, title: 'Évaluations à chaud' } },
-    { path: '/rh/formation/eval-froid',    name: 'rh-formation-eval-froid',    component: PH, meta: { requiresAuth: true, title: 'Évaluations à froid' } },
-    { path: '/rh/formation/notes',         name: 'rh-formation-notes',         component: PH, meta: { requiresAuth: true, title: 'Notes participants' } },
-    { path: '/rh/formation/budget',        name: 'rh-formation-budget',        component: PH, meta: { requiresAuth: true, title: 'Suivi budgétaire' } },
-    { path: '/rh/formation/prestataires',  name: 'rh-formation-prestataires',  component: PH, meta: { requiresAuth: true, title: 'Prestataires' } },
+    { path: '/hr/training',             name: 'hr-training',             component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Formation' } },
+    { path: '/hr/training/catalog',     name: 'hr-training-catalog',     component: PH, meta: { requiresAuth: true, title: 'Catalogue formations' } },
+    { path: '/hr/training/sessions',    name: 'hr-training-sessions',    component: PH, meta: { requiresAuth: true, title: 'Sessions planifiées' } },
+    { path: '/hr/training/enrollments', name: 'hr-training-enrollments', component: PH, meta: { requiresAuth: true, title: 'Inscriptions' } },
+    { path: '/hr/training/hot-evals',   name: 'hr-training-hot-evals',   component: PH, meta: { requiresAuth: true, title: 'Évaluations à chaud' } },
+    { path: '/hr/training/cold-evals',  name: 'hr-training-cold-evals',  component: PH, meta: { requiresAuth: true, title: 'Évaluations à froid' } },
+    { path: '/hr/training/grades',      name: 'hr-training-grades',      component: PH, meta: { requiresAuth: true, title: 'Notes participants' } },
+    { path: '/hr/training/budget',      name: 'hr-training-budget',      component: PH, meta: { requiresAuth: true, title: 'Suivi budgétaire' } },
+    { path: '/hr/training/providers',   name: 'hr-training-providers',   component: PH, meta: { requiresAuth: true, title: 'Prestataires' } },
 
     // ── Module Paie ──────────────────────────────────────────────
-    { path: '/rh/paie',               name: 'rh-paie',               component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Paie' } },
-    { path: '/rh/paie/periodes',      name: 'rh-paie-periodes',      component: PH, meta: { requiresAuth: true, title: 'Périodes de paie' } },
-    { path: '/rh/paie/bulletins',     name: 'rh-paie-bulletins',     component: PH, meta: { requiresAuth: true, title: 'Bulletins de paie' } },
-    { path: '/rh/paie/registre',      name: 'rh-paie-registre',      component: PH, meta: { requiresAuth: true, title: 'Registre du personnel' } },
-    { path: '/rh/paie/presences',     name: 'rh-paie-presences',     component: PH, meta: { requiresAuth: true, title: 'Suivi des présences' } },
-    { path: '/rh/paie/import-csv',    name: 'rh-paie-import-csv',    component: PH, meta: { requiresAuth: true, title: 'Import CSV présences' } },
-    { path: '/rh/paie/heures-supp',   name: 'rh-paie-heures-supp',   component: PH, meta: { requiresAuth: true, title: 'Heures supplémentaires' } },
-    { path: '/rh/paie/cnaps',         name: 'rh-paie-cnaps',         component: PH, meta: { requiresAuth: true, title: 'État CNaPS' } },
-    { path: '/rh/paie/ostie',         name: 'rh-paie-ostie',         component: PH, meta: { requiresAuth: true, title: 'État OSTIE' } },
-    { path: '/rh/paie/fmfp',          name: 'rh-paie-fmfp',          component: PH, meta: { requiresAuth: true, title: 'État FMFP' } },
-    { path: '/rh/paie/irsa',          name: 'rh-paie-irsa',          component: PH, meta: { requiresAuth: true, title: 'État IRSA' } },
-    { path: '/rh/paie/grilles',       name: 'rh-paie-grilles',       component: PH, meta: { requiresAuth: true, title: 'Grilles salariales' } },
-    { path: '/rh/paie/augmentations', name: 'rh-paie-augmentations', component: PH, meta: { requiresAuth: true, title: 'Augmentations' } },
-    { path: '/rh/paie/treizieme',     name: 'rh-paie-treizieme',     component: PH, meta: { requiresAuth: true, title: '13e mois' } },
+    { path: '/hr/payroll',              name: 'hr-payroll',              component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Paie' } },
+    { path: '/hr/payroll/periods',      name: 'hr-payroll-periods',      component: PH, meta: { requiresAuth: true, title: 'Périodes de paie' } },
+    { path: '/hr/payroll/payslips',     name: 'hr-payroll-payslips',     component: PH, meta: { requiresAuth: true, title: 'Bulletins de paie' } },
+    { path: '/hr/payroll/register',     name: 'hr-payroll-register',     component: PH, meta: { requiresAuth: true, title: 'Registre du personnel' } },
+    { path: '/hr/payroll/attendance',   name: 'hr-payroll-attendance',   component: PH, meta: { requiresAuth: true, title: 'Suivi des présences' } },
+    { path: '/hr/payroll/import',       name: 'hr-payroll-import',       component: PH, meta: { requiresAuth: true, title: 'Import CSV présences' } },
+    { path: '/hr/payroll/overtime',     name: 'hr-payroll-overtime',     component: PH, meta: { requiresAuth: true, title: 'Heures supplémentaires' } },
+    { path: '/hr/payroll/cnaps',        name: 'hr-payroll-cnaps',        component: PH, meta: { requiresAuth: true, title: 'État CNaPS' } },
+    { path: '/hr/payroll/ostie',        name: 'hr-payroll-ostie',        component: PH, meta: { requiresAuth: true, title: 'État OSTIE' } },
+    { path: '/hr/payroll/fmfp',         name: 'hr-payroll-fmfp',         component: PH, meta: { requiresAuth: true, title: 'État FMFP' } },
+    { path: '/hr/payroll/irsa',         name: 'hr-payroll-irsa',         component: PH, meta: { requiresAuth: true, title: 'État IRSA' } },
+    { path: '/hr/payroll/salary-grids', name: 'hr-payroll-salary-grids', component: PH, meta: { requiresAuth: true, title: 'Grilles salariales' } },
+    { path: '/hr/payroll/raises',       name: 'hr-payroll-raises',       component: PH, meta: { requiresAuth: true, title: 'Augmentations' } },
+    { path: '/hr/payroll/thirteenth',   name: 'hr-payroll-thirteenth',   component: PH, meta: { requiresAuth: true, title: '13e mois' } },
 
     // ── Module Rapports ──────────────────────────────────────────
-    { path: '/rh/rapports',               name: 'rh-rapports',               component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Rapports' } },
-    { path: '/rh/rapports/personnel',     name: 'rh-rapports-personnel',     component: PH, meta: { requiresAuth: true, title: 'Liste du personnel' } },
-    { path: '/rh/rapports/mouvements',    name: 'rh-rapports-mouvements',    component: PH, meta: { requiresAuth: true, title: 'Mouvements du personnel' } },
-    { path: '/rh/rapports/pyramide',      name: 'rh-rapports-pyramide',      component: PH, meta: { requiresAuth: true, title: 'Pyramide des âges' } },
-    { path: '/rh/rapports/absenteisme',   name: 'rh-rapports-absenteisme',   component: PH, meta: { requiresAuth: true, title: "Taux d'absentéisme" } },
-    { path: '/rh/rapports/turnover',      name: 'rh-rapports-turnover',      component: PH, meta: { requiresAuth: true, title: 'Turnover & ancienneté' } },
-    { path: '/rh/rapports/export-excel',  name: 'rh-rapports-export-excel',  component: PH, meta: { requiresAuth: true, title: 'Export Excel' } },
-    { path: '/rh/rapports/export-csv',    name: 'rh-rapports-export-csv',    component: PH, meta: { requiresAuth: true, title: 'Export CSV' } },
-    { path: '/rh/rapports/navision',      name: 'rh-rapports-navision',      component: PH, meta: { requiresAuth: true, title: 'Intégration Navision' } },
+    { path: '/hr/reports',              name: 'hr-reports',              component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Rapports' } },
+    { path: '/hr/reports/headcount',    name: 'hr-reports-headcount',    component: PH, meta: { requiresAuth: true, title: 'Liste du personnel' } },
+    { path: '/hr/reports/movements',    name: 'hr-reports-movements',    component: PH, meta: { requiresAuth: true, title: 'Mouvements du personnel' } },
+    { path: '/hr/reports/pyramid',      name: 'hr-reports-pyramid',      component: PH, meta: { requiresAuth: true, title: 'Pyramide des âges' } },
+    { path: '/hr/reports/absenteeism',  name: 'hr-reports-absenteeism',  component: PH, meta: { requiresAuth: true, title: "Taux d'absentéisme" } },
+    { path: '/hr/reports/turnover',     name: 'hr-reports-turnover',     component: PH, meta: { requiresAuth: true, title: 'Turnover & ancienneté' } },
+    { path: '/hr/reports/export-excel', name: 'hr-reports-export-excel', component: PH, meta: { requiresAuth: true, title: 'Export Excel' } },
+    { path: '/hr/reports/export-csv',   name: 'hr-reports-export-csv',   component: PH, meta: { requiresAuth: true, title: 'Export CSV' } },
+    { path: '/hr/reports/navision',     name: 'hr-reports-navision',     component: PH, meta: { requiresAuth: true, title: 'Intégration Navision' } },
 
     // ── Espace Employé ───────────────────────────────────────────
     {
-      path: '/employe/absences', name: 'employee-absences',
+      path: '/employee/absences', name: 'employee-absences',
       component: () => import('../views/absences/AbsenceRequestView.vue'),
       meta: { requiresAuth: true },
     },
-    { path: '/employe/profil', name: 'employee-profile', component: () => import('../views/employee/ProfileView.vue'), meta: { requiresAuth: true } },
-    { path: '/rh/profil',      name: 'rh-profile',       component: () => import('../views/employee/ProfileView.vue'), meta: { requiresAuth: true } },
+    { path: '/employee/profile', name: 'employee-profile', component: () => import('../views/employee/UserProfileView.vue'), meta: { requiresAuth: true } },
+    { path: '/hr/profile',       name: 'hr-profile',       component: () => import('../views/employee/UserProfileView.vue'), meta: { requiresAuth: true } },
     {
-      path: '/employe/planning', name: 'employee-planning',
-      component: () => import('../views/employee/PlanningView.vue'),
+      path: '/employee/planning', name: 'employee-planning',
+      component: () => import('../views/employee/EmployeePlanningView.vue'),
       meta: { requiresAuth: true },
     },
+    { path: '/employee/missions', name: 'employee-missions', component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true } },
+    { path: '/employee/expenses', name: 'employee-expenses', component: () => import('../views/expenses/ExpenseListView.vue'),   meta: { requiresAuth: true } },
     {
-      path: '/rh/planning', name: 'rh-planning',
-      component: () => import('../views/employee/PlanningView.vue'),
-      meta: { requiresAuth: true },
-    },
-    { path: '/employe/missions',      name: 'employee-missions', component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true } },
-    { path: '/employe/notes-de-frais', name: 'employee-expenses', component: () => import('../views/expenses/ExpenseListView.vue'), meta: { requiresAuth: true } },
-    {
-      path: '/employe/a-valider', name: 'employee-validator',
+      path: '/employee/to-validate', name: 'employee-to-validate',
       component: () => import('../views/employee/ToValidateView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/employe/equipe', name: 'employee-team',
+      path: '/employee/team', name: 'employee-team',
       component: () => import('../views/employee/TeamView.vue'),
       meta: { requiresAuth: true },
     },
@@ -195,30 +198,34 @@ const router = createRouter({
 
 // ── Guard de navigation ──────────────────────────────────────
 router.beforeEach((to) => {
-  const auth = useAuthStore()
+  const auth       = useAuthStore()
+  const onboarding = useOnboardingStore()
 
+  // Non connecté → login
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
-    return { name: 'login' }
+    return { path: '/' }
   }
 
+  // Déjà connecté → pas besoin du login
   if (to.name === 'login' && auth.isLoggedIn) {
-    return auth.isHRSide ? { name: 'rh' } : { name: 'employe' }
+    return auth.isHRSide ? { path: '/hr' } : { path: '/employee' }
   }
 
   if (auth.isLoggedIn) {
-    if (to.path.startsWith('/rh') && auth.isEmployeeSide) {
-      return { name: 'employe' }
+    if (to.path.startsWith('/hr') && auth.isEmployeeSide) {
+      return { path: '/employee' }
     }
-    if (to.path.startsWith('/employe') && auth.isHRSide) {
-      return { name: 'rh' }
+    if (to.path.startsWith('/employee') && auth.isHRSide) {
+      return { path: '/hr' }
     }
 
-    // Guard onboarding — côté RH uniquement, hors onboarding lui-même
-    if (auth.isHRSide && to.name !== 'onboarding') {
-      const ob = useOnboardingStore()
-      if (!ob.allStepsComplete) {
-        return { name: 'onboarding' }
-      }
+    // RH connecté + wizard pas terminé → forcer le wizard
+    if (
+      auth.isHRSide &&
+      !onboarding.allStepsComplete &&
+      to.path !== '/onboarding'
+    ) {
+      return { path: '/onboarding' }
     }
   }
 })

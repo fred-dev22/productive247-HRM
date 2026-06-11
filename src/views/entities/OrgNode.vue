@@ -56,7 +56,7 @@
           >Approuver</button>
           <router-link
             v-if="entity.status === 'approved'"
-            :to="{ name: 'entity-edit', params: { id: entity.id } }"
+            :to="{ name: 'hr-entity-edit', params: { id: entity.id } }"
             class="act-btn act-muted"
           >Modifier</router-link>
         </div>
@@ -93,7 +93,7 @@ const collapsedIds   = inject<Ref<string[]>>('entity-collapsed')!
 const toggleCollapse = inject<(id: string) => void>('entity-toggle')!
 const navigateToDetail = inject<(id: string) => void>(
   'navigate-to-detail',
-  (id: string) => router.push({ name: 'entity-detail', params: { id } })
+  (id: string) => router.push({ name: 'hr-entity-detail', params: { id } })
 )
 
 const hasChildren = computed(() => (props.entity.children?.length ?? 0) > 0)

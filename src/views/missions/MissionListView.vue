@@ -200,7 +200,7 @@ const missionStore = useMissionStore()
 const route        = useRoute()
 
 const isRh = computed(() =>
-  route.path.startsWith('/rh') ||
+  route.path.startsWith('/hr') ||
   auth.user?.role === 'hr_admin' ||
   auth.user?.role === 'hr_director'
 )
