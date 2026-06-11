@@ -4,6 +4,8 @@ export { default as ComingSoonView }       from './ComingSoonView.vue'
 export { default as AbsenceRequestModal }  from './AbsenceRequestModal.vue'
 export { default as OrgChartTree }         from './OrgChartTree.vue'
 export { default as OrgChartView }         from './OrgChartView.vue'
+// ── Coquilles de page partagées ──
+export { default as ListPageLayout }       from './shared/ListPageLayout.vue'
 // ── Primitives du design system (portées du frontdesk P247_FD_LWL_APP) ──
 export { default as Button }               from './ui/button/Button.vue'
 export { default as Card }                 from './ui/card/Card.vue'

@@ -28,7 +28,7 @@ const router = createRouter({
     {
       path: '/hr/absences', name: 'hr-absences',
       component: () => import('../views/absences/AbsenceListView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {
       path: '/hr/absences/balances', name: 'hr-leave-balances',
