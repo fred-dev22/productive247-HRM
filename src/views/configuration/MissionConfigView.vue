@@ -17,15 +17,6 @@
           </button>
         </div>
 
-        <!-- Banner avertissement -->
-        <div class="warning-banner">
-          <i class="ti ti-alert-triangle warning-icon" aria-hidden="true"></i>
-          <span>
-            Les catégories et montants affichés sont <strong>provisoires</strong>.
-            Ils doivent être validés avec la direction avant la mise en production.
-          </span>
-        </div>
-
         <!-- Toast -->
         <Transition name="toast">
           <div v-if="showToast" class="toast-notif">
@@ -39,7 +30,6 @@
           <div class="section-header">
             <div>
               <h2 class="section-title">Catégories d'employés</h2>
-              <p class="section-note">⚠️ À valider avec la direction — les catégories sont provisoires</p>
             </div>
             <button class="btn btn-outline btn-sm" @click="showCatModal = true">
               <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
@@ -357,15 +347,6 @@ function deleteFee(id: string, name: string) {
 .page-title   { font-size: 20px; font-weight: 700; color: var(--color-text); }
 .page-sub     { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 
-.warning-banner {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: var(--color-warning-bg);
-  border-left: 4px solid var(--color-warning);
-  border-radius: 6px; padding: 12px 16px;
-  font-size: 13px; color: var(--color-text); line-height: 1.5;
-}
-.warning-icon { color: var(--color-warning); font-size: 16px; margin-top: 1px; flex-shrink: 0; }
-
 .toast-notif { position: fixed; bottom: 24px; right: 24px; background: var(--color-success); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 2000; box-shadow: 0 4px 16px rgba(0,0,0,.16); }
 .toast-enter-active, .toast-leave-active { transition: all .25s; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(10px); }
@@ -373,7 +354,6 @@ function deleteFee(id: string, name: string) {
 .section-card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; overflow: hidden; }
 .section-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 20px 0; gap: 12px; }
 .section-title  { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.section-note   { font-size: 11px; color: var(--color-warning); margin-top: 2px; }
 
 .fee-table-wrap { overflow-x: auto; padding: 0 0 4px; }
 .fee-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 700px; }

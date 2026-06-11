@@ -222,6 +222,7 @@ import { useEmployeeStore }   from '../stores/employees'
 import { useLeaveTypesStore } from '../stores/leaveTypes'
 import { useAuthStore }       from '../stores/auth'
 import { calculateEndDate, getWorkingDaysBetween, isWorkingDay } from '../utils/calendar'
+import { getInitials } from '../utils/helpers'
 import type { LeaveType } from '../types'
 
 const props = defineProps<{
@@ -249,13 +250,13 @@ const availableEmployees = computed(() => {
   if (role === 'hr_admin' || role === 'hr_director') {
     return employeeStore.employees.map(e => ({
       id: e.id, label: e.name, sublabel: e.entityName,
-      initials: e.avatarText, avatarColor: e.avatarBg,
+      initials: getInitials(e.name), avatarColor: e.avatarBg,
     }))
   }
   if (role === 'validator') {
     return employeeStore.getByEntityId(auth.user?.entityId ?? '').map(e => ({
       id: e.id, label: e.name, sublabel: e.entityName,
-      initials: e.avatarText, avatarColor: e.avatarBg,
+      initials: getInitials(e.name), avatarColor: e.avatarBg,
     }))
   }
   return []

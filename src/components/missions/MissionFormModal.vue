@@ -250,6 +250,7 @@ import { useMissionStore }  from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
 import { useAuthStore }     from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'
+import { getInitials } from '../../utils/helpers'
 import type { EmployeeCategory, TransportMode } from '../../types'
 
 const props = withDefaults(defineProps<{
@@ -294,7 +295,7 @@ const employeeItems = computed(() =>
     id:          e.id,
     label:       e.name,
     sublabel:    e.entityName,
-    initials:    e.avatarText,
+    initials:    getInitials(e.name),
     avatarColor: e.avatarBg,
   }))
 )

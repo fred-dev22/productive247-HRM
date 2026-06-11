@@ -185,6 +185,7 @@ import { AppSidebar, AppTopNav } from '../../components'
 import { useAuthStore }     from '../../stores/auth'
 import { useEntityStore }   from '../../stores/entities'
 import { useEmployeeStore } from '../../stores/employees'
+import { getInitials } from '../../utils/helpers'
 import type { EntityType, ValidatorPool } from '../../types'
 
 const auth        = useAuthStore()
@@ -201,12 +202,6 @@ const editEntity = computed(() => entityId.value ? store.getEntityById(entityId.
 const COLORS = ['var(--galana-green)', 'var(--galana-green-dark)', '#854F0B', '#993556', '#7C3AED', '#0F766E', '#BE185D']
 let colorIdx = 0
 function nextColor(): string { return COLORS[colorIdx++ % COLORS.length] ?? 'var(--galana-green)' }
-
-function computeInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0]!.charAt(0) + parts[parts.length - 1]!.charAt(0)).toUpperCase()
-  return (parts[0] ?? '?').slice(0, 2).toUpperCase()
-}
 
 // ── Formulaire ────────────────────────────────────────────────
 const form = reactive({
@@ -271,7 +266,7 @@ function updatePoolName(level: number, name: string) {
   const pool = localPools.value.find(p => p.level === level)
   if (pool) {
     pool.validatorName     = name
-    pool.validatorInitials = computeInitials(name)
+    pool.validatorInitials = getInitials(name)
   }
 }
 

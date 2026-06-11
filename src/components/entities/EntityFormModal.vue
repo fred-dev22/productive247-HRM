@@ -200,11 +200,16 @@ import SearchableDropdown from '../ui/SearchableDropdown.vue'
 import type { DropdownItem } from '../ui/SearchableDropdown.vue'
 import { useEntityStore }   from '../../stores/entities'
 import { useEmployeeStore } from '../../stores/employees'
+import { getInitials } from '../../utils/helpers'
 import type { EntityType, ValidatorPool } from '../../types'
 
 const props = defineProps<{
   modelValue: boolean
   editId?:    string
+  // Limite les choix affichés dans les dropdowns
+  // (ex: onboarding — masque les données préexistantes)
+  visibleEntityIds?:   string[]
+  visibleEmployeeIds?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -226,13 +231,6 @@ const POOL_COLORS = [
 let colorIdx = 0
 function nextColor(): string { return POOL_COLORS[colorIdx++ % POOL_COLORS.length] ?? 'var(--color-primary)' }
 
-function computeInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  return parts.length >= 2
-    ? (parts[0]!.charAt(0) + parts[parts.length - 1]!.charAt(0)).toUpperCase()
-    : (parts[0] ?? '?').slice(0, 2).toUpperCase()
-}
-
 const form = reactive({
   name:            '',
   code:            '',
@@ -250,12 +248,14 @@ const localPools = ref<ValidatorPool[]>([])
 
 // ── Items pour les SearchableDropdown ─────────────────────────
 const employeeItems = computed<DropdownItem[]>(() =>
-  empStore.employees.map(e => ({
-    id:       e.id,
-    label:    e.name,
-    sublabel: e.entityName ?? '',
-    initials: e.initials,
-  }))
+  empStore.employees
+    .filter(e => !props.visibleEmployeeIds || props.visibleEmployeeIds.includes(e.id))
+    .map(e => ({
+      id:       e.id,
+      label:    e.name,
+      sublabel: e.entityName ?? '',
+      initials: getInitials(e.name),
+    }))
 )
 
 const TYPE_SUBLABELS: Record<string, string> = {
@@ -264,6 +264,7 @@ const TYPE_SUBLABELS: Record<string, string> = {
 const entityItems = computed<DropdownItem[]>(() =>
   store.entities
     .filter(e => e.id !== props.editId)
+    .filter(e => !props.visibleEntityIds || props.visibleEntityIds.includes(e.id))
     .map(e => ({
       id:       e.id,
       label:    e.name,

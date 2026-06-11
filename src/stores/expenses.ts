@@ -17,7 +17,7 @@ export const useExpenseStore = defineStore('expenses', () => {
   const reports = ref<ExpenseReport[]>([
     {
       id: 'nf-001', code: 'NF-2026-001',
-      employeeId: 'emp-006', employeeName: 'Jean-Claude Rakotomalala', employeeInitials: 'JC',
+      employeeId: 'emp-006', employeeName: 'Jean-Claude Rakotomalala', employeeInitials: 'JR',
       title: 'Mission Antananarivo – Mai 2026',
       lines: [
         { id: 'l1', date: '2026-05-10', category: 'transport',    description: 'Billet avion MRU-TNR', amount: 450000, currency: 'MGA', receipt: true },
@@ -28,7 +28,7 @@ export const useExpenseStore = defineStore('expenses', () => {
       totalAmount: 800000, currency: 'MGA', status: 'pending',
       submittedAt: '2026-05-15', createdAt: '2026-05-14',
       validationHistory: [
-        step('employee', 'Jean-Claude Rakotomalala', 'JC', 'submitted', '2026-05-15T09:00:00'),
+        step('employee', 'Jean-Claude Rakotomalala', 'JR', 'submitted', '2026-05-15T09:00:00'),
         step('n1', 'Ravi Dhondoo', 'RD', 'pending', ''),
       ],
     },

@@ -13,7 +13,7 @@
         <span
           class="avatar-sm"
           :style="{ background: selected.avatarBg ?? '#B5D4F4', color: selected.avatarText ?? '#0C447C' }"
-        >{{ initials(selected.name) }}</span>
+        >{{ getInitials(selected.name) }}</span>
         <span class="trigger-name">{{ selected.name }}</span>
         <button type="button" class="clear-btn" @click.stop="clear">
           <i class="ti ti-x" aria-hidden="true"></i>
@@ -55,7 +55,7 @@
             <span
               class="avatar-sm"
               :style="{ background: emp.avatarBg ?? '#B5D4F4', color: emp.avatarText ?? '#0C447C' }"
-            >{{ initials(emp.name) }}</span>
+            >{{ getInitials(emp.name) }}</span>
             <span class="item-info">
               <span class="item-name">{{ emp.name }}</span>
               <span v-if="emp.entityName" class="item-entity">{{ emp.entityName }}</span>
@@ -76,6 +76,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { onClickOutside } from '@vueuse/core'
+import { getInitials } from '../../utils/helpers'
 
 interface EmpItem {
   id:          string
@@ -110,10 +111,6 @@ const filtered = computed(() => {
   const q = query.value.toLowerCase().trim()
   return q ? props.employees.filter(e => e.name.toLowerCase().includes(q)) : props.employees
 })
-
-function initials(name: string) {
-  return name.split(' ').map(p => p[0] ?? '').join('').toUpperCase().slice(0, 2)
-}
 
 function toggle() {
   if (props.disabled) return

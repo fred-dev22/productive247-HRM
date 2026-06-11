@@ -2,18 +2,20 @@
   <div class="avatar" :class="`avatar--${size ?? 'md'}`">
     <img v-if="photoUrl" :src="photoUrl" :alt="name" />
     <span v-else :style="{ background: bgColor }">
-      {{ initials }}
+      {{ initials ?? getInitials(name) }}
     </span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { getInitials } from '../../utils/helpers'
 
 const props = defineProps<{
   name: string
   size?: 'sm' | 'md' | 'lg'
   photoUrl?: string
+  initials?: string
 }>()
 
 const COLORS = [
@@ -24,15 +26,6 @@ const COLORS = [
   '#993556',
   '#3C3489',
 ]
-
-const initials = computed(() =>
-  props.name
-    .split(' ')
-    .map(n => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-)
 
 const bgColor = computed(() => {
   let hash = 0

@@ -70,6 +70,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { onClickOutside } from '@vueuse/core'
+import { getInitials } from '../../utils/helpers'
 
 export interface DropdownItem {
   id:          string
@@ -112,9 +113,11 @@ const filtered = computed(() => {
     : props.items
 })
 
+// Si initials fourni et sans chiffre → l'utiliser ;
+// sinon (code type "C447", "EMP001") calculer depuis le label.
 function avatarText(item: DropdownItem): string {
-  if (item.initials) return item.initials
-  return item.label.split(' ').map(p => p.charAt(0)).join('').toUpperCase().slice(0, 2)
+  if (item.initials && !/\d/.test(item.initials)) return item.initials
+  return getInitials(item.label)
 }
 
 function avatarStyle(item: DropdownItem): Record<string, string> {

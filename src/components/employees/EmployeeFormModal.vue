@@ -179,11 +179,15 @@
 import { reactive, computed, watch } from 'vue'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore }   from '../../stores/entities'
+import { getInitials } from '../../utils/helpers'
 import type { UserRole, ContractType, EmployeeStatus } from '../../types'
 
 const props = defineProps<{
   modelValue: boolean
   editId?:    string
+  // Limite les entités proposées dans le dropdown
+  // (ex: onboarding — masque les données préexistantes)
+  visibleEntityIds?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -217,16 +221,14 @@ const errors = reactive({
   entityId: '', role: '', contractType: '', hireDate: '',
 })
 
-function getInitials(name: string): string {
-  return name.split(' ').map(p => p[0] ?? '').join('').toUpperCase().slice(0, 2)
-}
-
 const AVATAR_COLORS = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2']
 
 // Inclut les entités en brouillon / en attente — indispensable pendant
 // l'onboarding où les entités fraîchement créées ne sont pas encore approuvées
 const selectableEntities = computed(() =>
-  entityStore.entities.filter(e => e.status !== 'inactive')
+  entityStore.entities
+    .filter(e => e.status !== 'inactive')
+    .filter(e => !props.visibleEntityIds || props.visibleEntityIds.includes(e.id))
 )
 
 const directManager = computed(() => {

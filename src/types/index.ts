@@ -196,6 +196,8 @@ export interface Employee {
   contractType: ContractType
   status:       EmployeeStatus
   managerId?:   string
+  hasSystemAccess?: boolean
+  category?:    string
 }
 
 export interface Entity {

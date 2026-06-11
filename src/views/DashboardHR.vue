@@ -358,11 +358,11 @@ function onAbsenceSubmitted() {
 const tab = ref<'pending' | 'approved'>('pending')
 
 const requests = ref<LeaveRequest[]>([
-  { id:1, employeeName:'Aminata Diallo',     employeeInitials:'AD', avatarColor:'#B5D4F4', avatarTextColor:'#0C447C', type:'Congé annuel',    startDate:'2026-07-10', endDate:'2026-07-17', workingDays:6,  status:'pending',  submittedAt:'2026-06-20' },
-  { id:2, employeeName:'Kofi Mensah',        employeeInitials:'KM', avatarColor:'#C0DD97', avatarTextColor:'#3B6D11', type:'Congé maladie',   startDate:'2026-07-02', endDate:'2026-07-05', workingDays:4,  status:'pending',  submittedAt:'2026-07-01' },
-  { id:3, employeeName:'Fatou Sow',          employeeInitials:'FS', avatarColor:'#F4C0D1', avatarTextColor:'#72243E', type:'Récupération',    startDate:'2026-07-08', endDate:'2026-07-08', workingDays:1,  status:'approved', submittedAt:'2026-06-25' },
-  { id:4, employeeName:'Jean-Pierre Mvondo', employeeInitials:'JP', avatarColor:'#FAC775', avatarTextColor:'#633806', type:'Télétravail',     startDate:'2026-07-07', endDate:'2026-07-11', workingDays:5,  status:'pending',  submittedAt:'2026-06-28' },
-  { id:5, employeeName:'Rose Nkeng',         employeeInitials:'RN', avatarColor:'#AFA9EC', avatarTextColor:'#3C3489', type:'Congé maternité', startDate:'2026-07-01', endDate:'2026-09-30', workingDays:65, status:'approved', submittedAt:'2026-05-15' },
+  { id:1, employeeName:'Priya Ramlugun',           employeeInitials:'PR', avatarColor:'#B5D4F4', avatarTextColor:'#0C447C', type:'Congé annuel',    startDate:'2026-07-10', endDate:'2026-07-17', workingDays:6,  status:'pending',  submittedAt:'2026-06-20' },
+  { id:2, employeeName:'Hery Andrianaivo',         employeeInitials:'HA', avatarColor:'#C0DD97', avatarTextColor:'#3B6D11', type:'Congé maladie',   startDate:'2026-07-02', endDate:'2026-07-05', workingDays:4,  status:'pending',  submittedAt:'2026-07-01' },
+  { id:3, employeeName:'Fiona Mungroo',            employeeInitials:'FM', avatarColor:'#F4C0D1', avatarTextColor:'#72243E', type:'Récupération',    startDate:'2026-07-08', endDate:'2026-07-08', workingDays:1,  status:'approved', submittedAt:'2026-06-25' },
+  { id:4, employeeName:'Jean-Claude Rakotomalala', employeeInitials:'JR', avatarColor:'#FAC775', avatarTextColor:'#633806', type:'Télétravail',     startDate:'2026-07-07', endDate:'2026-07-11', workingDays:5,  status:'pending',  submittedAt:'2026-06-28' },
+  { id:5, employeeName:'Nadia Oozeer',             employeeInitials:'NO', avatarColor:'#AFA9EC', avatarTextColor:'#3C3489', type:'Congé maternité', startDate:'2026-07-01', endDate:'2026-09-30', workingDays:65, status:'approved', submittedAt:'2026-05-15' },
 ])
 
 const pending        = computed(() => requests.value.filter(r => r.status === 'pending'))
@@ -443,11 +443,11 @@ function balSort(key: string) {
 }
 
 const employeeBalances = [
-  { name: 'Aminata Diallo',     initials: 'AD', avatarColor: '#B5D4F4', avatarTextColor: '#0C447C', congeAnnuel: 12, recuperation: 3, maladie: 8,  teletravail: 5  },
-  { name: 'Kofi Mensah',        initials: 'KM', avatarColor: '#C0DD97', avatarTextColor: '#3B6D11', congeAnnuel: 18, recuperation: 0, maladie: 5,  teletravail: 8  },
-  { name: 'Fatou Sow',          initials: 'FS', avatarColor: '#F4C0D1', avatarTextColor: '#72243E', congeAnnuel: 6,  recuperation: 2, maladie: 0,  teletravail: 10 },
-  { name: 'Jean-Pierre Mvondo', initials: 'JP', avatarColor: '#FAC775', avatarTextColor: '#633806', congeAnnuel: 24, recuperation: 5, maladie: 3,  teletravail: 2  },
-  { name: 'Rose Nkeng',         initials: 'RN', avatarColor: '#AFA9EC', avatarTextColor: '#3C3489', congeAnnuel: 0,  recuperation: 0, maladie: 0,  teletravail: 0  },
+  { name: 'Priya Ramlugun',           initials: 'PR', avatarColor: '#B5D4F4', avatarTextColor: '#0C447C', congeAnnuel: 12, recuperation: 3, maladie: 8,  teletravail: 5  },
+  { name: 'Hery Andrianaivo',         initials: 'HA', avatarColor: '#C0DD97', avatarTextColor: '#3B6D11', congeAnnuel: 18, recuperation: 0, maladie: 5,  teletravail: 8  },
+  { name: 'Fiona Mungroo',            initials: 'FM', avatarColor: '#F4C0D1', avatarTextColor: '#72243E', congeAnnuel: 6,  recuperation: 2, maladie: 0,  teletravail: 10 },
+  { name: 'Jean-Claude Rakotomalala', initials: 'JR', avatarColor: '#FAC775', avatarTextColor: '#633806', congeAnnuel: 24, recuperation: 5, maladie: 3,  teletravail: 2  },
+  { name: 'Nadia Oozeer',             initials: 'NO', avatarColor: '#AFA9EC', avatarTextColor: '#3C3489', congeAnnuel: 0,  recuperation: 0, maladie: 0,  teletravail: 0  },
 ]
 
 const sortedBalances = computed(() => {

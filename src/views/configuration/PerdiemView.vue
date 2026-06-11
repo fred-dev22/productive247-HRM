@@ -17,15 +17,6 @@
           </button>
         </div>
 
-        <!-- Banner avertissement -->
-        <div class="warning-banner">
-          <i class="ti ti-alert-triangle warning-icon" aria-hidden="true"></i>
-          <span>
-            Les montants affichés sont <strong>provisoires</strong>.
-            Ils doivent être validés avec la direction avant la mise en production.
-          </span>
-        </div>
-
         <!-- Table perdiems -->
         <div class="section-card">
           <table class="pd-table">
@@ -81,7 +72,7 @@
           </div>
           <div class="field">
             <label class="field-label">Description</label>
-            <input type="text" class="field-input" v-model="pdForm.description" placeholder="Ex: Direction / Cadres A — valeur provisoire" />
+            <input type="text" class="field-input" v-model="pdForm.description" placeholder="Ex: Direction / Cadres A" />
           </div>
           <div class="field">
             <label class="field-label">Taux / jour *</label>
@@ -161,14 +152,6 @@ function savePerdiem() {
 .page-header  { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-title   { font-size: 20px; font-weight: 700; color: var(--color-text); }
 .page-sub     { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-
-.warning-banner {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: var(--color-warning-bg); border-left: 4px solid var(--color-warning);
-  border-radius: 6px; padding: 12px 16px;
-  font-size: 13px; color: var(--color-text); line-height: 1.5;
-}
-.warning-icon { color: var(--color-warning); font-size: 16px; flex-shrink: 0; }
 
 .section-card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: 10px; overflow: hidden; }
 .pd-table { width: 100%; border-collapse: collapse; font-size: 13px; }

@@ -69,7 +69,7 @@
               </div>
             </template>
 
-            <!-- ══ ÉTAPE 2 : Structure ══ -->
+            <!-- ══ ÉTAPE 2 : Entités ══ -->
             <template v-else-if="ob.currentStep === 2">
               <div class="card-body">
 
@@ -106,10 +106,10 @@
                 <button class="btn btn-outline" @click="ob.prevStep()">← Précédent</button>
                 <div class="foot-right">
                   <button class="btn-skip" @click="ob.nextStep()">Passer →</button>
-                  <span :title="entityStore.entities.length < 2 ? 'Créez au moins un département pour continuer' : ''">
+                  <span :title="flatEntities.length < 2 ? 'Créez au moins un département pour continuer' : ''">
                     <button
                       class="btn btn-primary"
-                      :disabled="entityStore.entities.length < 2"
+                      :disabled="flatEntities.length < 2"
                       @click="ob.nextStep()"
                     >Continuer →</button>
                   </span>
@@ -117,18 +117,18 @@
               </div>
             </template>
 
-            <!-- ══ ÉTAPE 3 : Équipe ══ -->
+            <!-- ══ ÉTAPE 3 : Employés ══ -->
             <template v-else>
               <div class="card-body">
 
                 <div class="info-card">
                   <i class="ti ti-info-circle" aria-hidden="true"></i>
-                  Les employés sans accès numérique peuvent quand même avoir
-                  des demandes soumises par leur manager.
+                  Votre compte a été créé automatiquement.
+                  Ajoutez les autres membres de votre équipe.
                 </div>
 
                 <!-- État vide -->
-                <div v-if="empStore.employees.length === 0" class="empty-state">
+                <div v-if="obEmployees.length === 0" class="empty-state">
                   <i class="ti ti-users" aria-hidden="true"></i>
                   <div class="empty-title">Aucun employé créé</div>
                   <div class="empty-sub">Commencez par ajouter votre premier collaborateur</div>
@@ -136,7 +136,7 @@
 
                 <!-- Liste compacte -->
                 <div v-else class="employee-list">
-                  <div v-for="emp in empStore.employees" :key="emp.id" class="employee-row">
+                  <div v-for="emp in obEmployees" :key="emp.id" class="employee-row">
                     <UserAvatar :name="emp.name" size="sm" />
                     <span class="employee-name">{{ emp.name }}</span>
                     <span class="employee-entity">{{ emp.entityName }}</span>
@@ -152,7 +152,7 @@
               <div class="card-foot card-foot--between">
                 <button class="btn btn-outline" @click="ob.prevStep()">← Précédent</button>
                 <button
-                  v-if="empStore.employees.length === 0"
+                  v-if="!ob.isEmployeeCreated"
                   class="btn btn-outline"
                   @click="finish(false)"
                 >Passer et accéder →</button>
@@ -175,9 +175,16 @@
       Vous pourrez modifier ces configurations à tout moment dans le menu Configuration
     </footer>
 
-    <!-- ── Modals (composants existants réutilisés) ── -->
-    <EntityFormModal v-model="showEntityModal" />
-    <EmployeeFormModal v-model="showEmployeeModal" />
+    <!-- ── Modals (composants existants réutilisés, limités à la vue démo) ── -->
+    <EntityFormModal
+      v-model="showEntityModal"
+      :visible-entity-ids="visibleEntityIds"
+      :visible-employee-ids="visibleEmployeeIds"
+    />
+    <EmployeeFormModal
+      v-model="showEmployeeModal"
+      :visible-entity-ids="visibleEntityIds"
+    />
 
   </div>
 </template>
@@ -207,6 +214,7 @@ const router        = useRouter()
 onMounted(() => {
   if (!auth.isLoggedIn)         router.replace({ path: '/' })
   else if (auth.isEmployeeSide) router.replace({ path: '/employee' })
+  else                          empStore.ensureDefaultEmployee()
 })
 
 const showEntityModal   = ref(false)
@@ -214,12 +222,12 @@ const showEmployeeModal = ref(false)
 const leaving           = ref(false)
 
 // ── Steps ────────────────────────────────────────────────────────────
-const STEP_LABELS = ['Calendrier', 'Structure', 'Équipe'] as const
+const STEP_LABELS = ['Calendrier', 'Entités', 'Employés'] as const
 
 const STEP_META: Record<number, { icon: string; title: string; sub: string }> = {
   1: { icon: 'ti-calendar-event', title: 'Configurez votre calendrier', sub: 'Définissez les jours et horaires de travail de votre entreprise' },
-  2: { icon: 'ti-building',       title: 'Créez votre structure',       sub: 'Définissez la hiérarchie de votre organisation' },
-  3: { icon: 'ti-users',          title: 'Ajoutez votre équipe',        sub: 'Créez les comptes de vos collaborateurs' },
+  2: { icon: 'ti-building',       title: 'Créez vos entités',           sub: 'Définissez la structure organisationnelle de votre entreprise' },
+  3: { icon: 'ti-users',          title: 'Ajoutez vos employés',        sub: 'Créez les comptes de vos collaborateurs' },
 }
 const currentMeta = computed(() => STEP_META[ob.currentStep]!)
 
@@ -228,6 +236,26 @@ function stepState(step: number): 'done' | 'current' | 'pending' {
   if (step === ob.currentStep) return 'current'
   return 'pending'
 }
+
+// ── Vue « démo » du wizard ───────────────────────────────────────────
+// Les données mock préexistantes sont masquées pendant l'onboarding :
+// on fait comme s'il n'y avait que la Direction Générale et le RH
+// connecté. Seul ce qui est créé pendant le wizard s'ajoute à l'écran.
+const preexistingEntityIds   = new Set(entityStore.entities.map(e => e.id))
+const preexistingEmployeeIds = new Set(empStore.employees.map(e => e.id))
+
+const isVisibleEntity = (e: Entity) =>
+  e.id === 'e1' || !preexistingEntityIds.has(e.id)
+
+const obEmployees = computed(() =>
+  empStore.employees.filter(e =>
+    e.id === empStore.currentUserEmployee?.id || !preexistingEmployeeIds.has(e.id)
+  )
+)
+
+// IDs visibles transmis aux modals pour restreindre leurs dropdowns
+const visibleEntityIds   = computed(() => entityStore.entities.filter(isVisibleEntity).map(e => e.id))
+const visibleEmployeeIds = computed(() => obEmployees.value.map(e => e.id))
 
 // ── Étape 2 : entités (hiérarchie aplatie depuis buildTree) ──────────
 const TYPE_LABELS: Record<string, string> = {
@@ -238,7 +266,7 @@ const flatEntities = computed(() => {
   const out: { entity: Entity; depth: number }[] = []
   const walk = (nodes: Entity[], depth: number) => {
     nodes.forEach(n => {
-      out.push({ entity: n, depth })
+      if (isVisibleEntity(n)) out.push({ entity: n, depth })
       if (n.children) walk(n.children, depth + 1)
     })
   }

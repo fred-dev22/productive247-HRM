@@ -4,6 +4,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useEmployeeStore } from './employees'
 
 export const useOnboardingStore = defineStore('onboarding', () => {
   // false au chargement → wizard visible
@@ -31,10 +32,15 @@ export const useOnboardingStore = defineStore('onboarding', () => {
 
   const allStepsComplete = computed(() => isComplete.value)
 
+  // Toujours vrai grâce à l'employé par défaut (compte RH connecté)
+  // → bouton « Accéder à l'application » toujours actif dès l'étape 3
+  const isEmployeeCreated = computed(() => useEmployeeStore().employees.length >= 1)
+
   return {
     isComplete,
     currentStep,
     allStepsComplete,
+    isEmployeeCreated,
     complete,
     goToStep,
     nextStep,

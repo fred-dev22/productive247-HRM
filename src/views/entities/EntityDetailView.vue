@@ -263,7 +263,7 @@ const respInitials = computed(() => {
 const MOCK_COLORS = ['#B5D4F4', '#C0DD97', '#F4C0D1', '#FAC775', '#AFA9EC']
 const mockEmployees = computed(() => {
   const count = Math.min(3, entity.value?.headcount ?? 0)
-  const names = ['Aminata D.', 'Kofi M.', 'Fatou S.', 'Jean-Pierre M.', 'Rose N.']
+  const names = ['Priya R.', 'Hery A.', 'Fiona M.', 'Jean-Claude R.', 'Nadia O.']
   return Array.from({ length: count }, (_, i) => ({
     name:     names[i] ?? `Employé ${i + 1}`,
     initials: names[i]?.split(' ').map(p => p[0]).join('') ?? 'E',
