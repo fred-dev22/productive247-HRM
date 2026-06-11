@@ -150,21 +150,20 @@
 }
 
 /*
- * ── Couche de compatibilité legacy ──────────────────────────────────
- * Variables consommées par les <style scoped> non encore migrés vers
- * Tailwind. Chaque alias pointe vers un token @theme ci-dessus.
- * À SUPPRIMER en phase 5, une fois toutes les vues converties.
+ * ── Palette de marque Galana (hors @theme) ──────────────────────────
+ * Couleurs de marque brutes consommées par les composants qui gardent
+ * du CSS scoped : l'organigramme (OrgChartView/OrgChartTree/OrgNode),
+ * les avatars (UserAvatar) et l'onboarding. Le @theme ci-dessus reste
+ * la source des tokens sémantiques ; ce bloc ne porte que l'identité
+ * visuelle Galana qui n'a pas d'équivalent token sémantique.
  */
 :root {
-  /* Palette Galana brute */
   --galana-green: #006b3c;
   --galana-green-dark: #00522e;
-  --galana-green-xdark: #004d2b;
   --galana-green-light: #e6f4ed;
   --galana-green-mid: #cce9d9;
 
   --galana-red: #c8102e;
-  --galana-red-dark: #a00d24;
   --galana-red-light: #fdecea;
 
   --galana-white: #ffffff;
@@ -172,51 +171,11 @@
   /* Niveaux organigramme */
   --galana-direction-bg: #8b0000;
   --galana-department-bg: #006b3c;
-  --galana-service-bg: #ffffff;
   --galana-service-border: #006b3c;
 
-  /* Dérivés primaires (hors @theme : pas d'utilitaires générés) */
-  --color-primary-dark: var(--galana-green-dark);
+  /* Vert clair primaire (halos / hovers de l'organigramme & onboarding) */
   --color-primary-light: var(--galana-green-light);
-  --color-primary-mid: var(--galana-green-mid);
 
-  /* Surfaces */
-  --color-bg: var(--color-background);
-  --color-surface: var(--color-card);
-  --color-border-strong: rgba(0, 0, 0, 0.2);
-
-  /* Texte */
-  --color-text: var(--color-foreground);
-  --color-text-muted: var(--color-muted-foreground);
-  --color-text-light: #9b9b98;
-
-  /* Navigation */
-  --color-topbar-bg: var(--color-header);
-  --color-navbar-bg: var(--color-nav);
-  --color-navbar-border: rgba(0, 0, 0, 0.08);
-
-  /* Aliases rétro-compat p247 */
-  --p247-orange: var(--color-primary);
-  --p247-orange-light: var(--color-primary-light);
-  --p247-orange-dark: var(--color-primary-dark);
-
-  --p247-bg: var(--color-bg);
-  --p247-white: var(--color-surface);
-  --p247-text: var(--color-text);
-  --p247-muted: var(--color-text-muted);
-  --p247-border: var(--color-border);
-
-  --p247-success: var(--color-success);
-  --p247-success-bg: var(--color-success-bg);
-  --p247-warning: var(--color-warning);
-  --p247-warning-bg: var(--color-warning-bg);
-  --p247-danger: var(--color-danger);
-  --p247-danger-bg: var(--color-danger-bg);
-  --p247-info: var(--color-info);
-  --p247-info-bg: var(--color-info-bg);
-
-  --p247-topbar-bg: var(--color-topbar-bg);
-  --p247-topbar-text: #ffffff;
-  --p247-navbar-bg: var(--color-navbar-bg);
-  --p247-navbar-border: var(--color-navbar-border);
+  /* Lignes de connexion de l'organigramme */
+  --color-tree-line: rgba(0, 0, 0, 0.2);
 }

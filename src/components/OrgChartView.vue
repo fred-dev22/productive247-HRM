@@ -75,7 +75,7 @@ const router   = useRouter()
 .orgchart-wrap {
   display: flex;
   flex-direction: column;
-  background: var(--color-bg);
+  background: var(--color-background);
   border-radius: 8px;
   border: 0.5px solid var(--color-border);
   overflow: hidden;
@@ -83,13 +83,13 @@ const router   = useRouter()
 
 .orgchart-toolbar {
   padding: 8px 14px;
-  background: var(--color-surface);
+  background: var(--color-card);
   border-bottom: 0.5px solid var(--color-border);
 }
 
 .orgchart-hint {
   font-size: 11px;
-  color: var(--color-text-muted);
+  color: var(--color-muted-foreground);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -105,7 +105,7 @@ const router   = useRouter()
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  color: var(--color-text-muted);
+  color: var(--color-muted-foreground);
   gap: 10px;
 }
 .orgchart-empty i { font-size: 36px; }
@@ -135,8 +135,8 @@ const router   = useRouter()
   color: var(--galana-white);
 }
 .org-node--service {
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--color-card);
+  color: var(--color-foreground);
   border: 1.5px solid var(--galana-red);
 }
 
@@ -212,7 +212,7 @@ const router   = useRouter()
   height: 20px;
   border-radius: 50%;
   border: 1.5px solid rgba(255, 255, 255, 0.5);
-  background: var(--color-surface);
+  background: var(--color-card);
   color: var(--color-primary);
   font-size: 10px;
   cursor: pointer;

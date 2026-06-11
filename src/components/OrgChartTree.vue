@@ -12,6 +12,7 @@
 import { ref, computed, defineComponent, h } from 'vue'
 import type { PropType } from 'vue'
 import { useRouter } from 'vue-router'
+import { User, Users, Plus, Minus } from 'lucide-vue-next'
 import type { Entity } from '../types'
 
 const props = defineProps<{ entities: Entity[] }>()
@@ -87,12 +88,12 @@ const OrgChartNode: any = defineComponent({
         }, node.name),
         node.responsibleName
           ? h('div', { style: metaStyle }, [
-              h('i', { class: 'ti ti-user', style: { fontSize: '10px' }, 'aria-hidden': 'true' }),
+              h(User, { size: 11, 'aria-hidden': 'true' }),
               ` ${node.responsibleName}`
             ])
           : null,
         h('div', { style: metaStyle }, [
-          h('i', { class: 'ti ti-users', style: { fontSize: '10px' }, 'aria-hidden': 'true' }),
+          h(Users, { size: 11, 'aria-hidden': 'true' }),
           ` ${node.headcount}`
         ]),
         hasChildren
@@ -111,7 +112,7 @@ const OrgChartNode: any = defineComponent({
                 boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
               },
               onClick: (e: MouseEvent) => { e.stopPropagation(); toggle(node.id) }
-            }, [h('i', { class: isCollapsed ? 'ti ti-plus' : 'ti ti-minus', 'aria-hidden': 'true' })])
+            }, [h(isCollapsed ? Plus : Minus, { size: 12, 'aria-hidden': 'true' })])
           : null,
       ].filter(Boolean)
 
@@ -152,10 +153,10 @@ const OrgChartNode: any = defineComponent({
 
 .orgchart-wrap {
   overflow: auto;
-  background: var(--color-bg);
+  background: var(--color-background);
   min-height: 420px;
   border-radius: 8px;
-  border: 0.5px solid var(--p247-border);
+  border: 0.5px solid var(--color-border);
 }
 
 .orgchart-scroll {
@@ -189,7 +190,7 @@ const OrgChartNode: any = defineComponent({
 .oct-v-line {
   width: 1px;
   height: 20px;
-  background: var(--color-border-strong);
+  background: var(--color-tree-line);
 }
 
 /* Rangée d'enfants */
@@ -216,7 +217,7 @@ const OrgChartNode: any = defineComponent({
   left: 0;
   right: 0;
   height: 1px;
-  background: var(--color-border-strong);
+  background: var(--color-tree-line);
 }
 .oct-child-col:first-child::before { left: 50%; }
 .oct-child-col:last-child::before  { right: 50%; }
@@ -231,6 +232,6 @@ const OrgChartNode: any = defineComponent({
   transform: translateX(-50%);
   width: 1px;
   height: 20px;
-  background: var(--color-border-strong);
+  background: var(--color-tree-line);
 }
 </style>
