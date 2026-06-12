@@ -14,8 +14,8 @@ const router = createRouter({
     { path: '/', name: 'login', component: LoginView },
 
     // ── Dashboards ──────────────────────────────────────────────
-    { path: '/hr',       name: 'hr-dashboard',       component: DashboardHR,       meta: { requiresAuth: true } },
-    { path: '/employee', name: 'employee-dashboard', component: DashboardEmployee, meta: { requiresAuth: true } },
+    { path: '/hr',       name: 'hr-dashboard',       component: DashboardHR,       meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/employee', name: 'employee-dashboard', component: DashboardEmployee, meta: { requiresAuth: true, layout: 'dashboard' } },
 
     // ── Onboarding ───────────────────────────────────────────────
     // Pas de requiresAuth — vérification manuelle dans le composant pour éviter les boucles
@@ -33,37 +33,37 @@ const router = createRouter({
     {
       path: '/hr/absences/balances', name: 'hr-leave-balances',
       component: () => import('../views/absences/LeaveBalancesView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
 
     // ── HR Administration ────────────────────────────────────────
     {
       path: '/hr/employees', name: 'hr-employees',
       component: () => import('../views/employees/EmployeeListView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {
       path: '/hr/employees/new', name: 'hr-employee-create',
       component: () => import('../views/employees/EmployeeFormView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {
       path: '/hr/employees/:id/edit', name: 'hr-employee-edit',
       component: () => import('../views/employees/EmployeeFormView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
-    { path: '/hr/missions',           name: 'hr-missions',   component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true } },
-    { path: '/hr/expenses',           name: 'hr-expenses',   component: () => import('../views/expenses/ExpenseListView.vue'),   meta: { requiresAuth: true } },
+    { path: '/hr/missions',           name: 'hr-missions',   component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/expenses',           name: 'hr-expenses',   component: () => import('../views/expenses/ExpenseListView.vue'),   meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/contracts',          name: 'hr-contracts',  component: PH, meta: { requiresAuth: true, title: 'Gestion des Contrats' } },
-    { path: '/hr/reports/statistics', name: 'hr-statistics', component: () => import('../views/reports/StatisticsView.vue'),     meta: { requiresAuth: true } },
+    { path: '/hr/reports/statistics', name: 'hr-statistics', component: () => import('../views/reports/StatisticsView.vue'),     meta: { requiresAuth: true, layout: 'dashboard' } },
     {
       path: '/hr/org-chart', name: 'hr-org-chart',
       component: () => import('../views/rh/OrgChartView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     { path: '/hr/planning', name: 'hr-planning',
       component: () => import('../views/employee/EmployeePlanningView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
 
     // ── Configuration ─────────────────────────────────────────────
@@ -71,18 +71,18 @@ const router = createRouter({
     {
       path: '/hr/config/calendar', name: 'hr-config-calendar',
       component: CalendarView,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     { path: '/hr/config/leave-types', name: 'hr-config-leave-types', redirect: '/hr/config/calendar' },
     {
       path: '/hr/config/mission-fees', name: 'hr-config-mission-fees',
       component: () => import('../views/configuration/MissionConfigView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {
       path: '/hr/config/perdiems', name: 'hr-config-perdiems',
       component: () => import('../views/configuration/PerdiemView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
 
     // Redirects de compatibilité (anciennes URLs)
@@ -96,22 +96,22 @@ const router = createRouter({
     {
       path: '/hr/entities', name: 'hr-entities',
       component: () => import('../views/entities/EntityListView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {
       path: '/hr/entities/new', name: 'hr-entity-create',
       component: () => import('../views/entities/EntityFormView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {
       path: '/hr/entities/:id/edit', name: 'hr-entity-edit',
       component: () => import('../views/entities/EntityFormView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {
       path: '/hr/entities/:id', name: 'hr-entity-detail',
       component: () => import('../views/entities/EntityDetailView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
 
     // ── Module Recrutement ───────────────────────────────────────
@@ -169,26 +169,26 @@ const router = createRouter({
     {
       path: '/employee/absences', name: 'employee-absences',
       component: () => import('../views/absences/AbsenceRequestView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
-    { path: '/employee/profile', name: 'employee-profile', component: () => import('../views/employee/UserProfileView.vue'), meta: { requiresAuth: true } },
-    { path: '/hr/profile',       name: 'hr-profile',       component: () => import('../views/employee/UserProfileView.vue'), meta: { requiresAuth: true } },
+    { path: '/employee/profile', name: 'employee-profile', component: () => import('../views/employee/UserProfileView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/profile',       name: 'hr-profile',       component: () => import('../views/employee/UserProfileView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
     {
       path: '/employee/planning', name: 'employee-planning',
       component: () => import('../views/employee/EmployeePlanningView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
-    { path: '/employee/missions', name: 'employee-missions', component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true } },
-    { path: '/employee/expenses', name: 'employee-expenses', component: () => import('../views/expenses/ExpenseListView.vue'),   meta: { requiresAuth: true } },
+    { path: '/employee/missions', name: 'employee-missions', component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/employee/expenses', name: 'employee-expenses', component: () => import('../views/expenses/ExpenseListView.vue'),   meta: { requiresAuth: true, layout: 'dashboard' } },
     {
       path: '/employee/to-validate', name: 'employee-to-validate',
       component: () => import('../views/employee/ToValidateView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {
       path: '/employee/team', name: 'employee-team',
       component: () => import('../views/employee/TeamView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, layout: 'dashboard' },
     },
 
     // Catch-all → login

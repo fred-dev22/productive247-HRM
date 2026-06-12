@@ -1,9 +1,5 @@
 <template>
-  <div class="flex flex-col min-h-screen">
-    <AppTopNav :user="auth.user" />
-    <div class="flex flex-1">
-      <AppSidebar />
-      <main class="flex-1 px-7 py-6 bg-background overflow-y-auto max-md:p-4">
+  <div class="px-7 py-6 max-md:p-4">
 
         <div class="flex items-center justify-between mb-3.5">
           <div>
@@ -93,8 +89,6 @@
           </div>
         </div>
 
-      </main>
-    </div>
   </div>
 
   <!-- Modale nouvelle demande -->
@@ -116,7 +110,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Plus, List, Building, Clock, Plane, Calendar, Check } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav, AbsenceRequestModal } from '../components'
+import { AbsenceRequestModal } from '../components'
 import { useAuthStore }    from '../stores/auth'
 import { useAbsenceStore } from '../stores/absences'
 import type { LeaveStatus, LeaveType } from '../types'

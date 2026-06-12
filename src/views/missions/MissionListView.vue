@@ -1,252 +1,192 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <ListPageLayout
+    :title="isRh ? 'Gestion des missions' : 'Mes missions'"
+    :subtitle="isRh ? 'Tous les ordres de mission' : 'Vos ordres de mission'"
+    :columns="columns"
+    :items="pageItems"
+    :total="totalCount"
+    :total-text="`${totalCount} mission(s)`"
+    search-placeholder="Rechercher une mission…"
+    scope-label="Missions :"
+    :scope-options="scopeOptions"
+    v-model:scope="activeScope"
+    v-model:search-query="searchQuery"
+    v-model:sort-key="sortKey"
+    v-model:sort-dir="sortDir"
+    v-model:page="page"
+    v-model:page-size="pageSize"
+    @open-card="openCard"
+  >
+    <!-- Bouton "Nouvelle mission" -->
+    <template #header-actions>
+      <button :class="L.btnPrimary" @click="showCreate = true">
+        <Plus class="w-4 h-4" /> Nouvelle mission
+      </button>
+    </template>
 
-        <!-- ── En-tête ── -->
-        <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
-          <div>
-            <h1 class="text-xl font-bold text-foreground">{{ isRh ? 'Gestion des missions' : 'Mes missions' }}</h1>
-            <p class="text-[13px] text-muted-foreground mt-0.5">
-              {{ isRh ? 'Toutes les ordres de mission' : 'Vos ordres de mission' }}
-            </p>
+    <!-- Actions contextuelles (ligne sélectionnée) -->
+    <template #row-actions="{ item }">
+      <MissionWorkflowActions :mission="item" />
+    </template>
+
+    <!-- Cellules -->
+    <template #cell-code="{ item }">
+      <span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span>
+    </template>
+    <template #cell-employeeName="{ item }">
+      <div class="flex items-center gap-2">
+        <UserAvatar :name="item.employeeName" size="sm" />
+        <span class="truncate">{{ item.employeeName }}</span>
+      </div>
+    </template>
+    <template #cell-dates="{ item }">
+      <span class="whitespace-nowrap text-[11px]">{{ shortDate(item.departureDate) }} → {{ shortDate(item.returnDate) }}</span>
+    </template>
+    <template #cell-numberOfDays="{ item }">
+      <span class="bg-info-bg text-info text-[11px] font-semibold px-2 py-0.5 rounded-full">{{ item.numberOfDays }}j</span>
+    </template>
+    <template #cell-totalMission="{ item }">
+      <span class="font-semibold whitespace-nowrap tabular-nums">{{ fmtNum(item.totalMission) }} MGA</span>
+    </template>
+    <template #cell-status="{ item }">
+      <StatusPill :status="item.status" />
+    </template>
+
+    <!-- Aperçu rapide -->
+    <template #details-panel="{ item }">
+      <div class="flex flex-col gap-3.5">
+        <div class="flex items-center gap-2.5">
+          <UserAvatar :name="item.employeeName" size="md" />
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-foreground truncate">{{ item.employeeName }}</div>
+            <div class="text-[11px] text-muted-foreground font-mono">{{ item.code }}</div>
           </div>
-          <button :class="L.btnPrimary" @click="openCreate">
-            <Plus class="w-4 h-4" /> Nouvelle mission
-          </button>
         </div>
-
-        <!-- ── DataTable ── -->
-        <DataTable
-          :columns="columns"
-          :rows="displayedRows"
-          empty-message="Aucune mission trouvée"
-          row-key="id"
-        >
-          <template #filters>
-            <select v-model="filterStatus" class="h-[34px] px-2.5 border border-border rounded-md bg-card text-[13px] text-foreground outline-none focus:border-primary">
-              <option value="">Tous les statuts</option>
-              <option value="draft">Brouillon</option>
-              <option value="pending">En attente</option>
-              <option value="approved">Approuvée</option>
-              <option value="rejected">Refusée</option>
-              <option value="returned">Retournée</option>
-              <option value="cancelled">Annulée</option>
-            </select>
-          </template>
-
-          <template #cell-code="{ row }">
-            <span class="font-mono text-xs font-semibold text-primary">{{ row.code }}</span>
-          </template>
-
-          <template #cell-employeeName="{ row }" v-if="isRh">
-            <div class="flex items-center gap-2">
-              <UserAvatar :name="row.employeeName" size="sm" />
-              <span>{{ row.employeeName }}</span>
-            </div>
-          </template>
-
-          <template #cell-dates="{ row }">
-            <div class="flex items-center gap-1 text-xs">
-              <span>{{ shortDate(row.departureDate) }}</span>
-              <span class="text-muted-foreground">→</span>
-              <span>{{ shortDate(row.returnDate) }}</span>
-            </div>
-          </template>
-
-          <template #cell-numberOfDays="{ row }">
-            <span class="bg-info-bg text-info text-[11px] font-semibold px-2 py-0.5 rounded-full">{{ row.numberOfDays }}j</span>
-          </template>
-
-          <template #cell-totalMission="{ row }">
-            <span class="text-xs font-semibold text-foreground whitespace-nowrap">{{ fmtNum(row.totalMission) }} MGA</span>
-          </template>
-
-          <template #cell-status="{ row }">
-            <StatusPill :status="row.status" />
-          </template>
-
-          <template #cell-actions="{ row }">
-            <div class="flex gap-1 flex-wrap">
-              <button :class="actView" @click="openDetail(row.id)">
-                <Eye class="w-3.5 h-3.5" /> Voir
-              </button>
-              <template v-if="isRh && row.status === 'pending'">
-                <button :class="L.actApprove" @click="approve(row.id)">
-                  <Check class="w-3.5 h-3.5" /> Approuver
-                </button>
-                <button :class="L.actReject" @click="openRejectModal(row.id)">
-                  <X class="w-3.5 h-3.5" /> Refuser
-                </button>
-              </template>
-              <template v-if="!isRh">
-                <button v-if="row.status === 'draft'" :class="L.actBtn" class="bg-info-bg text-primary" @click="submitMission(row.id)">
-                  <Send class="w-3.5 h-3.5" /> Soumettre
-                </button>
-                <button v-if="row.status === 'draft' || row.status === 'returned'" :class="L.actReject" @click="cancelMission(row.id)">
-                  <Trash2 class="w-3.5 h-3.5" />
-                </button>
-              </template>
-            </div>
-          </template>
-        </DataTable>
-
-      </main>
-    </div>
-  </div>
-
-  <!-- ── Modal Nouvelle mission ── -->
-  <MissionFormModal
-    v-model="formOpen"
-    :mode="isRh ? 'for-employee' : 'self'"
-    @submitted="formOpen = false"
-    @drafted="formOpen = false"
-  />
-
-  <!-- ── Modal Détail ── -->
-  <MissionDetailModal
-    v-model="detailOpen"
-    :mission-id="selectedId"
-    :show-actions="isRh"
-    @approve="approve"
-    @reject="openRejectModal"
-    @return="openReturnModal"
-    @submit="submitMission"
-  />
-
-  <!-- ── Modal Refus ── -->
-  <ModalShell :open="rejectModal.open" title="Refuser la mission" max-width="max-w-[440px]" @close="rejectModal.open = false">
-    <div :class="cls.field">
-      <span :class="cls.fieldLabel">Motif de refus *</span>
-      <textarea v-model="rejectModal.reason" :class="cls.fieldTextarea" rows="4" placeholder="Indiquez le motif du refus..."></textarea>
-      <span v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</span>
-    </div>
-    <template #footer>
-      <button :class="cls.btnOutline" @click="rejectModal.open = false">Annuler</button>
-      <button :class="cls.btnDestructive" @click="confirmReject"><X class="w-4 h-4" /> Confirmer le refus</button>
+        <div><StatusPill :status="item.status" /></div>
+        <div class="grid grid-cols-2 gap-2 text-[12px]">
+          <div><div class="text-muted-foreground text-[11px]">Destination</div>{{ item.destination }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Durée</div>{{ item.numberOfDays }}j</div>
+          <div><div class="text-muted-foreground text-[11px]">Départ</div>{{ shortDate(item.departureDate) }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Retour</div>{{ shortDate(item.returnDate) }}</div>
+        </div>
+        <div class="text-[12px]">
+          <div class="text-muted-foreground text-[11px]">Total mission</div>
+          <span class="font-semibold text-primary">{{ fmtNum(item.totalMission) }} MGA</span>
+        </div>
+        <div v-if="item.purpose" class="text-[12px]">
+          <div class="text-muted-foreground text-[11px]">Objet</div>{{ item.purpose }}
+        </div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
+        <MissionWorkflowActions :mission="item" />
+      </div>
     </template>
-  </ModalShell>
 
-  <!-- ── Modal Retour ── -->
-  <ModalShell :open="returnModal.open" title="Retourner la mission" max-width="max-w-[440px]" @close="returnModal.open = false">
-    <div :class="cls.field">
-      <span :class="cls.fieldLabel">Commentaire obligatoire *</span>
-      <textarea v-model="returnModal.comment" :class="cls.fieldTextarea" rows="4" placeholder="Expliquez ce qui doit être corrigé..."></textarea>
-      <span v-if="returnModal.error" :class="cls.fieldError">{{ returnModal.error }}</span>
-    </div>
-    <template #footer>
-      <button :class="cls.btnOutline" @click="returnModal.open = false">Annuler</button>
-      <button :class="cls.btnInfo" @click="confirmReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
+    <!-- État vide -->
+    <template #empty>
+      <Plane class="w-8 h-8" />
+      <p class="text-[13px]">Aucune mission trouvée</p>
     </template>
-  </ModalShell>
+
+    <!-- Fiche (double-clic) + création -->
+    <MissionCard v-if="openCardId !== null" :missions="filtered" :mission-id="openCardId" @close="openCardId = null" />
+    <MissionCreate v-if="showCreate" :mode="isRh ? 'for-employee' : 'self'" @close="showCreate = false" />
+  </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
-import { useRoute }         from 'vue-router'
-import { Plus, Eye, Check, X, Send, Trash2, Undo2 } from 'lucide-vue-next'
-import AppTopNav            from '../../components/AppTopNav.vue'
-import AppSidebar           from '../../components/AppSidebar.vue'
-import DataTable            from '../../components/ui/DataTable.vue'
-import UserAvatar           from '../../components/ui/UserAvatar.vue'
-import StatusPill           from '../../components/ui/StatusPill.vue'
-import MissionFormModal     from '../../components/missions/MissionFormModal.vue'
-import MissionDetailModal   from '../../components/missions/MissionDetailModal.vue'
-import ModalShell           from '../../components/ui/ModalShell.vue'
-import * as cls             from '../../lib/formClasses'
-import * as L               from '../../lib/listClasses'
-import { useAuthStore }     from '../../stores/auth'
-import { useMissionStore }  from '../../stores/missions'
-import type { MissionStatus } from '../../types'
+import { ref, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { Plus, Plane } from 'lucide-vue-next'
+import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
+import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
+import MissionCard from '../../components/missions/MissionCard.vue'
+import MissionCreate from '../../components/missions/MissionCreate.vue'
+import MissionWorkflowActions from '../../components/missions/MissionWorkflowActions.vue'
+import * as L from '../../lib/listClasses'
+import { useAuthStore } from '../../stores/auth'
+import { useMissionStore } from '../../stores/missions'
+import type { MissionOrder } from '../../types'
 
-const auth         = useAuthStore()
+const auth = useAuthStore()
 const missionStore = useMissionStore()
-const route        = useRoute()
-
-const actView = L.actBtn + ' bg-background text-muted-foreground border border-border hover:bg-border'
+const route = useRoute()
 
 const isRh = computed(() =>
-  route.path.startsWith('/hr') ||
-  auth.user?.role === 'hr_admin' ||
-  auth.user?.role === 'hr_director'
+  route.path.startsWith('/hr') || auth.user?.role === 'hr_admin' || auth.user?.role === 'hr_director',
 )
 
-const filterStatus = ref<MissionStatus | ''>('')
-const formOpen     = ref(false)
-const detailOpen   = ref(false)
-const selectedId   = ref('')
-
-const baseColumns = [
-  { key: 'code',          label: 'Code',        sortable: true  },
-  { key: 'destination',   label: 'Destination',  sortable: true  },
-  { key: 'dates',         label: 'Dates',        sortable: false },
-  { key: 'numberOfDays',  label: 'Jours',        sortable: false },
-  { key: 'totalMission',  label: 'Total',        sortable: true  },
-  { key: 'status',        label: 'Statut',       sortable: false },
-  { key: 'actions',       label: 'Actions',      sortable: false },
-]
-
-const rhColumns = [
-  { key: 'code',          label: 'Code',        sortable: true  },
-  { key: 'employeeName',  label: 'Employé',      sortable: true  },
-  { key: 'destination',   label: 'Destination',  sortable: true  },
-  { key: 'dates',         label: 'Dates',        sortable: false },
-  { key: 'numberOfDays',  label: 'Jours',        sortable: false },
-  { key: 'totalMission',  label: 'Total',        sortable: true  },
-  { key: 'status',        label: 'Statut',       sortable: false },
-  { key: 'actions',       label: 'Actions',      sortable: false },
-]
-
-const columns = computed(() => isRh.value ? rhColumns : baseColumns)
-
-const displayedRows = computed(() => {
-  let rows = isRh.value
-    ? missionStore.missions
-    : missionStore.missions.filter(m => m.employeeId === auth.user?.id)
-  if (filterStatus.value) rows = rows.filter(m => m.status === filterStatus.value)
-  return rows
-})
+const showCreate = ref(false)
+const openCardId = ref<string | null>(null)
+function openCard(item: MissionOrder) { openCardId.value = item.id }
 
 function shortDate(iso: string): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
+function fmtNum(n: number) { return n.toLocaleString('fr-FR') }
 
-function fmtNum(n: number): string { return n.toLocaleString('fr-FR') }
+/* ── Colonnes (sans colonne Actions) ────────────────────────── */
+const columns = computed<ListColumn[]>(() => {
+  const base: ListColumn[] = [
+    { key: 'code', label: 'Code', sortable: true, hideable: false, width: 130 },
+  ]
+  if (isRh.value) base.push({ key: 'employeeName', label: 'Employé', sortable: true, width: 200 })
+  base.push(
+    { key: 'destination', label: 'Destination', sortable: true, width: 170 },
+    { key: 'dates', label: 'Dates', width: 170 },
+    { key: 'numberOfDays', label: 'Jours', align: 'center', width: 90 },
+    { key: 'totalMission', label: 'Total', sortable: true, align: 'right', width: 150 },
+    { key: 'status', label: 'Statut', width: 130 },
+  )
+  return base
+})
 
-function openCreate() { formOpen.value = true }
-function openDetail(id: string) { selectedId.value = id; detailOpen.value = true }
+/* ── Scope (statut) ─────────────────────────────────────────── */
+const scopeOptions = [
+  { value: '', label: 'Toutes' },
+  { value: 'draft', label: 'Brouillon' },
+  { value: 'pending', label: 'En attente' },
+  { value: 'approved', label: 'Approuvée' },
+  { value: 'rejected', label: 'Refusée' },
+  { value: 'returned', label: 'Retournée' },
+  { value: 'cancelled', label: 'Annulée' },
+]
+const activeScope = ref('')
 
-function approve(id: string) { missionStore.approveMission(id) }
-function submitMission(id: string) { missionStore.submitMission(id) }
-function cancelMission(id: string) { missionStore.cancelMission(id) }
+/* ── État liste ─────────────────────────────────────────────── */
+const searchQuery = ref('')
+const sortKey = ref('')
+const sortDir = ref<'asc' | 'desc'>('asc')
+const page = ref(1)
+const pageSize = ref(10)
 
-// ── Modal Refus ────────────────────────────────────────────────
-const rejectModal = reactive({ open: false, id: '', reason: '', error: '' })
-function openRejectModal(id: string) {
-  Object.assign(rejectModal, { open: true, id, reason: '', error: '' })
-  detailOpen.value = false
+watch([activeScope, searchQuery, pageSize], () => { page.value = 1 })
+
+const sortFieldMap: Record<string, keyof MissionOrder> = {
+  code: 'code', employeeName: 'employeeName', destination: 'destination', totalMission: 'totalMission',
 }
-function confirmReject() {
-  if (!rejectModal.reason.trim()) { rejectModal.error = 'Le motif est obligatoire'; return }
-  missionStore.rejectMission(rejectModal.id, rejectModal.reason.trim())
-  rejectModal.open = false
-}
 
-// ── Modal Retour ───────────────────────────────────────────────
-const returnModal = reactive({ open: false, id: '', comment: '', error: '' })
-function openReturnModal(id: string) {
-  Object.assign(returnModal, { open: true, id, comment: '', error: '' })
-  detailOpen.value = false
-}
-function confirmReturn() {
-  if (!returnModal.comment.trim() || returnModal.comment.trim().length < 10) {
-    returnModal.error = 'Le commentaire doit comporter au moins 10 caractères'
-    return
+const filtered = computed(() => {
+  let rows = isRh.value ? missionStore.missions : missionStore.myMissions(auth.user?.id ?? '')
+  if (activeScope.value) rows = rows.filter(m => m.status === activeScope.value)
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    rows = rows.filter(m => m.code.toLowerCase().includes(q) || m.employeeName.toLowerCase().includes(q) || m.destination.toLowerCase().includes(q))
   }
-  missionStore.returnMission(returnModal.id, returnModal.comment.trim())
-  returnModal.open = false
-}
+  if (sortKey.value && sortFieldMap[sortKey.value]) {
+    const f = sortFieldMap[sortKey.value]!
+    rows = [...rows].sort((a, b) => {
+      const va = a[f] ?? '', vb = b[f] ?? ''
+      const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb))
+      return sortDir.value === 'asc' ? cmp : -cmp
+    })
+  }
+  return rows
+})
+
+const totalCount = computed(() => filtered.value.length)
+const pageItems = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
+})
 </script>

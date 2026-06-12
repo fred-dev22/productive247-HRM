@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content" class="flex flex-col gap-4">
+  <div class="px-7 py-6 flex flex-col gap-4">
 
         <!-- En-tête -->
         <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -133,8 +129,6 @@
           <p class="text-[11px] text-muted-foreground px-4 pt-2 pb-3">Cliquez sur un montant pour le modifier. "Au réel" signifie remboursement sur justificatif.</p>
         </div>
 
-      </main>
-    </div>
   </div>
 
   <!-- Modal catégorie -->
@@ -192,8 +186,6 @@
 <script setup lang="ts">
 import { ref, reactive, nextTick } from 'vue'
 import { Upload, TriangleAlert, Check, Plus, Pencil, Trash2, Minus } from 'lucide-vue-next'
-import AppTopNav  from '../../components/AppTopNav.vue'
-import AppSidebar from '../../components/AppSidebar.vue'
 import DataTable  from '../../components/ui/DataTable.vue'
 import ModalShell from '../../components/ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'

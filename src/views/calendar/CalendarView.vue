@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <div class="px-7 py-6">
 
         <!-- ── En-tête ── -->
         <div class="flex items-start justify-between gap-4 mb-5 flex-wrap">
@@ -199,8 +195,6 @@
           </div>
         </div>
 
-      </main>
-    </div>
   </div>
 
   <!-- ── Modal types d'absence ── -->
@@ -261,8 +255,6 @@ import {
   ClockArrowDown, Save, Check, Clock, CalendarDays, ListChecks, Upload, Plus,
   Pencil, Trash2, Lock, Info,
 } from 'lucide-vue-next'
-import AppTopNav  from '../../components/AppTopNav.vue'
-import AppSidebar from '../../components/AppSidebar.vue'
 import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
 import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
 import ModalShell from '../../components/ui/ModalShell.vue'

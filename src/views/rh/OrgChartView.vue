@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <div class="px-7 py-6">
 
         <div :class="L.pageHeader">
           <div>
@@ -55,14 +51,11 @@
         <!-- Onglets : même source unique que EntityListView -->
         <EntityTabsContent />
 
-      </main>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Building, Users, Check, Clock } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav } from '../../components'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }   from '../../stores/auth'
 import { useEntityStore } from '../../stores/entities'

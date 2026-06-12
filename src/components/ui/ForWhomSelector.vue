@@ -15,14 +15,21 @@
       </button>
     </div>
 
+    <!-- Sélection d'un employé = sélection d'une ENTITÉ → TableLookupField -->
     <div v-if="modelValue.mode === 'for-employee'" class="flex flex-col gap-1">
-      <label class="text-xs font-medium text-foreground">Employé concerné *</label>
-      <SearchableDropdown
-        :items="availableEmployees"
-        :model-value="modelValue.employeeId"
-        placeholder="Sélectionner un employé"
-        :show-avatar="true"
-        @update:model-value="updateEmployee($event)"
+      <TableLookupField
+        label="Employé concerné"
+        required
+        :code="selectedCode"
+        :name="selectedName"
+        :columns="lookupColumns"
+        :fetch-fn="fetchEmployees"
+        value-key="id"
+        name-key="label"
+        modal-title="Sélectionner un employé"
+        placeholder="Code employé"
+        :invalid="!!errorEmployee"
+        @select="onSelect"
       />
       <div v-if="errorEmployee" class="text-[11px] text-danger">{{ errorEmployee }}</div>
     </div>
@@ -32,7 +39,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { User, Users } from 'lucide-vue-next'
-import SearchableDropdown from './SearchableDropdown.vue'
+import TableLookupField from './table-lookup/TableLookupField.vue'
+import type { LookupColumn, LookupFetchParams } from './table-lookup/TableLookupField.vue'
 import { useAuthStore } from '../../stores/auth'
 
 export interface BeneficiaryValue {
@@ -44,6 +52,7 @@ interface EmployeeItem {
   id: string
   label: string
   sublabel?: string
+  code?: string
   initials?: string
   avatarColor?: string
 }
@@ -60,19 +69,46 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 
-// ── Classes du design system ─────────────────────────────────
 const modeBtn = 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium cursor-pointer border border-border bg-background text-muted-foreground transition-colors hover:bg-card hover:text-foreground'
 const modeActive = '!bg-primary/10 !text-primary !border-primary'
 
 const canSwitchMode = computed(() =>
-  ['hr_admin', 'hr_director', 'validator'].includes(auth.user?.role ?? '')
+  ['hr_admin', 'hr_director', 'validator'].includes(auth.user?.role ?? ''),
 )
 
 function setMode(mode: 'self' | 'for-employee') {
   emit('update:modelValue', { mode, employeeId: '' })
 }
 
-function updateEmployee(employeeId: string) {
-  emit('update:modelValue', { mode: 'for-employee', employeeId })
+/* ── Lookup employé ─────────────────────────────────────────── */
+const lookupColumns: LookupColumn[] = [
+  { key: 'code', label: 'Code', width: '90px' },
+  { key: 'label', label: 'Nom' },
+  { key: 'sublabel', label: 'Entité' },
+]
+
+const selectedEmp = computed(() => props.availableEmployees.find(e => e.id === props.modelValue.employeeId))
+const selectedCode = computed(() => selectedEmp.value?.code ?? selectedEmp.value?.id ?? '')
+const selectedName = computed(() => selectedEmp.value?.label ?? '')
+
+// fetchFn local sur la liste fournie (les employés sont des entités du store)
+function fetchEmployees(params: LookupFetchParams) {
+  const q = (params.searchQuery ?? '').toLowerCase()
+  let rows = props.availableEmployees
+  if (q) {
+    rows = rows.filter(e =>
+      e.label.toLowerCase().includes(q) ||
+      (e.sublabel ?? '').toLowerCase().includes(q) ||
+      (e.code ?? e.id).toLowerCase().includes(q),
+    )
+  }
+  const total = rows.length
+  const start = (params.page - 1) * params.pageSize
+  return { items: rows.slice(start, start + params.pageSize), total }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onSelect(item: any) {
+  emit('update:modelValue', { mode: 'for-employee', employeeId: String(item.id) })
 }
 </script>

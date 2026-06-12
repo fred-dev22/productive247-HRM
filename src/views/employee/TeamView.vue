@@ -1,85 +1,120 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
-
-        <!-- ── En-tête ── -->
-        <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
-          <div>
-            <h1 class="text-xl font-bold text-foreground">Mon équipe</h1>
-            <p class="text-[13px] text-muted-foreground mt-0.5">{{ entityName }}</p>
-          </div>
-          <span class="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-semibold px-3.5 py-[5px] rounded-full">
-            <Users class="w-3.5 h-3.5" />
-            {{ teamMembers.length }} membre{{ teamMembers.length > 1 ? 's' : '' }}
-          </span>
+  <ListPageLayout
+    title="Mon équipe"
+    :subtitle="entityName"
+    :columns="columns"
+    :items="pageItems"
+    :total="totalCount"
+    :total-text="`${totalCount} membre(s)`"
+    search-placeholder="Rechercher un membre…"
+    v-model:search-query="searchQuery"
+    v-model:sort-key="sortKey"
+    v-model:sort-dir="sortDir"
+    v-model:page="page"
+    v-model:page-size="pageSize"
+    @open-card="openCard"
+  >
+    <template #cell-name="{ item }">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0" :style="{ background: item.avatarBg, color: item.avatarText }">{{ item.initials }}</div>
+        <div class="min-w-0">
+          <div class="font-medium text-[13px] truncate">{{ item.name }}</div>
+          <div class="text-[11px] text-muted-foreground truncate">{{ item.email }}</div>
         </div>
+      </div>
+    </template>
+    <template #cell-jobTitle="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.jobTitle }}</span></template>
+    <template #cell-entityName="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.entityName }}</span></template>
+    <template #cell-contractType="{ item }"><span class="text-muted-foreground text-xs">{{ item.contractType }}</span></template>
+    <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
-        <!-- ── DataTable ── -->
-        <DataTable
-          :columns="columns"
-          :rows="teamMembers"
-          empty-message="Aucun membre d'équipe trouvé"
-          row-key="id"
-        >
-          <template #cell-name="{ row }">
-            <div class="flex items-center gap-2">
-              <UserAvatar :name="row.name" size="sm" />
-              <div class="flex flex-col gap-px">
-                <span class="text-[13px] font-medium text-foreground">{{ row.name }}</span>
-                <span class="text-[11px] text-muted-foreground">{{ row.email }}</span>
-              </div>
-            </div>
-          </template>
+    <template #details-panel="{ item }">
+      <div class="flex flex-col gap-3.5">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0" :style="{ background: item.avatarBg, color: item.avatarText }">{{ item.initials }}</div>
+          <div class="min-w-0"><div class="text-sm font-semibold text-foreground truncate">{{ item.name }}</div><div class="text-[11px] text-muted-foreground">{{ item.jobTitle }}</div></div>
+        </div>
+        <div><StatusPill :status="item.status" /></div>
+        <div class="grid grid-cols-2 gap-2 text-[12px]">
+          <div><div class="text-muted-foreground text-[11px]">Matricule</div>{{ item.code }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Contrat</div>{{ item.contractType }}</div>
+        </div>
+        <div v-if="item.email" class="text-[12px]"><div class="text-muted-foreground text-[11px]">Email</div>{{ item.email }}</div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
+      </div>
+    </template>
 
-          <template #cell-status="{ row }">
-            <StatusPill :status="row.status" />
-          </template>
-        </DataTable>
+    <template #empty>
+      <Users class="w-8 h-8" />
+      <p class="text-[13px]">Aucun membre d'équipe trouvé</p>
+    </template>
 
-      </main>
-    </div>
-  </div>
+    <EmployeeCard v-if="openCardId !== null" :employees="filtered" :employee-id="openCardId" @close="openCardId = null" />
+  </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Users } from 'lucide-vue-next'
-import AppTopNav  from '../../components/AppTopNav.vue'
-import AppSidebar from '../../components/AppSidebar.vue'
-import DataTable  from '../../components/ui/DataTable.vue'
-import UserAvatar from '../../components/ui/UserAvatar.vue'
-import StatusPill from '../../components/ui/StatusPill.vue'
+import { StatusPill, ListPageLayout } from '../../components'
+import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
+import EmployeeCard from '../../components/employees/EmployeeCard.vue'
 import * as L from '../../lib/listClasses'
-import { useAuthStore }     from '../../stores/auth'
+import { useAuthStore } from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
-import { useEntityStore }   from '../../stores/entities'
+import { useEntityStore } from '../../stores/entities'
+import type { Employee } from '../../types'
 
-const auth          = useAuthStore()
+const auth = useAuthStore()
 const employeeStore = useEmployeeStore()
-const entityStore   = useEntityStore()
+const entityStore = useEntityStore()
 
-const columns = [
-  { key: 'name',         label: 'Employé',         sortable: true  },
-  { key: 'jobTitle',     label: 'Poste',            sortable: true  },
-  { key: 'entityName',   label: 'Entité',           sortable: true  },
-  { key: 'contractType', label: 'Contrat',          sortable: false },
-  { key: 'status',       label: 'Statut',           sortable: false },
+const openCardId = ref<string | null>(null)
+function openCard(item: Employee) { openCardId.value = item.id }
+
+const searchQuery = ref('')
+const sortKey = ref('')
+const sortDir = ref<'asc' | 'desc'>('asc')
+const page = ref(1)
+const pageSize = ref(10)
+watch([searchQuery, pageSize], () => { page.value = 1 })
+
+const columns: ListColumn[] = [
+  { key: 'name', label: 'Employé', sortable: true, hideable: false, width: 240 },
+  { key: 'jobTitle', label: 'Poste', sortable: true, width: 180 },
+  { key: 'entityName', label: 'Entité', sortable: true, width: 160 },
+  { key: 'contractType', label: 'Contrat', width: 110 },
+  { key: 'status', label: 'Statut', width: 120 },
 ]
 
 const myEntityId = computed(() => auth.user?.entityId ?? '')
+const entityName = computed(() => myEntityId.value ? (entityStore.getEntityById(myEntityId.value)?.name ?? '') : '')
 
-const entityName = computed(() => {
-  if (!myEntityId.value) return ''
-  return entityStore.getEntityById(myEntityId.value)?.name ?? ''
+const teamMembers = computed(() =>
+  myEntityId.value ? employeeStore.employees.filter(e => e.entityId === myEntityId.value && e.id !== auth.user?.id) : [],
+)
+
+const sortFieldMap: Record<string, keyof Employee> = { name: 'name', jobTitle: 'jobTitle', entityName: 'entityName' }
+
+const filtered = computed(() => {
+  let rows = teamMembers.value
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    rows = rows.filter(e => e.name.toLowerCase().includes(q) || e.jobTitle.toLowerCase().includes(q))
+  }
+  if (sortKey.value && sortFieldMap[sortKey.value]) {
+    const f = sortFieldMap[sortKey.value]!
+    rows = [...rows].sort((a, b) => {
+      const cmp = String(a[f] ?? '').localeCompare(String(b[f] ?? ''))
+      return sortDir.value === 'asc' ? cmp : -cmp
+    })
+  }
+  return rows
 })
 
-const teamMembers = computed(() => {
-  if (!myEntityId.value) return []
-  return employeeStore.employees.filter(
-    e => e.entityId === myEntityId.value && e.id !== auth.user?.id
-  )
+const totalCount = computed(() => filtered.value.length)
+const pageItems = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
 })
 </script>

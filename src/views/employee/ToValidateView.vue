@@ -1,339 +1,133 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
-
-        <!-- ── En-tête ── -->
-        <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
-          <div>
-            <h1 class="text-xl font-bold text-foreground">Demandes à valider</h1>
-            <p class="text-[13px] text-muted-foreground mt-0.5">Demandes en attente de votre validation</p>
-          </div>
-          <span v-if="totalPending > 0" class="bg-warning-bg text-warning text-xs font-semibold px-3 py-1 rounded-full">{{ totalPending }} en attente</span>
-        </div>
-
-        <!-- ── Tabs ── -->
-        <div class="flex gap-1 mb-4 border-b border-border">
-          <button :class="[tabBtn, activeTab === 'absences' && tabActive]" @click="activeTab = 'absences'">
-            <CalendarOff class="w-4 h-4" />
-            Absences
-            <span v-if="pendingAbsences.length > 0" :class="tabBadge">{{ pendingAbsences.length }}</span>
-          </button>
-          <button :class="[tabBtn, activeTab === 'missions' && tabActive]" @click="activeTab = 'missions'">
-            <Plane class="w-4 h-4" />
-            Missions
-            <span v-if="pendingMissions.length > 0" :class="tabBadge">{{ pendingMissions.length }}</span>
-          </button>
-        </div>
-
-        <!-- ── Tab Absences ── -->
-        <template v-if="activeTab === 'absences'">
-          <DataTable
-            :columns="absenceColumns"
-            :rows="displayedAbsences"
-            empty-message="Aucune demande d'absence en attente"
-            row-key="id"
-          >
-            <template #filters>
-              <select v-model="filterType" class="h-[34px] px-2.5 border border-border rounded-md bg-card text-[13px] text-foreground outline-none focus:border-primary">
-                <option value="">Tous les types</option>
-                <option v-for="lt in LEAVE_TYPES" :key="lt" :value="lt">{{ lt }}</option>
-              </select>
-            </template>
-
-            <template #cell-employeeName="{ row }">
-              <div class="flex items-center gap-2">
-                <UserAvatar :name="row.employeeName" size="sm" />
-                <span>{{ row.employeeName }}</span>
-              </div>
-            </template>
-
-            <template #cell-status="{ row }">
-              <StatusPill :status="row.status" />
-            </template>
-
-            <template #cell-actions="{ row }">
-              <div class="flex gap-1 flex-wrap">
-                <button v-if="row.status === 'pending'" :class="L.actApprove" @click="approveAbsence(row.id)">
-                  <Check class="w-3.5 h-3.5" /> Approuver
-                </button>
-                <button v-if="row.status === 'pending'" :class="L.actReturn" @click="openReturnModal(row)">
-                  <Undo2 class="w-3.5 h-3.5" /> Retourner
-                </button>
-                <button v-if="row.status === 'pending'" :class="L.actReject" @click="openRejectModal(row)">
-                  <X class="w-3.5 h-3.5" /> Refuser
-                </button>
-                <button :class="L.actView" @click="toggleAbsenceDetail(row.id)">
-                  {{ expandedAbsence === row.id ? '↑' : 'Voir' }}
-                </button>
-              </div>
-            </template>
-
-            <template #row-after="{ row }">
-              <tr v-if="expandedAbsence === row.id">
-                <td :colspan="absenceColumns.length" class="p-0">
-                  <div class="bg-background border-t border-border p-4 flex flex-col gap-2.5 text-xs">
-                    <div class="flex gap-4 text-[11px] text-muted-foreground flex-wrap">
-                      <span>Début : {{ row.startDate }}</span>
-                      <span>Fin : {{ row.endDate }}</span>
-                      <span>{{ row.workingDays }} jour(s)</span>
-                      <span>Soumis le {{ row.submittedAt }}</span>
-                    </div>
-                    <div v-if="row.reason" class="text-muted-foreground"><span class="font-medium text-[11px]">Motif :</span> {{ row.reason }}</div>
-                    <div v-if="row.returnComment" class="flex items-center gap-1.5 text-warning bg-warning-bg rounded-md px-2.5 py-1.5">
-                      <CornerUpLeft class="w-3.5 h-3.5" />
-                      <span class="font-medium text-[11px]">Retour :</span> {{ row.returnComment }}
-                    </div>
-                    <div v-if="row.validationHistory?.length" class="mt-1">
-                      <div class="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.06em] mb-2.5">Historique</div>
-                      <ValidationTimeline :history="row.validationHistory" />
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            </template>
-          </DataTable>
-        </template>
-
-        <!-- ── Tab Missions ── -->
-        <template v-else>
-          <DataTable
-            :columns="missionColumns"
-            :rows="displayedMissions"
-            empty-message="Aucun ordre de mission en attente"
-            row-key="id"
-          >
-            <template #cell-employeeName="{ row }">
-              <div class="flex items-center gap-2">
-                <UserAvatar :name="row.employeeName" size="sm" />
-                <span>{{ row.employeeName }}</span>
-              </div>
-            </template>
-
-            <template #cell-dates="{ row }">
-              <span class="text-xs whitespace-nowrap">{{ row.departureDate?.slice(0,10) }} → {{ row.returnDate?.slice(0,10) }}</span>
-            </template>
-
-            <template #cell-totalMission="{ row }">
-              <span class="font-semibold">{{ fmt(row.totalMission) }} {{ row.hotelAllowance > 0 ? 'MGA' : '' }}</span>
-            </template>
-
-            <template #cell-status="{ row }">
-              <StatusPill :status="row.status" />
-            </template>
-
-            <template #cell-actions="{ row }">
-              <div class="flex gap-1 flex-wrap">
-                <button v-if="row.status === 'pending'" :class="L.actApprove" @click="approveMission(row.id)">
-                  <Check class="w-3.5 h-3.5" /> Approuver
-                </button>
-                <button v-if="row.status === 'pending'" :class="L.actReturn" @click="openMissionReturnModal(row)">
-                  <Undo2 class="w-3.5 h-3.5" /> Retourner
-                </button>
-                <button v-if="row.status === 'pending'" :class="L.actReject" @click="openMissionRejectModal(row)">
-                  <X class="w-3.5 h-3.5" /> Refuser
-                </button>
-              </div>
-            </template>
-          </DataTable>
-        </template>
-
-      </main>
-    </div>
-  </div>
-
-  <!-- ── Modal Retourner (absence) ── -->
-  <ModalShell :open="returnModal.open" :title="`Retourner la demande de ${returnModal.employeeName}`" max-width="max-w-[440px]" @close="closeReturnModal">
-    <p class="text-xs text-muted-foreground -mt-2">La demande sera renvoyée à l'employé pour corrections.</p>
-    <label :class="cls.field">
-      <span :class="cls.fieldLabel">Commentaire *</span>
-      <textarea v-model="returnModal.comment" :class="cls.fieldTextarea" rows="4" placeholder="Expliquez ce qui doit être corrigé..."></textarea>
-      <span v-if="returnModal.error" :class="cls.fieldError">{{ returnModal.error }}</span>
-    </label>
-    <template #footer>
-      <button :class="cls.btnOutline" @click="closeReturnModal">Annuler</button>
-      <button :class="cls.btnPrimary" @click="confirmReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
+  <ListPageLayout
+    title="Demandes à valider"
+    :subtitle="`${pendingAbsences.length + pendingMissions.length} en attente de validation`"
+    :columns="columns"
+    :items="pageItems"
+    :total="totalCount"
+    :total-text="`${totalCount} élément(s)`"
+    :search-placeholder="scope === 'absences' ? 'Rechercher une demande…' : 'Rechercher une mission…'"
+    scope-label="À valider :"
+    :scope-options="scopeOptions"
+    v-model:scope="scope"
+    v-model:search-query="searchQuery"
+    v-model:page="page"
+    v-model:page-size="pageSize"
+    @open-card="openCard"
+  >
+    <!-- Actions contextuelles -->
+    <template #row-actions="{ item }">
+      <AbsenceWorkflowActions v-if="scope === 'absences'" :leave="item" />
+      <MissionWorkflowActions v-else :mission="item" />
     </template>
-  </ModalShell>
 
-  <!-- ── Modal Refuser (absence) ── -->
-  <ModalShell :open="rejectModal.open" :title="`Refuser la demande de ${rejectModal.employeeName}`" max-width="max-w-[440px]" @close="closeRejectModal">
-    <label :class="cls.field">
-      <span :class="cls.fieldLabel">Motif *</span>
-      <textarea v-model="rejectModal.reason" :class="cls.fieldTextarea" rows="4" placeholder="Indiquez le motif du refus..."></textarea>
-      <span v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</span>
-    </label>
-    <template #footer>
-      <button :class="cls.btnOutline" @click="closeRejectModal">Annuler</button>
-      <button :class="cls.btnDestructive" @click="confirmReject"><X class="w-4 h-4" /> Confirmer le refus</button>
+    <!-- Cellules ABSENCES -->
+    <template #cell-employeeName="{ item }">
+      <div class="flex items-center gap-2"><UserAvatar :name="item.employeeName" size="sm" /><span class="truncate">{{ item.employeeName }}</span></div>
     </template>
-  </ModalShell>
+    <template #cell-type="{ item }"><span class="whitespace-nowrap">{{ item.type }}</span></template>
+    <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ item.startDate }} → {{ item.endDate }}</span></template>
+    <template #cell-workingDays="{ item }"><span class="font-medium">{{ item.workingDays }}j</span></template>
+    <!-- Cellules MISSIONS -->
+    <template #cell-code="{ item }"><span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span></template>
+    <template #cell-destination="{ item }"><span class="truncate">{{ item.destination }}</span></template>
+    <template #cell-missionDates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ shortDate(item.departureDate) }} → {{ shortDate(item.returnDate) }}</span></template>
+    <template #cell-totalMission="{ item }"><span class="font-semibold tabular-nums whitespace-nowrap">{{ fmtNum(item.totalMission) }} MGA</span></template>
+    <!-- Commun -->
+    <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
-  <!-- ── Modal Retourner (mission) ── -->
-  <ModalShell :open="missionReturnModal.open" :title="`Retourner la mission de ${missionReturnModal.employeeName}`" max-width="max-w-[440px]" @close="missionReturnModal.open = false">
-    <label :class="cls.field">
-      <span :class="cls.fieldLabel">Commentaire *</span>
-      <textarea v-model="missionReturnModal.comment" :class="cls.fieldTextarea" rows="4" placeholder="Expliquez les corrections requises..."></textarea>
-      <span v-if="missionReturnModal.error" :class="cls.fieldError">{{ missionReturnModal.error }}</span>
-    </label>
-    <template #footer>
-      <button :class="cls.btnOutline" @click="missionReturnModal.open = false">Annuler</button>
-      <button :class="cls.btnPrimary" @click="confirmMissionReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
+    <template #empty>
+      <ClipboardCheck class="w-8 h-8" />
+      <p class="text-[13px]">{{ scope === 'absences' ? 'Aucune demande d\'absence' : 'Aucun ordre de mission' }}</p>
     </template>
-  </ModalShell>
 
-  <!-- ── Modal Refuser (mission) ── -->
-  <ModalShell :open="missionRejectModal.open" :title="`Refuser la mission de ${missionRejectModal.employeeName}`" max-width="max-w-[440px]" @close="missionRejectModal.open = false">
-    <label :class="cls.field">
-      <span :class="cls.fieldLabel">Motif *</span>
-      <textarea v-model="missionRejectModal.reason" :class="cls.fieldTextarea" rows="4" placeholder="Indiquez le motif du refus..."></textarea>
-      <span v-if="missionRejectModal.error" :class="cls.fieldError">{{ missionRejectModal.error }}</span>
-    </label>
-    <template #footer>
-      <button :class="cls.btnOutline" @click="missionRejectModal.open = false">Annuler</button>
-      <button :class="cls.btnDestructive" @click="confirmMissionReject"><X class="w-4 h-4" /> Confirmer</button>
-    </template>
-  </ModalShell>
+    <AbsenceCard v-if="scope === 'absences' && openAbsenceId !== null" :leaves="(filtered as LeaveRequest[])" :request-id="openAbsenceId" @close="openAbsenceId = null" />
+    <MissionCard v-if="scope === 'missions' && openMissionId !== null" :missions="(filtered as unknown as MissionOrder[])" :mission-id="openMissionId" @close="openMissionId = null" />
+  </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
-import { CalendarOff, Plane, Check, Undo2, X, CornerUpLeft } from 'lucide-vue-next'
-import AppTopNav  from '../../components/AppTopNav.vue'
-import AppSidebar from '../../components/AppSidebar.vue'
-import DataTable          from '../../components/ui/DataTable.vue'
-import UserAvatar         from '../../components/ui/UserAvatar.vue'
-import StatusPill         from '../../components/ui/StatusPill.vue'
-import ValidationTimeline from '../../components/ui/ValidationTimeline.vue'
-import ModalShell from '../../components/ui/ModalShell.vue'
-import * as cls from '../../lib/formClasses'
-import * as L from '../../lib/listClasses'
-import { useAuthStore }    from '../../stores/auth'
+import { ref, computed, watch } from 'vue'
+import { ClipboardCheck } from 'lucide-vue-next'
+import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
+import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
+import AbsenceCard from '../../components/absences/AbsenceCard.vue'
+import AbsenceWorkflowActions from '../../components/absences/AbsenceWorkflowActions.vue'
+import MissionCard from '../../components/missions/MissionCard.vue'
+import MissionWorkflowActions from '../../components/missions/MissionWorkflowActions.vue'
 import { useAbsenceStore } from '../../stores/absences'
 import { useMissionStore } from '../../stores/missions'
-import type { LeaveRequest, LeaveType, MissionOrder } from '../../types'
+import type { LeaveRequest, MissionOrder } from '../../types'
 
-const auth         = useAuthStore()
 const absenceStore = useAbsenceStore()
 const missionStore = useMissionStore()
 
-// ── Classes du design system ─────────────────────────────────
-const tabBtn = 'inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-muted-foreground bg-transparent border-0 border-b-2 border-transparent cursor-pointer -mb-px transition-colors hover:text-foreground hover:bg-background'
-const tabActive = '!text-primary !border-primary font-semibold'
-const tabBadge = 'bg-warning-bg text-warning text-[10px] font-bold px-1.5 py-px rounded-full'
-
-const activeTab = ref<'absences' | 'missions'>('absences')
-
-const LEAVE_TYPES: LeaveType[] = [
-  'Congé annuel', 'Congé maladie', 'Congé maternité',
-  'Récupération', 'Télétravail', 'Assistance parentale', 'Permission exceptionnelle',
+const scope = ref<'absences' | 'missions'>('absences')
+const scopeOptions = [
+  { value: 'absences', label: 'Absences' },
+  { value: 'missions', label: 'Missions' },
 ]
 
-// ── Absences ───────────────────────────────────────────────────
-const filterType     = ref<LeaveType | ''>('')
-const expandedAbsence = ref<number | null>(null)
-function toggleAbsenceDetail(id: number) { expandedAbsence.value = expandedAbsence.value === id ? null : id }
+const openAbsenceId = ref<number | null>(null)
+const openMissionId = ref<string | null>(null)
+function openCard(item: LeaveRequest | MissionOrder) {
+  if (scope.value === 'absences') openAbsenceId.value = (item as LeaveRequest).id
+  else openMissionId.value = (item as MissionOrder).id
+}
 
-const absenceColumns = [
-  { key: 'employeeName', label: 'Employé',    sortable: true },
-  { key: 'type',         label: 'Type',        sortable: true },
-  { key: 'startDate',    label: 'Début',        sortable: true },
-  { key: 'endDate',      label: 'Fin',          sortable: false },
-  { key: 'workingDays',  label: 'Jours',        sortable: false },
-  { key: 'submittedAt',  label: 'Soumis le',    sortable: true },
-  { key: 'status',       label: 'Statut',       sortable: false },
-  { key: 'actions',      label: 'Actions',      sortable: false },
+function shortDate(iso: string): string { return iso ? new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—' }
+function fmtNum(n: number) { return n.toLocaleString('fr-FR') }
+
+const absenceColumns: ListColumn[] = [
+  { key: 'employeeName', label: 'Employé', hideable: false, width: 220 },
+  { key: 'type', label: 'Type', width: 160 },
+  { key: 'dates', label: 'Dates', width: 200 },
+  { key: 'workingDays', label: 'Jours', align: 'center', width: 90 },
+  { key: 'submittedAt', label: 'Soumis le', width: 120 },
+  { key: 'status', label: 'Statut', width: 130 },
 ]
+const missionColumns: ListColumn[] = [
+  { key: 'code', label: 'Code', hideable: false, width: 130 },
+  { key: 'employeeName', label: 'Employé', width: 200 },
+  { key: 'destination', label: 'Destination', width: 170 },
+  { key: 'missionDates', label: 'Dates', width: 170 },
+  { key: 'totalMission', label: 'Total', align: 'right', width: 150 },
+  { key: 'status', label: 'Statut', width: 130 },
+]
+const columns = computed(() => scope.value === 'absences' ? absenceColumns : missionColumns)
 
-const pendingAbsences = computed(() =>
-  absenceStore.allLeaves.filter(l => l.status === 'pending')
+const searchQuery = ref('')
+const page = ref(1)
+const pageSize = ref(10)
+watch([scope, searchQuery, pageSize], () => { page.value = 1 })
+
+const pendingAbsences = computed(() => absenceStore.allLeaves.filter(l => l.status === 'pending'))
+const pendingMissions = computed(() => missionStore.missions.filter(m => m.status === 'pending'))
+
+const displayedAbsences = computed(() =>
+  absenceStore.allLeaves.filter(l => ['pending', 'returned', 'approved', 'rejected'].includes(l.status)),
+)
+const displayedMissions = computed(() =>
+  missionStore.missions.filter(m => ['pending', 'returned', 'approved', 'rejected'].includes(m.status)),
 )
 
-const displayedAbsences = computed(() => {
-  let rows = absenceStore.allLeaves.filter(
-    l => l.status === 'pending' || l.status === 'returned' || l.status === 'approved' || l.status === 'rejected'
-  )
-  if (filterType.value) rows = rows.filter(l => l.type === filterType.value)
+const filtered = computed<(LeaveRequest | MissionOrder)[]>(() => {
+  if (scope.value === 'absences') {
+    let rows = displayedAbsences.value
+    if (searchQuery.value) { const q = searchQuery.value.toLowerCase(); rows = rows.filter(l => l.employeeName.toLowerCase().includes(q) || l.type.toLowerCase().includes(q)) }
+    return rows
+  }
+  let rows = displayedMissions.value
+  if (searchQuery.value) { const q = searchQuery.value.toLowerCase(); rows = rows.filter(m => m.code.toLowerCase().includes(q) || m.employeeName.toLowerCase().includes(q) || m.destination.toLowerCase().includes(q)) }
   return rows
 })
 
-function approveAbsence(id: number) { absenceStore.approveLeave(id) }
-
-// ── Missions ───────────────────────────────────────────────────
-const missionColumns = [
-  { key: 'employeeName',  label: 'Employé',     sortable: true },
-  { key: 'destination',   label: 'Destination',  sortable: true },
-  { key: 'dates',         label: 'Dates',        sortable: false },
-  { key: 'totalMission',  label: 'Total',        sortable: true },
-  { key: 'status',        label: 'Statut',       sortable: false },
-  { key: 'actions',       label: 'Actions',      sortable: false },
-]
-
-const pendingMissions = computed(() =>
-  missionStore.missions.filter(m => m.status === 'pending')
-)
-
-const displayedMissions = computed(() =>
-  missionStore.missions.filter(m =>
-    m.status === 'pending' || m.status === 'returned' || m.status === 'approved' || m.status === 'rejected'
-  )
-)
-
-const totalPending = computed(() => pendingAbsences.value.length + pendingMissions.value.length)
-
-function approveMission(id: string) { missionStore.approveMission(id, 'Approuvé') }
-
-function fmt(n: number) { return n.toLocaleString('fr-FR') }
-
-// ── Modal Retourner (absence) ──────────────────────────────────
-const returnModal = reactive({ open: false, id: 0, employeeName: '', comment: '', error: '' })
-function openReturnModal(row: LeaveRequest) {
-  Object.assign(returnModal, { open: true, id: row.id, employeeName: row.employeeName, comment: '', error: '' })
-}
-function closeReturnModal() { returnModal.open = false }
-function confirmReturn() {
-  if (!returnModal.comment.trim() || returnModal.comment.trim().length < 10) {
-    returnModal.error = 'Le commentaire doit comporter au moins 10 caractères'; return
-  }
-  absenceStore.returnLeave(returnModal.id, returnModal.comment.trim())
-  closeReturnModal()
-}
-
-// ── Modal Refuser (absence) ────────────────────────────────────
-const rejectModal = reactive({ open: false, id: 0, employeeName: '', reason: '', error: '' })
-function openRejectModal(row: LeaveRequest) {
-  Object.assign(rejectModal, { open: true, id: row.id, employeeName: row.employeeName, reason: '', error: '' })
-}
-function closeRejectModal() { rejectModal.open = false }
-function confirmReject() {
-  if (!rejectModal.reason.trim()) { rejectModal.error = 'Le motif est obligatoire'; return }
-  absenceStore.rejectLeave(rejectModal.id, rejectModal.reason.trim())
-  closeRejectModal()
-}
-
-// ── Modal Retourner (mission) ──────────────────────────────────
-const missionReturnModal = reactive({ open: false, id: '', employeeName: '', comment: '', error: '' })
-function openMissionReturnModal(row: MissionOrder) {
-  Object.assign(missionReturnModal, { open: true, id: row.id, employeeName: row.employeeName, comment: '', error: '' })
-}
-function confirmMissionReturn() {
-  if (!missionReturnModal.comment.trim() || missionReturnModal.comment.trim().length < 10) {
-    missionReturnModal.error = 'Le commentaire doit comporter au moins 10 caractères'; return
-  }
-  missionStore.returnMission(missionReturnModal.id, missionReturnModal.comment.trim())
-  missionReturnModal.open = false
-}
-
-// ── Modal Refuser (mission) ────────────────────────────────────
-const missionRejectModal = reactive({ open: false, id: '', employeeName: '', reason: '', error: '' })
-function openMissionRejectModal(row: MissionOrder) {
-  Object.assign(missionRejectModal, { open: true, id: row.id, employeeName: row.employeeName, reason: '', error: '' })
-}
-function confirmMissionReject() {
-  if (!missionRejectModal.reason.trim()) { missionRejectModal.error = 'Le motif est obligatoire'; return }
-  missionStore.rejectMission(missionRejectModal.id, missionRejectModal.reason.trim())
-  missionRejectModal.open = false
-}
+const totalCount = computed(() => filtered.value.length)
+// items typés any[] : la vue mixe légitimement deux types (absences / missions)
+// selon le scope ; les slots #cell-* lisent les champs propres à chaque type.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const pageItems = computed<any[]>(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
+})
 </script>

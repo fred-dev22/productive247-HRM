@@ -1,9 +1,5 @@
 <template>
-  <div class="flex flex-col min-h-screen">
-    <AppTopNav :user="auth.user" />
-    <div class="flex flex-1 overflow-hidden">
-      <AppSidebar />
-      <main class="flex-1 px-7 py-6 bg-background overflow-y-auto max-w-[1400px] mx-auto w-full">
+  <div class="px-7 py-6 max-w-[1400px] mx-auto w-full">
 
         <div class="flex items-center justify-between mb-3.5">
           <div>
@@ -212,8 +208,6 @@
 
         </div>
 
-      </main>
-    </div>
   </div>
 
   <!-- Tooltip calendrier -->
@@ -268,7 +262,6 @@ import {
   FileDown, Plus, Users, Clock, Check, UserX, Network, ChevronRight, ChevronLeft,
   CalendarClock, BarChart3, GripVertical, Calendar, Undo2, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav } from '../components'
 import AbsenceRequestModal from '../components/AbsenceRequestModal.vue'
 import ModalShell from '../components/ui/ModalShell.vue'
 import * as cls from '../lib/formClasses'

@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <div class="px-7 py-6">
 
         <!-- En-tête -->
         <div class="flex items-start justify-between gap-4 mb-5 flex-wrap">
@@ -85,8 +81,6 @@
 
         </DataTable>
 
-      </main>
-    </div>
   </div>
 
   <LeaveTypeFormModal
@@ -99,8 +93,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Upload, Plus, Info, Lock, Check, Minus, Pencil, Trash2 } from 'lucide-vue-next'
-import AppTopNav  from '../../components/AppTopNav.vue'
-import AppSidebar from '../../components/AppSidebar.vue'
 import DataTable  from '../../components/ui/DataTable.vue'
 import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
 import * as L from '../../lib/listClasses'

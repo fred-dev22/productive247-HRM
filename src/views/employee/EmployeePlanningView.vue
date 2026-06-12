@@ -1,10 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main class="flex-1 overflow-y-auto bg-background">
-        <div class="p-6 max-w-[1100px] mx-auto max-md:p-4">
+  <div class="p-6 max-w-[1100px] mx-auto max-md:p-4">
 
           <!-- ── En-tête ── -->
           <div class="flex items-center justify-between gap-4 mb-5 flex-wrap max-md:flex-col max-md:items-start">
@@ -130,17 +125,12 @@
             </div>
           </div>
 
-        </div>
-      </main>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ChevronLeft, ChevronRight, Clock, Coffee, Moon, Briefcase, CalendarOff } from 'lucide-vue-next'
-import AppTopNav  from '../../components/AppTopNav.vue'
-import AppSidebar from '../../components/AppSidebar.vue'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }     from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'

@@ -3,12 +3,14 @@
  * Coquille de page principale du HRM (calquée sur le DashboardLayout du
  * frontdesk P247_FD_LWL_APP).
  *
- * Structure : AppTopNav (topbar sombre + navbar) au-dessus d'une zone
- * `#below-topbar` qui contient la sidebar + le contenu de page. Les cards
- * (CardModalShell / CreateModalShell) se téléportent dans `#below-topbar`
- * et le recouvrent (overlay `absolute inset-0`), en gardant la topbar visible.
+ * Structure : AppTopBar (barre sombre) au-dessus d'une zone `#below-topbar`
+ * qui contient la NavBar + (sidebar + contenu). Les cards (CardModalShell /
+ * CreateModalShell) se téléportent dans `#below-topbar` et le recouvrent
+ * (overlay `absolute inset-0`) — NavBar incluse, comme le frontdesk — en
+ * gardant seulement la barre sombre visible.
  */
-import AppTopNav from '../components/AppTopNav.vue'
+import AppTopBar from '../components/AppTopBar.vue'
+import AppNavBar from '../components/AppNavBar.vue'
 import AppSidebar from '../components/AppSidebar.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -17,12 +19,15 @@ const auth = useAuthStore()
 
 <template>
   <div class="flex flex-col h-screen overflow-hidden">
-    <AppTopNav :user="auth.user" />
-    <div id="below-topbar" class="flex flex-1 min-h-0 relative">
-      <AppSidebar />
-      <main class="flex-1 min-w-0 overflow-y-auto bg-background dashboard-scroll">
-        <slot />
-      </main>
+    <AppTopBar :user="auth.user" />
+    <div id="below-topbar" class="flex flex-col flex-1 min-h-0 relative">
+      <AppNavBar />
+      <div class="flex flex-1 min-h-0">
+        <AppSidebar />
+        <main class="flex-1 min-w-0 overflow-y-auto bg-background dashboard-scroll">
+          <slot />
+        </main>
+      </div>
     </div>
   </div>
 </template>

@@ -1,272 +1,215 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <ListPageLayout
+    :title="t('employee.title')"
+    :subtitle="t('employee.sub_title', { count: store.employees.length })"
+    :columns="columns"
+    :items="pageItems"
+    :total="totalCount"
+    :total-text="`${totalCount} employé(s)`"
+    :search-placeholder="t('topbar.search_placeholder')"
+    :page-size-options="[15, 25, 50]"
+    scope-label="Employés :"
+    :scope-options="scopeOptions"
+    v-model:scope="activeScope"
+    v-model:search-query="searchQuery"
+    v-model:sort-key="sortKey"
+    v-model:sort-dir="sortDir"
+    v-model:page="page"
+    v-model:page-size="pageSize"
+    @reset-filters="resetFilters"
+    @open-card="openCard"
+  >
+    <template #header-actions>
+      <button :class="L.btnPrimary" @click="showCreate = true">
+        <UserPlus class="w-4 h-4" /> {{ t('employee.new') }}
+      </button>
+    </template>
 
-        <!-- ── En-tête ── -->
-        <div :class="L.pageHeader">
-          <div>
-            <div :class="L.pageTitle">{{ t('employee.title') }}</div>
-            <div :class="L.pageSub">{{ t('employee.sub_title', { count: store.employees.length }) }}</div>
-          </div>
-          <button :class="L.btnPrimary" @click="openEmpModal()">
-            <UserPlus class="w-4 h-4" /> {{ t('employee.new') }}
-          </button>
+    <!-- KPIs -->
+    <template #above-table>
+      <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
+        <div :class="kpiItem"><div :class="kpiIcon" class="bg-success-bg"><Users class="w-[18px] h-[18px] text-success" /></div><div><div :class="kpiVal">{{ store.employees.length }}</div><div :class="kpiLbl">{{ t('employee.kpi_total') }}</div></div></div>
+        <div :class="kpiItem"><div :class="kpiIcon" class="bg-success-bg"><UserCheck class="w-[18px] h-[18px] text-success" /></div><div><div :class="kpiVal">{{ store.activeEmployees.length }}</div><div :class="kpiLbl">{{ t('employee.kpi_active') }}</div></div></div>
+        <div :class="kpiItem"><div :class="kpiIcon" class="bg-primary/10"><Clock class="w-[18px] h-[18px] text-primary" /></div><div><div :class="kpiVal">{{ store.trialEmployees.length }}</div><div :class="kpiLbl">{{ t('employee.kpi_trial') }}</div></div></div>
+        <div :class="kpiItem"><div :class="kpiIcon" class="bg-warning-bg"><ShieldCheck class="w-[18px] h-[18px] text-warning" /></div><div><div :class="kpiVal">{{ store.validatorEmployees.length }}</div><div :class="kpiLbl">{{ t('employee.kpi_managers') }}</div></div></div>
+      </div>
+    </template>
+
+    <!-- Filtres -->
+    <template #filters>
+      <div :class="L.fpField">
+        <label :class="L.fpFieldLabel">{{ t('employee.filter_entity') }}</label>
+        <select v-model="fEntity" :class="L.fpSelect">
+          <option value="">{{ t('employee.filter_entity') }}</option>
+          <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} — {{ e.name }}</option>
+        </select>
+      </div>
+      <div :class="L.fpField">
+        <label :class="L.fpFieldLabel">{{ t('employee.filter_role') }}</label>
+        <select v-model="fRole" :class="L.fpSelect">
+          <option value="">{{ t('employee.filter_role') }}</option>
+          <option value="employee">{{ t('employee.role_employee') }}</option>
+          <option value="validator">{{ t('employee.role_validator') }}</option>
+          <option value="hr_admin">{{ t('employee.role_hr_admin') }}</option>
+          <option value="hr_director">{{ t('employee.role_hr_director') }}</option>
+        </select>
+      </div>
+      <div :class="L.fpField">
+        <label :class="L.fpFieldLabel">{{ t('employee.filter_contract') }}</label>
+        <select v-model="fContract" :class="L.fpSelect">
+          <option value="">{{ t('employee.filter_contract') }}</option>
+          <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option>
+        </select>
+      </div>
+      <button class="mt-auto py-[7px] bg-transparent border-0 text-xs text-muted-foreground cursor-pointer text-left hover:text-primary" @click="resetFilters">{{ t('employee.filter_reset') }}</button>
+    </template>
+
+    <!-- Cellules -->
+    <template #cell-employee="{ item }">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0" :style="{ background: item.avatarBg, color: item.avatarText }">{{ item.initials }}</div>
+        <div class="min-w-0">
+          <div class="font-medium text-[13px] truncate">{{ item.name }}</div>
+          <div class="text-[11px] text-muted-foreground truncate">{{ item.jobTitle }}</div>
         </div>
+      </div>
+    </template>
+    <template #cell-code="{ item }"><span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span></template>
+    <template #cell-entityName="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.entityName || '—' }}</span></template>
+    <template #cell-role="{ item }"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="roleBadge(item.role)">{{ roleLabel(item.role) }}</span></template>
+    <template #cell-contractType="{ item }"><span class="text-muted-foreground text-xs">{{ item.contractType }}</span></template>
+    <template #cell-hireDate="{ item }"><span class="text-muted-foreground text-xs">{{ item.hireDate }}</span></template>
+    <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
-        <!-- ── KPI strip ── -->
-        <div class="grid grid-cols-4 gap-2.5 mb-4 max-md:grid-cols-2">
-          <div :class="kpiItem">
-            <div :class="kpiIcon" class="bg-success-bg"><Users class="w-[18px] h-[18px] text-success" /></div>
-            <div>
-              <div :class="kpiVal">{{ store.employees.length }}</div>
-              <div :class="kpiLbl">{{ t('employee.kpi_total') }}</div>
-            </div>
-          </div>
-          <div :class="kpiItem">
-            <div :class="kpiIcon" class="bg-success-bg"><UserCheck class="w-[18px] h-[18px] text-success" /></div>
-            <div>
-              <div :class="kpiVal">{{ store.activeEmployees.length }}</div>
-              <div :class="kpiLbl">{{ t('employee.kpi_active') }}</div>
-            </div>
-          </div>
-          <div :class="kpiItem">
-            <div :class="kpiIcon" class="bg-primary/10"><Clock class="w-[18px] h-[18px] text-primary" /></div>
-            <div>
-              <div :class="kpiVal">{{ store.trialEmployees.length }}</div>
-              <div :class="kpiLbl">{{ t('employee.kpi_trial') }}</div>
-            </div>
-          </div>
-          <div :class="kpiItem">
-            <div :class="kpiIcon" class="bg-warning-bg"><ShieldCheck class="w-[18px] h-[18px] text-warning" /></div>
-            <div>
-              <div :class="kpiVal">{{ store.validatorEmployees.length }}</div>
-              <div :class="kpiLbl">{{ t('employee.kpi_managers') }}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Tableau ── -->
-        <div :class="L.tableCard">
-          <!-- Filtres -->
-          <div class="flex gap-2 items-center px-3.5 py-2.5 border-b border-border flex-wrap">
-            <div :class="L.searchBox">
-              <Search class="w-3.5 h-3.5 text-muted-foreground" />
-              <input v-model="fSearch" :placeholder="t('topbar.search_placeholder')" :class="L.searchInput" />
-            </div>
-            <select v-model="fEntity" :class="filterSel">
-              <option value="">{{ t('employee.filter_entity') }}</option>
-              <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">
-                {{ e.code }} — {{ e.name }}
-              </option>
-            </select>
-            <select v-model="fRole" :class="filterSel">
-              <option value="">{{ t('employee.filter_role') }}</option>
-              <option value="employee">{{ t('employee.role_employee') }}</option>
-              <option value="validator">{{ t('employee.role_validator') }}</option>
-              <option value="hr_admin">{{ t('employee.role_hr_admin') }}</option>
-              <option value="hr_director">{{ t('employee.role_hr_director') }}</option>
-            </select>
-            <select v-model="fContract" :class="filterSel">
-              <option value="">{{ t('employee.filter_contract') }}</option>
-              <option value="CDI">CDI</option>
-              <option value="CDD">CDD</option>
-              <option value="Stage">Stage</option>
-              <option value="Freelance">Freelance</option>
-            </select>
-            <select v-model="fStatus" :class="filterSel">
-              <option value="">{{ t('employee.filter_status') }}</option>
-              <option value="active">{{ t('employee.status_active') }}</option>
-              <option value="trial">{{ t('employee.status_trial') }}</option>
-              <option value="onleave">{{ t('employee.status_onleave') }}</option>
-              <option value="inactive">{{ t('employee.status_inactive') }}</option>
-            </select>
-            <button v-if="hasFilters" :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="resetFilters">
-              <RefreshCw class="w-3.5 h-3.5" /> {{ t('employee.filter_reset') }}
-            </button>
-          </div>
-
-          <!-- Table -->
-          <div class="overflow-x-auto">
-            <table :class="L.table">
-              <thead>
-                <tr>
-                  <th :class="L.th">{{ t('employee.col_code') }}</th>
-                  <th :class="L.th">{{ t('employee.col_employee') }}</th>
-                  <th :class="L.th">{{ t('employee.col_entity') }}</th>
-                  <th :class="L.th">{{ t('employee.col_role') }}</th>
-                  <th :class="L.th">{{ t('employee.col_contract') }}</th>
-                  <th :class="L.th">{{ t('employee.col_hire_date') }}</th>
-                  <th :class="L.th">{{ t('employee.col_status') }}</th>
-                  <th :class="L.th">{{ t('employee.col_actions') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="emp in pageItems" :key="emp.id" :class="L.rowHover">
-                  <td :class="L.td"><span class="text-[11px] font-bold px-[7px] py-0.5 rounded bg-primary/10 text-primary tracking-[0.04em]">{{ emp.code }}</span></td>
-                  <td :class="L.td">
-                    <div class="flex items-center gap-2.5">
-                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0" :style="{ background: emp.avatarBg, color: emp.avatarText }">
-                        {{ emp.initials }}
-                      </div>
-                      <div>
-                        <div class="font-medium text-[13px]">{{ emp.name }}</div>
-                        <div class="text-[11px] text-muted-foreground mt-px">{{ emp.jobTitle }}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td :class="[L.td, 'text-muted-foreground text-xs']">{{ emp.entityName || '—' }}</td>
-                  <td :class="L.td">
-                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="roleBadge(emp.role)">{{ roleLabel(emp.role) }}</span>
-                  </td>
-                  <td :class="[L.td, 'text-muted-foreground text-xs']">{{ emp.contractType }}</td>
-                  <td :class="[L.td, 'text-muted-foreground text-xs']">{{ emp.hireDate }}</td>
-                  <td :class="L.td">
-                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="statusBadge(emp.status)">{{ statusLabel(emp.status) }}</span>
-                  </td>
-                  <td :class="L.td">
-                    <button class="px-2.5 py-1 rounded text-[11px] font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 bg-background text-muted-foreground transition-colors hover:bg-neutral-bg hover:text-foreground" @click="openEmpModal(emp.id)">
-                      <Pencil class="w-3.5 h-3.5" /> {{ t('employee.btn_edit') }}
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="pageItems.length === 0">
-                  <td colspan="8" class="text-center text-muted-foreground p-8 text-[13px]">{{ t('employee.empty') }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Pagination -->
-          <div :class="L.pagination" v-if="totalPages > 1">
-            <span class="flex-1">{{ filtered.length }} employé(s)</span>
-            <div class="flex gap-[3px]">
-              <button :class="L.pagBtn" :disabled="page === 1" @click="page--"><ChevronLeft class="w-3.5 h-3.5" /></button>
-              <button v-for="p in totalPages" :key="p" :class="[L.pagBtn, p === page && L.pagBtnActive]" @click="page = p">{{ p }}</button>
-              <button :class="L.pagBtn" :disabled="page === totalPages" @click="page++"><ChevronRight class="w-3.5 h-3.5" /></button>
-            </div>
+    <!-- Aperçu rapide -->
+    <template #details-panel="{ item }">
+      <div class="flex flex-col gap-3.5">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0" :style="{ background: item.avatarBg, color: item.avatarText }">{{ item.initials }}</div>
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-foreground truncate">{{ item.name }}</div>
+            <div class="text-[11px] text-muted-foreground">{{ item.jobTitle }}</div>
           </div>
         </div>
+        <div><StatusPill :status="item.status" /></div>
+        <div class="grid grid-cols-2 gap-2 text-[12px]">
+          <div><div class="text-muted-foreground text-[11px]">Matricule</div>{{ item.code }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Rôle</div>{{ roleLabel(item.role) }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Entité</div>{{ item.entityName || '—' }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Contrat</div>{{ item.contractType }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Embauche</div>{{ item.hireDate }}</div>
+        </div>
+        <div v-if="item.email" class="text-[12px]"><div class="text-muted-foreground text-[11px]">Email</div>{{ item.email }}</div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
+      </div>
+    </template>
 
-      </main>
-    </div>
-  </div>
+    <template #empty>
+      <Users class="w-8 h-8" />
+      <p class="text-[13px]">{{ t('employee.empty') }}</p>
+    </template>
 
-  <!-- ── Modal employé ── -->
-  <EmployeeFormModal
-    v-model="showEmpModal"
-    :edit-id="editEmpId"
-    @saved="showEmpModal = false"
-  />
+    <EmployeeCard v-if="openCardId !== null" :employees="filtered" :employee-id="openCardId" @close="openCardId = null" />
+    <EmployeeCreate v-if="showCreate" @close="showCreate = false" />
+  </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { UserPlus, Users, UserCheck, Clock, ShieldCheck, Search, RefreshCw, Pencil, ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav } from '../../components'
+import { UserPlus, Users, UserCheck, Clock, ShieldCheck } from 'lucide-vue-next'
+import { StatusPill, ListPageLayout } from '../../components'
+import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
+import EmployeeCard from '../../components/employees/EmployeeCard.vue'
+import EmployeeCreate from '../../components/employees/EmployeeCreate.vue'
 import * as L from '../../lib/listClasses'
-import { useAuthStore }     from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
-import { useEntityStore }   from '../../stores/entities'
-import EmployeeFormModal    from '../../components/employees/EmployeeFormModal.vue'
-import type { UserRole, EmployeeStatus } from '../../types'
+import { useEntityStore } from '../../stores/entities'
+import type { Employee, UserRole, EmployeeStatus } from '../../types'
 
-const { t }       = useI18n()
-const auth        = useAuthStore()
-const store       = useEmployeeStore()
+const { t } = useI18n()
+const store = useEmployeeStore()
 const entityStore = useEntityStore()
 
-// ── Classes du design system ─────────────────────────────────
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
-const filterSel = 'h-[30px] px-2 border border-border rounded-md text-xs text-foreground bg-card outline-none focus:border-primary'
 
+const showCreate = ref(false)
+const openCardId = ref<string | null>(null)
+function openCard(item: Employee) { openCardId.value = item.id }
+
+function roleLabel(r: UserRole): string {
+  const m: Record<string, string> = { employee: t('employee.role_employee'), validator: t('employee.role_validator'), hr_admin: t('employee.role_hr_admin'), hr_director: t('employee.role_hr_director') }
+  return m[r] ?? r
+}
 function roleBadge(role: UserRole): string {
-  const m: Record<string, string> = {
-    employee:    'bg-success-bg text-success',
-    validator:   'bg-success-bg text-success',
-    hr_admin:    'bg-primary/10 text-primary',
-    hr_director: 'bg-warning-bg text-warning',
-  }
+  const m: Record<string, string> = { employee: 'bg-success-bg text-success', validator: 'bg-success-bg text-success', hr_admin: 'bg-primary/10 text-primary', hr_director: 'bg-warning-bg text-warning' }
   return m[role] ?? 'bg-neutral-bg text-neutral'
 }
 
-function statusBadge(s: EmployeeStatus): string {
-  const m: Record<string, string> = {
-    active:   'bg-success-bg text-success',
-    trial:    'bg-primary/10 text-primary',
-    onleave:  'bg-success-bg text-success',
-    inactive: 'bg-background text-muted-foreground border border-border',
-  }
-  return m[s] ?? 'bg-neutral-bg text-neutral'
-}
+const columns = computed<ListColumn[]>(() => [
+  { key: 'code', label: t('employee.col_code'), sortable: true, hideable: false, width: 110 },
+  { key: 'employee', label: t('employee.col_employee'), sortable: true, width: 230 },
+  { key: 'entityName', label: t('employee.col_entity'), sortable: true, width: 160 },
+  { key: 'role', label: t('employee.col_role'), width: 150 },
+  { key: 'contractType', label: t('employee.col_contract'), width: 110 },
+  { key: 'hireDate', label: t('employee.col_hire_date'), sortable: true, width: 130 },
+  { key: 'status', label: t('employee.col_status'), width: 120 },
+])
 
-const showEmpModal = ref(false)
-const editEmpId    = ref<string | undefined>(undefined)
+const scopeOptions = [
+  { value: '', label: 'Tous' },
+  { value: 'active', label: t('employee.status_active') },
+  { value: 'trial', label: t('employee.status_trial') },
+  { value: 'onleave', label: t('employee.status_onleave') },
+  { value: 'inactive', label: t('employee.status_inactive') },
+]
+const activeScope = ref('')
 
-function openEmpModal(id?: string) {
-  editEmpId.value    = id
-  showEmpModal.value = true
-}
-
-const PAGE_SIZE = 15
-const page      = ref(1)
-
-const fSearch   = ref('')
-const fEntity   = ref('')
-const fRole     = ref('')
+const fEntity = ref('')
+const fRole = ref('')
 const fContract = ref('')
-const fStatus   = ref('')
+const searchQuery = ref('')
+const sortKey = ref('')
+const sortDir = ref<'asc' | 'desc'>('asc')
+const page = ref(1)
+const pageSize = ref(15)
 
-const hasFilters = computed(() => fSearch.value || fEntity.value || fRole.value || fContract.value || fStatus.value)
+watch([activeScope, fEntity, fRole, fContract, searchQuery, pageSize], () => { page.value = 1 })
 
 function resetFilters() {
-  fSearch.value = ''; fEntity.value = ''; fRole.value = ''
-  fContract.value = ''; fStatus.value = ''; page.value = 1
+  fEntity.value = ''; fRole.value = ''; fContract.value = ''; searchQuery.value = ''; activeScope.value = ''; page.value = 1
 }
 
-const filtered = computed(() =>
-  store.employees.filter(e => {
-    if (fEntity.value   && e.entityId      !== fEntity.value)   return false
-    if (fRole.value     && e.role          !== fRole.value)     return false
-    if (fContract.value && e.contractType  !== fContract.value) return false
-    if (fStatus.value   && e.status        !== fStatus.value)   return false
-    if (fSearch.value) {
-      const q = fSearch.value.toLowerCase()
-      if (!e.name.toLowerCase().includes(q) && !e.code.toLowerCase().includes(q)) return false
+const sortFieldMap: Record<string, keyof Employee> = { code: 'code', employee: 'name', entityName: 'entityName', hireDate: 'hireDate' }
+
+const filtered = computed(() => {
+  let rows = store.employees.filter(e => {
+    if (activeScope.value && e.status !== (activeScope.value as EmployeeStatus)) return false
+    if (fEntity.value && e.entityId !== fEntity.value) return false
+    if (fRole.value && e.role !== fRole.value) return false
+    if (fContract.value && e.contractType !== fContract.value) return false
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase()
+      if (!e.name.toLowerCase().includes(q) && !e.code.toLowerCase().includes(q) && !e.jobTitle.toLowerCase().includes(q)) return false
     }
     return true
   })
-)
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)))
-const pageItems  = computed(() => {
-  const s = (page.value - 1) * PAGE_SIZE
-  return filtered.value.slice(s, s + PAGE_SIZE)
+  if (sortKey.value && sortFieldMap[sortKey.value]) {
+    const f = sortFieldMap[sortKey.value]!
+    rows = [...rows].sort((a, b) => {
+      const cmp = String(a[f] ?? '').localeCompare(String(b[f] ?? ''))
+      return sortDir.value === 'asc' ? cmp : -cmp
+    })
+  }
+  return rows
 })
 
-function roleLabel(r: UserRole): string {
-  const m: Record<string, string> = {
-    employee:    t('employee.role_employee'),
-    validator:   t('employee.role_validator'),
-    hr_admin:    t('employee.role_hr_admin'),
-    hr_director: t('employee.role_hr_director'),
-  }
-  return m[r] ?? r
-}
-
-function statusLabel(s: EmployeeStatus): string {
-  const m: Record<string, string> = {
-    active:   t('employee.status_active'),
-    trial:    t('employee.status_trial'),
-    onleave:  t('employee.status_onleave'),
-    inactive: t('employee.status_inactive'),
-  }
-  return m[s] ?? s
-}
+const totalCount = computed(() => filtered.value.length)
+const pageItems = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
+})
 </script>

@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <div class="px-7 py-6">
 
         <!-- Entité introuvable -->
         <div v-if="!entity" class="flex flex-col items-center gap-3 py-20 text-muted-foreground">
@@ -198,8 +194,6 @@
           </div>
         </template>
 
-      </main>
-    </div>
   </div>
 </template>
 
@@ -210,7 +204,6 @@ import {
   TriangleAlert, ChevronRight, ArrowLeft, Pencil, Send, Check, X, Ban, Info,
   ArrowUp, ArrowDown, ArrowRight, Users, ShieldCheck, CircleAlert, History, CirclePlus,
 } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav } from '../../components'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }       from '../../stores/auth'
 import { useEntityStore }     from '../../stores/entities'

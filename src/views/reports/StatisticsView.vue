@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <div class="px-7 py-6">
 
         <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
           <div>
@@ -123,15 +119,12 @@
           </div>
         </div>
 
-      </main>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { FileDown, Users, CalendarOff, Plane, Check, Network } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav } from '../../components'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }    from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'

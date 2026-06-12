@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content" class="flex flex-col gap-4">
+  <div class="px-7 py-6 flex flex-col gap-4">
 
         <!-- En-tête -->
         <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -62,8 +58,6 @@
           </table>
         </div>
 
-      </main>
-    </div>
   </div>
 
   <!-- Modal perdiem -->
@@ -99,8 +93,6 @@
 import { ref, reactive } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Plus, TriangleAlert, Pencil, Trash2 } from 'lucide-vue-next'
-import AppTopNav  from '../../components/AppTopNav.vue'
-import AppSidebar from '../../components/AppSidebar.vue'
 import ModalShell from '../../components/ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'

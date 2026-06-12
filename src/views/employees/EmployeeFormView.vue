@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <div class="px-7 py-6">
 
         <div :class="L.pageHeader">
           <div>
@@ -158,8 +154,6 @@
 
           </div>
         </div>
-      </main>
-    </div>
   </div>
 </template>
 
@@ -168,7 +162,6 @@ import { reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ArrowLeft, User, Briefcase, ShieldCheck, Save } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }     from '../../stores/auth'

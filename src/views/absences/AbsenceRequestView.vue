@@ -1,248 +1,160 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <ListPageLayout
+    :title="t('absence.my_title')"
+    :subtitle="auth.user?.name ?? ''"
+    :columns="columns"
+    :items="pageItems"
+    :total="totalCount"
+    :total-text="t('absence.total', { count: totalCount })"
+    :search-placeholder="t('topbar.search_placeholder')"
+    scope-label="Demandes :"
+    :scope-options="scopeOptions"
+    v-model:scope="activeScope"
+    v-model:search-query="searchQuery"
+    v-model:sort-key="sortKey"
+    v-model:sort-dir="sortDir"
+    v-model:page="page"
+    v-model:page-size="pageSize"
+    @open-card="openCard"
+  >
+    <template #header-actions>
+      <button :class="L.btnPrimary" @click="showCreate = true">
+        <Plus class="w-4 h-4" /> {{ t('absence.new') }}
+      </button>
+    </template>
 
-        <!-- ── En-tête ── -->
-        <div :class="L.pageHeader">
-          <div>
-            <div :class="L.pageTitle">{{ t('absence.my_title') }}</div>
-            <div :class="L.pageSub">{{ auth.user?.name }}</div>
-          </div>
-          <button :class="L.btnPrimary" @click="showModal = true">
-            <Plus class="w-4 h-4" /> {{ t('absence.new') }}
-          </button>
+    <!-- Soldes -->
+    <template #above-table>
+      <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
+        <div :class="kpiCard" class="border-t-[3px] border-t-primary"><div :class="kpiLabel">{{ t('balances.annual') }}</div><div :class="kpiValue" class="text-primary">12</div><div :class="kpiSub">{{ t('balances.on', { total: 24 }) }}</div></div>
+        <div :class="kpiCard" class="border-t-[3px] border-t-success"><div :class="kpiLabel">{{ t('balances.recovery') }}</div><div :class="kpiValue" class="text-success">3</div><div :class="kpiSub">{{ t('balances.acquired') }}</div></div>
+        <div :class="kpiCard" class="border-t-[3px] border-t-success"><div :class="kpiLabel">{{ t('balances.sick') }}</div><div :class="kpiValue" class="text-success">8</div><div :class="kpiSub">{{ t('balances.available') }}</div></div>
+        <div :class="kpiCard" class="border-t-[3px]" style="border-top-color:#854F0B"><div :class="kpiLabel">{{ t('balances.remote') }}</div><div :class="kpiValue" style="color:#854F0B">5</div><div :class="kpiSub">{{ t('balances.used') }}</div></div>
+      </div>
+    </template>
+
+    <!-- Actions contextuelles -->
+    <template #row-actions="{ item }">
+      <AbsenceWorkflowActions :leave="item" />
+    </template>
+
+    <!-- Cellules -->
+    <template #cell-type="{ item }"><span class="whitespace-nowrap">{{ typeLabel(item.type) }}</span></template>
+    <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ item.startDate }} → {{ item.endDate }}</span></template>
+    <template #cell-days="{ item }"><span class="font-medium whitespace-nowrap">{{ item.workingDays }}j</span></template>
+    <template #cell-submitted="{ item }"><span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ item.submittedAt }}</span></template>
+    <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
+
+    <!-- Aperçu -->
+    <template #details-panel="{ item }">
+      <div class="flex flex-col gap-3.5">
+        <div class="text-sm font-semibold text-foreground">{{ typeLabel(item.type) }}</div>
+        <div><StatusPill :status="item.status" /></div>
+        <div class="grid grid-cols-2 gap-2 text-[12px]">
+          <div><div class="text-muted-foreground text-[11px]">Début</div>{{ item.startDate }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Fin</div>{{ item.endDate }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Jours ouvrés</div>{{ item.workingDays }}j</div>
+          <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ item.submittedAt }}</div>
         </div>
+        <div v-if="item.reason" class="text-[12px]"><div class="text-muted-foreground text-[11px]">Motif</div>{{ item.reason }}</div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
+        <AbsenceWorkflowActions :leave="item" />
+      </div>
+    </template>
 
-        <!-- ── Soldes rapides ── -->
-        <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
-          <div :class="kpiCard" class="border-t-[3px] border-t-primary">
-            <div :class="kpiLabel">{{ t('balances.annual') }}</div>
-            <div :class="kpiValue" class="text-primary">12</div>
-            <div :class="kpiSub">{{ t('balances.on', { total: 24 }) }}</div>
-          </div>
-          <div :class="kpiCard" class="border-t-[3px] border-t-success">
-            <div :class="kpiLabel">{{ t('balances.recovery') }}</div>
-            <div :class="kpiValue" class="text-success">3</div>
-            <div :class="kpiSub">{{ t('balances.acquired') }}</div>
-          </div>
-          <div :class="kpiCard" class="border-t-[3px] border-t-success">
-            <div :class="kpiLabel">{{ t('balances.sick') }}</div>
-            <div :class="kpiValue" class="text-success">8</div>
-            <div :class="kpiSub">{{ t('balances.available') }}</div>
-          </div>
-          <div :class="kpiCard" class="border-t-[3px]" style="border-top-color:#854F0B">
-            <div :class="kpiLabel">{{ t('balances.remote') }}</div>
-            <div :class="kpiValue" style="color:#854F0B">5</div>
-            <div :class="kpiSub">{{ t('balances.used') }}</div>
-          </div>
-        </div>
+    <template #empty>
+      <CalendarOff class="w-8 h-8" />
+      <p class="text-[13px]">{{ t('absence.my_empty') }}</p>
+    </template>
 
-        <!-- ── DataTable ── -->
-        <DataTable
-          :columns="columns"
-          :rows="pageItems"
-          :empty-message="t('absence.my_empty')"
-          row-key="id"
-        >
-          <!-- Filtres -->
-          <template #filters>
-            <select v-model="filterStatus" :class="filterSelect">
-              <option value="">{{ t('absence.filters.all_statuses') }}</option>
-              <option value="pending">{{ t('absence.status.pending') }}</option>
-              <option value="approved">{{ t('absence.status.approved') }}</option>
-              <option value="rejected">{{ t('absence.status.rejected') }}</option>
-              <option value="cancelled">{{ t('absence.status.cancelled') }}</option>
-              <option value="draft">{{ t('absence.status.draft') }}</option>
-            </select>
-            <select v-model="filterType" :class="filterSelect">
-              <option value="">{{ t('absence.filters.all_types') }}</option>
-              <option v-for="lt in allLeaveTypes" :key="lt" :value="lt">{{ typeLabel(lt) }}</option>
-            </select>
-            <button :class="btnReset" @click="resetFilters">{{ t('absence.actions.reset_filters') }}</button>
-            <span class="text-xs text-muted-foreground whitespace-nowrap ml-auto">{{ t('absence.total', { count: totalCount }) }}</span>
-          </template>
-
-          <!-- Cellules personnalisées -->
-          <template #cell-type="{ row }">
-            <span class="text-muted-foreground whitespace-nowrap">{{ typeLabel(row.type) }}</span>
-          </template>
-          <template #cell-dates="{ row }">
-            <span class="whitespace-nowrap text-[11px]">{{ row.startDate }} → {{ row.endDate }}</span>
-          </template>
-          <template #cell-days="{ row }">
-            <span class="font-medium whitespace-nowrap">{{ row.workingDays }}j</span>
-          </template>
-          <template #cell-submitted="{ row }">
-            <span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ row.submittedAt }}</span>
-          </template>
-          <template #cell-status="{ row }">
-            <StatusPill :status="row.status" />
-          </template>
-          <template #cell-actions="{ row }">
-            <div class="flex gap-1">
-              <button v-if="row.status === 'pending'" :class="L.actBtn" class="bg-warning-bg text-warning" @click.stop="absenceStore.cancelLeave(row.id)">
-                {{ t('absence.actions.cancel') }}
-              </button>
-              <template v-else-if="row.status === 'draft'">
-                <button :class="L.actApprove" @click.stop="absenceStore.submitDraft(row.id)">
-                  {{ t('absence.actions.submit_draft') }}
-                </button>
-                <button :class="L.actReject" @click.stop="absenceStore.deleteLeave(row.id)">
-                  {{ t('absence.actions.delete') }}
-                </button>
-              </template>
-              <button v-else :class="L.actView" @click.stop="toggleDetail(row.id)">
-                {{ expandedId === row.id ? '↑ Fermer' : t('absence.actions.view') }}
-              </button>
-            </div>
-          </template>
-
-          <!-- Ligne détail dépliable -->
-          <template #row-after="{ row }">
-            <tr v-if="expandedId === row.id">
-              <td :colspan="columns.length" class="p-0">
-                <div class="bg-background border-t border-border p-4 flex flex-col gap-2.5 text-xs">
-                  <div class="flex gap-4 text-[11px] text-muted-foreground flex-wrap">
-                    <span>{{ t('absence.fields.start_date') }} : {{ row.startDate }}</span>
-                    <span>{{ t('absence.fields.end_date') }} : {{ row.endDate }}</span>
-                    <span>{{ t('absence.fields.working_days', { count: row.workingDays }) }}</span>
-                  </div>
-                  <div v-if="row.reason" class="text-xs text-muted-foreground">
-                    <span class="font-medium text-[11px]">{{ t('absence.fields.reason') }} :</span> {{ row.reason }}
-                  </div>
-                  <div v-if="row.returnComment" class="flex items-center gap-1.5 text-warning text-xs bg-warning-bg rounded-md px-2.5 py-1.5">
-                    <CornerUpLeft class="w-3.5 h-3.5" />
-                    <span class="font-medium text-[11px]">Commentaire retour :</span> {{ row.returnComment }}
-                  </div>
-                  <div v-if="row.validationHistory?.length" class="mt-1">
-                    <div class="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.06em] mb-2.5">Historique de validation</div>
-                    <ValidationTimeline :history="row.validationHistory" />
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </template>
-
-          <!-- Pagination -->
-          <template #pagination>
-            <div class="flex items-center gap-3 text-xs text-muted-foreground flex-wrap w-full">
-              <span class="flex-1 whitespace-nowrap">{{ t('absence.total', { count: totalCount }) }}</span>
-              <div class="flex items-center gap-1.5 whitespace-nowrap">
-                {{ t('absence.per_page') }}
-                <select v-model.number="pageSize" :class="L.pagSizeSelect">
-                  <option :value="10">10</option>
-                  <option :value="25">25</option>
-                  <option :value="50">50</option>
-                </select>
-              </div>
-              <div class="flex items-center gap-[3px]">
-                <button :class="L.pagBtn" :disabled="page === 1" @click="page--"><ChevronLeft class="w-3.5 h-3.5" /></button>
-                <button v-for="p in totalPages" :key="p" :class="[L.pagBtn, p === page && L.pagBtnActive]" @click="page = p">{{ p }}</button>
-                <button :class="L.pagBtn" :disabled="page === totalPages" @click="page++"><ChevronRight class="w-3.5 h-3.5" /></button>
-              </div>
-            </div>
-          </template>
-        </DataTable>
-
-      </main>
-    </div>
-  </div>
-
-  <AbsenceRequestModal
-    v-model="showModal"
-    @submitted="showToast(t('absence.submitted_toast'))"
-    @drafted="showToast(t('absence.draft_saved'))"
-  />
-
-  <div v-if="toastMsg" class="fixed bottom-6 right-6 bg-success-bg text-success px-[18px] py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,0.12)] z-[2000]">
-    <Check class="w-4 h-4" /> {{ toastMsg }}
-  </div>
+    <AbsenceCard v-if="openCardId !== null" :leaves="filtered" :request-id="openCardId" @close="openCardId = null" />
+    <AbsenceCreate v-if="showCreate" @close="showCreate = false" />
+  </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Plus, CornerUpLeft, ChevronLeft, ChevronRight, Check } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav, AbsenceRequestModal, StatusPill, DataTable } from '../../components'
-import ValidationTimeline from '../../components/ui/ValidationTimeline.vue'
+import { Plus, CalendarOff } from 'lucide-vue-next'
+import { StatusPill, ListPageLayout } from '../../components'
+import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
+import AbsenceCard from '../../components/absences/AbsenceCard.vue'
+import AbsenceCreate from '../../components/absences/AbsenceCreate.vue'
+import AbsenceWorkflowActions from '../../components/absences/AbsenceWorkflowActions.vue'
 import * as L from '../../lib/listClasses'
-import { useAuthStore }    from '../../stores/auth'
+import { useAuthStore } from '../../stores/auth'
 import { useAbsenceStore } from '../../stores/absences'
-import type { LeaveType } from '../../types'
+import type { LeaveRequest } from '../../types'
 
-const auth         = useAuthStore()
+const { t } = useI18n()
+const auth = useAuthStore()
 const absenceStore = useAbsenceStore()
-const { t }        = useI18n()
 
-// ── Classes du design system ─────────────────────────────────
 const kpiCard = 'bg-card border border-border rounded-lg px-3.5 py-3'
 const kpiLabel = 'text-[13px] text-muted-foreground mb-1'
 const kpiValue = 'text-[28px] font-semibold leading-none'
 const kpiSub = 'text-xs text-muted-foreground mt-[3px]'
-const filterSelect = 'h-[30px] px-2 border border-border rounded-md text-xs text-foreground bg-card outline-none focus:border-primary'
-const btnReset = 'h-[30px] px-3 border border-border rounded-md text-xs text-muted-foreground bg-card cursor-pointer transition-colors hover:text-primary hover:border-primary'
 
-const columns = computed(() => [
-  { key: 'type',      label: t('absence.fields.type') },
-  { key: 'dates',     label: t('absence.fields.dates') },
-  { key: 'days',      label: t('absence.fields.days'),      align: 'center' as const },
-  { key: 'submitted', label: t('absence.fields.submitted') },
-  { key: 'status',    label: t('absence.fields.status') },
-  { key: 'actions',   label: t('absence.fields.actions') },
-])
-
-const allLeaveTypes: LeaveType[] = [
-  'Congé annuel', 'Congé maladie', 'Congé maternité',
-  'Récupération', 'Assistance parentale', 'Permission exceptionnelle', 'Télétravail',
-]
+const showCreate = ref(false)
+const openCardId = ref<number | null>(null)
+function openCard(item: LeaveRequest) { openCardId.value = item.id }
 
 const typeI18nKey: Record<string, string> = {
-  'Congé annuel':              'absence.types.annual',
-  'Congé maladie':             'absence.types.sick',
-  'Congé maternité':           'absence.types.maternity',
-  'Récupération':              'absence.types.recovery',
-  'Assistance parentale':      'absence.types.parental',
-  'Permission exceptionnelle': 'absence.types.exceptional',
-  'Télétravail':               'absence.types.remote',
+  'Congé annuel': 'absence.types.annual', 'Congé maladie': 'absence.types.sick',
+  'Congé maternité': 'absence.types.maternity', 'Récupération': 'absence.types.recovery',
+  'Assistance parentale': 'absence.types.parental', 'Permission exceptionnelle': 'absence.types.exceptional',
+  'Télétravail': 'absence.types.remote',
 }
+function typeLabel(type: string): string { const k = typeI18nKey[type]; return k ? t(k) : type }
 
-function typeLabel(type: string): string {
-  const key = typeI18nKey[type]
-  return key ? t(key) : type
-}
+const columns = computed<ListColumn[]>(() => [
+  { key: 'type', label: t('absence.fields.type'), sortable: true, hideable: false, width: 200 },
+  { key: 'dates', label: t('absence.fields.dates'), width: 210 },
+  { key: 'days', label: t('absence.fields.days'), align: 'center', width: 90 },
+  { key: 'submitted', label: t('absence.fields.submitted'), sortable: true, width: 130 },
+  { key: 'status', label: t('absence.fields.status'), width: 130 },
+])
 
-const filterStatus = ref('')
-const filterType   = ref('')
-const page         = ref(1)
-const pageSize     = ref(10)
-const expandedId   = ref<number | null>(null)
+const scopeOptions = computed(() => [
+  { value: '', label: t('absence.all') },
+  { value: 'pending', label: t('absence.status.pending') },
+  { value: 'approved', label: t('absence.status.approved') },
+  { value: 'rejected', label: t('absence.status.rejected') },
+  { value: 'draft', label: t('absence.status.draft') },
+])
+const activeScope = ref('')
 
-function resetFilters() { filterStatus.value = ''; filterType.value = ''; page.value = 1; expandedId.value = null }
-function toggleDetail(id: number) { expandedId.value = expandedId.value === id ? null : id }
+const searchQuery = ref('')
+const sortKey = ref('')
+const sortDir = ref<'asc' | 'desc'>('asc')
+const page = ref(1)
+const pageSize = ref(10)
+watch([activeScope, searchQuery, pageSize], () => { page.value = 1 })
 
-const filtered = computed(() =>
-  absenceStore.myLeaves.filter(l => {
-    if (filterStatus.value && l.status !== filterStatus.value) return false
-    if (filterType.value   && l.type   !== filterType.value)   return false
+const sortFieldMap: Record<string, keyof LeaveRequest> = { type: 'type', submitted: 'submittedAt' }
+
+const filtered = computed(() => {
+  let rows = absenceStore.myLeaves.filter(l => {
+    if (activeScope.value && l.status !== activeScope.value) return false
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase()
+      if (!l.type.toLowerCase().includes(q)) return false
+    }
     return true
   })
-)
+  if (sortKey.value && sortFieldMap[sortKey.value]) {
+    const f = sortFieldMap[sortKey.value]!
+    rows = [...rows].sort((a, b) => {
+      const cmp = String(a[f] ?? '').localeCompare(String(b[f] ?? ''))
+      return sortDir.value === 'asc' ? cmp : -cmp
+    })
+  }
+  return rows
+})
 
 const totalCount = computed(() => filtered.value.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
-const pageItems  = computed(() => {
+const pageItems = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filtered.value.slice(start, start + pageSize.value)
 })
-
-const showModal = ref(false)
-const toastMsg  = ref('')
-
-function showToast(msg: string) {
-  toastMsg.value = msg
-  setTimeout(() => { toastMsg.value = '' }, 3000)
-}
 </script>

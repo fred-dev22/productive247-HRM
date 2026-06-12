@@ -1,9 +1,5 @@
 <template>
-  <div :class="L.shell">
-    <AppTopNav :user="auth.user" />
-    <div :class="L.mainLayout">
-      <AppSidebar />
-      <main :class="L.content">
+  <div class="px-7 py-6">
 
         <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
           <div>
@@ -162,15 +158,13 @@
           </div>
         </div>
 
-      </main>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
 import { FileDown, Save, Camera, PieChart, Zap, CalendarPlus, Plane, Calendar, User, Briefcase, Settings } from 'lucide-vue-next'
-import { AppSidebar, AppTopNav, StatusPill } from '../../components'
+import { StatusPill } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }    from '../../stores/auth'

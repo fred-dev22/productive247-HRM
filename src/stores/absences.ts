@@ -286,6 +286,20 @@ export const useAbsenceStore = defineStore('absences', () => {
     myLeaves.value  = myLeaves.value.filter(l => l.id !== id)
   }
 
+  /** Mise à jour des champs éditables (type / dates / motif) ; recalcule les jours ouvrés. */
+  function updateLeave(id: number, patch: { type?: LeaveType; startDate?: string; endDate?: string; reason?: string }) {
+    const apply = (l: LeaveRequest | undefined) => {
+      if (!l) return
+      if (patch.type      !== undefined) l.type      = patch.type
+      if (patch.startDate !== undefined) l.startDate = patch.startDate
+      if (patch.endDate   !== undefined) l.endDate   = patch.endDate
+      if (patch.reason    !== undefined) l.reason    = patch.reason
+      l.workingDays = calculateWorkingDays(l.startDate, l.endDate)
+    }
+    apply(allLeaves.value.find(l => l.id === id))
+    apply(myLeaves.value.find(l => l.id === id))
+  }
+
   return {
     allLeaves, myLeaves, pendingLeaves, myPendingLeaves,
     employeeBalances,
@@ -293,7 +307,7 @@ export const useAbsenceStore = defineStore('absences', () => {
     submitLeave, saveDraft,
     approveLeave, rejectLeave, returnLeave,
     markRegistered, markDone, markRegularized,
-    cancelLeave, submitDraft, deleteLeave,
+    cancelLeave, submitDraft, deleteLeave, updateLeave,
     calculateWorkingDays,
   }
 })

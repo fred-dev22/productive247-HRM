@@ -6,6 +6,10 @@ export { default as OrgChartTree }         from './OrgChartTree.vue'
 export { default as OrgChartView }         from './OrgChartView.vue'
 // ── Coquilles de page partagées ──
 export { default as ListPageLayout }       from './shared/ListPageLayout.vue'
+export { default as CardModalShell }       from './shared/CardModalShell.vue'
+export { default as CreateModalShell }     from './shared/CreateModalShell.vue'
+export { default as ConfirmDialog }        from './shared/ConfirmDialog.vue'
+export { default as TableLookupField }     from './ui/table-lookup/TableLookupField.vue'
 // ── Primitives du design system (portées du frontdesk P247_FD_LWL_APP) ──
 export { default as Button }               from './ui/button/Button.vue'
 export { default as Card }                 from './ui/card/Card.vue'
