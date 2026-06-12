@@ -13,7 +13,7 @@
           <div
             class="org-node"
             :class="`org-node--${item.type}`"
-            @click.stop="navStore.setPreviousRoute('/hr/entities?tab=orgchart'); router.push({ name: 'hr-entity-detail', params: { id: item.id } })"
+            @click.stop="onNodeClick(item.id)"
           >
             <div class="org-node__code-badge">{{ item.code }}</div>
 
@@ -57,6 +57,7 @@
 </template>
 
 <script setup lang="ts">
+import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { Vue3OrgChart } from 'vue3-org-chart'
 import 'vue3-org-chart/dist/style.css'
@@ -69,6 +70,15 @@ import StatusPill from './ui/StatusPill.vue'
 const store   = useEntityStore()
 const navStore = useNavigationStore()
 const router   = useRouter()
+
+// Quand rendu dans EntityListView, ouvre la fiche en MODAL via le provide ;
+// sinon, navigation vers la page de détail (fallback).
+const navigateToDetail = inject<((id: string) => void) | null>('navigate-to-detail', null)
+function onNodeClick(id: string) {
+  if (navigateToDetail) { navigateToDetail(id); return }
+  navStore.setPreviousRoute('/hr/entities?tab=orgchart')
+  router.push({ name: 'hr-entity-detail', params: { id } })
+}
 </script>
 
 <style scoped>

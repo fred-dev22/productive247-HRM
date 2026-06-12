@@ -9,6 +9,7 @@ import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
 import ValidationTimeline from '../ui/ValidationTimeline.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import ExpenseWorkflowActions from './ExpenseWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import { useExpenseStore } from '../../stores/expenses'
@@ -107,10 +108,8 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
     <template #form>
       <div class="px-6 py-5 max-w-4xl">
         <!-- Général -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-          <h2 class="text-base font-bold text-foreground">Général</h2>
-        </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
+        <FormSection title="Général" :recaps="[current.employeeName, current.title]">
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Employé</label>
             <div class="flex items-center gap-2 h-[38px]">
@@ -122,21 +121,21 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
             <label :class="cls.fieldLabel">Soumis le</label>
             <div :class="readBox">{{ current.submittedAt ?? '—' }}</div>
           </div>
-          <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+          <div :class="cls.field">
             <label :class="cls.fieldLabel">Titre</label>
             <div :class="readBox">{{ current.title }}</div>
           </div>
         </div>
+        </FormSection>
 
         <!-- Lignes -->
-        <div class="flex items-center justify-between border-b-2 border-primary pb-2 mb-4">
-          <h2 class="text-base font-bold text-foreground">Lignes de dépense</h2>
-          <button v-if="isEditMode" class="inline-flex items-center gap-1 px-3 py-[5px] rounded-md bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20" @click="addLine">
-            <Plus class="w-3.5 h-3.5" /> Ajouter
-          </button>
-        </div>
-
-        <table class="w-full border-collapse text-[13px] mb-7">
+        <FormSection :title="`Lignes de dépense (${current.lines.length})`" :recaps="[`${fmt(current.totalAmount)} MGA`]">
+          <div v-if="isEditMode" class="flex justify-end mb-2">
+            <button class="inline-flex items-center gap-1 px-3 py-[5px] rounded-md bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20" @click="addLine">
+              <Plus class="w-3.5 h-3.5" /> Ajouter
+            </button>
+          </div>
+        <table class="w-full border-collapse text-[13px]">
           <thead>
             <tr>
               <th :class="th">Date</th>
@@ -184,20 +183,18 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
             </tr>
           </tfoot>
         </table>
+        </FormSection>
 
         <!-- Motif de refus -->
-        <div v-if="current.rejectionReason" class="mb-7">
+        <div v-if="current.rejectionReason" class="mb-3">
           <label :class="cls.fieldLabel">Motif du refus</label>
           <div class="text-[13px] text-danger bg-danger-bg border border-danger/20 rounded-md px-2.5 py-2 mt-1">{{ current.rejectionReason }}</div>
         </div>
 
         <!-- Historique -->
-        <div v-if="current.validationHistory?.length">
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-4">
-            <h2 class="text-base font-bold text-foreground">Historique de validation</h2>
-          </div>
+        <FormSection v-if="current.validationHistory?.length" title="Historique de validation">
           <ValidationTimeline :history="current.validationHistory" />
-        </div>
+        </FormSection>
       </div>
     </template>
   </CardModalShell>

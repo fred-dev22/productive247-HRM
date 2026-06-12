@@ -9,6 +9,7 @@ import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
 import ValidationTimeline from '../ui/ValidationTimeline.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import AbsenceWorkflowActions from './AbsenceWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import { useAbsenceStore } from '../../stores/absences'
@@ -117,10 +118,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
     <template #form>
       <div class="px-6 py-5 max-w-4xl">
         <!-- Section Général -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-          <h2 class="text-base font-bold text-foreground">Général</h2>
-        </div>
-
+        <FormSection title="Général" :recaps="[current.employeeName, typeLabel(current.type), `${current.workingDays}j`]">
         <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <!-- Employé -->
           <div :class="cls.field">
@@ -167,26 +165,24 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           </div>
 
           <!-- Motif -->
-          <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+          <div :class="cls.field">
             <label :class="cls.fieldLabel">Motif</label>
             <textarea v-if="isEditMode" v-model="form.reason" :class="cls.fieldTextarea" rows="3" placeholder="Motif de la demande…"></textarea>
             <div v-else :class="[readBox, 'min-h-[38px] h-auto py-2']">{{ current.reason || '—' }}</div>
           </div>
 
           <!-- Motif de refus -->
-          <div v-if="current.rejectionReason" :class="cls.field" class="col-span-2 max-sm:col-span-1">
+          <div v-if="current.rejectionReason" :class="cls.field">
             <label :class="cls.fieldLabel">Motif du refus</label>
             <div class="text-[13px] text-danger bg-danger-bg border border-danger/20 rounded-md px-2.5 py-2">{{ current.rejectionReason }}</div>
           </div>
         </div>
+        </FormSection>
 
         <!-- Historique de validation -->
-        <div v-if="current.validationHistory?.length" class="mt-7">
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-4">
-            <h2 class="text-base font-bold text-foreground">Historique de validation</h2>
-          </div>
+        <FormSection v-if="current.validationHistory?.length" title="Historique de validation">
           <ValidationTimeline :history="current.validationHistory" />
-        </div>
+        </FormSection>
       </div>
     </template>
   </CardModalShell>

@@ -7,6 +7,7 @@ import { ref, reactive, computed } from 'vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
@@ -84,10 +85,8 @@ function create() {
       <div class="flex-1 overflow-auto px-6 py-5">
         <div class="max-w-3xl">
           <!-- Identité -->
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-            <h2 class="text-base font-bold text-foreground">Identité</h2>
-          </div>
-          <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
+          <FormSection title="Identité">
+          <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Matricule</label>
               <div class="text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center text-muted-foreground">{{ nextCode }}</div>
@@ -101,7 +100,7 @@ function create() {
               <label :class="cls.fieldLabel">Nom <span class="text-danger">*</span></label>
               <input v-model="form.lastName" :class="cls.fieldInput" placeholder="ex : Diallo" />
             </div>
-            <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+            <div :class="cls.field">
               <label :class="cls.fieldLabel">Poste <span class="text-danger">*</span></label>
               <input v-model="form.jobTitle" :class="cls.fieldInput" placeholder="ex : Assistante RH" />
             </div>
@@ -115,10 +114,10 @@ function create() {
             </div>
           </div>
 
+          </FormSection>
+
           <!-- Affectation -->
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-            <h2 class="text-base font-bold text-foreground">Affectation</h2>
-          </div>
+          <FormSection title="Affectation">
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Entité <span class="text-danger">*</span></label>
@@ -155,6 +154,7 @@ function create() {
               </select>
             </div>
           </div>
+          </FormSection>
         </div>
       </div>
     </template>

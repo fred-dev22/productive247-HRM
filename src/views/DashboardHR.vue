@@ -220,11 +220,11 @@
     </div>
   </Teleport>
 
-  <!-- Modale de création (AbsenceRequestModal réutilisable) -->
-  <AbsenceRequestModal
-    v-model="absenceModalOpen"
-    @submitted="onAbsenceSubmitted"
-    @drafted="onAbsenceSubmitted"
+  <!-- Fiche de création -->
+  <AbsenceCreate
+    v-if="absenceModalOpen"
+    @close="absenceModalOpen = false"
+    @created="onAbsenceSubmitted"
   />
 
   <!-- Modale de retour -->
@@ -262,7 +262,7 @@ import {
   FileDown, Plus, Users, Clock, Check, UserX, Network, ChevronRight, ChevronLeft,
   CalendarClock, BarChart3, GripVertical, Calendar, Undo2, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-vue-next'
-import AbsenceRequestModal from '../components/AbsenceRequestModal.vue'
+import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
 import ModalShell from '../components/ui/ModalShell.vue'
 import * as cls from '../lib/formClasses'
 import { useAuthStore } from '../stores/auth'

@@ -8,6 +8,7 @@ import { Plus, Trash2 } from 'lucide-vue-next'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useAuthStore } from '../../stores/auth'
 import { useExpenseStore } from '../../stores/expenses'
@@ -89,18 +90,17 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
       <div class="flex-1 overflow-auto px-6 py-5">
         <div class="max-w-3xl">
           <!-- Bénéficiaire -->
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-            <h2 class="text-base font-bold text-foreground">Général</h2>
-          </div>
+          <FormSection title="Général">
           <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" />
-          <div :class="cls.field" class="mt-4 mb-7">
+          <div :class="cls.field" class="mt-4">
             <label :class="cls.fieldLabel">Titre <span class="text-danger">*</span></label>
             <input v-model="form.title" :class="cls.fieldInput" placeholder="ex : Mission Antananarivo – Juin 2026" />
           </div>
+          </FormSection>
 
           <!-- Lignes -->
-          <div class="flex items-center justify-between border-b-2 border-primary pb-2 mb-4">
-            <h2 class="text-base font-bold text-foreground">Lignes de dépense</h2>
+          <FormSection title="Lignes de dépense">
+          <div class="flex justify-end mb-2">
             <button class="inline-flex items-center gap-1 px-3 py-[5px] rounded-md bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20" @click="addLine">
               <Plus class="w-3.5 h-3.5" /> Ajouter
             </button>
@@ -135,6 +135,7 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
               </tr>
             </tfoot>
           </table>
+          </FormSection>
 
           <div class="mt-6">
             <button :class="cls.btnOutline" @click="build(false)">Enregistrer comme brouillon</button>

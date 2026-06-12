@@ -7,6 +7,7 @@ import { ref, reactive, computed } from 'vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useEntityStore } from '../../stores/entities'
 import type { EntityType } from '../../types'
@@ -71,9 +72,9 @@ function saveDraft() {
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
         <div class="max-w-3xl">
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-5"><h2 class="text-base font-bold text-foreground">Informations générales</h2></div>
-          <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
-            <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+          <FormSection title="Informations générales">
+          <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
+            <div :class="cls.field">
               <label :class="cls.fieldLabel">Intitulé <span class="text-danger">*</span></label>
               <input v-model="form.name" :class="cls.fieldInput" placeholder="ex : Direction des Ressources Humaines" />
             </div>
@@ -93,13 +94,15 @@ function saveDraft() {
               <label :class="cls.fieldLabel">Identifiant légal</label>
               <input v-model="form.legalIdentifier" :class="cls.fieldInput" placeholder="ex : GPL-001" />
             </div>
-            <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+            <div :class="cls.field">
               <label :class="cls.fieldLabel">Adresse</label>
               <textarea v-model="form.address" :class="cls.fieldTextarea" rows="2"></textarea>
             </div>
           </div>
 
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-5"><h2 class="text-base font-bold text-foreground">Contact &amp; Responsable</h2></div>
+          </FormSection>
+
+          <FormSection title="Contact & Responsable">
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Responsable</label>
@@ -114,6 +117,7 @@ function saveDraft() {
               <input type="email" v-model="form.email" :class="cls.fieldInput" placeholder="service@galana.com" />
             </div>
           </div>
+          </FormSection>
 
           <div class="mt-6">
             <button :class="cls.btnOutline" @click="saveDraft">Enregistrer en brouillon</button>

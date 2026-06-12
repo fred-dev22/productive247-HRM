@@ -5,16 +5,18 @@
  */
 import { ref, computed } from 'vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useAbsenceStore } from '../../stores/absences'
 import type { LeaveType } from '../../types'
 
+const props = withDefaults(defineProps<{ initialType?: LeaveType }>(), { initialType: 'Congé annuel' })
 const emit = defineEmits<{ close: []; created: [] }>()
 const absenceStore = useAbsenceStore()
 
 const TYPE_OPTIONS: LeaveType[] = ['Congé annuel', 'Congé maladie', 'Récupération', 'Télétravail', 'Congé maternité']
 
-const form = ref({ type: 'Congé annuel' as LeaveType, startDate: '', endDate: '', reason: '' })
+const form = ref({ type: props.initialType, startDate: '', endDate: '', reason: '' })
 const error = ref('')
 
 const workingDays = computed(() =>
@@ -67,10 +69,7 @@ function saveDraft() {
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
         <div class="max-w-3xl">
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-            <h2 class="text-base font-bold text-foreground">Détails de la demande</h2>
-          </div>
-
+          <FormSection title="Détails de la demande">
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Type d'absence <span class="text-danger">*</span></label>
@@ -92,11 +91,12 @@ function saveDraft() {
               <label :class="cls.fieldLabel">Date de fin <span class="text-danger">*</span></label>
               <input type="date" v-model="form.endDate" :min="form.startDate" :class="cls.fieldInput" />
             </div>
-            <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+            <div :class="cls.field">
               <label :class="cls.fieldLabel">Motif</label>
               <textarea v-model="form.reason" :class="cls.fieldTextarea" rows="3" placeholder="Motif de la demande…"></textarea>
             </div>
           </div>
+          </FormSection>
 
           <div class="mt-6">
             <button :class="cls.btnOutline" @click="saveDraft">Enregistrer comme brouillon</button>

@@ -10,6 +10,7 @@ import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
 import ValidationTimeline from '../ui/ValidationTimeline.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import MissionWorkflowActions from './MissionWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import { useMissionStore } from '../../stores/missions'
@@ -125,10 +126,8 @@ const td = 'px-2.5 py-2 border-b border-border'
     <template #form>
       <div class="px-6 py-5 max-w-4xl">
         <!-- Section Employé -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-          <h2 class="text-base font-bold text-foreground">Employé</h2>
-        </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
+        <FormSection title="Employé" :recaps="[current.employeeName, CAT_LABELS[current.employeeCategory]]">
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Nom</label>
             <div class="flex items-center gap-2 h-[38px]">
@@ -141,12 +140,11 @@ const td = 'px-2.5 py-2 border-b border-border'
             <div :class="readBox">{{ CAT_LABELS[current.employeeCategory] }}</div>
           </div>
         </div>
+        </FormSection>
 
         <!-- Section Mission -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-          <h2 class="text-base font-bold text-foreground">Mission</h2>
-        </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
+        <FormSection title="Mission" :recaps="[current.destination, `${current.numberOfDays}j`]">
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Destination</label>
             <input v-if="isEditMode" v-model="form.destination" :class="cls.fieldInput" />
@@ -156,7 +154,7 @@ const td = 'px-2.5 py-2 border-b border-border'
             <label :class="cls.fieldLabel">Durée</label>
             <div :class="readBox">{{ current.numberOfDays }} jour(s)</div>
           </div>
-          <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+          <div :class="cls.field">
             <label :class="cls.fieldLabel">Objet / Motif</label>
             <textarea v-if="isEditMode" v-model="form.purpose" :class="cls.fieldTextarea" rows="2"></textarea>
             <div v-else :class="[readBox, 'h-auto min-h-[38px] py-2']">{{ current.purpose }}</div>
@@ -185,18 +183,17 @@ const td = 'px-2.5 py-2 border-b border-border'
             </select>
             <div v-else :class="readBox">{{ TRANSPORT_LABELS[current.transportModeReturn] }}</div>
           </div>
-          <div v-if="current.description || isEditMode" :class="cls.field" class="col-span-2 max-sm:col-span-1">
+          <div v-if="current.description || isEditMode" :class="cls.field">
             <label :class="cls.fieldLabel">Description</label>
             <textarea v-if="isEditMode" v-model="form.description" :class="cls.fieldTextarea" rows="2"></textarea>
             <div v-else :class="[readBox, 'h-auto min-h-[38px] py-2']">{{ current.description }}</div>
           </div>
         </div>
+        </FormSection>
 
         <!-- Section Indemnités -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-4">
-          <h2 class="text-base font-bold text-foreground">Indemnités</h2>
-        </div>
-        <table class="w-full border-collapse text-[13px] mb-7">
+        <FormSection title="Indemnités" :recaps="[`${fmtNum(current.totalMission)} MGA`]">
+        <table class="w-full border-collapse text-[13px]">
           <thead>
             <tr>
               <th :class="th">Nature</th>
@@ -236,14 +233,12 @@ const td = 'px-2.5 py-2 border-b border-border'
             </tr>
           </tfoot>
         </table>
+        </FormSection>
 
         <!-- Historique de validation -->
-        <div v-if="current.validationHistory?.length">
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-4">
-            <h2 class="text-base font-bold text-foreground">Historique de validation</h2>
-          </div>
+        <FormSection v-if="current.validationHistory?.length" title="Historique de validation">
           <ValidationTimeline :history="current.validationHistory" />
-        </div>
+        </FormSection>
       </div>
     </template>
   </CardModalShell>

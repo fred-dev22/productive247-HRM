@@ -291,7 +291,7 @@ const sep = 'w-px h-5 bg-border shrink-0'
               <button type="button" class="bg-transparent border-0 cursor-pointer text-[13px] font-semibold text-primary inline-flex items-center gap-[3px] p-0" :aria-expanded="showScope" @click="showScope = !showScope">
                 {{ currentScopeLabel }} <ChevronDown class="w-3.5 h-3.5" />
               </button>
-              <div v-show="showScope" class="absolute left-0 top-[calc(100%+4px)] z-[200] min-w-[180px] bg-card border border-border rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] py-1" role="listbox">
+              <div v-show="showScope" class="absolute left-0 top-[calc(100%+4px)] z-[200] min-w-[180px] w-max bg-card border border-border rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] py-1 flex flex-col" role="listbox">
                 <button
                   v-for="opt in scopeOptions" :key="opt.value" type="button" role="option" :aria-selected="scope === opt.value"
                   class="w-full text-left px-3 py-2 text-[13px] transition-colors hover:bg-background"

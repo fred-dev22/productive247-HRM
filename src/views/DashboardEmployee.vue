@@ -92,11 +92,11 @@
   </div>
 
   <!-- Modale nouvelle demande -->
-  <AbsenceRequestModal
-    v-model="showModal"
-    :initial-type="modalInitialType"
-    @submitted="showToast(t('absence.submitted_toast'))"
-    @drafted="showToast(t('absence.draft_saved'))"
+  <AbsenceCreate
+    v-if="showModal"
+    :initial-type="modalInitialType || undefined"
+    @close="showModal = false"
+    @created="showToast(t('absence.submitted_toast'))"
   />
 
   <!-- Toast -->
@@ -110,7 +110,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Plus, List, Building, Clock, Plane, Calendar, Check } from 'lucide-vue-next'
-import { AbsenceRequestModal } from '../components'
+import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
 import { useAuthStore }    from '../stores/auth'
 import { useAbsenceStore } from '../stores/absences'
 import type { LeaveStatus, LeaveType } from '../types'

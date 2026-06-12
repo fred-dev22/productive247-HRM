@@ -10,6 +10,7 @@ import StatusPill from '../ui/StatusPill.vue'
 import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import EntityWorkflowActions from './EntityWorkflowActions.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useEntityStore } from '../../stores/entities'
 import type { Entity, EntityType } from '../../types'
@@ -108,9 +109,9 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
     <template #form>
       <div class="px-6 py-5 max-w-4xl">
         <!-- Informations -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-5"><h2 class="text-base font-bold text-foreground">Informations générales</h2></div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
-          <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+        <FormSection title="Informations générales" :recaps="[current.code, current.name, TYPE_LABELS[current.type]]">
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
+          <div :class="cls.field">
             <label :class="cls.fieldLabel">Intitulé</label>
             <input v-if="isEditMode" v-model="form.name" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ current.name }}</div>
@@ -134,16 +135,18 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <input v-if="isEditMode" v-model="form.legalIdentifier" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ current.legalIdentifier || '—' }}</div>
           </div>
-          <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+          <div :class="cls.field">
             <label :class="cls.fieldLabel">Adresse</label>
             <textarea v-if="isEditMode" v-model="form.address" :class="cls.fieldTextarea" rows="2"></textarea>
             <div v-else :class="[readBox, 'h-auto min-h-[38px] py-2']">{{ current.address || '—' }}</div>
           </div>
         </div>
 
+        </FormSection>
+
         <!-- Contact & Responsable -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-5"><h2 class="text-base font-bold text-foreground">Contact &amp; Responsable</h2></div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
+        <FormSection title="Contact & Responsable" :recaps="[current.responsibleName, current.email]">
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Responsable</label>
             <input v-if="isEditMode" v-model="form.responsibleName" :class="cls.fieldInput" />
@@ -164,21 +167,22 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <div v-else :class="readBox">{{ current.email || '—' }}</div>
           </div>
         </div>
+        </FormSection>
 
         <!-- Pools de validation -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-4"><h2 class="text-base font-bold text-foreground">Pools de validation</h2></div>
-        <div v-if="sortedPools.length" class="flex flex-col gap-2.5 mb-7">
+        <FormSection title="Pools de validation">
+        <div v-if="sortedPools.length" class="flex flex-col gap-2.5">
           <div v-for="pool in sortedPools" :key="pool.level" class="flex items-center gap-2.5 px-2.5 py-2 bg-background rounded-md">
             <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" :style="{ background: pool.validatorColor }">{{ pool.validatorInitials }}</div>
             <div class="flex-1"><div class="text-[13px] font-medium">{{ pool.validatorName }}</div><div class="text-[11px] text-muted-foreground">Validateur N+{{ pool.level }}</div></div>
             <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">N+{{ pool.level }}</span>
           </div>
         </div>
-        <div v-else class="text-xs text-muted-foreground italic mb-7">Aucun validateur configuré</div>
+        <div v-else class="text-xs text-muted-foreground italic">Aucun validateur configuré</div>
+        </FormSection>
 
         <!-- Sous-entités -->
-        <div v-if="children.length" class="mb-2">
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-4"><h2 class="text-base font-bold text-foreground">Sous-entités ({{ children.length }})</h2></div>
+        <FormSection v-if="children.length" :title="`Sous-entités (${children.length})`">
           <div class="flex flex-col gap-1.5">
             <div v-for="child in children" :key="child.id" class="flex items-center gap-2 px-2.5 py-2 bg-background rounded-md text-[13px]">
               <span class="text-[11px] font-medium px-2 py-0.5 rounded-full" :class="TYPE_BADGE[child.type]">{{ TYPE_LABELS[child.type] }}</span>
@@ -186,7 +190,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
               <span>{{ child.name }}</span>
             </div>
           </div>
-        </div>
+        </FormSection>
       </div>
     </template>
   </CardModalShell>

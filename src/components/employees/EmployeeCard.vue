@@ -9,6 +9,7 @@ import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
 import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
@@ -115,10 +116,8 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
     <template #form>
       <div class="px-6 py-5 max-w-4xl">
         <!-- Identité -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-          <h2 class="text-base font-bold text-foreground">Identité</h2>
-        </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
+        <FormSection title="Identité" :recaps="[current.name, current.jobTitle]">
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Prénom</label>
             <input v-if="isEditMode" v-model="form.firstName" :class="cls.fieldInput" />
@@ -129,7 +128,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <input v-if="isEditMode" v-model="form.lastName" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ current.lastName }}</div>
           </div>
-          <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+          <div :class="cls.field">
             <label :class="cls.fieldLabel">Poste</label>
             <input v-if="isEditMode" v-model="form.jobTitle" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ current.jobTitle }}</div>
@@ -145,12 +144,11 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <div v-else :class="readBox">{{ current.phone || '—' }}</div>
           </div>
         </div>
+        </FormSection>
 
         <!-- Affectation -->
-        <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-          <h2 class="text-base font-bold text-foreground">Affectation</h2>
-        </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mb-7">
+        <FormSection title="Affectation" :recaps="[current.entityName, ROLE_LABELS[current.role]]">
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Entité</label>
             <TableLookupField
@@ -190,6 +188,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <div v-else :class="readBox"><StatusPill :status="current.status" /></div>
           </div>
         </div>
+        </FormSection>
       </div>
     </template>
   </CardModalShell>

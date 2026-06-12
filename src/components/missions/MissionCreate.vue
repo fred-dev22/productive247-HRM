@@ -9,6 +9,7 @@ import UserAvatar from '../ui/UserAvatar.vue'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
+import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useMissionStore } from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
@@ -132,9 +133,7 @@ function saveDraft() {
         <div class="max-w-3xl">
 
           <!-- Bénéficiaire -->
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-            <h2 class="text-base font-bold text-foreground">Bénéficiaire</h2>
-          </div>
+          <FormSection title="Bénéficiaire">
           <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" />
           <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 mb-7 px-3.5 py-2.5 bg-background border border-border rounded-lg">
             <UserAvatar :name="selectedEmployee.name" size="sm" />
@@ -143,17 +142,16 @@ function saveDraft() {
               <div class="text-[11px] text-muted-foreground">Catégorie {{ employeeCategory.slice(-1).toUpperCase() }}</div>
             </div>
           </div>
+          </FormSection>
 
           <!-- Déplacement -->
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-5">
-            <h2 class="text-base font-bold text-foreground">Déplacement</h2>
-          </div>
+          <FormSection title="Déplacement">
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
-            <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+            <div :class="cls.field">
               <label :class="cls.fieldLabel">Destination <span class="text-danger">*</span></label>
               <input v-model="form.destination" :class="cls.fieldInput" placeholder="ex : Antananarivo, Toamasina…" />
             </div>
-            <div :class="cls.field" class="col-span-2 max-sm:col-span-1">
+            <div :class="cls.field">
               <label :class="cls.fieldLabel">Objet / Motif <span class="text-danger">*</span></label>
               <textarea v-model="form.purpose" :class="cls.fieldTextarea" rows="2" placeholder="Décrivez l'objet de la mission…"></textarea>
             </div>
@@ -178,11 +176,10 @@ function saveDraft() {
               </select>
             </div>
           </div>
+          </FormSection>
 
           <!-- Per diem -->
-          <div class="flex items-center border-b-2 border-primary pb-2 mb-4 mt-7">
-            <h2 class="text-base font-bold text-foreground">Indemnité per diem</h2>
-          </div>
+          <FormSection title="Indemnité per diem">
           <div v-if="selectedEmployee && computedDays > 0" class="bg-background border border-border rounded-lg p-3.5 flex flex-col gap-2">
             <div class="flex items-center justify-between text-[13px]"><span class="text-muted-foreground">Taux hôtel / jour</span><span class="font-medium text-foreground">{{ fmt(allowance.hotelPerDay) }} MGA</span></div>
             <div class="flex items-center justify-between text-[13px]"><span class="text-muted-foreground">Taux repas / jour</span><span class="font-medium text-foreground">{{ fmt(allowance.mealPerDay) }} MGA</span></div>
@@ -199,6 +196,7 @@ function saveDraft() {
             <label :class="cls.fieldLabel">Acompte demandé (optionnel)</label>
             <input type="number" min="0" v-model.number="form.advance" :class="cls.fieldInput" placeholder="0" />
           </div>
+          </FormSection>
 
           <div class="mt-6">
             <button :class="cls.btnOutline" @click="saveDraft">Enregistrer comme brouillon</button>
