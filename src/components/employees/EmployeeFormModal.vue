@@ -219,7 +219,7 @@ const AVATAR_COLORS = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b
 // Inclut les entités en brouillon / en attente — indispensable pendant
 // l'onboarding où les entités fraîchement créées ne sont pas encore approuvées
 const selectableEntities = computed(() =>
-  entityStore.entities.filter(e => e.status !== 'inactive')
+  entityStore.entities.filter(e => e.status !== 'Inactive')
 )
 
 const directManager = computed(() => {
@@ -230,14 +230,14 @@ const directManager = computed(() => {
     name:        entity.responsibleName,
     initials:    getInitials(entity.responsibleName),
     avatarColor: AVATAR_COLORS[idx] ?? AVATAR_COLORS[0],
-    managerId:   entity.responsibleId ?? null,
+    managerId:   entity.managerId ?? null,
   }
 })
 
 function onEntityChange() {
   const e = selectableEntities.value.find(e => e.id === form.entityId)
   form.entityName = e?.name ?? ''
-  form.managerId  = e?.responsibleId ?? ''
+  form.managerId  = e?.managerId ?? ''
 }
 
 function populate() {
@@ -265,7 +265,7 @@ function populate() {
   // Sync manager from entity on open
   if (form.entityId) {
     const e = selectableEntities.value.find(e => e.id === form.entityId)
-    if (e?.responsibleId) form.managerId = e.responsibleId
+    if (e?.managerId) form.managerId = e.managerId
   }
   Object.assign(errors, {
     firstName: '', lastName: '', jobTitle: '', email: '',

@@ -6,6 +6,7 @@
     :items="pageItems"
     :total="totalCount"
     :total-text="`${totalCount} entité(s)`"
+    :loading="store.loading"
     row-key="id"
     search-placeholder="Rechercher une entité…"
     scope-label="Entités :"
@@ -23,7 +24,7 @@
   >
     <!-- Bouton "Nouvelle entité" -->
     <template #header-actions>
-      <button :class="L.btnPrimary" @click="showCreate = true">
+      <button v-if="auth.hasPermission('ENTITE_CREER')" :class="L.btnPrimary" @click="showCreate = true">
         <Plus class="w-4 h-4" /> Nouvelle entité
       </button>
     </template>
@@ -49,9 +50,9 @@
         <label :class="L.fpFieldLabel">Type</label>
         <select v-model="filterType" :class="L.fpSelect">
           <option value="">Tous les types</option>
-          <option value="direction">Direction</option>
-          <option value="department">Département</option>
-          <option value="service">Service</option>
+          <option value="Direction">Direction</option>
+          <option value="Department">Département</option>
+          <option value="Service">Service</option>
         </select>
       </div>
       <button class="mt-auto py-[7px] bg-transparent border-0 text-xs text-muted-foreground cursor-pointer text-left hover:text-primary" @click="resetFilters">
@@ -138,9 +139,12 @@ import OrgNode from './OrgNode.vue'
 import OrgChartView from '../../components/OrgChartView.vue'
 import * as L from '../../lib/listClasses'
 import { useEntityStore } from '../../stores/entities'
+import { useAuthStore } from '../../stores/auth'
 import type { Entity, EntityType } from '../../types'
 
 const store = useEntityStore()
+const auth = useAuthStore()
+if (store.entities.length === 0) store.fetchAll()
 
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
@@ -190,10 +194,10 @@ const columns = computed<ListColumn[]>(() => [
 /* ── Scope (statut) + filtres ───────────────────────────────── */
 const scopeOptions = [
   { value: '', label: 'Toutes' },
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'pending_approval', label: 'En attente' },
-  { value: 'approved', label: 'Approuvé' },
-  { value: 'inactive', label: 'Inactif' },
+  { value: 'Draft', label: 'Brouillon' },
+  { value: 'PendingApproval', label: 'En attente' },
+  { value: 'Active', label: 'Approuvé' },
+  { value: 'Inactive', label: 'Inactif' },
 ]
 const activeScope = ref('')
 const filterType = ref('')
@@ -208,11 +212,11 @@ function resetFilters() { activeScope.value = ''; filterType.value = ''; searchQ
 
 /* ── Helpers ────────────────────────────────────────────────── */
 function typeLabel(t: EntityType | string): string {
-  const map: Record<string, string> = { direction: 'Direction', department: 'Département', service: 'Service' }
+  const map: Record<string, string> = { Direction: 'Direction', Department: 'Département', Service: 'Service' }
   return map[t] ?? t
 }
 function typeBadge(type: string): string {
-  const m: Record<string, string> = { direction: 'bg-danger-bg text-danger', department: 'bg-success-bg text-success', service: 'bg-primary/10 text-primary' }
+  const m: Record<string, string> = { Direction: 'bg-danger-bg text-danger', Department: 'bg-success-bg text-success', Service: 'bg-primary/10 text-primary' }
   return m[type] ?? 'bg-neutral-bg text-neutral'
 }
 function parentName(parentId: string | null): string {

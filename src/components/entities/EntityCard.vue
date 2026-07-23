@@ -20,8 +20,8 @@ const emit = defineEmits<{ close: [] }>()
 
 const store = useEntityStore()
 
-const TYPE_LABELS: Record<string, string> = { direction: 'Direction', department: 'Département', service: 'Service' }
-const TYPE_BADGE: Record<string, string> = { direction: 'bg-danger-bg text-danger', department: 'bg-success-bg text-success', service: 'bg-primary/10 text-primary' }
+const TYPE_LABELS: Record<string, string> = { Direction: 'Direction', Department: 'Département', Service: 'Service' }
+const TYPE_BADGE: Record<string, string> = { Direction: 'bg-danger-bg text-danger', Department: 'bg-success-bg text-success', Service: 'bg-primary/10 text-primary' }
 
 const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
 function fetchParents({ searchQuery }: LookupFetchParams) {
@@ -50,9 +50,9 @@ function selectSidebar(no: string) { const e = props.entities.find(x => x.code =
 
 /* ── Édition ────────────────────────────────────────────────── */
 const isEditMode = ref(false)
-const canEdit = computed(() => current.value?.status === 'draft' || current.value?.status === 'approved')
+const canEdit = computed(() => current.value?.status === 'Draft' || current.value?.status === 'Active')
 const parentCode = ref('')
-const form = ref({ name: '', code: '', type: 'service' as EntityType, parentId: '' as string | null, parentName: '', legalIdentifier: '', address: '', responsibleName: '', phone: '', email: '' })
+const form = ref({ name: '', code: '', type: 'Service' as EntityType, parentId: '' as string | null, parentName: '', legalIdentifier: '', address: '', responsibleName: '', phone: '', email: '' })
 
 function enterEdit() {
   if (!current.value) return
@@ -66,9 +66,9 @@ function enterEdit() {
 }
 function cancelEdit() { isEditMode.value = false }
 function onParentSelect(item: Record<string, unknown>) { form.value.parentId = String(item.id); form.value.parentName = String(item.name); parentCode.value = String(item.code) }
-function save() {
+async function save() {
   if (!current.value) return
-  store.updateEntity(current.value.id, { name: form.value.name, type: form.value.type, parentId: form.value.parentId || null, legalIdentifier: form.value.legalIdentifier, address: form.value.address, responsibleName: form.value.responsibleName, phone: form.value.phone, email: form.value.email })
+  await store.updateEntity(current.value.id, { name: form.value.name, type: form.value.type, parentId: form.value.parentId || null, address: form.value.address, phone: form.value.phone, email: form.value.email })
   isEditMode.value = false
 }
 
@@ -122,7 +122,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Type</label>
-            <select v-if="isEditMode" v-model="form.type" :class="cls.fieldSelect"><option value="direction">Direction</option><option value="department">Département</option><option value="service">Service</option></select>
+            <select v-if="isEditMode" v-model="form.type" :class="cls.fieldSelect"><option value="Direction">Direction</option><option value="Department">Département</option><option value="Service">Service</option></select>
             <div v-else :class="readBox"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full" :class="TYPE_BADGE[current.type]">{{ TYPE_LABELS[current.type] }}</span></div>
           </div>
           <div :class="cls.field">

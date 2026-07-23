@@ -23,6 +23,10 @@
           Calendrier mis à jour
         </div>
 
+        <!-- ── Chargement ── -->
+        <SkeletonLoader v-if="pageLoading" type="card" :lines="10" />
+
+        <template v-else>
         <!-- ── Tabs ── -->
         <div class="flex gap-1 border-b-[1.5px] border-border mb-5 overflow-x-auto">
           <button
@@ -194,6 +198,7 @@
             </div>
           </div>
         </div>
+        </template>
 
   </div>
 
@@ -258,6 +263,7 @@ import {
 import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
 import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
 import ModalShell from '../../components/ui/ModalShell.vue'
+import { SkeletonLoader } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }       from '../../stores/auth'
@@ -269,6 +275,12 @@ const auth            = useAuthStore()
 const calendarStore   = useCalendarStore()
 const leaveTypesStore = useLeaveTypesStore()
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
+
+const pageLoading = computed(() => calendarStore.loading || leaveTypesStore.loading)
+
+calendarStore.fetchCalendar()
+calendarStore.fetchHolidays(new Date().getFullYear())
+leaveTypesStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const tabBtn = 'flex items-center gap-1.5 px-[18px] py-2.5 text-[13px] font-medium text-muted-foreground bg-transparent border-0 border-b-2 border-transparent cursor-pointer whitespace-nowrap transition-colors hover:text-foreground'
@@ -320,20 +332,32 @@ function updateRule(typeName: string, field: string, value: number | boolean) {
 }
 
 // ── Save ──────────────────────────────────────────────────────
-const saveDisabled = computed(() => !rulesTouched.value)
+const saving = ref(false)
+const saveDisabled = computed(() => saving.value)
 
-function saveChanges() {
-  if (!rulesTouched.value) return
-  localRules.value.forEach(r => calendarStore.updateLeaveRule(r.type as LeaveType, r))
-  rulesTouched.value = false
-  triggerToast()
+async function saveChanges() {
+  saving.value = true
+  try {
+    await calendarStore.updateWorkingDays(calendar.value.workingDays)
+    if (rulesTouched.value) {
+      localRules.value.forEach(r => calendarStore.updateLeaveRule(r.type as LeaveType, r))
+      rulesTouched.value = false
+    }
+    triggerToast()
+  } catch {
+    // calendarStore.error porte le message pour l'UI
+  } finally {
+    saving.value = false
+  }
 }
 
 // ── Display helpers ───────────────────────────────────────────
+// Holiday.date est toujours une date complete "YYYY-MM-DD" (backend) — pour
+// un ferie recurrent, seuls le mois et le jour sont significatifs.
 function formatAnnualDate(date: string): string {
   const M = ['','jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc']
   const p = date.split('-')
-  return `${p[1] ?? ''} ${M[parseInt(p[0] ?? '0')] ?? ''}`
+  return `${p[2] ?? ''} ${M[parseInt(p[1] ?? '0')] ?? ''}`
 }
 
 // ── Modals fériés ─────────────────────────────────────────────
@@ -357,8 +381,8 @@ function openEditModal(h: Holiday) {
   hForm.name = h.name
   if (h.isRecurring) {
     const p = h.date.split('-')
-    hForm.month = p[0] ?? '01'
-    hForm.day   = p[1] ?? '01'
+    hForm.month = p[1] ?? '01'
+    hForm.day   = p[2] ?? '01'
     showModal.value = 'annual'
   } else {
     hForm.fullDate  = h.date
@@ -366,22 +390,46 @@ function openEditModal(h: Holiday) {
   }
 }
 function closeModal() { showModal.value = null; editingHoliday.value = null }
-function saveAnnualHoliday() {
+
+async function saveAnnualHoliday() {
   if (!hForm.name.trim()) return
-  const date = `${hForm.month}-${hForm.day}`
-  editingHoliday.value
-    ? calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date })
-    : calendarStore.addHoliday({ name: hForm.name, date, type: 'annual', isRecurring: true })
-  closeModal()
+  // Annee de reference arbitraire — seuls mois/jour comptent pour un ferie
+  // recurrent (le backend remappe sur l'annee demandee via /holidays/year/:year).
+  const date = `2000-${hForm.month}-${hForm.day}`
+  try {
+    if (editingHoliday.value) {
+      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date })
+    } else {
+      await calendarStore.addHoliday({ name: hForm.name, date, isRecurring: true, holidayType: 'National' })
+    }
+    closeModal()
+  } catch {
+    // calendarStore.error porte le message pour l'UI
+  }
 }
-function savePonctualHoliday() {
+
+async function savePonctualHoliday() {
   if (!hForm.name.trim() || !hForm.fullDate) return
-  editingHoliday.value
-    ? calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate })
-    : calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, type: 'ponctual', isRecurring: false })
-  closeModal()
+  try {
+    if (editingHoliday.value) {
+      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate })
+    } else {
+      await calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, isRecurring: false, holidayType: 'National' })
+    }
+    closeModal()
+  } catch {
+    // calendarStore.error porte le message pour l'UI
+  }
 }
-function deleteHoliday(id: string) { if (confirm('Supprimer ce jour férié ?')) calendarStore.removeHoliday(id) }
+
+async function deleteHoliday(id: string) {
+  if (!confirm('Supprimer ce jour férié ?')) return
+  try {
+    await calendarStore.removeHoliday(id)
+  } catch {
+    // calendarStore.error porte le message pour l'UI
+  }
+}
 
 // ── Import CSV toast ──────────────────────────────────────────
 const showImportToast  = ref(false)

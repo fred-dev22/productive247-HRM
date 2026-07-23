@@ -25,15 +25,12 @@
   "login": {
     "title": "Sign In",
     "subtitle": "Sign in to access the application",
-    "username": "User code",
+    "username": "Email",
     "password": "Password",
     "submit": "Sign in",
-    "role_label": "Account type",
-    "role_rh": "HR / Manager",
-    "role_employee": "Employee",
-    "dev_only": "dev only",
-    "dev_note": "Role selector is temporary. In production, role will be read from JWT token.",
-    "error_fields": "Please fill in all fields."
+    "loading": "Signing in…",
+    "error_fields": "Please fill in all fields.",
+    "error_invalid": "Invalid email or password."
   },
   "dashboard": {
     "welcome": "HR Dashboard",

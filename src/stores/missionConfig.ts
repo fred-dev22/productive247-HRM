@@ -1,13 +1,30 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { api } from '../lib/api'
 
+// Aligned on the backend EmployeeCategory model — no `description` column
+// exists server-side (it never persisted anyway), so it's been dropped
+// rather than kept as a silently-lost UI field.
 export interface EmpCategory {
-  id:           string
-  code:         string
-  label:        string
-  description?: string
+  id:       string
+  code:     string
+  name:     string
+  isActive: boolean
 }
 
+interface BackendEmployeeCategory {
+  Id: string
+  Code: string
+  Name: string
+  IsActive: boolean
+}
+
+function mapCategory(raw: BackendEmployeeCategory): EmpCategory {
+  return { id: raw.Id, code: raw.Code, name: raw.Name, isActive: raw.IsActive }
+}
+
+// ── feeTypes / MissionFeeType (ExpenseType + ExpenseConfig cote backend) ──
+// Hors perimetre de cette passe — reste mock, non branche a l'API.
 export interface FeeRule {
   categoryId: string
   amount:     number
@@ -27,12 +44,9 @@ export interface MissionFeeType {
 let ftCounter = 10
 
 export const useMissionConfigStore = defineStore('missionConfig', () => {
-  const categories = ref<EmpCategory[]>([
-    { id:'cat1', code:'CAT-A', label:'Cadre supérieur',       description:"Direction et encadrement supérieur" },
-    { id:'cat2', code:'CAT-B', label:'Cadre',                 description:"Personnel d'encadrement" },
-    { id:'cat3', code:'CAT-C', label:"Agent de maîtrise",     description:"Personnel technique qualifié" },
-    { id:'cat4', code:'CAT-D', label:"Employé d'exécution",   description:"Personnel d'exécution" },
-  ])
+  const categories = ref<EmpCategory[]>([])
+  const loading = ref(false)
+  const error   = ref<string | null>(null)
 
   const feeTypes = ref<MissionFeeType[]>([
     {
@@ -64,10 +78,68 @@ export const useMissionConfigStore = defineStore('missionConfig', () => {
     },
   ])
 
-  function addCategory(payload: Omit<EmpCategory, 'id'>) {
-    categories.value.push({ ...payload, id: `cat${Date.now()}` })
+  // ── EmployeeCategory — API reelle ────────────────────────────
+  async function fetchCategories() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendEmployeeCategory[]>('/employee-categories')
+      categories.value = data.map(mapCategory)
+    } catch (err) {
+      error.value = 'Impossible de charger les catégories d\'employés'
+      throw err
+    } finally {
+      loading.value = false
+    }
   }
 
+  async function addCategory(payload: Omit<EmpCategory, 'id' | 'isActive'> & { isActive?: boolean }) {
+    error.value = null
+    try {
+      const { data } = await api.post<BackendEmployeeCategory>('/employee-categories', {
+        Code: payload.code,
+        Name: payload.name,
+        IsActive: payload.isActive ?? true,
+      })
+      const mapped = mapCategory(data)
+      categories.value.push(mapped)
+      return mapped
+    } catch (err) {
+      error.value = 'Impossible de créer la catégorie'
+      throw err
+    }
+  }
+
+  async function updateCategory(id: string, payload: Partial<EmpCategory>) {
+    error.value = null
+    try {
+      const body: Record<string, unknown> = {}
+      if (payload.code !== undefined) body.Code = payload.code
+      if (payload.name !== undefined) body.Name = payload.name
+      if (payload.isActive !== undefined) body.IsActive = payload.isActive
+      const { data } = await api.patch<BackendEmployeeCategory>(`/employee-categories/${id}`, body)
+      const mapped = mapCategory(data)
+      const idx = categories.value.findIndex(c => c.id === id)
+      if (idx !== -1) categories.value[idx] = mapped
+      return mapped
+    } catch (err) {
+      error.value = 'Impossible de mettre à jour la catégorie'
+      throw err
+    }
+  }
+
+  async function deleteCategory(id: string) {
+    error.value = null
+    try {
+      await api.delete(`/employee-categories/${id}`)
+      categories.value = categories.value.filter(c => c.id !== id)
+    } catch (err) {
+      error.value = 'Impossible de supprimer la catégorie'
+      throw err
+    }
+  }
+
+  // ── MissionFeeType — mock, hors perimetre de cette passe ─────
   function addFeeType(payload: Omit<MissionFeeType, 'id'>) {
     feeTypes.value.push({ ...payload, id: `ft${++ftCounter}` })
   }
@@ -100,8 +172,9 @@ export const useMissionConfigStore = defineStore('missionConfig', () => {
   }
 
   return {
-    categories, feeTypes,
-    addCategory, addFeeType, updateFeeType, updateFeeRule, deleteFeeType,
+    categories, feeTypes, loading, error,
+    fetchCategories, addCategory, updateCategory, deleteCategory,
+    addFeeType, updateFeeType, updateFeeRule, deleteFeeType,
     getRulesForCategory,
   }
 })

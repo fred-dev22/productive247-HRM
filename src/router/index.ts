@@ -8,6 +8,33 @@ import CalendarView      from '../views/calendar/CalendarView.vue'
 
 const PH = () => import('../views/placeholders/PlaceholderView.vue')
 
+// Route (par nom) -> permission(s) requise(s) en plus de l'espace hr/employee
+// (voir auth.isHRSpace/isEmployeeSpace). Un tableau = n'importe laquelle des
+// permissions suffit. Seules les routes couvertes par une vraie permission du
+// catalogue (voir backend prisma/seed.ts) apparaissent ici — les modules
+// encore en placeholder (recrutement, formation, paie...) n'ont pas de code
+// dédié et restent ouverts à tout l'espace RH, comme aujourd'hui.
+const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
+  'hr-employees':        ['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE'],
+  'hr-employee-create':  'EMPLOYE_CREER',
+  'hr-employee-edit':    'EMPLOYE_MODIFIER',
+  'hr-entities':         'ENTITE_VOIR',
+  'hr-entity-create':    'ENTITE_CREER',
+  'hr-entity-edit':      'ENTITE_MODIFIER',
+  'hr-entity-detail':    'ENTITE_VOIR',
+  'hr-org-chart':        'ENTITE_VOIR',
+  'hr-config-calendar':      'CONFIG_CALENDRIER',
+  'hr-config-mission-fees':  'CONFIG_FRAIS_MISSION',
+  'hr-config-perdiems':      'CONFIG_FRAIS_MISSION',
+  'hr-statistics':       'RAPPORT_VOIR',
+  'hr-absences':         ['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'],
+  'hr-leave-balances':   ['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'],
+  'hr-missions':         ['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE'],
+  'hr-expenses':         ['FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE'],
+  'employee-to-validate': ['CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER'],
+  'employee-team':        'EMPLOYE_VOIR_EQUIPE',
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -208,24 +235,36 @@ router.beforeEach((to) => {
 
   // Déjà connecté → pas besoin du login
   if (to.name === 'login' && auth.isLoggedIn) {
-    return auth.isHRSide ? { path: '/hr' } : { path: '/employee' }
+    return auth.isHRSpace ? { path: '/hr' } : { path: '/employee' }
   }
 
   if (auth.isLoggedIn) {
-    if (to.path.startsWith('/hr') && auth.isEmployeeSide) {
+    if (to.path.startsWith('/hr') && auth.isEmployeeSpace) {
       return { path: '/employee' }
     }
-    if (to.path.startsWith('/employee') && auth.isHRSide) {
+    if (to.path.startsWith('/employee') && auth.isHRSpace) {
       return { path: '/hr' }
     }
 
     // RH connecté + wizard pas terminé → forcer le wizard
     if (
-      auth.isHRSide &&
+      auth.isHRSpace &&
       !onboarding.allStepsComplete &&
       to.path !== '/onboarding'
     ) {
       return { path: '/onboarding' }
+    }
+
+    // Route couverte par une permission précise (voir ROUTE_PERMISSIONS) —
+    // relue depuis auth.permissions à chaque navigation, jamais mise en cache.
+    const required = to.name ? ROUTE_PERMISSIONS[to.name as string] : undefined
+    if (required) {
+      const allowed = Array.isArray(required)
+        ? auth.hasAnyPermission(required)
+        : auth.hasPermission(required)
+      if (!allowed) {
+        return { path: auth.isHRSpace ? '/hr' : '/employee' }
+      }
     }
   }
 })

@@ -25,15 +25,12 @@
   "login": {
     "title": "Connexion",
     "subtitle": "Connectez-vous pour accéder à l'application",
-    "username": "Code utilisateur",
+    "username": "Email",
     "password": "Mot de passe",
     "submit": "Se connecter",
-    "role_label": "Type de compte",
-    "role_rh": "RH / Manager",
-    "role_employee": "Employé(e)",
-    "dev_only": "dev only",
-    "dev_note": "Le sélecteur de rôle est temporaire. En production, le rôle sera lu depuis le token JWT.",
-    "error_fields": "Veuillez remplir tous les champs."
+    "loading": "Connexion en cours…",
+    "error_fields": "Veuillez remplir tous les champs.",
+    "error_invalid": "Email ou mot de passe incorrect."
   },
   "dashboard": {
     "welcome": "Tableau de bord RH",

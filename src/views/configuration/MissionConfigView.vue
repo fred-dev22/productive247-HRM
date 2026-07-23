@@ -29,7 +29,8 @@
         </div>
 
         <!-- Section 1 : Catégories d'employés -->
-        <div :class="L.tableCard">
+        <SkeletonLoader v-if="store.loading" type="table" :lines="4" />
+        <div v-else :class="L.tableCard">
           <div class="flex items-start justify-between px-5 pt-4 gap-3">
             <div>
               <h2 class="text-[15px] font-semibold text-foreground">Catégories d'employés</h2>
@@ -139,11 +140,7 @@
     </div>
     <div :class="cls.field">
       <label :class="cls.fieldLabel">Libellé *</label>
-      <input v-model="catForm.label" :class="cls.fieldInput" placeholder="ex: Stagiaire" />
-    </div>
-    <div :class="cls.field">
-      <label :class="cls.fieldLabel">Description</label>
-      <input v-model="catForm.description" :class="cls.fieldInput" placeholder="Description optionnelle..." />
+      <input v-model="catForm.name" :class="cls.fieldInput" placeholder="ex: Stagiaire" />
     </div>
     <template #footer>
       <button :class="cls.btnOutline" @click="showCatModal = false">Annuler</button>
@@ -188,6 +185,7 @@ import { ref, reactive, nextTick } from 'vue'
 import { Upload, TriangleAlert, Check, Plus, Pencil, Trash2, Minus } from 'lucide-vue-next'
 import DataTable  from '../../components/ui/DataTable.vue'
 import ModalShell from '../../components/ui/ModalShell.vue'
+import { SkeletonLoader } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }         from '../../stores/auth'
@@ -196,6 +194,7 @@ import type { EmpCategory, MissionFeeType } from '../../stores/missionConfig'
 
 const auth  = useAuthStore()
 const store = useMissionConfigStore()
+if (store.categories.length === 0) store.fetchCategories()
 
 // ── Classes du design system ─────────────────────────────────
 const thUpper = 'px-3 py-2.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border whitespace-nowrap'
@@ -224,36 +223,36 @@ function unitLabel(unit: string): string {
 // ── Table catégories ──
 const catColumns = [
   { key: 'code',        label: 'Code',        width: '100px' },
-  { key: 'label',       label: 'Libellé',     width: '180px' },
-  { key: 'description', label: 'Description'                  },
+  { key: 'name',        label: 'Libellé',     width: '180px' },
   { key: 'actions',     label: 'Actions',     width: '80px', align: 'center' as const },
 ]
 
 // ── Modal catégorie ──
 const showCatModal = ref(false)
 const editingCat   = ref<EmpCategory | null>(null)
-const catForm      = reactive({ code: '', label: '', description: '' })
+const catForm      = reactive({ code: '', name: '' })
 
 function openEditCat(cat: EmpCategory) {
   editingCat.value = cat
   catForm.code        = cat.code
-  catForm.label       = cat.label
-  catForm.description = cat.description ?? ''
+  catForm.name        = cat.name
   showCatModal.value  = true
 }
 
-function saveCat() {
-  if (!catForm.label.trim()) return
-  if (editingCat.value) {
-    // update inline
-    editingCat.value.label       = catForm.label
-    editingCat.value.description = catForm.description
-  } else {
-    store.addCategory({ code: catForm.code, label: catForm.label, description: catForm.description || undefined })
+async function saveCat() {
+  if (!catForm.name.trim()) return
+  try {
+    if (editingCat.value) {
+      await store.updateCategory(editingCat.value.id, { code: catForm.code, name: catForm.name })
+    } else {
+      await store.addCategory({ code: catForm.code, name: catForm.name })
+    }
+    showCatModal.value = false
+    editingCat.value   = null
+    triggerToast('Catégorie enregistrée')
+  } catch {
+    // store.error porte le message pour l'UI
   }
-  showCatModal.value = false
-  editingCat.value   = null
-  triggerToast('Catégorie enregistrée')
 }
 
 // ── Montants inline ──

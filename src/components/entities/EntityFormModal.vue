@@ -39,9 +39,9 @@
         <label :class="cls.fieldLabel">Type *</label>
         <select v-model="form.type" :class="[cls.fieldSelect, errors.type && cls.inputError]">
           <option value="">-- Choisir un type --</option>
-          <option value="direction">Direction</option>
-          <option value="department">Département</option>
-          <option value="service">Service</option>
+          <option value="Direction">Direction</option>
+          <option value="Department">Département</option>
+          <option value="Service">Service</option>
         </select>
         <div v-if="errors.type" :class="cls.fieldError">{{ errors.type }}</div>
       </div>
@@ -82,7 +82,7 @@
       <div :class="cls.field">
         <label :class="cls.fieldLabel">Responsable</label>
         <SearchableDropdown
-          v-model="form.responsibleId"
+          v-model="form.managerId"
           :items="employeeItems"
           placeholder="Rechercher un responsable..."
           :show-avatar="true"
@@ -237,7 +237,7 @@ const form = reactive({
   parentId:        '',
   legalIdentifier: '',
   address:         '',
-  responsibleId:   '',
+  managerId:       '',
   responsibleName: '',
   phone:           '',
   email:           '',
@@ -256,7 +256,7 @@ const employeeItems = computed<DropdownItem[]>(() =>
 )
 
 const TYPE_SUBLABELS: Record<string, string> = {
-  direction: 'Direction', department: 'Département', service: 'Service',
+  Direction: 'Direction', Department: 'Département', Service: 'Service',
 }
 const entityItems = computed<DropdownItem[]>(() =>
   store.entities
@@ -269,7 +269,7 @@ const entityItems = computed<DropdownItem[]>(() =>
 )
 
 // Le nom du responsable suit la sélection du dropdown
-watch(() => form.responsibleId, (id) => {
+watch(() => form.managerId, (id) => {
   if (!id) { form.responsibleName = ''; return }
   const emp = empStore.getById(id)
   if (emp) form.responsibleName = emp.name
@@ -285,7 +285,7 @@ function populate() {
     form.parentId        = e.parentId ?? ''
     form.legalIdentifier = e.legalIdentifier ?? ''
     form.address         = e.address ?? ''
-    form.responsibleId   = e.responsibleId ?? ''
+    form.managerId       = e.managerId ?? ''
     form.responsibleName = e.responsibleName ?? ''
     form.phone           = e.phone ?? ''
     form.email           = e.email ?? ''
@@ -293,7 +293,7 @@ function populate() {
   } else {
     Object.assign(form, {
       name: '', code: '', type: '', parentId: '', legalIdentifier: '',
-      address: '', responsibleId: '', responsibleName: '', phone: '', email: '',
+      address: '', managerId: '', responsibleName: '', phone: '', email: '',
     })
     localPools.value = []
   }
@@ -343,37 +343,33 @@ function validate(): boolean {
 function buildPayload() {
   return {
     code: form.code, name: form.name, type: form.type as EntityType,
-    parentId: form.parentId || null, legalIdentifier: form.legalIdentifier || undefined,
+    parentId: form.parentId || null, managerId: form.managerId || null,
     address: form.address || undefined, phone: form.phone || undefined,
-    email: form.email || undefined, responsibleId: form.responsibleId || undefined,
-    responsibleName: form.responsibleName || undefined,
-    headcount: editEntity.value?.headcount ?? 0,
-    validatorPools: localPools.value.filter(p => p.validatorName.trim()),
+    email: form.email || undefined,
   }
 }
 
 function close() { emit('update:modelValue', false) }
 
-function handleDraft() {
+async function handleDraft() {
   if (!validate()) return
   if (isEditMode.value && props.editId) {
-    store.updateEntity(props.editId, buildPayload())
+    await store.updateEntity(props.editId, buildPayload())
   } else {
-    store.createEntity(buildPayload())
+    await store.createEntity(buildPayload())
   }
   emit('saved')
   close()
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!validate()) return
   if (isEditMode.value && props.editId) {
-    store.updateEntity(props.editId, buildPayload())
-    store.submitEntity(props.editId)
+    await store.updateEntity(props.editId, buildPayload())
+    await store.submitEntity(props.editId)
   } else {
-    store.createEntity(buildPayload())
-    const newId = store.entities[store.entities.length - 1]!.id
-    store.submitEntity(newId)
+    const created = await store.createEntity(buildPayload())
+    await store.submitEntity(created.id)
   }
   emit('saved')
   close()

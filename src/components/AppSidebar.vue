@@ -1,8 +1,11 @@
 <template>
   <aside class="w-[220px] shrink-0 bg-sidebar border-r border-sidebar-border py-2.5 px-[5px] overflow-y-auto overflow-x-hidden hidden md:block">
 
+    <!-- Session en cours de restauration (rechargement de page) -->
+    <SkeletonLoader v-if="auth.isRestoring" type="list" :lines="6" class="px-2" />
+
     <!-- ══════════ CÔTÉ RH ══════════ -->
-    <template v-if="auth.isHRSide">
+    <template v-else-if="auth.isHRSpace">
 
       <!-- MODULE : Administration -->
       <template v-if="navStore.activeModule === 'administration'">
@@ -11,22 +14,22 @@
           <SidebarItem :icon="CalendarRange"   :label="t('sidebar.my_planning')" :to="{ name: 'hr-planning' }" />
         </SidebarSection>
 
-        <SidebarSection :label="t('sidebar.absence_requests')">
+        <SidebarSection v-if="auth.hasAnyPermission(['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'])" :label="t('sidebar.absence_requests')">
           <SidebarItem :icon="CalendarOff" :label="t('sidebar.requests')" :to="{ name: 'hr-absences' }"       :badge="pendingCount" />
           <SidebarItem :icon="PieChart"    :label="t('sidebar.balances')" :to="{ name: 'hr-leave-balances' }" />
         </SidebarSection>
 
-        <SidebarSection :label="t('sidebar.management')">
-          <SidebarItem :icon="Users"    :label="t('sidebar.employees')" :to="{ name: 'hr-employees' }" />
-          <SidebarItem :icon="Building" :label="t('sidebar.entities')"  :to="{ name: 'hr-entities' }" />
-          <SidebarItem :icon="Plane"    :label="t('sidebar.missions')"  :to="{ name: 'hr-missions' }" />
-          <SidebarItem :icon="Receipt"  :label="t('sidebar.expenses')"  :to="{ name: 'hr-expenses' }" />
-          <SidebarItem :icon="Network"  :label="t('sidebar.org_chart')" :to="{ name: 'hr-org-chart' }" />
+        <SidebarSection v-if="canSeeManagementSection" :label="t('sidebar.management')">
+          <SidebarItem v-if="auth.hasAnyPermission(['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE'])" :icon="Users"    :label="t('sidebar.employees')" :to="{ name: 'hr-employees' }" />
+          <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"                                    :icon="Building" :label="t('sidebar.entities')"  :to="{ name: 'hr-entities' }" />
+          <SidebarItem v-if="auth.hasAnyPermission(['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE'])"  :icon="Plane"    :label="t('sidebar.missions')"  :to="{ name: 'hr-missions' }" />
+          <SidebarItem v-if="auth.hasAnyPermission(['FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE'])"      :icon="Receipt"  :label="t('sidebar.expenses')"  :to="{ name: 'hr-expenses' }" />
+          <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"                                    :icon="Network"  :label="t('sidebar.org_chart')" :to="{ name: 'hr-org-chart' }" />
         </SidebarSection>
 
-        <SidebarSection :label="t('sidebar.configuration')">
-          <SidebarItem :icon="CalendarDays" :label="t('sidebar.config_calendar')" :to="{ name: 'hr-config-calendar' }" />
-          <SidebarItem :icon="Coins"        :label="t('sidebar.fees_perdiems')"   :to="{ name: 'hr-config-mission-fees' }" />
+        <SidebarSection v-if="canSeeConfigSection" :label="t('sidebar.configuration')">
+          <SidebarItem v-if="auth.hasPermission('CONFIG_CALENDRIER')"    :icon="CalendarDays" :label="t('sidebar.config_calendar')" :to="{ name: 'hr-config-calendar' }" />
+          <SidebarItem v-if="auth.hasPermission('CONFIG_FRAIS_MISSION')" :icon="Coins"        :label="t('sidebar.fees_perdiems')"   :to="{ name: 'hr-config-mission-fees' }" />
         </SidebarSection>
       </template>
 
@@ -98,9 +101,9 @@
 
       <!-- MODULE : Rapports -->
       <template v-else-if="navStore.activeModule === 'reports'">
-        <SidebarSection :label="t('sidebar.reports')">
-          <SidebarItem :icon="BarChart3" :label="t('sidebar.statistics')" :to="{ name: 'hr-statistics' }" />
-          <SidebarItem :icon="Network"   :label="t('sidebar.org_chart')"  :to="{ name: 'hr-org-chart' }" />
+        <SidebarSection v-if="auth.hasPermission('RAPPORT_VOIR') || auth.hasPermission('ENTITE_VOIR')" :label="t('sidebar.reports')">
+          <SidebarItem v-if="auth.hasPermission('RAPPORT_VOIR')" :icon="BarChart3" :label="t('sidebar.statistics')" :to="{ name: 'hr-statistics' }" />
+          <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"  :icon="Network"   :label="t('sidebar.org_chart')"  :to="{ name: 'hr-org-chart' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.hr_reports')">
           <SidebarItem :icon="LayoutDashboard" :label="t('sidebar.hr_dashboard')" :to="{ name: 'hr-reports' }" />
@@ -134,16 +137,17 @@
         <SidebarItem :icon="Receipt"     :label="t('sidebar.expenses')"         :to="{ name: 'employee-expenses' }" />
       </SidebarSection>
 
-      <template v-if="auth.isValidator">
+      <template v-if="canSeeMyTeamSection">
         <SidebarSection :label="t('sidebar.my_team')">
           <SidebarItem
+            v-if="auth.hasAnyPermission(['CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER'])"
             :icon="ClipboardCheck"
             :label="t('sidebar.to_validate')"
             :to="{ name: 'employee-to-validate' }"
             :badge="pendingCount"
             :badge-orange="true"
           />
-          <SidebarItem :icon="Users" :label="t('sidebar.members')" :to="{ name: 'employee-team' }" />
+          <SidebarItem v-if="auth.hasPermission('EMPLOYE_VOIR_EQUIPE')" :icon="Users" :label="t('sidebar.members')" :to="{ name: 'employee-team' }" />
         </SidebarSection>
       </template>
     </template>
@@ -166,6 +170,7 @@ import {
 import { useAuthStore }       from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
 import { useAbsenceStore }    from '../stores/absences'
+import SkeletonLoader from './ui/SkeletonLoader.vue'
 
 const { t }        = useI18n()
 const auth         = useAuthStore()
@@ -174,6 +179,18 @@ const absenceStore = useAbsenceStore()
 
 const pendingCount   = computed(() => absenceStore.pendingLeaves.length)
 const myPendingCount = computed(() => absenceStore.myPendingLeaves.length)
+
+const canSeeManagementSection = computed(() => auth.hasAnyPermission([
+  'EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE', 'ENTITE_VOIR',
+  'MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE', 'FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE',
+]))
+const canSeeConfigSection = computed(() => auth.hasAnyPermission([
+  'CONFIG_CALENDRIER', 'CONFIG_JOURS_FERIES', 'CONFIG_TYPES_CONGE',
+  'CONFIG_CATEGORIES_EMPLOYE', 'CONFIG_FRAIS_MISSION',
+]))
+const canSeeMyTeamSection = computed(() => auth.hasAnyPermission([
+  'CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER', 'EMPLOYE_VOIR_EQUIPE',
+]))
 
 // ── Classes du design system (tokens sidebar) ────────────────
 const itemClass =

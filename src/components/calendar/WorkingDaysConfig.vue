@@ -53,7 +53,7 @@
     </div>
 
     <!-- ── Récapitulatif hebdomadaire ── -->
-    <div class="flex items-center gap-2 mt-3.5 px-3.5 py-2.5 rounded-lg bg-background border border-border text-[13px] font-medium text-foreground">
+    <div v-if="!hideSummary" class="flex items-center gap-2 mt-3.5 px-3.5 py-2.5 rounded-lg bg-background border border-border text-[13px] font-medium text-foreground">
       <Clock class="w-[15px] h-[15px] text-primary" />
       {{ calendarStore.daysPerWeek }} jour{{ calendarStore.daysPerWeek > 1 ? 's' : '' }}
       · {{ calendarStore.formatMinutes(calendarStore.weeklyMinutes) }} par semaine
@@ -68,6 +68,11 @@ import { computed } from 'vue'
 import { Clock, CircleAlert } from 'lucide-vue-next'
 import { useCalendarStore } from '../../stores/calendar'
 import type { WorkingDays, WorkingDayConfig } from '../../types'
+
+// hideSummary: masque le récapitulatif interne quand l'appelant affiche déjà
+// son propre résumé (ex: OnboardingWizard, qui ajoute son propre bandeau
+// juste en dessous).
+defineProps<{ hideSummary?: boolean }>()
 
 // Lit et écrit directement dans calendarStore — aucune prop
 const calendarStore = useCalendarStore()

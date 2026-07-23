@@ -162,8 +162,10 @@ export interface RemoteWorkRequest {
 }
 
 // ── Entities ─────────────────────────────────────────────────
-export type EntityStatus = 'draft' | 'pending_approval' | 'approved' | 'inactive'
-export type EntityType   = 'direction' | 'department' | 'service'
+// Values match the backend OrganizationUnit.Status / .Type columns exactly
+// (Prisma emulates enums as plain strings — see productive247-hrm-backend).
+export type EntityStatus = 'Draft' | 'PendingApproval' | 'Active' | 'Inactive'
+export type EntityType   = 'Direction' | 'Department' | 'Service'
 
 export interface ValidatorPool {
   level:              1 | 2 | 3 | 4
@@ -199,23 +201,29 @@ export interface Employee {
 }
 
 export interface Entity {
-  id:               string
-  code:             string
-  name:             string
-  type:             EntityType
-  parentId:         string | null
+  id:          string
+  code:        string
+  name:        string
+  type:        EntityType
+  parentId:    string | null
+  managerId:   string | null
+  address?:    string
+  phone?:      string
+  email?:      string
+  status:      EntityStatus
+  createdBy:   string
+  createdAt:   string
+  modifiedBy?: string | null
+  modifiedAt?: string | null
+  // Not part of the backend OrganizationUnit response — enriched client-side
+  // by the store (manager lookup / employee count). ApprovalPool wiring
+  // (validatorPools) and a legal-identifier field are not yet backed by any
+  // endpoint; kept here so existing forms/views keep compiling, but neither
+  // is persisted to the API.
   legalIdentifier?: string
-  address?:         string
-  phone?:           string
-  email?:           string
   responsibleName?: string
-  responsibleId?:   string
   headcount:        number
-  status:           EntityStatus
   validatorPools:   ValidatorPool[]
-  createdAt:        string
-  submittedAt?:     string
-  approvedAt?:      string
   children?:        Entity[]
 }
 
@@ -246,15 +254,18 @@ export interface WorkingDays {
   sunday:    WorkingDayConfig
 }
 
-export type HolidayType = 'annual' | 'ponctual' | 'selective'
+// HolidayScope matches backend Holiday.HolidayType (National = toute
+// l'entreprise, Local = restreint a une OrganizationUnit). Ne pas confondre
+// avec la recurrence annuelle, portee par isRecurring.
+export type HolidayScope = 'National' | 'Local'
 
 export interface Holiday {
-  id:               string
-  name:             string
-  date:             string        // "MM-DD" si annuel, "YYYY-MM-DD" si ponctuel
-  type:             HolidayType
-  isRecurring:      boolean       // true = annuel, false = ponctuel
-  applicableRoles?: string[]
+  id:                  string
+  name:                string
+  date:                string        // "YYYY-MM-DD" — pour un ferie recurrent, seuls mois/jour comptent
+  isRecurring:         boolean       // true = annuel, false = ponctuel
+  holidayType:         HolidayScope
+  organizationUnitId?: string | null // requis si holidayType = 'Local'
 }
 
 export interface LeaveRule {

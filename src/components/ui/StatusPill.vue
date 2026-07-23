@@ -29,6 +29,13 @@ const CONFIG: Record<string, PillConfig> = {
   registered:       { label: 'Enregistré', class: 'bg-info-bg text-info'       },
   done:             { label: 'Effectué',   class: 'bg-success-bg text-success' },
   regularized:      { label: 'Régularisé', class: 'bg-neutral-bg text-neutral' },
+  // OrganizationUnit.Status (backend, PascalCase) — kept distinct from the
+  // lowercase keys above, which other domains (Employee, LeaveRequest…)
+  // still use.
+  Draft:            { label: 'Brouillon',  class: 'bg-neutral-bg text-neutral' },
+  PendingApproval:  { label: 'En attente', class: 'bg-warning-bg text-warning' },
+  Active:           { label: 'Approuvé',   class: 'bg-success-bg text-success' },
+  Inactive:         { label: 'Inactif',    class: 'bg-neutral-bg text-neutral' },
 }
 
 const cfg = computed<PillConfig>(() =>

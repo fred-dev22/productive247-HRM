@@ -1,8 +1,11 @@
 <template>
   <div class="px-7 py-6">
 
+        <!-- Chargement -->
+        <SkeletonLoader v-if="store.loading" type="card" :lines="6" />
+
         <!-- Entité introuvable -->
-        <div v-if="!entity" class="flex flex-col items-center gap-3 py-20 text-muted-foreground">
+        <div v-else-if="!entity" class="flex flex-col items-center gap-3 py-20 text-muted-foreground">
           <TriangleAlert class="w-12 h-12" />
           <p>Entité introuvable.</p>
           <router-link :to="{ name: 'hr-entities' }" :class="L.btnPrimary">Retour à la liste</router-link>
@@ -28,15 +31,15 @@
                 <ArrowLeft class="w-4 h-4" /> Retour
               </button>
 
-              <template v-if="entity.status === 'draft'">
-                <router-link :to="{ name: 'hr-entity-edit', params: { id: entity.id } }" :class="L.btnOutline">
+              <template v-if="entity.status === 'Draft'">
+                <router-link v-if="auth.hasPermission('ENTITE_MODIFIER')" :to="{ name: 'hr-entity-edit', params: { id: entity.id } }" :class="L.btnOutline">
                   <Pencil class="w-4 h-4" /> Modifier
                 </router-link>
-                <button :class="L.btnPrimary" @click="store.submitEntity(entity.id)">
+                <button v-if="auth.hasPermission('ENTITE_SOUMETTRE')" :class="L.btnPrimary" @click="store.submitEntity(entity.id)">
                   <Send class="w-4 h-4" /> Soumettre pour approbation
                 </button>
               </template>
-              <template v-else-if="entity.status === 'pending_approval'">
+              <template v-else-if="entity.status === 'PendingApproval' && auth.hasPermission('ENTITE_APPROUVER')">
                 <button :class="btnSuccess" @click="store.approveEntity(entity.id)">
                   <Check class="w-4 h-4" /> Approuver
                 </button>
@@ -44,11 +47,11 @@
                   <X class="w-4 h-4" /> Rejeter
                 </button>
               </template>
-              <template v-else-if="entity.status === 'approved'">
-                <router-link :to="{ name: 'hr-entity-edit', params: { id: entity.id } }" :class="L.btnOutline">
+              <template v-else-if="entity.status === 'Active'">
+                <router-link v-if="auth.hasPermission('ENTITE_MODIFIER')" :to="{ name: 'hr-entity-edit', params: { id: entity.id } }" :class="L.btnOutline">
                   <Pencil class="w-4 h-4" /> Modifier
                 </router-link>
-                <button :class="btnDangerOutline" @click="store.deactivateEntity(entity.id)">
+                <button v-if="auth.hasPermission('ENTITE_DESACTIVER')" :class="btnDangerOutline" @click="store.deactivateEntity(entity.id)">
                   <Ban class="w-4 h-4" /> Désactiver
                 </button>
               </template>
@@ -204,6 +207,7 @@ import {
   TriangleAlert, ChevronRight, ArrowLeft, Pencil, Send, Check, X, Ban, Info,
   ArrowUp, ArrowDown, ArrowRight, Users, ShieldCheck, CircleAlert, History, CirclePlus,
 } from 'lucide-vue-next'
+import { SkeletonLoader } from '../../components'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }       from '../../stores/auth'
 import { useEntityStore }     from '../../stores/entities'
@@ -231,12 +235,14 @@ const btnDangerOutline = L.btnOutline + ' !bg-transparent !text-danger !border-d
 
 function typeBadge(type: string): string {
   const m: Record<string, string> = {
-    direction:  'bg-danger-bg text-danger',
-    department: 'bg-success-bg text-success',
-    service:    'bg-primary/10 text-primary',
+    Direction:  'bg-danger-bg text-danger',
+    Department: 'bg-success-bg text-success',
+    Service:    'bg-primary/10 text-primary',
   }
   return m[type] ?? 'bg-neutral-bg text-neutral'
 }
+
+if (store.entities.length === 0) store.fetchAll()
 
 const entityId = computed(() => route.params.id as string)
 const entity   = computed(() => store.getEntityById(entityId.value))
@@ -247,26 +253,26 @@ const sortedPools  = computed(() => [...(entity.value?.validatorPools ?? [])].so
 
 // ── Helpers affichage ─────────────────────────────────────────
 const typeLabel = computed(() => {
-  const map: Record<string, string> = { direction: 'Direction', department: 'Département', service: 'Service' }
+  const map: Record<string, string> = { Direction: 'Direction', Department: 'Département', Service: 'Service' }
   return map[entity.value?.type ?? ''] ?? entity.value?.type ?? ''
 })
 function typeLabelOf(t: EntityType): string {
-  const map: Record<string, string> = { direction: 'Direction', department: 'Département', service: 'Service' }
+  const map: Record<string, string> = { Direction: 'Direction', Department: 'Département', Service: 'Service' }
   return map[t] ?? t
 }
 
 const statusLabel = computed(() => {
   const map: Record<string, string> = {
-    draft: 'Brouillon', pending_approval: 'En attente', approved: 'Approuvé', inactive: 'Inactif',
+    Draft: 'Brouillon', PendingApproval: 'En attente', Active: 'Approuvé', Inactive: 'Inactif',
   }
   return map[entity.value?.status ?? ''] ?? ''
 })
 const statusClass = computed(() => {
   const map: Record<string, string> = {
-    approved:         'bg-success-bg text-success',
-    pending_approval: 'bg-warning-bg text-warning',
-    draft:            'bg-transparent text-foreground/60 border border-border',
-    inactive:         'bg-background text-muted-foreground',
+    Active:          'bg-success-bg text-success',
+    PendingApproval: 'bg-warning-bg text-warning',
+    Draft:           'bg-transparent text-foreground/60 border border-border',
+    Inactive:        'bg-background text-muted-foreground',
   }
   return map[entity.value?.status ?? ''] ?? ''
 })

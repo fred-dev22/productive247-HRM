@@ -5,7 +5,6 @@
  * contextuelles) ET dans la barre d'actions de la fiche (ExpenseCard).
  */
 import { reactive, computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { Check, X, Send } from 'lucide-vue-next'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
@@ -16,11 +15,8 @@ import type { ExpenseReport } from '../../types'
 const props = defineProps<{ report: ExpenseReport }>()
 const expenseStore = useExpenseStore()
 const auth = useAuthStore()
-const route = useRoute()
 
-const isRh = computed(() =>
-  route.path.startsWith('/hr') || auth.user?.role === 'hr_admin' || auth.user?.role === 'hr_director',
-)
+const isRh = computed(() => auth.hasPermission('FRAIS_VALIDER'))
 
 const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
 const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'

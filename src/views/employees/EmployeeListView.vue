@@ -20,7 +20,7 @@
     @open-card="openCard"
   >
     <template #header-actions>
-      <button :class="L.btnPrimary" @click="showCreate = true">
+      <button v-if="auth.hasPermission('EMPLOYE_CREER')" :class="L.btnPrimary" @click="showCreate = true">
         <UserPlus class="w-4 h-4" /> {{ t('employee.new') }}
       </button>
     </template>
@@ -125,11 +125,14 @@ import EmployeeCreate from '../../components/employees/EmployeeCreate.vue'
 import * as L from '../../lib/listClasses'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
+import { useAuthStore } from '../../stores/auth'
 import type { Employee, UserRole, EmployeeStatus } from '../../types'
 
 const { t } = useI18n()
 const store = useEmployeeStore()
 const entityStore = useEntityStore()
+const auth = useAuthStore()
+if (entityStore.entities.length === 0) entityStore.fetchAll()
 
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'

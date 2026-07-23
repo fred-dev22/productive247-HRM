@@ -119,9 +119,9 @@
               <td :class="L.td">
                 <div class="flex gap-1 flex-wrap">
                   <button :class="L.actView" @click="navigateTo(e.id)">Voir →</button>
-                  <button v-if="e.status === 'draft'"            :class="actWarning" @click="store.submitEntity(e.id)">Soumettre</button>
-                  <button v-if="e.status === 'pending_approval'" :class="L.actApprove" @click="store.approveEntity(e.id)">Approuver</button>
-                  <button v-if="e.status === 'pending_approval'" :class="L.actReject"  @click="store.rejectEntity(e.id)">Rejeter</button>
+                  <button v-if="e.status === 'Draft'"           :class="actWarning" @click="store.submitEntity(e.id)">Soumettre</button>
+                  <button v-if="e.status === 'PendingApproval'" :class="L.actApprove" @click="store.approveEntity(e.id)">Approuver</button>
+                  <button v-if="e.status === 'PendingApproval'" :class="L.actReject"  @click="store.rejectEntity(e.id)">Rejeter</button>
                 </div>
               </td>
             </tr>
@@ -222,9 +222,9 @@ const actWarning = L.actBtn + ' bg-warning-bg text-warning'
 
 function typeBadge(type: string): string {
   const m: Record<string, string> = {
-    direction:  'bg-danger-bg text-danger',
-    department: 'bg-success-bg text-success',
-    service:    'bg-primary/10 text-primary',
+    Direction:  'bg-danger-bg text-danger',
+    Department: 'bg-success-bg text-success',
+    Service:    'bg-primary/10 text-primary',
   }
   return m[type] ?? 'bg-neutral-bg text-neutral'
 }
@@ -310,7 +310,7 @@ watch(filteredList, () => { listPage.value = 1 })
 
 // ── Helpers ────────────────────────────────────────────────────
 function typeLabel(t: EntityType | string): string {
-  const map: Record<string, string> = { direction: 'Direction', department: 'Département', service: 'Service' }
+  const map: Record<string, string> = { Direction: 'Direction', Department: 'Département', Service: 'Service' }
   return map[t] ?? t
 }
 

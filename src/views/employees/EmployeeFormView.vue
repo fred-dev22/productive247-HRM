@@ -175,6 +175,7 @@ const store       = useEmployeeStore()
 const entityStore = useEntityStore()
 const router      = useRouter()
 const route       = useRoute()
+if (entityStore.entities.length === 0) entityStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const sectionTitle = 'flex items-center gap-2 text-sm font-semibold pb-2.5 border-b border-border'

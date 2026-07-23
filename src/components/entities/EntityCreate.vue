@@ -40,23 +40,30 @@ function validate(): boolean {
 function buildPayload(): Parameters<typeof store.createEntity>[0] {
   return {
     code: form.code, name: form.name, type: form.type as EntityType, parentId: form.parentId || null,
-    legalIdentifier: form.legalIdentifier || undefined, address: form.address || undefined,
+    managerId: null,
+    address: form.address || undefined,
     phone: form.phone || undefined, email: form.email || undefined,
-    responsibleName: form.responsibleName || undefined, headcount: 0, validatorPools: [],
   }
 }
 
-function create() {
+async function create() {
   if (!validate()) return
-  store.createEntity(buildPayload())
-  const created = store.entities[store.entities.length - 1]
-  if (created) store.submitEntity(created.id)
-  emit('created'); emit('close')
+  try {
+    const created = await store.createEntity(buildPayload())
+    await store.submitEntity(created.id)
+    emit('created'); emit('close')
+  } catch {
+    error.value = "La création a échoué. Veuillez réessayer."
+  }
 }
-function saveDraft() {
+async function saveDraft() {
   if (!validate()) return
-  store.createEntity(buildPayload())
-  emit('created'); emit('close')
+  try {
+    await store.createEntity(buildPayload())
+    emit('created'); emit('close')
+  } catch {
+    error.value = "La création a échoué. Veuillez réessayer."
+  }
 }
 </script>
 
@@ -84,7 +91,7 @@ function saveDraft() {
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Type <span class="text-danger">*</span></label>
-              <select v-model="form.type" :class="cls.fieldSelect"><option value="">-- Choisir --</option><option value="direction">Direction</option><option value="department">Département</option><option value="service">Service</option></select>
+              <select v-model="form.type" :class="cls.fieldSelect"><option value="">-- Choisir --</option><option value="Direction">Direction</option><option value="Department">Département</option><option value="Service">Service</option></select>
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Entité parente</label>

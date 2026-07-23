@@ -45,7 +45,9 @@
         </div>
 
         <!-- Structure organisationnelle -->
+        <SkeletonLoader v-if="entityStore.loading" type="list" :lines="1" class="mb-3" />
         <router-link
+          v-else
           :to="{ name: 'hr-entities' }"
           class="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3.5 mb-3 no-underline text-foreground cursor-pointer transition-shadow hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:border-primary/20"
         >
@@ -264,6 +266,7 @@ import {
 } from 'lucide-vue-next'
 import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
 import ModalShell from '../components/ui/ModalShell.vue'
+import { SkeletonLoader } from '../components'
 import * as cls from '../lib/formClasses'
 import { useAuthStore } from '../stores/auth'
 import { useAbsenceStore } from '../stores/absences'
@@ -274,6 +277,7 @@ const auth        = useAuthStore()
 const leaves      = useAbsenceStore()
 const entityStore = useEntityStore()
 const { t, locale } = useI18n()
+if (entityStore.entities.length === 0) entityStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const btnPrimary = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-primary text-primary-foreground transition-colors hover:bg-primary/90'

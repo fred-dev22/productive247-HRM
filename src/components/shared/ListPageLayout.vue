@@ -434,9 +434,13 @@ const sep = 'w-px h-5 bg-border shrink-0'
               </tr>
             </thead>
             <tbody>
-              <tr v-if="loading">
-                <td :colspan="renderColumns.length" class="px-3 py-10 text-center text-muted-foreground text-[13px]">Chargement…</td>
-              </tr>
+              <template v-if="loading">
+                <tr v-for="skeletonRow in 6" :key="`skeleton-${skeletonRow}`" class="animate-pulse">
+                  <td v-for="col in renderColumns" :key="col.key" :class="L.td">
+                    <div class="h-3 bg-muted rounded" style="width: 70%"></div>
+                  </td>
+                </tr>
+              </template>
               <tr
                 v-else
                 v-for="item in items" :key="rowId(item)"

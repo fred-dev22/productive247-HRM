@@ -68,6 +68,7 @@ import type { Employee } from '../../types'
 const auth = useAuthStore()
 const employeeStore = useEmployeeStore()
 const entityStore = useEntityStore()
+if (entityStore.entities.length === 0) entityStore.fetchAll()
 
 const openCardId = ref<string | null>(null)
 function openCard(item: Employee) { openCardId.value = item.id }

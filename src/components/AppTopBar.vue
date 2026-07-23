@@ -82,30 +82,6 @@
             <CircleUser class="w-4 h-4" /><span>Mon profil</span>
           </div>
 
-          <!-- Langue avec sous-menu -->
-          <div :class="[dropdownItemClass, 'justify-between']" @click.stop="langOpen = !langOpen">
-            <div class="flex items-center gap-2">
-              <Globe class="w-4 h-4" /><span>{{ t('topbar.language') }}</span>
-            </div>
-            <span class="text-[11px] font-bold text-muted-foreground bg-background border border-border rounded px-1.5 py-px">
-              {{ locale === 'fr' ? 'FR' : 'EN' }}
-            </span>
-          </div>
-          <div v-if="langOpen" class="bg-background border-y border-border">
-            <div
-              :class="[submenuItemClass, locale === 'fr' && 'text-primary font-semibold']"
-              @click.stop="switchLanguage('fr')"
-            >
-              <span>🇫🇷 Français</span><Check v-if="locale === 'fr'" class="w-3.5 h-3.5 text-primary" />
-            </div>
-            <div
-              :class="[submenuItemClass, locale === 'en' && 'text-primary font-semibold']"
-              @click.stop="switchLanguage('en')"
-            >
-              <span>🇬🇧 English</span><Check v-if="locale === 'en'" class="w-3.5 h-3.5 text-primary" />
-            </div>
-          </div>
-
           <div class="h-px bg-border my-1"></div>
 
           <!-- Déconnexion -->
@@ -139,7 +115,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Search, Bell, Settings, HelpCircle, CircleUser, Globe, Check, LogOut, X } from 'lucide-vue-next'
+import { Search, Bell, Settings, HelpCircle, CircleUser, LogOut, X } from 'lucide-vue-next'
 import UserAvatar from './ui/UserAvatar.vue'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationStore } from '../stores/notifications'
@@ -150,7 +126,7 @@ defineProps<{ user: AuthUser | null }>()
 const router       = useRouter()
 const auth         = useAuthStore()
 const notifStore   = useNotificationStore()
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 const iconBtnClass =
   'w-8 h-8 rounded-md flex items-center justify-center cursor-pointer relative shrink-0 text-white transition-colors hover:bg-white/10 select-none'
@@ -158,8 +134,6 @@ const dropdownClass =
   'absolute top-[calc(100%+8px)] right-0 bg-popover text-popover-foreground rounded-[10px] shadow-[0_4px_20px_rgba(0,0,0,0.16)] border border-border min-w-[150px] z-[200] p-1 overflow-hidden cursor-default text-left'
 const dropdownItemClass =
   'flex items-center gap-2 px-4 py-[9px] text-[13px] cursor-pointer text-foreground transition-colors hover:bg-primary/10 hover:text-primary'
-const submenuItemClass =
-  'flex items-center justify-between px-6 py-[7px] text-xs cursor-pointer text-foreground transition-colors hover:bg-primary/10 hover:text-primary'
 
 const NOTIF_DOT: Record<string, string> = {
   leave:   'bg-primary',
@@ -179,25 +153,17 @@ const roleLabel = computed(() => {
 })
 
 const activeDropdown = ref<'user' | 'notif' | null>(null)
-const langOpen       = ref(false)
 const searchOpen     = ref(false)
 const searchQuery    = ref('')
 const searchInput    = ref<HTMLInputElement | null>(null)
 
 function toggleDropdown(name: 'user' | 'notif') {
   activeDropdown.value = activeDropdown.value === name ? null : name
-  langOpen.value = false
-}
-
-function switchLanguage(lang: 'fr' | 'en') {
-  locale.value = lang
-  localStorage.setItem('p247-locale', lang)
-  langOpen.value = false
 }
 
 function goToProfile() {
   activeDropdown.value = null
-  router.push(auth.isHRSide ? { name: 'hr-profile' } : { name: 'employee-profile' })
+  router.push(auth.isHRSpace ? { name: 'hr-profile' } : { name: 'employee-profile' })
 }
 
 async function openSearch() {
@@ -209,7 +175,7 @@ function handleLogout() {
   activeDropdown.value = null; auth.logout(); router.push({ name: 'login' })
 }
 
-function onDocClick()              { activeDropdown.value = null; langOpen.value = false }
+function onDocClick()              { activeDropdown.value = null }
 function onKeydown(e: KeyboardEvent) {
   if (e.ctrlKey && e.key === 'k') { e.preventDefault(); openSearch() }
   if (e.key === 'Escape')         { closeSearch(); activeDropdown.value = null }

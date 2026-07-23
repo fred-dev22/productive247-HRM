@@ -141,6 +141,8 @@ import type { DayPlanning, WorkingHours } from '../../types'
 const auth          = useAuthStore()
 const calendarStore = useCalendarStore()
 const absenceStore  = useAbsenceStore()
+if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
+if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 
 // ── Classes du design system ─────────────────────────────────
 const navBtn = 'w-8 h-8 flex items-center justify-center border border-border rounded-md bg-card text-foreground cursor-pointer transition-colors hover:bg-background'

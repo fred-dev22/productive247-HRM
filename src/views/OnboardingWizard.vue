@@ -54,7 +54,7 @@
             <!-- ══ ÉTAPE 1 : Calendrier ══ -->
             <template v-if="ob.currentStep === 1">
               <div :class="cardBody">
-                <WorkingDaysConfig />
+                <WorkingDaysConfig hide-summary />
                 <div v-if="calendarStore.daysPerWeek > 0" class="bg-success-bg border border-success rounded-lg px-4 py-2.5 flex items-center gap-2 text-[13px] text-success">
                   <CircleCheck class="w-4 h-4" />
                   {{ calendarStore.daysPerWeek }} jour{{ calendarStore.daysPerWeek > 1 ? 's' : '' }} configuré{{ calendarStore.daysPerWeek > 1 ? 's' : '' }}
@@ -62,7 +62,7 @@
                 </div>
               </div>
               <div :class="[cardFoot, 'justify-end']">
-                <button :class="btnPrimary" :disabled="calendarStore.daysPerWeek === 0" @click="ob.nextStep()">Continuer →</button>
+                <button :class="btnPrimary" :disabled="calendarStore.daysPerWeek === 0" @click="saveWorkingDaysAndContinue">Continuer →</button>
               </div>
             </template>
 
@@ -210,18 +210,31 @@ function stepCircleClass(step: number): string {
 
 function entTypeBadge(type: string): string {
   const m: Record<string, string> = {
-    direction:  'bg-danger text-white',
-    department: 'bg-success text-white',
-    service:    'bg-card text-success border border-success',
+    Direction:  'bg-danger text-white',
+    Department: 'bg-success text-white',
+    Service:    'bg-card text-success border border-success',
   }
   return m[type] ?? 'bg-neutral-bg text-neutral'
 }
 
 // Vérification auth manuelle (la route n'a pas requiresAuth pour éviter les boucles)
 onMounted(() => {
-  if (!auth.isLoggedIn)         router.replace({ path: '/' })
-  else if (auth.isEmployeeSide) router.replace({ path: '/employee' })
+  if (!auth.isLoggedIn)          router.replace({ path: '/' })
+  else if (auth.isEmployeeSpace) router.replace({ path: '/employee' })
+  else {
+    calendarStore.fetchCalendar()
+    if (entityStore.entities.length === 0) entityStore.fetchAll()
+  }
 })
+
+async function saveWorkingDaysAndContinue() {
+  try {
+    await calendarStore.updateWorkingDays(calendarStore.calendar.workingDays)
+  } catch {
+    // calendarStore.error porte le message ; on n'empeche pas de continuer
+  }
+  ob.nextStep()
+}
 
 const showEntityModal   = ref(false)
 const showEmployeeModal = ref(false)
@@ -245,7 +258,7 @@ function stepState(step: number): 'done' | 'current' | 'pending' {
 
 // ── Étape 2 : entités (hiérarchie aplatie depuis buildTree) ──────────
 const TYPE_LABELS: Record<string, string> = {
-  direction: 'Direction', department: 'Département', service: 'Service',
+  Direction: 'Direction', Department: 'Département', Service: 'Service',
 }
 
 const flatEntities = computed(() => {

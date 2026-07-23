@@ -46,17 +46,17 @@
             Voir →
           </button>
           <button
-            v-if="entity.status === 'draft'"
+            v-if="entity.status === 'Draft'"
             :class="[actBtn, 'bg-warning-bg text-warning']"
             @click.stop="submitEntity"
           >Soumettre</button>
           <button
-            v-if="entity.status === 'pending_approval'"
+            v-if="entity.status === 'PendingApproval'"
             :class="[actBtn, 'bg-success-bg text-success']"
             @click.stop="approveEntity"
           >Approuver</button>
           <router-link
-            v-if="entity.status === 'approved'"
+            v-if="entity.status === 'Active'"
             :to="{ name: 'hr-entity-edit', params: { id: entity.id } }"
             :class="actBtn"
           >Modifier</router-link>
@@ -108,9 +108,9 @@ function toggle() { toggleCollapse(props.entity.id) }
 // ── Type helpers ─────────────────────────────────────────────
 const typeIcon = computed(() => {
   const map: Record<string, typeof Building> = {
-    direction:  Building2,
-    department: LayoutGrid,
-    service:    Wrench,
+    Direction:  Building2,
+    Department: LayoutGrid,
+    Service:    Wrench,
   }
   return map[props.entity.type] ?? Building
 })
@@ -118,18 +118,18 @@ const typeIcon = computed(() => {
 // Accent bordure gauche selon le niveau (couleurs organigramme Galana)
 const cardBorder = computed(() => {
   const map: Record<string, string> = {
-    direction:  '4px solid var(--galana-direction-bg)',
-    department: '3px solid var(--galana-department-bg)',
-    service:    '2px solid var(--galana-service-border)',
+    Direction:  '4px solid var(--galana-direction-bg)',
+    Department: '3px solid var(--galana-department-bg)',
+    Service:    '2px solid var(--galana-service-border)',
   }
   return { borderLeft: map[props.entity.type] ?? '2px solid var(--color-border)' }
 })
 
 const typeColor = computed(() => {
   const map: Record<string, { background: string; color: string }> = {
-    direction:  { background: 'var(--galana-red-light)',   color: 'var(--galana-red)' },
-    department: { background: 'var(--galana-green-light)', color: 'var(--galana-green)' },
-    service:    { background: 'var(--galana-green-light)', color: 'var(--galana-green)' },
+    Direction:  { background: 'var(--galana-red-light)',   color: 'var(--galana-red)' },
+    Department: { background: 'var(--galana-green-light)', color: 'var(--galana-green)' },
+    Service:    { background: 'var(--galana-green-light)', color: 'var(--galana-green)' },
   }
   return map[props.entity.type] ?? { background: 'var(--galana-green-light)', color: 'var(--galana-green)' }
 })
@@ -137,19 +137,19 @@ const typeColor = computed(() => {
 // ── Status helpers ────────────────────────────────────────────
 const statusText = computed(() => {
   const map: Record<string, string> = {
-    draft:            'Brouillon',
-    pending_approval: 'En attente',
-    approved:         'Approuvé',
-    inactive:         'Inactif',
+    Draft:           'Brouillon',
+    PendingApproval: 'En attente',
+    Active:          'Approuvé',
+    Inactive:        'Inactif',
   }
   return map[props.entity.status] ?? props.entity.status
 })
 const statusClass = computed(() => {
   const map: Record<string, string> = {
-    approved:         'bg-success-bg text-success',
-    pending_approval: 'bg-warning-bg text-warning',
-    draft:            'bg-transparent text-foreground/60 border border-border',
-    inactive:         'bg-background text-muted-foreground',
+    Active:          'bg-success-bg text-success',
+    PendingApproval: 'bg-warning-bg text-warning',
+    Draft:           'bg-transparent text-foreground/60 border border-border',
+    Inactive:        'bg-background text-muted-foreground',
   }
   return map[props.entity.status] ?? 'bg-neutral-bg text-neutral'
 })

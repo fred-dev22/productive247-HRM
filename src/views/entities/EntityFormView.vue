@@ -12,7 +12,13 @@
           </router-link>
         </div>
 
-        <div class="flex justify-center">
+        <div v-if="formLoading" class="flex justify-center">
+          <div class="w-full max-w-[800px]">
+            <SkeletonLoader type="form" :lines="8" />
+          </div>
+        </div>
+
+        <div v-else class="flex justify-center">
           <div class="w-full max-w-[800px] bg-card border border-border rounded-lg p-6 flex flex-col gap-6">
 
             <!-- ── Section 1 : Informations générales ── -->
@@ -35,9 +41,9 @@
                   <label :class="cls.fieldLabel">Type *</label>
                   <select v-model="form.type" :class="[cls.fieldSelect, errors.type && cls.inputError]">
                     <option value="">-- Choisir un type --</option>
-                    <option value="direction">Direction</option>
-                    <option value="department">Département</option>
-                    <option value="service">Service</option>
+                    <option value="Direction">Direction</option>
+                    <option value="Department">Département</option>
+                    <option value="Service">Service</option>
                   </select>
                   <div v-if="errors.type" :class="cls.fieldError">{{ errors.type }}</div>
                 </div>
@@ -68,7 +74,7 @@
               <div :class="fieldGrid">
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">Responsable</label>
-                  <select v-model="form.responsibleId" :class="cls.fieldSelect" @change="onResponsibleChange">
+                  <select v-model="form.managerId" :class="cls.fieldSelect" @change="onResponsibleChange">
                     <option value="">-- Aucun --</option>
                     <option v-for="e in empStore.employees" :key="e.id" :value="e.id">
                       {{ e.code }} — {{ e.name }} · {{ e.jobTitle }}
@@ -143,6 +149,7 @@
             </div>
 
             <!-- ── Boutons ── -->
+            <p v-if="saveError" class="text-xs text-danger bg-danger-bg px-3 py-2 rounded-md">{{ saveError }}</p>
             <div class="flex gap-2 justify-end pt-2 border-t border-border">
               <button :class="cls.btnOutline" @click="handleDraft">
                 <Save class="w-4 h-4" />
@@ -162,6 +169,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Building, User, ShieldCheck, Trash2, Plus, Save, Send } from 'lucide-vue-next'
+import { SkeletonLoader } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }     from '../../stores/auth'
@@ -203,23 +211,29 @@ const form = reactive({
   parentId:        '' as string | null,
   legalIdentifier: '',
   address:         '',
-  responsibleId:   '' as string | undefined,
+  managerId:       '' as string | undefined,
   responsibleName: '',
   phone:           '',
   email:           '',
 })
 const errors = reactive({ name: '', code: '', type: '', email: '' })
+const saveError = ref('')
 
 // Pools locaux (tableau réactif)
 const localPools = ref<ValidatorPool[]>([])
 
 // Options entité parente
 const parentOptions = computed(() =>
-  store.entities.filter(e => e.status === 'approved' && e.id !== entityId.value)
+  store.entities.filter(e => e.status === 'Active' && e.id !== entityId.value)
 )
 
-// Pré-remplissage en mode édition
-onMounted(() => {
+// Pré-remplissage en mode édition — attend que la liste soit chargée
+const formLoading = ref(false)
+onMounted(async () => {
+  if (store.entities.length === 0) {
+    formLoading.value = true
+    await store.fetchAll()
+  }
   if (isEditMode.value && editEntity.value) {
     const e = editEntity.value
     form.name            = e.name
@@ -228,12 +242,13 @@ onMounted(() => {
     form.parentId        = e.parentId ?? ''
     form.legalIdentifier = e.legalIdentifier ?? ''
     form.address         = e.address ?? ''
-    form.responsibleId   = e.responsibleId ?? ''
+    form.managerId       = e.managerId ?? ''
     form.responsibleName = e.responsibleName ?? ''
     form.phone           = e.phone ?? ''
     form.email           = e.email ?? ''
     localPools.value     = [...e.validatorPools]
   }
+  formLoading.value = false
 })
 
 // Auto-uppercase code
@@ -269,7 +284,7 @@ function updatePoolEmployee(level: number, employeeId: string) {
 }
 
 function onResponsibleChange() {
-  const emp = empStore.getById(form.responsibleId ?? '')
+  const emp = empStore.getById(form.managerId ?? '')
   form.responsibleName = emp?.name ?? ''
 }
 
@@ -288,41 +303,46 @@ function validate(): boolean {
 
 function buildPayload() {
   return {
-    code:            form.code,
-    name:            form.name,
-    type:            form.type as EntityType,
-    parentId:        form.parentId || null,
-    legalIdentifier: form.legalIdentifier || undefined,
-    address:         form.address || undefined,
-    phone:           form.phone || undefined,
-    email:           form.email || undefined,
-    responsibleId:   form.responsibleId   || undefined,
-    responsibleName: form.responsibleName || undefined,
-    headcount:       editEntity.value?.headcount ?? 0,
-    validatorPools:  localPools.value.filter(p => p.validatorName.trim()),
+    code:      form.code,
+    name:      form.name,
+    type:      form.type as EntityType,
+    parentId:  form.parentId || null,
+    managerId: form.managerId || null,
+    address:   form.address || undefined,
+    phone:     form.phone || undefined,
+    email:     form.email || undefined,
   }
 }
 
 async function handleDraft() {
   if (!validate()) return
-  if (isEditMode.value && entityId.value) {
-    store.updateEntity(entityId.value, buildPayload())
-  } else {
-    store.createEntity(buildPayload())
+  saveError.value = ''
+  try {
+    if (isEditMode.value && entityId.value) {
+      await store.updateEntity(entityId.value, buildPayload())
+    } else {
+      await store.createEntity(buildPayload())
+    }
+    router.push({ name: 'hr-entities' })
+  } catch {
+    saveError.value = "L'enregistrement a échoué. Veuillez réessayer."
   }
-  router.push({ name: 'hr-entities' })
 }
 
 async function handleSubmit() {
   if (!validate()) return
-  if (isEditMode.value && entityId.value) {
-    store.updateEntity(entityId.value, buildPayload())
-    store.submitEntity(entityId.value)
-  } else {
-    store.createEntity(buildPayload())
-    const newId = store.entities[store.entities.length - 1]!.id
-    store.submitEntity(newId)
+  saveError.value = ''
+  try {
+    if (isEditMode.value && entityId.value) {
+      await store.updateEntity(entityId.value, buildPayload())
+      await store.submitEntity(entityId.value)
+    } else {
+      const created = await store.createEntity(buildPayload())
+      await store.submitEntity(created.id)
+    }
+    router.push({ name: 'hr-entities' })
+  } catch {
+    saveError.value = "L'enregistrement a échoué. Veuillez réessayer."
   }
-  router.push({ name: 'hr-entities' })
 }
 </script>

@@ -8,7 +8,7 @@
     </div>
 
     <!-- Items HR -->
-    <div class="ml-auto hidden md:flex" v-if="auth.isHRSide && !isMobileMenuOpen">
+    <div class="ml-auto hidden md:flex" v-if="auth.isHRSpace && !isMobileMenuOpen">
       <div
         v-for="item in hrNavItems"
         :key="item.key"
@@ -18,7 +18,7 @@
     </div>
 
     <!-- Items Employé / Validateur -->
-    <div class="ml-auto hidden md:flex" v-if="auth.isEmployeeSide && !isMobileMenuOpen">
+    <div class="ml-auto hidden md:flex" v-if="auth.isEmployeeSpace && !isMobileMenuOpen">
       <template v-for="item in empNavItems" :key="item.key">
         <router-link
           v-if="item.to"
@@ -50,7 +50,7 @@
   <!-- Mobile overlay + menu -->
   <div v-if="isMobileMenuOpen" class="fixed inset-0 bg-black/30 z-[140] md:hidden" @click="isMobileMenuOpen = false"></div>
   <div v-if="isMobileMenuOpen" class="fixed top-[92px] inset-x-0 bg-white border-b border-border shadow-lg z-[150] py-2 md:hidden">
-    <template v-if="auth.isHRSide">
+    <template v-if="auth.isHRSpace">
       <div v-for="item in hrNavItems" :key="item.key"
         :class="mobileItemClass" @click="handleHRNav(item.key); isMobileMenuOpen = false">
         {{ item.label }}
@@ -89,13 +89,22 @@ const navItemActiveClass = 'text-primary border-primary font-semibold'
 const mobileItemClass =
   'flex items-center px-5 py-3 text-sm font-medium text-foreground/80 cursor-pointer border-b border-border last:border-0 no-underline hover:bg-background hover:text-primary'
 
+// 'administration' et 'reports' contiennent des fonctionnalités réelles
+// couvertes par des permissions — masqués si l'utilisateur n'en a aucune.
+// 'recruitment'/'training'/'payroll' restent des modules placeholder sans
+// permission dédiée, donc toujours visibles côté RH comme aujourd'hui.
 const hrNavItems = computed(() => [
-  { key: 'administration', label: t('nav.admin') },
-  { key: 'recruitment',    label: t('nav.recruitment') },
-  { key: 'training',       label: t('nav.training') },
-  { key: 'payroll',        label: t('nav.payroll') },
-  { key: 'reports',        label: t('nav.reports') },
-])
+  { key: 'administration', label: t('nav.admin'), visible: auth.hasAnyPermission([
+    'EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE', 'ENTITE_VOIR',
+    'MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE', 'FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE',
+    'CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE',
+    'CONFIG_CALENDRIER', 'CONFIG_FRAIS_MISSION',
+  ]) },
+  { key: 'recruitment', label: t('nav.recruitment'), visible: true },
+  { key: 'training',    label: t('nav.training'),    visible: true },
+  { key: 'payroll',     label: t('nav.payroll'),      visible: true },
+  { key: 'reports', label: t('nav.reports'), visible: auth.hasAnyPermission(['RAPPORT_VOIR', 'ENTITE_VOIR']) },
+].filter((item) => item.visible))
 
 function handleHRNav(key: string) {
   navStore.setModule(key)

@@ -95,7 +95,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
 import { Plus, Plane } from 'lucide-vue-next'
 import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -109,11 +108,8 @@ import type { MissionOrder } from '../../types'
 
 const auth = useAuthStore()
 const missionStore = useMissionStore()
-const route = useRoute()
 
-const isRh = computed(() =>
-  route.path.startsWith('/hr') || auth.user?.role === 'hr_admin' || auth.user?.role === 'hr_director',
-)
+const isRh = computed(() => auth.hasAnyPermission(['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE']))
 
 const showCreate = ref(false)
 const openCardId = ref<string | null>(null)

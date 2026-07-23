@@ -37,9 +37,9 @@
       </div>
       <div :class="cls.field">
         <label :class="cls.fieldLabel">Workflow</label>
-        <select v-model="form.workflow" :class="cls.fieldSelect">
-          <option value="standard">Standard (approbation)</option>
-          <option value="medical">Médical (enregistrement)</option>
+        <select v-model="form.workflowType" :class="cls.fieldSelect">
+          <option value="Standard">Standard (approbation)</option>
+          <option value="Medical">Médical (enregistrement)</option>
         </select>
       </div>
     </div>
@@ -60,28 +60,10 @@
       </div>
     </div>
 
-    <div :class="cls.field">
-      <label :class="cls.fieldLabel">Icône</label>
-      <!-- Identifiants Tabler conservés en data : consommés par le calendrier (migration phase 4) -->
-      <div class="flex flex-wrap gap-1.5 mt-1">
-        <button
-          v-for="ic in ICON_OPTIONS" :key="ic"
-          type="button"
-          class="w-9 h-9 rounded-md border cursor-pointer flex items-center justify-center text-base transition-colors"
-          :class="form.icon === ic
-            ? 'bg-primary/10 text-primary border-primary'
-            : 'border-border bg-background text-muted-foreground hover:bg-card hover:text-foreground'"
-          @click="form.icon = ic"
-        >
-          <i :class="`ti ${ic}`" aria-hidden="true"></i>
-        </button>
-      </div>
-    </div>
-
     <div class="flex items-center justify-between">
       <span :class="cls.fieldLabel">Justificatif obligatoire</span>
       <label class="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" class="sr-only peer" v-model="form.requiresDocument" />
+        <input type="checkbox" class="sr-only peer" v-model="form.documentRequired" />
         <span class="w-9 h-5 rounded-full bg-foreground/20 transition-colors peer-checked:bg-primary relative after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:w-3.5 after:h-3.5 after:bg-white after:rounded-full after:shadow after:transition-all peer-checked:after:left-[19px]"></span>
       </label>
     </div>
@@ -122,11 +104,6 @@ const COLOR_OPTIONS = [
   '#006B3C','#C8102E','#993556','#185FA5',
   '#854F0B','#8A5A0A','#2D7A3F','#5C3B8A',
 ]
-const ICON_OPTIONS = [
-  'ti-calendar','ti-stethoscope','ti-heart','ti-clock-hour-3',
-  'ti-users','ti-star','ti-home-2','ti-briefcase',
-  'ti-beach','ti-baby-carriage','ti-globe','ti-sun',
-]
 
 const form = reactive({
   name:             '',
@@ -134,12 +111,11 @@ const form = reactive({
   daysPerYear:      0,
   daysPerMonth:     undefined as number | undefined,
   noticeDays:       0,
-  requiresDocument: false,
-  workflow:         'standard' as 'standard' | 'medical',
+  documentRequired: false,
+  workflowType:     'Standard' as 'Standard' | 'Medical',
   isActive:         true,
   isSystem:         false,
   color:            '#006B3C',
-  icon:             'ti-calendar',
 })
 
 const errors = reactive({ name: '', code: '' })
@@ -163,18 +139,17 @@ function populate() {
       form.daysPerYear      = lt.daysPerYear
       form.daysPerMonth     = lt.daysPerMonth
       form.noticeDays       = lt.noticeDays
-      form.requiresDocument = lt.requiresDocument
-      form.workflow         = lt.workflow
+      form.documentRequired = lt.documentRequired
+      form.workflowType     = lt.workflowType
       form.isActive         = lt.isActive
       form.isSystem         = lt.isSystem
       form.color            = lt.color
-      form.icon             = lt.icon
     }
   } else {
     Object.assign(form, {
       name:'', code:'', daysPerYear:0, daysPerMonth:undefined,
-      noticeDays:0, requiresDocument:false, workflow:'standard',
-      isActive:true, isSystem:false, color:'#006B3C', icon:'ti-calendar',
+      noticeDays:0, documentRequired:false, workflowType:'Standard',
+      isActive:true, isSystem:false, color:'#006B3C',
     })
   }
   errors.name = ''
@@ -194,27 +169,30 @@ function validate(): boolean {
 
 function close() { emit('update:modelValue', false) }
 
-function handleSave() {
+async function handleSave() {
   if (!validate()) return
-  const payload: Omit<LeaveTypeConfig, 'id'> = {
+  const payload: Omit<LeaveTypeConfig, 'id' | 'icon'> = {
     name:             form.name,
     code:             form.code.toUpperCase(),
     daysPerYear:      form.daysPerYear,
     daysPerMonth:     form.daysPerMonth,
     noticeDays:       form.noticeDays,
-    requiresDocument: form.requiresDocument,
-    workflow:         form.workflow,
+    documentRequired: form.documentRequired,
+    workflowType:     form.workflowType,
     isActive:         form.isActive,
     isSystem:         form.isSystem,
     color:            form.color,
-    icon:             form.icon,
   }
-  if (isEdit.value && props.editId) {
-    store.updateLeaveType(props.editId, payload)
-  } else {
-    store.addLeaveType(payload)
+  try {
+    if (isEdit.value && props.editId) {
+      await store.updateLeaveType(props.editId, payload)
+    } else {
+      await store.addLeaveType(payload)
+    }
+    emit('saved')
+    close()
+  } catch {
+    // store.error porte le message pour l'UI
   }
-  emit('saved')
-  close()
 }
 </script>

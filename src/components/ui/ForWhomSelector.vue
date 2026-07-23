@@ -73,7 +73,7 @@ const modeBtn = 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-
 const modeActive = '!bg-primary/10 !text-primary !border-primary'
 
 const canSwitchMode = computed(() =>
-  ['hr_admin', 'hr_director', 'validator'].includes(auth.user?.role ?? ''),
+  auth.hasAnyPermission(['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE']),
 )
 
 function setMode(mode: 'self' | 'for-employee') {

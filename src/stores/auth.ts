@@ -1,81 +1,156 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { AuthUser, UserRole } from '../types'
+import { api, getStoredToken, setStoredToken, clearStoredToken } from '../lib/api'
+import { decodeJwt, isTokenExpired } from '../lib/jwt'
+
+// Backend Role.Name (French, admin-editable — see prisma/seed.ts) -> frontend
+// UserRole (snake_case). Only the 4 seeded system roles map to a concrete
+// UserRole; anything else (a custom role created later from Administration)
+// falls back to 'employee' — the space it lands in is decided separately
+// below (isHRSpace/isEmployeeSpace), not by this label.
+const ROLE_NAME_TO_USER_ROLE: Record<string, UserRole> = {
+  'Employé': 'employee',
+  'Validateur': 'validator',
+  'Admin RH': 'hr_admin',
+  'Directeur RH': 'hr_director',
+}
+
+// Espace applicatif (routage /hr vs /employee) — décidé par le rôle, pas par
+// les permissions individuelles (voir consigne : Directeur RH/Admin RH → hr,
+// Validateur/Employé → employee).
+const HR_SPACE_ROLES = new Set(['Directeur RH', 'Admin RH'])
+
+interface BackendEmployee {
+  Id: string
+  FirstName: string
+  LastName: string
+  FullName: string
+  Email: string
+  OrganizationUnitId: string
+}
+
+interface BackendOrganizationUnit {
+  Id: string
+  Name: string
+}
+
+interface EffectivePermissionsResponse {
+  roleName: string
+  permissions: string[]
+}
 
 export const useAuthStore = defineStore('auth', () => {
-  const user      = ref<AuthUser | null>(null)
-  const isLoggedIn = ref(false)
+  const user        = ref<AuthUser | null>(null)
+  const isLoggedIn  = ref(false)
+  const isRestoring = ref(false)
+  const permissions = ref<string[]>([])
+  const roleName     = ref<string | null>(null)
 
   // ── Getters ──────────────────────────────────────────────────
   const role         = computed<UserRole | null>(() => user.value?.role ?? null)
-  const isEmployee   = computed(() => user.value?.role === 'employee')
   const isValidator  = computed(() => user.value?.role === 'validator')
   const isHRAdmin    = computed(() => user.value?.role === 'hr_admin')
   const isHRDirector = computed(() => user.value?.role === 'hr_director')
-  const isHRSide     = computed(() =>
-    user.value?.role === 'hr_admin' || user.value?.role === 'hr_director'
-  )
-  const isEmployeeSide = computed(() =>
-    user.value?.role === 'employee' || user.value?.role === 'validator'
-  )
-  // Alias kept for backward compat
-  const isRH = computed(() => isHRSide.value)
+  // Espace applicatif uniquement — ne pas s'en servir pour gater une
+  // fonctionnalité précise, voir hasPermission() ci-dessous pour ça.
+  const isHRSpace       = computed(() => !!roleName.value && HR_SPACE_ROLES.has(roleName.value))
+  const isEmployeeSpace = computed(() => !!roleName.value && !HR_SPACE_ROLES.has(roleName.value))
+
+  function hasPermission(code: string): boolean {
+    return permissions.value.includes(code)
+  }
+  function hasAnyPermission(codes: string[]): boolean {
+    return codes.some((code) => permissions.value.includes(code))
+  }
+
+  async function buildAuthUser(employeeId: string, roleNameValue: string): Promise<AuthUser> {
+    const { data: employee } = await api.get<BackendEmployee>(`/employees/${employeeId}`)
+
+    let entityName: string | undefined
+    try {
+      const { data: unit } = await api.get<BackendOrganizationUnit>(
+        `/organization-units/${employee.OrganizationUnitId}`,
+      )
+      entityName = unit.Name
+    } catch {
+      entityName = undefined
+    }
+
+    return {
+      id:         employee.Id,
+      name:       employee.FullName,
+      initials:   (employee.FirstName.charAt(0) + employee.LastName.charAt(0)).toUpperCase(),
+      role:       ROLE_NAME_TO_USER_ROLE[roleNameValue] ?? 'employee',
+      email:      employee.Email,
+      entityId:   employee.OrganizationUnitId,
+      entityName,
+    }
+  }
+
+  // Toujours relues depuis l'API (jamais figées dans le JWT) — voir backend
+  // PermissionGuard : un changement de droit doit s'appliquer immédiatement.
+  async function fetchPermissions(userId: string) {
+    const { data } = await api.get<EffectivePermissionsResponse>(`/users/${userId}/permissions`)
+    permissions.value = data.permissions
+  }
 
   // ── Actions ──────────────────────────────────────────────────
-  function login(selectedRole: UserRole, email: string) {
-    const users: Record<UserRole, AuthUser> = {
-      employee: {
-        id: 'emp-003',
-        name: 'Ravi Nundlall',
-        initials: 'RN',
-        role: 'employee',
-        email,
-        entityId:   'e3',
-        entityName: 'Service Administration du Personnel',
-      },
-      validator: {
-        id: 'emp-002',
-        name: 'Sonia Boodhun',
-        initials: 'SB',
-        role: 'validator',
-        email,
-        entityId:       'e2',
-        entityName:     'Direction des Ressources Humaines',
-        validatorLevel: 1,
-      },
-      hr_admin: {
-        id: 'emp-001',
-        name: 'David Djouboui',
-        initials: 'DD',
-        role: 'hr_admin',
-        email,
-        entityId:   'e1',
-        entityName: 'Direction Générale',
-      },
-      hr_director: {
-        id: 'emp-000',
-        name: 'Gary Ellis',
-        initials: 'GE',
-        role: 'hr_director',
-        email,
-        entityId:   'e1',
-        entityName: 'Direction Générale',
-      },
-    }
-    user.value      = users[selectedRole]
+  async function login(email: string, password: string) {
+    const { data } = await api.post<{ accessToken: string }>('/auth/login', { email, password })
+    setStoredToken(data.accessToken)
+    const payload = decodeJwt(data.accessToken)
+    roleName.value = payload.roleName
+    user.value = await buildAuthUser(payload.employeeId, payload.roleName)
+    await fetchPermissions(payload.sub)
     isLoggedIn.value = true
+  }
+
+  // Called once at app startup so a page refresh doesn't lose the session —
+  // the JWT persists in localStorage, only the in-memory state is rebuilt.
+  async function restoreSession() {
+    const token = getStoredToken()
+    if (!token) return
+
+    const payload = decodeJwt(token)
+    if (isTokenExpired(payload)) {
+      clearStoredToken()
+      return
+    }
+
+    isRestoring.value = true
+    try {
+      roleName.value = payload.roleName
+      user.value = await buildAuthUser(payload.employeeId, payload.roleName)
+      await fetchPermissions(payload.sub)
+      isLoggedIn.value = true
+    } catch {
+      // Token valid but the employee/session/permissions data couldn't be
+      // loaded (deleted employee, deactivated account, backend unreachable,
+      // etc.) — treat as logged out.
+      clearStoredToken()
+      user.value = null
+      roleName.value = null
+      permissions.value = []
+      isLoggedIn.value = false
+    } finally {
+      isRestoring.value = false
+    }
   }
 
   function logout() {
     user.value       = null
+    roleName.value   = null
+    permissions.value = []
     isLoggedIn.value = false
+    clearStoredToken()
   }
 
   return {
-    user, isLoggedIn, role,
-    isEmployee, isValidator, isHRAdmin, isHRDirector,
-    isHRSide, isEmployeeSide,
-    isRH,  // alias
-    login, logout,
+    user, isLoggedIn, isRestoring, role, roleName, permissions,
+    isValidator, isHRAdmin, isHRDirector,
+    isHRSpace, isEmployeeSpace,
+    hasPermission, hasAnyPermission,
+    login, logout, restoreSession,
   }
 })

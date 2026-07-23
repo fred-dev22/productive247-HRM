@@ -231,17 +231,20 @@ const leaveTypesStore = useLeaveTypesStore()
 const auth            = useAuthStore()
 const { t }           = useI18n()
 
+if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
+if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
+if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+
 const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
 
 const availableEmployees = computed(() => {
-  const role = auth.user?.role ?? ''
-  if (role === 'hr_admin' || role === 'hr_director') {
+  if (auth.hasPermission('EMPLOYE_VOIR_TOUT')) {
     return employeeStore.employees.map(e => ({
       id: e.id, label: e.name, sublabel: e.entityName,
       initials: e.avatarText, avatarColor: e.avatarBg,
     }))
   }
-  if (role === 'validator') {
+  if (auth.hasPermission('EMPLOYE_VOIR_EQUIPE')) {
     return employeeStore.getByEntityId(auth.user?.entityId ?? '').map(e => ({
       id: e.id, label: e.name, sublabel: e.entityName,
       initials: e.avatarText, avatarColor: e.avatarBg,

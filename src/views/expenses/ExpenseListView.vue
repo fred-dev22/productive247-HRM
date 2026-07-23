@@ -86,7 +86,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
 import { Plus, ReceiptText } from 'lucide-vue-next'
 import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -100,11 +99,8 @@ import type { ExpenseReport } from '../../types'
 
 const auth = useAuthStore()
 const expenseStore = useExpenseStore()
-const route = useRoute()
 
-const isRh = computed(() =>
-  route.path.startsWith('/hr') || auth.user?.role === 'hr_admin' || auth.user?.role === 'hr_director',
-)
+const isRh = computed(() => auth.hasAnyPermission(['FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE']))
 
 const showCreate = ref(false)
 const openCardId = ref<string | null>(null)
