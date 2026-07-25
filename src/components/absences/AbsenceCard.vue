@@ -10,30 +10,27 @@ import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
 import ValidationTimeline from '../ui/ValidationTimeline.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
+import SearchableDropdown from '../ui/SearchableDropdown.vue'
 import AbsenceWorkflowActions from './AbsenceWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
-import { useAbsenceStore } from '../../stores/absences'
-import type { LeaveRequest, LeaveType } from '../../types'
+import { useLeaveRequestStore } from '../../stores/leaveRequests'
+import { useLeaveTypesStore } from '../../stores/leaveTypes'
+import type { LeaveRequest } from '../../types'
 
 const props = defineProps<{
   /** Demandes de la liste courante (pour la navigation N°) */
   leaves: LeaveRequest[]
   /** Demande affichée */
-  requestId: number
+  requestId: string
 }>()
 
 const emit = defineEmits<{ close: [] }>()
 
-const absenceStore = useAbsenceStore()
+const store = useLeaveRequestStore()
+const leaveTypesStore = useLeaveTypesStore()
+if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 
-const TYPE_LABELS: Record<string, string> = {
-  'Congé annuel': 'Congé annuel', 'Congé maladie': 'Congé maladie',
-  'Récupération': 'Récupération', 'Télétravail': 'Télétravail',
-  'Congé maternité': 'Congé maternité',
-}
-const TYPE_OPTIONS: LeaveType[] = ['Congé annuel', 'Congé maladie', 'Récupération', 'Télétravail', 'Congé maternité']
-function typeLabel(t: string) { return TYPE_LABELS[t] ?? t }
-function leaveNo(l: LeaveRequest) { return 'DEM-' + String(l.id).padStart(4, '0') }
+function leaveNo(l: LeaveRequest) { return l.referenceCode }
 
 const currentId = ref(props.requestId)
 watch(() => props.requestId, (v) => { currentId.value = v; isEditMode.value = false })
@@ -43,8 +40,22 @@ const currentIndex = computed(() => props.leaves.findIndex(l => l.id === current
 const hasPrev = computed(() => currentIndex.value > 0)
 const hasNext = computed(() => currentIndex.value >= 0 && currentIndex.value < props.leaves.length - 1)
 
-const sidebarItems = computed(() => props.leaves.map(l => ({ no: leaveNo(l), label: `${l.employeeName} · ${typeLabel(l.type)}` })))
+const sidebarItems = computed(() => props.leaves.map(l => ({ no: leaveNo(l), label: `${l.employeeName} · ${l.leaveTypeName}` })))
 const currentNo = computed(() => (current.value ? leaveNo(current.value) : null))
+
+// La liste passée en prop (mine/team/all) ne porte pas l'historique de
+// validation — seul le détail (GET /leave-requests/:id) l'inclut.
+const validationHistory = ref<LeaveRequest['validationHistory']>(undefined)
+watch(currentId, async (id) => {
+  validationHistory.value = undefined
+  if (!id) return
+  try {
+    const detail = await store.fetchOne(id)
+    validationHistory.value = detail.validationHistory
+  } catch {
+    // silencieux : l'historique est une amélioration, pas bloquant pour la fiche
+  }
+}, { immediate: true })
 
 function goPrev() { if (hasPrev.value) { currentId.value = props.leaves[currentIndex.value - 1]!.id; isEditMode.value = false } }
 function goNext() { if (hasNext.value) { currentId.value = props.leaves[currentIndex.value + 1]!.id; isEditMode.value = false } }
@@ -55,13 +66,16 @@ function selectSidebar(no: string) {
 
 /* ── Mode édition (brouillons uniquement) ───────────────────── */
 const isEditMode = ref(false)
-const canEdit = computed(() => current.value?.status === 'draft')
-const form = ref({ type: '' as LeaveType | '', startDate: '', endDate: '', reason: '' })
+const canEdit = computed(() => current.value?.status === 'Draft' || current.value?.status === 'Returned')
+const form = ref({ leaveTypeId: '', startDate: '', endDate: '', reason: '' })
+const saveError = ref('')
+
+const leaveTypeItems = computed(() => leaveTypesStore.activeTypes.map(lt => ({ id: lt.id, label: lt.name })))
 
 function enterEdit() {
   if (!current.value) return
   form.value = {
-    type: current.value.type,
+    leaveTypeId: current.value.leaveTypeId,
     startDate: current.value.startDate,
     endDate: current.value.endDate,
     reason: current.value.reason ?? '',
@@ -69,15 +83,19 @@ function enterEdit() {
   isEditMode.value = true
 }
 function cancelEdit() { isEditMode.value = false }
-function save() {
-  if (!current.value || !form.value.type) return
-  absenceStore.updateLeave(current.value.id, {
-    type: form.value.type,
-    startDate: form.value.startDate,
-    endDate: form.value.endDate,
-    reason: form.value.reason,
-  })
-  isEditMode.value = false
+async function save() {
+  if (!current.value || !form.value.leaveTypeId) return
+  try {
+    await store.update(current.value.id, {
+      leaveTypeId: form.value.leaveTypeId,
+      startDate: form.value.startDate,
+      endDate: form.value.endDate,
+      reason: form.value.reason,
+    })
+    isEditMode.value = false
+  } catch {
+    saveError.value = store.error ?? "La mise à jour a échoué."
+  }
 }
 
 const pageTitle = computed(() => (current.value ? `${leaveNo(current.value)} · ${current.value.employeeName}` : ''))
@@ -118,7 +136,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
     <template #form>
       <div class="px-6 py-5 max-w-4xl">
         <!-- Section Général -->
-        <FormSection title="Général" :recaps="[current.employeeName, typeLabel(current.type), `${current.workingDays}j`]">
+        <FormSection title="Général" :recaps="[current.employeeName, current.leaveTypeName, `${current.daysCount}j`]">
         <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <!-- Employé -->
           <div :class="cls.field">
@@ -132,10 +150,14 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           <!-- Type -->
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Type d'absence</label>
-            <select v-if="isEditMode" v-model="form.type" :class="cls.fieldSelect">
-              <option v-for="t in TYPE_OPTIONS" :key="t" :value="t">{{ typeLabel(t) }}</option>
-            </select>
-            <div v-else :class="readBox">{{ typeLabel(current.type) }}</div>
+            <SearchableDropdown
+              v-if="isEditMode"
+              :items="leaveTypeItems"
+              :model-value="form.leaveTypeId"
+              :show-avatar="false"
+              @update:model-value="form.leaveTypeId = String($event)"
+            />
+            <div v-else :class="readBox">{{ current.leaveTypeName }}</div>
           </div>
 
           <!-- Date début -->
@@ -155,13 +177,19 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           <!-- Jours ouvrés -->
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Jours ouvrés</label>
-            <div :class="readBox">{{ current.workingDays }} jour(s)</div>
+            <div :class="readBox">{{ current.daysCount }} jour(s)</div>
           </div>
 
-          <!-- Soumis le -->
+          <!-- Référence -->
           <div :class="cls.field">
-            <label :class="cls.fieldLabel">Soumis le</label>
-            <div :class="readBox">{{ current.submittedAt }}</div>
+            <label :class="cls.fieldLabel">Référence</label>
+            <div :class="readBox">{{ current.referenceCode }}</div>
+          </div>
+
+          <!-- Intérimaire -->
+          <div v-if="current.interimEmployeeName" :class="cls.field">
+            <label :class="cls.fieldLabel">Intérimaire</label>
+            <div :class="readBox">{{ current.interimEmployeeName }}</div>
           </div>
 
           <!-- Motif -->
@@ -171,17 +199,18 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <div v-else :class="[readBox, 'min-h-[38px] h-auto py-2']">{{ current.reason || '—' }}</div>
           </div>
 
-          <!-- Motif de refus -->
+          <!-- Motif de refus / retour -->
           <div v-if="current.rejectionReason" :class="cls.field">
-            <label :class="cls.fieldLabel">Motif du refus</label>
+            <label :class="cls.fieldLabel">{{ current.status === 'Returned' ? 'Commentaire de retour' : 'Motif du refus' }}</label>
             <div class="text-[13px] text-danger bg-danger-bg border border-danger/20 rounded-md px-2.5 py-2">{{ current.rejectionReason }}</div>
           </div>
         </div>
+        <div v-if="saveError" class="text-xs text-danger bg-danger-bg px-3 py-2 rounded-md mt-3">{{ saveError }}</div>
         </FormSection>
 
         <!-- Historique de validation -->
-        <FormSection v-if="current.validationHistory?.length" title="Historique de validation">
-          <ValidationTimeline :history="current.validationHistory" />
+        <FormSection v-if="validationHistory?.length" title="Historique de validation">
+          <ValidationTimeline :history="validationHistory" />
         </FormSection>
       </div>
     </template>

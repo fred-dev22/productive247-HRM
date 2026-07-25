@@ -14,23 +14,23 @@
         <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
           <div :class="kpiCard" class="border-t-[3px] border-t-primary">
             <div :class="kpiLabel">{{ t('balances.annual') }}</div>
-            <div :class="kpiValue" class="text-primary">12</div>
-            <div :class="kpiSub">{{ t('balances.on', { total: 24 }) }}</div>
+            <div :class="kpiValue" class="text-primary">{{ balanceFor('ANNUAL') }}</div>
+            <div :class="kpiSub">j disponibles</div>
           </div>
           <div :class="kpiCard" class="border-t-[3px] border-t-success">
             <div :class="kpiLabel">{{ t('balances.recovery') }}</div>
-            <div :class="kpiValue" class="text-success">3</div>
-            <div :class="kpiSub">{{ t('balances.acquired') }}</div>
+            <div :class="kpiValue" class="text-success">{{ balanceFor('RECOVERY') }}</div>
+            <div :class="kpiSub">j disponibles</div>
           </div>
           <div :class="kpiCard" class="border-t-[3px] border-t-success">
             <div :class="kpiLabel">{{ t('balances.sick') }}</div>
-            <div :class="kpiValue" class="text-success">8</div>
+            <div :class="kpiValue" class="text-success">{{ balanceFor('SICK') }}</div>
             <div :class="kpiSub">{{ t('balances.available') }}</div>
           </div>
           <div :class="kpiCard" class="border-t-[3px]" style="border-top-color:#854F0B">
             <div :class="kpiLabel">{{ t('balances.remote') }}</div>
-            <div :class="kpiValue" style="color:#854F0B">5</div>
-            <div :class="kpiSub">{{ t('balances.used') }}</div>
+            <div :class="kpiValue" style="color:#854F0B">{{ balanceFor('REMOTE') }}</div>
+            <div :class="kpiSub">j disponibles</div>
           </div>
         </div>
 
@@ -46,22 +46,20 @@
             </div>
             <div v-for="r in myRequests" :key="r.id" class="flex items-center gap-2.5 py-[9px] border-b border-border last:border-b-0">
               <div class="flex-1">
-                <div class="text-sm font-medium">{{ typeLabel(r.type) }}</div>
-                <div class="text-xs text-muted-foreground">{{ r.startDate }} → {{ r.endDate }} · {{ r.workingDays }} jour{{ r.workingDays > 1 ? 's' : '' }}</div>
+                <div class="text-sm font-medium">{{ r.leaveTypeName }}</div>
+                <div class="text-xs text-muted-foreground">{{ r.startDate }} → {{ r.endDate }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
               </div>
-              <span class="text-xs font-medium px-2.5 py-[3px] rounded-full whitespace-nowrap" :class="pillClass(r.status)">
-                {{ statusLabel(r.status) }}
-              </span>
-              <button v-if="r.status === 'pending'" class="px-2.5 py-[5px] rounded text-[10px] font-medium cursor-pointer bg-warning-bg text-warning">
+              <StatusPill :status="r.status" />
+              <button v-if="CANCELLABLE.has(r.status)" class="px-2.5 py-[5px] rounded text-[10px] font-medium cursor-pointer bg-warning-bg text-warning" @click="cancelRequest(r.id)">
                 {{ t('absence.actions.cancel') }}
               </button>
-              <button v-else class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground">{{ t('absence.actions.view') }}</button>
+              <router-link v-else :to="{ name: 'employee-absences' }" class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground no-underline">{{ t('absence.actions.view') }}</router-link>
             </div>
             <div class="flex gap-2 flex-wrap mt-3 pt-2.5 border-t border-border">
-              <button :class="[btnOutline, 'text-[11px]']" @click="openModal('Télétravail')">
+              <button :class="[btnOutline, 'text-[11px]']" @click="openModalForCode('REMOTE')">
                 <Building class="w-4 h-4" /> {{ t('absence.types.remote') }}
               </button>
-              <button :class="[btnOutline, 'text-[11px]']" @click="openModal('Récupération')">
+              <button :class="[btnOutline, 'text-[11px]']" @click="openModalForCode('RECOVERY')">
                 <Clock class="w-4 h-4" /> {{ t('absence.types.recovery') }}
               </button>
               <button :class="[btnOutline, 'text-[11px]']" @click="router.push({ name: 'employee-missions' })">
@@ -94,7 +92,7 @@
   <!-- Modale nouvelle demande -->
   <AbsenceCreate
     v-if="showModal"
-    :initial-type="modalInitialType || undefined"
+    :initial-leave-type-id="modalInitialType || undefined"
     @close="showModal = false"
     @created="showToast(t('absence.submitted_toast'))"
   />
@@ -111,14 +109,26 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Plus, List, Building, Clock, Plane, Calendar, Check } from 'lucide-vue-next'
 import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
-import { useAuthStore }    from '../stores/auth'
-import { useAbsenceStore } from '../stores/absences'
-import type { LeaveStatus, LeaveType } from '../types'
+import { StatusPill } from '../components'
+import { useAuthStore }             from '../stores/auth'
+import { useLeaveRequestStore }     from '../stores/leaveRequests'
+import { useLeaveTypesStore }       from '../stores/leaveTypes'
+import { useLeaveTransactionStore } from '../stores/leaveTransactions'
 
 const auth   = useAuthStore()
-const leaves = useAbsenceStore()
+const leaves = useLeaveRequestStore()
+const leaveTypesStore = useLeaveTypesStore()
+const balanceStore     = useLeaveTransactionStore()
 const { t }  = useI18n()
 const router = useRouter()
+
+if (leaves.mine.length === 0) leaves.fetchMine()
+if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
+
+function balanceFor(code: string) {
+  return balanceStore.myBalances.find(b => b.leaveTypeCode === code)?.balance ?? 0
+}
 
 // ── Classes du design system ─────────────────────────────────
 const btnPrimary = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-primary text-primary-foreground transition-colors hover:bg-primary/90'
@@ -132,14 +142,23 @@ const cardHeader = 'flex items-center justify-between mb-3'
 const cardTitle = 'flex items-center gap-1.5 text-sm font-semibold'
 const legClass = 'flex items-center gap-1.5 text-[11px] text-muted-foreground'
 
-const myRequests = computed(() => leaves.myLeaves.slice(0, 5))
+const myRequests = computed(() => leaves.mine.slice(0, 5))
+
+const CANCELLABLE = new Set(['Draft', 'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved', 'Registered'])
+function cancelRequest(id: string) {
+  if (confirm('Annuler cette demande ?')) leaves.cancel(id)
+}
 
 // ── Modale ───────────────────────────────────────────────────
 const showModal        = ref(false)
-const modalInitialType = ref<LeaveType | ''>('')
+const modalInitialType = ref('')
 
-function openModal(type: LeaveType | '' = '') {
-  modalInitialType.value = type
+function openModalForCode(code: string) {
+  modalInitialType.value = leaveTypesStore.leaveTypes.find(lt => lt.code === code)?.id ?? ''
+  showModal.value = true
+}
+function openModal() {
+  modalInitialType.value = ''
   showModal.value = true
 }
 
@@ -148,47 +167,6 @@ const toastMsg = ref('')
 function showToast(msg: string) {
   toastMsg.value = msg
   setTimeout(() => { toastMsg.value = '' }, 3000)
-}
-
-// ── Helpers traduction ───────────────────────────────────────
-const typeI18nKey: Record<string, string> = {
-  'Congé annuel':              'absence.types.annual',
-  'Congé maladie':             'absence.types.sick',
-  'Récupération':              'absence.types.recovery',
-  'Télétravail':               'absence.types.remote',
-  'Congé maternité':           'absence.types.maternity',
-  'Assistance parentale':      'absence.types.parental',
-  'Permission exceptionnelle': 'absence.types.exceptional',
-}
-
-function typeLabel(type: string): string {
-  const key = typeI18nKey[type]
-  return key ? t(key) : type
-}
-
-function pillClass(s: LeaveStatus) {
-  return {
-    'bg-warning-bg text-warning':   s === 'pending',
-    'bg-success-bg text-success':  s === 'approved',
-    'bg-danger-bg text-danger':  s === 'rejected',
-    'bg-background text-muted-foreground': s === 'cancelled',
-    'bg-transparent text-foreground/60 border border-border': s === 'draft',
-  }
-}
-
-function statusLabel(s: LeaveStatus): string {
-  const map: Record<LeaveStatus, string> = {
-    draft:       t('absence.status.draft'),
-    pending:     t('absence.status.pending'),
-    approved:    t('absence.status.approved'),
-    rejected:    t('absence.status.rejected'),
-    cancelled:   t('absence.status.cancelled'),
-    returned:    t('absence.status.returned'),
-    registered:  t('absence.status.registered'),
-    done:        t('absence.status.done'),
-    regularized: t('absence.status.regularized'),
-  }
-  return map[s]
 }
 
 // ── Calendrier (mock juillet 2026) ───────────────────────────

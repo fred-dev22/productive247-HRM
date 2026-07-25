@@ -132,22 +132,7 @@
               <!-- Card Pools de validation -->
               <div :class="card">
                 <div :class="cardTitle"><ShieldCheck class="w-[15px] h-[15px] text-primary" /> Pools de validation</div>
-                <div v-if="entity.validatorPools.length > 0" class="flex flex-col gap-2.5">
-                  <div v-for="pool in sortedPools" :key="pool.level" class="flex items-center gap-2.5 px-2.5 py-2 bg-background rounded-md">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" :style="{ background: pool.validatorColor }">
-                      {{ pool.validatorInitials }}
-                    </div>
-                    <div class="flex-1">
-                      <div class="text-[13px] font-medium">{{ pool.validatorName }}</div>
-                      <div class="text-[11px] text-muted-foreground">Validateur N+{{ pool.level }}</div>
-                    </div>
-                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">N+{{ pool.level }}</span>
-                  </div>
-                </div>
-                <div v-else :class="emptyInfo">
-                  <CircleAlert class="w-3.5 h-3.5" />
-                  Aucun validateur configuré — les demandes ne pourront pas être traitées
-                </div>
+                <ApprovalPoolConfig :entity-id="entity.id" />
               </div>
 
               <!-- Card Employés rattachés -->
@@ -155,14 +140,14 @@
                 <div :class="cardTitle"><Users class="w-[15px] h-[15px] text-primary" /> Employés rattachés</div>
                 <div class="text-[13px] font-medium">{{ entity.headcount }} employé{{ entity.headcount > 1 ? 's' : '' }}</div>
                 <div class="flex flex-col gap-1.5">
-                  <div v-for="emp in mockEmployees" :key="emp.name" class="flex items-center gap-2 py-1.5">
-                    <div class="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[9px] font-bold" :style="{ background: emp.color }">{{ emp.initials }}</div>
+                  <div v-for="emp in unitEmployees.slice(0, 3)" :key="emp.id" class="flex items-center gap-2 py-1.5">
+                    <div class="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[9px] font-bold" :style="{ background: emp.avatarBg, color: emp.avatarText }">{{ emp.initials }}</div>
                     <div class="text-[13px]">{{ emp.name }}</div>
                   </div>
                 </div>
-                <div v-if="entity.headcount > 3" class="text-xs text-info cursor-pointer mt-1">
+                <router-link v-if="entity.headcount > 3" :to="{ name: 'hr-employees' }" class="text-xs text-info cursor-pointer mt-1 no-underline hover:underline">
                   Voir tous les {{ entity.headcount }} employés →
-                </div>
+                </router-link>
               </div>
 
               <!-- Card Historique -->
@@ -205,20 +190,24 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   TriangleAlert, ChevronRight, ArrowLeft, Pencil, Send, Check, X, Ban, Info,
-  ArrowUp, ArrowDown, ArrowRight, Users, ShieldCheck, CircleAlert, History, CirclePlus,
+  ArrowUp, ArrowDown, ArrowRight, Users, ShieldCheck, History, CirclePlus,
 } from 'lucide-vue-next'
 import { SkeletonLoader } from '../../components'
+import ApprovalPoolConfig from '../../components/entities/ApprovalPoolConfig.vue'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }       from '../../stores/auth'
 import { useEntityStore }     from '../../stores/entities'
+import { useEmployeeStore }   from '../../stores/employees'
 import { useNavigationStore } from '../../stores/navigation'
 import type { EntityType } from '../../types'
 
 const auth     = useAuthStore()
 const store    = useEntityStore()
+const empStore = useEmployeeStore()
 const navStore = useNavigationStore()
 const route    = useRoute()
 const router   = useRouter()
+if (empStore.employees.length === 0) empStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const card = 'bg-card border border-border rounded-lg p-4 flex flex-col gap-3'
@@ -249,7 +238,7 @@ const entity   = computed(() => store.getEntityById(entityId.value))
 const parent   = computed(() => entity.value?.parentId)
 const parentEntity = computed(() => parent.value ? store.getEntityById(parent.value) : undefined)
 const children     = computed(() => store.getChildren(entityId.value))
-const sortedPools  = computed(() => [...(entity.value?.validatorPools ?? [])].sort((a, b) => a.level - b.level))
+const unitEmployees = computed(() => entity.value ? empStore.getByEntityId(entity.value.id) : [])
 
 // ── Helpers affichage ─────────────────────────────────────────
 const typeLabel = computed(() => {
@@ -284,15 +273,4 @@ const respInitials = computed(() => {
   return (parts[0] ?? '?').slice(0, 2).toUpperCase()
 })
 
-// Mock employés (3 premiers)
-const MOCK_COLORS = ['#B5D4F4', '#C0DD97', '#F4C0D1', '#FAC775', '#AFA9EC']
-const mockEmployees = computed(() => {
-  const count = Math.min(3, entity.value?.headcount ?? 0)
-  const names = ['Aminata D.', 'Kofi M.', 'Fatou S.', 'Jean-Pierre M.', 'Rose N.']
-  return Array.from({ length: count }, (_, i) => ({
-    name:     names[i] ?? `Employé ${i + 1}`,
-    initials: names[i]?.split(' ').map(p => p[0]).join('') ?? 'E',
-    color:    MOCK_COLORS[i % MOCK_COLORS.length],
-  }))
-})
 </script>

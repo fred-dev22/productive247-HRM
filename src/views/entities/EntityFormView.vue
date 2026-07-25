@@ -39,21 +39,23 @@
 
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">Type *</label>
-                  <select v-model="form.type" :class="[cls.fieldSelect, errors.type && cls.inputError]">
+                  <select v-if="!isRootEntity" v-model="form.type" :class="[cls.fieldSelect, errors.type && cls.inputError]">
                     <option value="">-- Choisir un type --</option>
                     <option value="Direction">Direction</option>
                     <option value="Department">Département</option>
                     <option value="Service">Service</option>
                   </select>
+                  <div v-else :class="[cls.fieldInput, 'flex items-center bg-background']">{{ form.type }}</div>
                   <div v-if="errors.type" :class="cls.fieldError">{{ errors.type }}</div>
                 </div>
 
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">Entité parente</label>
-                  <select v-model="form.parentId" :class="cls.fieldSelect">
+                  <select v-if="!isRootEntity" v-model="form.parentId" :class="cls.fieldSelect">
                     <option value="">Aucune (entité racine)</option>
                     <option v-for="e in parentOptions" :key="e.id" :value="e.id">{{ e.code }} — {{ e.name }}</option>
                   </select>
+                  <div v-else :class="[cls.fieldInput, 'flex items-center bg-background']">— Racine —</div>
                 </div>
 
                 <div :class="cls.field">
@@ -96,55 +98,10 @@
             <!-- ── Section 3 : Pools de validation ── -->
             <div class="flex flex-col gap-3.5">
               <div :class="sectionTitle"><ShieldCheck class="w-4 h-4 text-primary" /> Configuration des validateurs</div>
-              <p class="text-xs text-muted-foreground -mt-2">
-                Définissez qui approuve les demandes des employés de cette entité.
-                Les niveaux non configurés seront ignorés dans le circuit de validation.
-              </p>
-
-              <div class="flex flex-col gap-2.5">
-                <div v-for="level in ([1, 2, 3, 4] as const)" :key="level" class="flex items-center gap-3 px-3 py-2.5 bg-background rounded-lg border border-border">
-                  <div class="shrink-0">
-                    <span class="text-[11px] font-bold px-2.5 py-[3px] rounded-full bg-primary/10 text-primary border border-primary/20">N+{{ level }}</span>
-                  </div>
-                  <div class="flex-1 flex items-center gap-2">
-                    <template v-if="getPool(level)">
-                      <select
-                        :class="cls.fieldSelect"
-                        :value="getPool(level)!.employeeId ?? ''"
-                        @change="updatePoolEmployee(level, ($event.target as HTMLSelectElement).value)"
-                      >
-                        <option value="">-- Choisir un employé --</option>
-                        <optgroup label="Directeurs RH">
-                          <option v-for="e in empStore.employees.filter(x => x.role === 'hr_director')" :key="e.id" :value="e.id">
-                            {{ e.name }} · {{ e.jobTitle }}
-                          </option>
-                        </optgroup>
-                        <optgroup label="Admins RH">
-                          <option v-for="e in empStore.employees.filter(x => x.role === 'hr_admin')" :key="e.id" :value="e.id">
-                            {{ e.name }} · {{ e.jobTitle }}
-                          </option>
-                        </optgroup>
-                        <optgroup label="Managers / Validateurs">
-                          <option v-for="e in empStore.employees.filter(x => x.role === 'validator')" :key="e.id" :value="e.id">
-                            {{ e.name }} · {{ e.jobTitle }}
-                          </option>
-                        </optgroup>
-                      </select>
-                      <div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0" :style="{ background: getPool(level)!.validatorColor }">
-                        {{ getPool(level)!.validatorInitials }}
-                      </div>
-                      <button class="w-7 h-7 rounded-md cursor-pointer flex items-center justify-center bg-danger-bg text-danger shrink-0 transition-opacity hover:opacity-75" @click="removePool(level)" title="Supprimer ce validateur">
-                        <Trash2 class="w-3.5 h-3.5" />
-                      </button>
-                    </template>
-                    <template v-else>
-                      <div class="text-xs text-muted-foreground flex-1 italic">Non configuré</div>
-                      <button :class="[cls.btnOutline, '!px-2.5 !py-[5px] !text-xs']" @click="addPool(level)">
-                        <Plus class="w-3.5 h-3.5" /> Ajouter
-                      </button>
-                    </template>
-                  </div>
-                </div>
+              <ApprovalPoolConfig v-if="isEditMode && entityId" :entity-id="entityId" />
+              <div v-else class="flex items-start gap-2 bg-info-bg text-info text-xs rounded-md px-3 py-2.5">
+                <Info class="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span>Les validateurs (N+1 à N+4, par type de demande) se configurent après la création, depuis la fiche de l'entité.</span>
               </div>
             </div>
 
@@ -168,14 +125,15 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Building, User, ShieldCheck, Trash2, Plus, Save, Send } from 'lucide-vue-next'
+import { ArrowLeft, Building, User, ShieldCheck, Save, Send, Info } from 'lucide-vue-next'
 import { SkeletonLoader } from '../../components'
+import ApprovalPoolConfig from '../../components/entities/ApprovalPoolConfig.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }     from '../../stores/auth'
 import { useEntityStore }   from '../../stores/entities'
 import { useEmployeeStore } from '../../stores/employees'
-import type { EntityType, ValidatorPool } from '../../types'
+import type { EntityType } from '../../types'
 
 const auth        = useAuthStore()
 const store       = useEntityStore()
@@ -191,17 +149,9 @@ const hint = 'font-normal text-muted-foreground'
 const entityId   = computed(() => route.params.id as string | undefined)
 const isEditMode = computed(() => !!entityId.value)
 const editEntity = computed(() => entityId.value ? store.getEntityById(entityId.value) : undefined)
-
-// ── Palette de couleurs pour les validateurs ──────────────────
-const COLORS = ['var(--galana-green)', 'var(--galana-green-dark)', '#854F0B', '#993556', '#7C3AED', '#0F766E', '#BE185D']
-let colorIdx = 0
-function nextColor(): string { return COLORS[colorIdx++ % COLORS.length] ?? 'var(--galana-green)' }
-
-function computeInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0]!.charAt(0) + parts[parts.length - 1]!.charAt(0)).toUpperCase()
-  return (parts[0] ?? '?').slice(0, 2).toUpperCase()
-}
+// L'entité racine n'a jamais de parent ni de type modifiables — invariants
+// structurels, pas des attributs métier.
+const isRootEntity = computed(() => isEditMode.value && editEntity.value?.parentId == null)
 
 // ── Formulaire ────────────────────────────────────────────────
 const form = reactive({
@@ -219,9 +169,6 @@ const form = reactive({
 const errors = reactive({ name: '', code: '', type: '', email: '' })
 const saveError = ref('')
 
-// Pools locaux (tableau réactif)
-const localPools = ref<ValidatorPool[]>([])
-
 // Options entité parente
 const parentOptions = computed(() =>
   store.entities.filter(e => e.status === 'Active' && e.id !== entityId.value)
@@ -230,9 +177,12 @@ const parentOptions = computed(() =>
 // Pré-remplissage en mode édition — attend que la liste soit chargée
 const formLoading = ref(false)
 onMounted(async () => {
-  if (store.entities.length === 0) {
+  const tasks: Promise<unknown>[] = []
+  if (store.entities.length === 0) tasks.push(store.fetchAll())
+  if (empStore.employees.length === 0) tasks.push(empStore.fetchAll())
+  if (tasks.length > 0) {
     formLoading.value = true
-    await store.fetchAll()
+    await Promise.all(tasks)
   }
   if (isEditMode.value && editEntity.value) {
     const e = editEntity.value
@@ -246,42 +196,12 @@ onMounted(async () => {
     form.responsibleName = e.responsibleName ?? ''
     form.phone           = e.phone ?? ''
     form.email           = e.email ?? ''
-    localPools.value     = [...e.validatorPools]
   }
   formLoading.value = false
 })
 
 // Auto-uppercase code
 watch(() => form.code, v => { form.code = v.toUpperCase() })
-
-// ── Gestion pools ─────────────────────────────────────────────
-function getPool(level: 1 | 2 | 3 | 4): ValidatorPool | undefined {
-  return localPools.value.find(p => p.level === level)
-}
-function addPool(level: 1 | 2 | 3 | 4) {
-  localPools.value.push({
-    level,
-    validatorName:     '',
-    validatorInitials: '??',
-    validatorColor:    nextColor(),
-  })
-}
-function removePool(level: number) {
-  localPools.value = localPools.value.filter(p => p.level !== level)
-}
-
-function updatePoolEmployee(level: number, employeeId: string) {
-  const pool = localPools.value.find(p => p.level === level)
-  if (!pool) return
-  if (!employeeId) { pool.employeeId = undefined; pool.validatorName = ''; pool.validatorInitials = '??'; return }
-  const emp = empStore.getById(employeeId)
-  if (emp) {
-    pool.employeeId        = emp.id
-    pool.validatorName     = emp.name
-    pool.validatorInitials = emp.initials
-    pool.validatorColor    = emp.avatarBg
-  }
-}
 
 function onResponsibleChange() {
   const emp = empStore.getById(form.managerId ?? '')
@@ -306,6 +226,7 @@ function buildPayload() {
     code:      form.code,
     name:      form.name,
     type:      form.type as EntityType,
+    legalIdentifier: form.legalIdentifier || undefined,
     parentId:  form.parentId || null,
     managerId: form.managerId || null,
     address:   form.address || undefined,
@@ -325,7 +246,7 @@ async function handleDraft() {
     }
     router.push({ name: 'hr-entities' })
   } catch {
-    saveError.value = "L'enregistrement a échoué. Veuillez réessayer."
+    saveError.value = store.error ?? "L'enregistrement a échoué. Veuillez réessayer."
   }
 }
 
@@ -342,7 +263,7 @@ async function handleSubmit() {
     }
     router.push({ name: 'hr-entities' })
   } catch {
-    saveError.value = "L'enregistrement a échoué. Veuillez réessayer."
+    saveError.value = store.error ?? "L'enregistrement a échoué. Veuillez réessayer."
   }
 }
 </script>

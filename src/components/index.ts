@@ -1,7 +1,6 @@
 export { default as AppSidebar }           from './AppSidebar.vue'
 export { default as AppTopNav }            from './AppTopNav.vue'
 export { default as ComingSoonView }       from './ComingSoonView.vue'
-export { default as AbsenceRequestModal }  from './AbsenceRequestModal.vue'
 export { default as OrgChartTree }         from './OrgChartTree.vue'
 export { default as OrgChartView }         from './OrgChartView.vue'
 // ── Coquilles de page partagées ──

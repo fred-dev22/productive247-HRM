@@ -21,8 +21,8 @@
           <div :class="kpiCard">
             <div :class="kpiAccent" class="bg-success-bg"><Users class="w-[17px] h-[17px] text-success" /></div>
             <div :class="kpiLabel">{{ t('dashboard.active_employees') }}</div>
-            <div :class="kpiValue">47</div>
-            <div :class="kpiSub">+2 {{ t('dashboard.this_month') }}</div>
+            <div :class="kpiValue">{{ activeEmployeesCount }}</div>
+            <div :class="kpiSub">+{{ newHiresThisMonth }} {{ t('dashboard.this_month') }}</div>
           </div>
           <div :class="kpiCard">
             <div :class="kpiAccent" class="bg-warning-bg"><Clock class="w-[17px] h-[17px] text-warning" /></div>
@@ -33,14 +33,14 @@
           <div :class="kpiCard">
             <div :class="kpiAccent" class="bg-success-bg"><Check class="w-[17px] h-[17px] text-success" /></div>
             <div :class="kpiLabel">{{ t('dashboard.approved_month') }}</div>
-            <div :class="kpiValue">12</div>
+            <div :class="kpiValue">{{ approvedThisMonthCount }}</div>
             <div :class="kpiSub">{{ t('dashboard.leaves_absences') }}</div>
           </div>
           <div :class="kpiCard">
             <div :class="kpiAccent" class="bg-primary/10"><UserX class="w-[17px] h-[17px] text-primary" /></div>
             <div :class="kpiLabel">{{ t('dashboard.absent_today') }}</div>
-            <div :class="kpiValue">3</div>
-            <div :class="kpiSub">{{ t('dashboard.on_employees', { count: 47 }) }}</div>
+            <div :class="kpiValue">{{ absentTodayCount }}</div>
+            <div :class="kpiSub">{{ t('dashboard.on_employees', { count: activeEmployeesCount }) }}</div>
           </div>
         </div>
 
@@ -90,22 +90,15 @@
             </div>
           </div>
           <div v-for="r in activeRequests" :key="r.id" class="flex items-center gap-2.5 py-2 border-b border-border last:border-b-0">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0" :style="{ background: r.avatarColor, color: r.avatarTextColor }">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 bg-primary/10 text-primary">
               {{ r.employeeInitials }}
             </div>
             <div class="flex-1">
               <div class="text-sm font-medium">{{ r.employeeName }}</div>
-              <div class="text-xs text-muted-foreground">{{ typeLabel(r.type) }} · {{ r.startDate }} → {{ r.endDate }} · {{ r.workingDays }} jour{{ r.workingDays > 1 ? 's' : '' }}</div>
+              <div class="text-xs text-muted-foreground">{{ r.leaveTypeName }} · {{ r.startDate }} → {{ r.endDate }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
             </div>
-            <span class="text-xs font-medium px-2.5 py-[3px] rounded-full whitespace-nowrap" :class="pillClass(r.status)">
-              {{ statusLabel(r.status) }}
-            </span>
-            <div v-if="r.status === 'pending'" class="flex gap-1">
-              <button class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-success-bg text-success" @click="approve(r.id)">{{ t('absence.actions.approve') }}</button>
-              <button class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-info-bg text-info flex items-center" @click="openReturnModal(r)"><Undo2 class="w-3.5 h-3.5" /></button>
-              <button class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-danger-bg text-danger" @click="openRejectModal(r)">{{ t('absence.actions.reject') }}</button>
-            </div>
-            <button v-else class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground">{{ t('absence.actions.view') }}</button>
+            <StatusPill :status="r.status" />
+            <AbsenceWorkflowActions :leave="r" />
           </div>
         </div>
 
@@ -229,32 +222,6 @@
     @created="onAbsenceSubmitted"
   />
 
-  <!-- Modale de retour -->
-  <ModalShell :open="returnModal.open" :title="`Retourner la demande de ${returnModal.employeeName}`" max-width="max-w-[420px]" @close="closeReturnModal">
-    <label :class="cls.fieldLabel">Commentaire *</label>
-    <textarea v-model="returnModal.comment" :class="cls.fieldTextarea" placeholder="Expliquez ce qui doit être corrigé..." rows="4"></textarea>
-    <div v-if="returnModal.error" :class="cls.fieldError">{{ returnModal.error }}</div>
-    <template #footer>
-      <button :class="cls.btnPrimary" @click="confirmReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
-      <button :class="cls.btnOutline" @click="closeReturnModal">{{ t('absence.actions.cancel') }}</button>
-    </template>
-  </ModalShell>
-
-  <!-- Modale de refus -->
-  <ModalShell :open="rejectModal.open" :title="t('absence.reject_modal.title', { name: rejectModal.employeeName })" max-width="max-w-[420px]" @close="closeRejectModal">
-    <label :class="cls.fieldLabel">{{ t('absence.reject_modal.label') }}</label>
-    <textarea
-      v-model="rejectModal.reason"
-      :class="cls.fieldTextarea"
-      :placeholder="t('absence.reject_modal.placeholder')"
-      rows="4"
-    ></textarea>
-    <div v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</div>
-    <template #footer>
-      <button :class="cls.btnPrimary" @click="confirmReject">{{ t('absence.actions.confirm_reject') }}</button>
-      <button :class="cls.btnOutline" @click="closeRejectModal">{{ t('absence.actions.cancel') }}</button>
-    </template>
-  </ModalShell>
 </template>
 
 <script setup lang="ts">
@@ -262,22 +229,42 @@ import { ref, computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   FileDown, Plus, Users, Clock, Check, UserX, Network, ChevronRight, ChevronLeft,
-  CalendarClock, BarChart3, GripVertical, Calendar, Undo2, ArrowUp, ArrowDown, ArrowUpDown,
+  CalendarClock, BarChart3, GripVertical, Calendar, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-vue-next'
 import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
-import ModalShell from '../components/ui/ModalShell.vue'
-import { SkeletonLoader } from '../components'
-import * as cls from '../lib/formClasses'
+import AbsenceWorkflowActions from '../components/absences/AbsenceWorkflowActions.vue'
+import { SkeletonLoader, StatusPill } from '../components'
 import { useAuthStore } from '../stores/auth'
-import { useAbsenceStore } from '../stores/absences'
+import { useLeaveRequestStore } from '../stores/leaveRequests'
 import { useEntityStore } from '../stores/entities'
-import type { LeaveRequest, LeaveStatus } from '../types'
+import { useEmployeeStore } from '../stores/employees'
+import { useLeaveTransactionStore } from '../stores/leaveTransactions'
 
 const auth        = useAuthStore()
-const leaves      = useAbsenceStore()
+const leaves      = useLeaveRequestStore()
 const entityStore = useEntityStore()
+const employeeStore = useEmployeeStore()
+const balanceStore = useLeaveTransactionStore()
 const { t, locale } = useI18n()
 if (entityStore.entities.length === 0) entityStore.fetchAll()
+if (leaves.all.length === 0) leaves.fetchAll()
+if (employeeStore.employees.length === 0) employeeStore.fetchAll()
+
+// ── KPIs ─────────────────────────────────────────────────────
+const todayIso = new Date().toISOString().slice(0, 10)
+const thisMonthKey = todayIso.slice(0, 7)
+
+const activeEmployeesCount = computed(() => employeeStore.activeEmployees.length)
+const newHiresThisMonth = computed(() => employeeStore.employees.filter(e => e.hireDate?.slice(0, 7) === thisMonthKey).length)
+
+const APPROVED_LIKE = new Set(['Approved', 'Registered', 'Done', 'Regularized'])
+const approvedThisMonthCount = computed(() => leaves.all.filter(l =>
+  APPROVED_LIKE.has(l.status) && (l.modifiedAt ?? l.createdAt)?.slice(0, 7) === thisMonthKey,
+).length)
+
+const absentTodayCount = computed(() => leaves.all.filter(l =>
+  APPROVED_LIKE.has(l.status) && l.startDate <= todayIso && l.endDate >= todayIso,
+).length)
 
 // ── Classes du design system ─────────────────────────────────
 const btnPrimary = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-primary text-primary-foreground transition-colors hover:bg-primary/90'
@@ -335,7 +322,7 @@ function typeLabel(type: string): string {
   return key ? t(key) : type
 }
 
-// ── AbsenceRequestModal ──────────────────────────────────────
+// ── AbsenceCreate ─────────────────────────────────────────────
 const absenceModalOpen = ref(false)
 
 function onAbsenceSubmitted() {
@@ -345,79 +332,10 @@ function onAbsenceSubmitted() {
 // ── Demandes ─────────────────────────────────────────────────
 const tab = ref<'pending' | 'approved'>('pending')
 
-const requests = ref<LeaveRequest[]>([
-  { id:1, employeeName:'Aminata Diallo',     employeeInitials:'AD', avatarColor:'#B5D4F4', avatarTextColor:'#0C447C', type:'Congé annuel',    startDate:'2026-07-10', endDate:'2026-07-17', workingDays:6,  status:'pending',  submittedAt:'2026-06-20' },
-  { id:2, employeeName:'Kofi Mensah',        employeeInitials:'KM', avatarColor:'#C0DD97', avatarTextColor:'#3B6D11', type:'Congé maladie',   startDate:'2026-07-02', endDate:'2026-07-05', workingDays:4,  status:'pending',  submittedAt:'2026-07-01' },
-  { id:3, employeeName:'Fatou Sow',          employeeInitials:'FS', avatarColor:'#F4C0D1', avatarTextColor:'#72243E', type:'Récupération',    startDate:'2026-07-08', endDate:'2026-07-08', workingDays:1,  status:'approved', submittedAt:'2026-06-25' },
-  { id:4, employeeName:'Jean-Pierre Mvondo', employeeInitials:'JP', avatarColor:'#FAC775', avatarTextColor:'#633806', type:'Télétravail',     startDate:'2026-07-07', endDate:'2026-07-11', workingDays:5,  status:'pending',  submittedAt:'2026-06-28' },
-  { id:5, employeeName:'Rose Nkeng',         employeeInitials:'RN', avatarColor:'#AFA9EC', avatarTextColor:'#3C3489', type:'Congé maternité', startDate:'2026-07-01', endDate:'2026-09-30', workingDays:65, status:'approved', submittedAt:'2026-05-15' },
-])
-
-const pending        = computed(() => requests.value.filter(r => r.status === 'pending'))
-const approved       = computed(() => requests.value.filter(r => r.status === 'approved'))
+const PENDING_STATUSES = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
+const pending        = computed(() => leaves.all.filter(r => PENDING_STATUSES.has(r.status)))
+const approved       = computed(() => leaves.all.filter(r => r.status === 'Approved'))
 const activeRequests = computed(() => tab.value === 'pending' ? pending.value : approved.value)
-
-function approve(id: number) {
-  const r = requests.value.find(r => r.id === id)
-  if (r) r.status = 'approved'
-}
-
-const returnModal = reactive({ open: false, id: 0, employeeName: '', comment: '', error: '' })
-function openReturnModal(r: LeaveRequest) {
-  Object.assign(returnModal, { open: true, id: r.id, employeeName: r.employeeName, comment: '', error: '' })
-}
-function closeReturnModal() { returnModal.open = false }
-function confirmReturn() {
-  if (!returnModal.comment.trim() || returnModal.comment.trim().length < 10) {
-    returnModal.error = 'Le commentaire doit comporter au moins 10 caractères'; return
-  }
-  const r = requests.value.find(r => r.id === returnModal.id)
-  if (r) { r.status = 'returned'; r.returnComment = returnModal.comment.trim() }
-  closeReturnModal()
-}
-
-const rejectModal = reactive({ open: false, id: 0, employeeName: '', reason: '', error: '' })
-
-function openRejectModal(r: LeaveRequest) {
-  Object.assign(rejectModal, { open: true, id: r.id, employeeName: r.employeeName, reason: '', error: '' })
-}
-function closeRejectModal() { rejectModal.open = false }
-
-function confirmReject() {
-  if (!rejectModal.reason.trim()) {
-    rejectModal.error = t('absence.reject_modal.error_empty')
-    return
-  }
-  if (rejectModal.reason.trim().length < 10) {
-    rejectModal.error = t('absence.reject_modal.error_short')
-    return
-  }
-  const r = requests.value.find(r => r.id === rejectModal.id)
-  if (r) { r.status = 'rejected'; r.rejectionReason = rejectModal.reason.trim() }
-  closeRejectModal()
-}
-
-function pillClass(s: LeaveStatus) {
-  return {
-    'bg-warning-bg text-warning':  s === 'pending',
-    'bg-success-bg text-success': s === 'approved',
-    'bg-danger-bg text-danger': s === 'rejected',
-  }
-}
-function statusLabel(s: LeaveStatus): string {
-  const map: Partial<Record<LeaveStatus, string>> = {
-    draft:       t('absence.status.draft'),
-    pending:     t('absence.status.pending'),
-    approved:    t('absence.status.approved'),
-    rejected:    t('absence.status.rejected'),
-    cancelled:   t('absence.status.cancelled'),
-    returned:    t('absence.status.returned'),
-    registered:  'Enregistré',
-    done:        'Effectué',
-    regularized: 'Régularisé',
-  }
-  return map[s] ?? s
-}
 
 // ── Soldes individuels ────────────────────────────────────────
 const balSortKey  = ref('name')
@@ -430,16 +348,27 @@ function balSort(key: string) {
   else { balSortKey.value = key; balSortDir.value = 'asc' }
 }
 
-const employeeBalances = [
-  { name: 'Aminata Diallo',     initials: 'AD', avatarColor: '#B5D4F4', avatarTextColor: '#0C447C', congeAnnuel: 12, recuperation: 3, maladie: 8,  teletravail: 5  },
-  { name: 'Kofi Mensah',        initials: 'KM', avatarColor: '#C0DD97', avatarTextColor: '#3B6D11', congeAnnuel: 18, recuperation: 0, maladie: 5,  teletravail: 8  },
-  { name: 'Fatou Sow',          initials: 'FS', avatarColor: '#F4C0D1', avatarTextColor: '#72243E', congeAnnuel: 6,  recuperation: 2, maladie: 0,  teletravail: 10 },
-  { name: 'Jean-Pierre Mvondo', initials: 'JP', avatarColor: '#FAC775', avatarTextColor: '#633806', congeAnnuel: 24, recuperation: 5, maladie: 3,  teletravail: 2  },
-  { name: 'Rose Nkeng',         initials: 'RN', avatarColor: '#AFA9EC', avatarTextColor: '#3C3489', congeAnnuel: 0,  recuperation: 0, maladie: 0,  teletravail: 0  },
-]
+if (balanceStore.allBalances.length === 0) balanceStore.fetchAllBalances()
+
+function balanceOf(employeeId: string, code: string): number {
+  return balanceStore.allBalances.find(b => b.employeeId === employeeId)?.balances.find(b => b.leaveTypeCode === code)?.balance ?? 0
+}
+const employeeBalances = computed(() => balanceStore.allBalances.map(b => {
+  const emp = employeeStore.getById(b.employeeId)
+  return {
+    name: b.employeeName,
+    initials: emp?.initials ?? '',
+    avatarColor: emp?.avatarBg ?? '#E2E8F0',
+    avatarTextColor: emp?.avatarText ?? '#475569',
+    congeAnnuel: balanceOf(b.employeeId, 'ANNUAL'),
+    recuperation: balanceOf(b.employeeId, 'RECOVERY'),
+    maladie: balanceOf(b.employeeId, 'SICK'),
+    teletravail: balanceOf(b.employeeId, 'REMOTE'),
+  }
+}))
 
 const sortedBalances = computed(() => {
-  const list = [...employeeBalances].sort((a, b) => {
+  const list = [...employeeBalances.value].sort((a, b) => {
     const va = (a as any)[balSortKey.value]
     const vb = (b as any)[balSortKey.value]
     const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
@@ -448,7 +377,7 @@ const sortedBalances = computed(() => {
   const start = (balPage.value - 1) * balPageSize.value
   return list.slice(start, start + balPageSize.value)
 })
-const balTotalPages = computed(() => Math.max(1, Math.ceil(employeeBalances.length / balPageSize.value)))
+const balTotalPages = computed(() => Math.max(1, Math.ceil(employeeBalances.value.length / balPageSize.value)))
 
 // ── Calendrier dynamique ──────────────────────────────────────
 const weekDays = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -489,8 +418,8 @@ const calDays = computed((): CalDay[] => {
     const mm      = String(m + 1).padStart(2, '0')
     const dd      = String(d).padStart(2, '0')
     const dateStr = `${y}-${mm}-${dd}`
-    const hasLeave = leaves.allLeaves.some(
-      l => l.status === 'approved' && l.startDate <= dateStr && l.endDate >= dateStr
+    const hasLeave = leaves.all.some(
+      l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
     )
     result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave })
   }
@@ -498,14 +427,6 @@ const calDays = computed((): CalDay[] => {
 })
 
 // ── Tooltip ───────────────────────────────────────────────────
-const typeColors: Record<string, string> = {
-  'Congé annuel':    '#B5D4F4',
-  'Congé maladie':   '#C0DD97',
-  'Congé maternité': '#F4C0D1',
-  'Récupération':    '#FAC775',
-  'Télétravail':     '#AFA9EC',
-}
-
 const tooltip = reactive({
   visible: false,
   x: 0,
@@ -525,11 +446,11 @@ const tooltipStyle = computed(() => ({
 
 function showTooltip(event: MouseEvent, dateStr: string) {
   const rect    = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const matches = leaves.allLeaves.filter(
-    l => l.status === 'approved' && l.startDate <= dateStr && l.endDate >= dateStr
+  const matches = leaves.all.filter(
+    l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
   )
   tooltip.lines = matches.length > 0
-    ? matches.map(l => ({ text: `${l.employeeName} — ${typeLabel(l.type)}`, color: typeColors[l.type] ?? '#ccc' }))
+    ? matches.map(l => ({ text: `${l.employeeName} — ${l.leaveTypeName}`, color: l.leaveTypeColor }))
     : [{ text: t('absence.no_absence'), color: '' }]
   tooltip.x     = rect.left + rect.width / 2
   tooltip.above = rect.top > window.innerHeight / 2

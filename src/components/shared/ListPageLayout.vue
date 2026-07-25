@@ -234,6 +234,8 @@ function isSelected(item: T): boolean { return selectedKey.value === rowId(item)
 function selectRow(item: T) {
   selectedKey.value = rowId(item)
   emit('select', item)
+  // Ouvre automatiquement le panneau d'aperçu dès qu'une ligne est sélectionnée.
+  if (hasDetailsPanel.value) showDetailsPanel.value = true
 }
 function openCard(item: T) { emit('open-card', item) }
 

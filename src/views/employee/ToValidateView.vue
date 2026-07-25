@@ -25,9 +25,10 @@
     <template #cell-employeeName="{ item }">
       <div class="flex items-center gap-2"><UserAvatar :name="item.employeeName" size="sm" /><span class="truncate">{{ item.employeeName }}</span></div>
     </template>
-    <template #cell-type="{ item }"><span class="whitespace-nowrap">{{ item.type }}</span></template>
+    <template #cell-type="{ item }"><span class="whitespace-nowrap">{{ item.leaveTypeName }}</span></template>
     <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ item.startDate }} → {{ item.endDate }}</span></template>
-    <template #cell-workingDays="{ item }"><span class="font-medium">{{ item.workingDays }}j</span></template>
+    <template #cell-workingDays="{ item }"><span class="font-medium">{{ item.daysCount }}j</span></template>
+    <template #cell-createdAt="{ item }"><span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ item.createdAt.slice(0, 10) }}</span></template>
     <!-- Cellules MISSIONS -->
     <template #cell-code="{ item }"><span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span></template>
     <template #cell-destination="{ item }"><span class="truncate">{{ item.destination }}</span></template>
@@ -55,12 +56,14 @@ import AbsenceCard from '../../components/absences/AbsenceCard.vue'
 import AbsenceWorkflowActions from '../../components/absences/AbsenceWorkflowActions.vue'
 import MissionCard from '../../components/missions/MissionCard.vue'
 import MissionWorkflowActions from '../../components/missions/MissionWorkflowActions.vue'
-import { useAbsenceStore } from '../../stores/absences'
+import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useMissionStore } from '../../stores/missions'
 import type { LeaveRequest, MissionOrder } from '../../types'
 
-const absenceStore = useAbsenceStore()
+const leaveStore = useLeaveRequestStore()
 const missionStore = useMissionStore()
+
+if (leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
 
 const scope = ref<'absences' | 'missions'>('absences')
 const scopeOptions = [
@@ -68,7 +71,7 @@ const scopeOptions = [
   { value: 'missions', label: 'Missions' },
 ]
 
-const openAbsenceId = ref<number | null>(null)
+const openAbsenceId = ref<string | null>(null)
 const openMissionId = ref<string | null>(null)
 function openCard(item: LeaveRequest | MissionOrder) {
   if (scope.value === 'absences') openAbsenceId.value = (item as LeaveRequest).id
@@ -83,7 +86,7 @@ const absenceColumns: ListColumn[] = [
   { key: 'type', label: 'Type', width: 160 },
   { key: 'dates', label: 'Dates', width: 200 },
   { key: 'workingDays', label: 'Jours', align: 'center', width: 90 },
-  { key: 'submittedAt', label: 'Soumis le', width: 120 },
+  { key: 'createdAt', label: 'Soumis le', width: 120 },
   { key: 'status', label: 'Statut', width: 130 },
 ]
 const missionColumns: ListColumn[] = [
@@ -101,12 +104,10 @@ const page = ref(1)
 const pageSize = ref(10)
 watch([scope, searchQuery, pageSize], () => { page.value = 1 })
 
-const pendingAbsences = computed(() => absenceStore.allLeaves.filter(l => l.status === 'pending'))
+const pendingAbsences = computed(() => leaveStore.pendingForMe)
 const pendingMissions = computed(() => missionStore.missions.filter(m => m.status === 'pending'))
 
-const displayedAbsences = computed(() =>
-  absenceStore.allLeaves.filter(l => ['pending', 'returned', 'approved', 'rejected'].includes(l.status)),
-)
+const displayedAbsences = computed(() => leaveStore.pendingForMe)
 const displayedMissions = computed(() =>
   missionStore.missions.filter(m => ['pending', 'returned', 'approved', 'rejected'].includes(m.status)),
 )
@@ -114,7 +115,7 @@ const displayedMissions = computed(() =>
 const filtered = computed<(LeaveRequest | MissionOrder)[]>(() => {
   if (scope.value === 'absences') {
     let rows = displayedAbsences.value
-    if (searchQuery.value) { const q = searchQuery.value.toLowerCase(); rows = rows.filter(l => l.employeeName.toLowerCase().includes(q) || l.type.toLowerCase().includes(q)) }
+    if (searchQuery.value) { const q = searchQuery.value.toLowerCase(); rows = rows.filter(l => l.employeeName.toLowerCase().includes(q) || l.leaveTypeName.toLowerCase().includes(q)) }
     return rows
   }
   let rows = displayedMissions.value

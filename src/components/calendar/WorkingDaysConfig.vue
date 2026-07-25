@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, watch } from 'vue'
 import { Clock, CircleAlert } from 'lucide-vue-next'
 import { useCalendarStore } from '../../stores/calendar'
 import type { WorkingDays, WorkingDayConfig } from '../../types'
@@ -77,6 +77,32 @@ defineProps<{ hideSummary?: boolean }>()
 // Lit et écrit directement dans calendarStore — aucune prop
 const calendarStore = useCalendarStore()
 const days = computed(() => calendarStore.calendar.workingDays)
+
+// Auto-enregistrement debounce : source unique de persistance pour tous les
+// appelants (CalendarView n'a plus besoin d'un bouton "Enregistrer" séparé ;
+// OnboardingWizard garde en plus son propre appel explicite avant de passer
+// à l'étape suivante, ce qui ne fait que doubler l'appel sans effet de bord).
+// updateWorkingDays() ecrit son resultat (optimiste, puis la reponse
+// serveur) dans ce meme `workingDays` du store — sans garde, chaque
+// sauvegarde redeclenche ce watcher deep, qui resauvegarde a l'infini
+// (boucle d'appels API). `saving` ignore les mutations que la sauvegarde
+// elle-meme provoque ; on ne redevient sensible aux edits utilisateur
+// qu'apres que la reactivite de ces ecritures a fini de se propager.
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+let saving = false
+watch(days, () => {
+  if (saving) return
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    saving = true
+    try {
+      await calendarStore.updateWorkingDays(days.value)
+    } finally {
+      await nextTick()
+      saving = false
+    }
+  }, 600)
+}, { deep: true })
 
 // ── Classes du design system ─────────────────────────────────
 const toggleTrack = "w-9 h-5 rounded-full bg-foreground/20 transition-colors peer-checked:bg-primary relative after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:w-3.5 after:h-3.5 after:bg-white after:rounded-full after:shadow after:transition-all peer-checked:after:left-[19px]"

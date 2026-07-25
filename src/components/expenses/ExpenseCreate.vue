@@ -12,6 +12,7 @@ import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useAuthStore } from '../../stores/auth'
 import { useExpenseStore } from '../../stores/expenses'
+import { useMissionStore } from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
 import type { ExpenseLine, ExpenseCategory } from '../../types'
 
@@ -20,6 +21,7 @@ const emit = defineEmits<{ close: []; created: [] }>()
 
 const auth = useAuthStore()
 const expenseStore = useExpenseStore()
+const missionStore = useMissionStore()
 const employeeStore = useEmployeeStore()
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
@@ -34,7 +36,8 @@ const employeeItems = computed(() =>
   employeeStore.employees.map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
 
-const form = reactive({ title: '' })
+const form = reactive({ title: '', missionId: '' })
+const approvedMissions = computed(() => missionStore.missions.filter(m => m.status === 'approved'))
 const lines = ref<ExpenseLine[]>([])
 const error = ref('')
 let lineSeq = 100
@@ -66,7 +69,8 @@ function build(submit: boolean) {
   const emp = resolveEmployee()
   const r = expenseStore.createReport({
     employeeId: emp.id, employeeName: emp.name, employeeInitials: emp.initials,
-    title: form.title, lines: lines.value, totalAmount: total.value, currency: 'MGA',
+    title: form.title, missionId: form.missionId || undefined,
+    lines: lines.value, totalAmount: total.value, currency: 'MGA',
   })
   if (submit) expenseStore.submitReport(r.id)
   emit('created'); emit('close')
@@ -88,13 +92,22 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
   >
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
-        <div class="max-w-3xl">
+        <div class="max-w-3xl mx-auto">
           <!-- Bénéficiaire -->
           <FormSection title="Général">
           <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" />
-          <div :class="cls.field" class="mt-4">
-            <label :class="cls.fieldLabel">Titre <span class="text-danger">*</span></label>
-            <input v-model="form.title" :class="cls.fieldInput" placeholder="ex : Mission Antananarivo – Juin 2026" />
+          <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mt-4">
+            <div :class="[cls.field, 'col-span-full']">
+              <label :class="cls.fieldLabel">Titre <span class="text-danger">*</span></label>
+              <input v-model="form.title" :class="cls.fieldInput" placeholder="ex : Mission Antananarivo – Juin 2026" />
+            </div>
+            <div :class="cls.field">
+              <label :class="cls.fieldLabel">Mission liée <span class="font-normal text-muted-foreground">(optionnel)</span></label>
+              <select v-model="form.missionId" :class="cls.fieldSelect">
+                <option value="">Aucune</option>
+                <option v-for="m in approvedMissions" :key="m.id" :value="m.id">{{ m.code }} — {{ m.destination }}</option>
+              </select>
+            </div>
           </div>
           </FormSection>
 

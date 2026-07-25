@@ -28,8 +28,10 @@
         </SidebarSection>
 
         <SidebarSection v-if="canSeeConfigSection" :label="t('sidebar.configuration')">
-          <SidebarItem v-if="auth.hasPermission('CONFIG_CALENDRIER')"    :icon="CalendarDays" :label="t('sidebar.config_calendar')" :to="{ name: 'hr-config-calendar' }" />
-          <SidebarItem v-if="auth.hasPermission('CONFIG_FRAIS_MISSION')" :icon="Coins"        :label="t('sidebar.fees_perdiems')"   :to="{ name: 'hr-config-mission-fees' }" />
+          <SidebarItem v-if="auth.hasPermission('CONFIG_CALENDRIER')"     :icon="CalendarDays" :label="t('sidebar.config_calendar')" :to="{ name: 'hr-config-calendar' }" />
+          <SidebarItem v-if="auth.hasPermission('CONFIG_FRAIS_MISSION')"  :icon="Coins"        :label="t('sidebar.fees_perdiems')"   :to="{ name: 'hr-config-mission-fees' }" />
+          <SidebarItem v-if="auth.hasPermission('CONFIG_METIERS_POSTES')" :icon="Briefcase"    :label="t('sidebar.config_jobs')"      :to="{ name: 'hr-config-jobs' }" />
+          <SidebarItem v-if="auth.hasPermission('CONFIG_METIERS_POSTES')" :icon="IdCard"       :label="t('sidebar.config_positions')" :to="{ name: 'hr-config-positions' }" />
         </SidebarSection>
       </template>
 
@@ -165,20 +167,24 @@ import {
   Inbox, GraduationCap, FilePlus, FileText, Clock, Library, UserPlus, Flame,
   Snowflake, Star, Landmark, ReceiptText, List, Clock3, Upload, AlarmClock, Table,
   TrendingUp, Gift, BarChart3, ArrowLeftRight, Percent, TrendingDown,
-  FileSpreadsheet, Plug, ClipboardCheck,
+  FileSpreadsheet, Plug, ClipboardCheck, IdCard,
 } from 'lucide-vue-next'
 import { useAuthStore }       from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
-import { useAbsenceStore }    from '../stores/absences'
+import { useLeaveRequestStore } from '../stores/leaveRequests'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
 
 const { t }        = useI18n()
 const auth         = useAuthStore()
 const navStore     = useNavigationStore()
-const absenceStore = useAbsenceStore()
+const leaveStore   = useLeaveRequestStore()
 
-const pendingCount   = computed(() => absenceStore.pendingLeaves.length)
-const myPendingCount = computed(() => absenceStore.myPendingLeaves.length)
+if (auth.hasPermission('CONGE_VALIDER') && leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
+if (leaveStore.mine.length === 0) leaveStore.fetchMine()
+
+const MINE_PENDING = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
+const pendingCount   = computed(() => leaveStore.pendingForMe.length)
+const myPendingCount = computed(() => leaveStore.mine.filter(l => MINE_PENDING.has(l.status)).length)
 
 const canSeeManagementSection = computed(() => auth.hasAnyPermission([
   'EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE', 'ENTITE_VOIR',
@@ -186,7 +192,7 @@ const canSeeManagementSection = computed(() => auth.hasAnyPermission([
 ]))
 const canSeeConfigSection = computed(() => auth.hasAnyPermission([
   'CONFIG_CALENDRIER', 'CONFIG_JOURS_FERIES', 'CONFIG_TYPES_CONGE',
-  'CONFIG_CATEGORIES_EMPLOYE', 'CONFIG_FRAIS_MISSION',
+  'CONFIG_CATEGORIES_EMPLOYE', 'CONFIG_FRAIS_MISSION', 'CONFIG_METIERS_POSTES',
 ]))
 const canSeeMyTeamSection = computed(() => auth.hasAnyPermission([
   'CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER', 'EMPLOYE_VOIR_EQUIPE',

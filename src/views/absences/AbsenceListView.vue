@@ -9,6 +9,7 @@
     :search-placeholder="t('topbar.search_placeholder')"
     :scope-label="t('absence.scope_label')"
     :scope-options="filterPresets"
+    :loading="store.loading"
     v-model:scope="activePreset"
     v-model:search-query="searchQuery"
     v-model:sort-key="sortKey"
@@ -46,11 +47,7 @@
         <label :class="L.fpFieldLabel">{{ t('absence.fields.type') }}</label>
         <select v-model="filterType" :class="L.fpSelect">
           <option value="">{{ t('absence.filters.all_types') }}</option>
-          <option value="Congé annuel">{{ t('absence.types.annual') }}</option>
-          <option value="Congé maladie">{{ t('absence.types.sick') }}</option>
-          <option value="Récupération">{{ t('absence.types.recovery') }}</option>
-          <option value="Télétravail">{{ t('absence.types.remote') }}</option>
-          <option value="Congé maternité">{{ t('absence.types.maternity') }}</option>
+          <option v-for="lt in leaveTypesStore.leaveTypes" :key="lt.id" :value="lt.id">{{ lt.name }}</option>
         </select>
       </div>
       <div :class="L.fpField">
@@ -74,16 +71,16 @@
       </div>
     </template>
     <template #cell-type="{ item: r }">
-      <span class="text-muted-foreground whitespace-nowrap">{{ typeLabel(r.type) }}</span>
+      <span class="text-muted-foreground whitespace-nowrap">{{ r.leaveTypeName }}</span>
     </template>
     <template #cell-dates="{ item: r }">
       <span class="whitespace-nowrap text-[11px]">{{ r.startDate }} → {{ r.endDate }}</span>
     </template>
     <template #cell-days="{ item: r }">
-      <span class="font-medium whitespace-nowrap">{{ r.workingDays }}j</span>
+      <span class="font-medium whitespace-nowrap">{{ r.daysCount }}j</span>
     </template>
     <template #cell-submitted="{ item: r }">
-      <span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ r.submittedAt }}</span>
+      <span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ r.createdAt.slice(0, 10) }}</span>
     </template>
     <template #cell-status="{ item: r }">
       <StatusPill :status="r.status" />
@@ -96,15 +93,15 @@
           <UserAvatar :name="r.employeeName" size="md" />
           <div class="min-w-0">
             <div class="text-sm font-semibold text-foreground truncate">{{ r.employeeName }}</div>
-            <div class="text-[11px] text-muted-foreground">{{ typeLabel(r.type) }}</div>
+            <div class="text-[11px] text-muted-foreground">{{ r.leaveTypeName }}</div>
           </div>
         </div>
         <div><StatusPill :status="r.status" /></div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
           <div><div class="text-muted-foreground text-[11px]">Début</div>{{ r.startDate }}</div>
           <div><div class="text-muted-foreground text-[11px]">Fin</div>{{ r.endDate }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Jours ouvrés</div>{{ r.workingDays }}j</div>
-          <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ r.submittedAt }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Jours ouvrés</div>{{ r.daysCount }}j</div>
+          <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ r.createdAt.slice(0, 10) }}</div>
         </div>
         <div v-if="r.reason" class="text-[12px]">
           <div class="text-muted-foreground text-[11px]">Motif</div>{{ r.reason }}
@@ -125,12 +122,12 @@
 
     <!-- Fiche (double-clic) + création -->
     <AbsenceCard v-if="openCardId !== null" :leaves="filtered" :request-id="openCardId" @close="openCardId = null" />
-    <AbsenceCreate v-if="showCreate" @close="showCreate = false" />
+    <AbsenceCreate v-if="showCreate" @close="showCreate = false" @created="store.fetchAll()" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Plus, CalendarOff } from 'lucide-vue-next'
 import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
@@ -139,18 +136,25 @@ import AbsenceCard from '../../components/absences/AbsenceCard.vue'
 import AbsenceCreate from '../../components/absences/AbsenceCreate.vue'
 import AbsenceWorkflowActions from '../../components/absences/AbsenceWorkflowActions.vue'
 import * as L from '../../lib/listClasses'
-import { useAbsenceStore } from '../../stores/absences'
+import { useLeaveRequestStore } from '../../stores/leaveRequests'
+import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { LeaveRequest } from '../../types'
 
-const absenceStore = useAbsenceStore()
-const { t }        = useI18n()
+const store           = useLeaveRequestStore()
+const leaveTypesStore = useLeaveTypesStore()
+const { t }           = useI18n()
+
+onMounted(() => {
+  store.fetchAll()
+  if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+})
 
 const showCreate = ref(false)
-const openCardId = ref<number | null>(null)
+const openCardId = ref<string | null>(null)
 function openCard(item: LeaveRequest) { openCardId.value = item.id }
 
 const quickBtn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground hover:text-foreground'
-const ACTIONABLE = new Set(['pending', 'draft', 'returned', 'registered', 'done'])
+const ACTIONABLE = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Draft', 'Returned', 'Registered', 'Done'])
 function isActionable(r: LeaveRequest) { return ACTIONABLE.has(r.status) }
 
 /* ── Colonnes (sans colonne Actions) ────────────────────────── */
@@ -163,27 +167,18 @@ const columns = computed<ListColumn[]>(() => [
   { key: 'status',    label: t('absence.fields.status'),    sortable: true, width: 140 },
 ])
 
-const typeI18nKey: Record<string, string> = {
-  'Congé annuel': 'absence.types.annual', 'Congé maladie': 'absence.types.sick',
-  'Récupération': 'absence.types.recovery', 'Télétravail': 'absence.types.remote',
-  'Congé maternité': 'absence.types.maternity',
-}
-function typeLabel(type: string): string {
-  const key = typeI18nKey[type]; return key ? t(key) : type
-}
-
 /* ── Tri ────────────────────────────────────────────────────── */
 const searchQuery = ref('')
 const sortKey = ref(''); const sortDir = ref<'asc' | 'desc'>('asc')
-const sortFieldMap: Record<string, string> = { employee: 'employeeName', days: 'workingDays', submitted: 'submittedAt' }
+const sortFieldMap: Record<string, string> = { employee: 'employeeName', days: 'daysCount', submitted: 'createdAt' }
 
 /* ── Filtres ────────────────────────────────────────────────── */
 const filterPresets = computed(() => [
   { label: t('absence.all'), value: '' },
-  { label: t('absence.status.pending'),  value: 'pending' },
-  { label: t('absence.status.approved'), value: 'approved' },
-  { label: t('absence.status.rejected'), value: 'rejected' },
-  { label: t('absence.status.draft'),    value: 'draft' },
+  { label: t('absence.status.pending'),  value: 'Pending' },
+  { label: t('absence.status.approved'), value: 'Approved' },
+  { label: t('absence.status.rejected'), value: 'Rejected' },
+  { label: t('absence.status.draft'),    value: 'Draft' },
 ])
 const activePreset = ref('')
 const filterStatus = ref(''); const filterType = ref(''); const filterFrom = ref(''); const filterTo = ref('')
@@ -196,16 +191,18 @@ function resetFilters() {
   searchQuery.value = ''; activePreset.value = ''; page.value = 1
 }
 
+const PENDING_STATUSES = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
+
 /* ── Données ────────────────────────────────────────────────── */
 const filtered = computed(() => {
-  let list = absenceStore.allLeaves.filter(l => {
-    if (filterStatus.value && l.status !== filterStatus.value) return false
-    if (filterType.value   && l.type   !== filterType.value)   return false
+  let list = store.all.filter(l => {
+    if (filterStatus.value === 'Pending' ? !PENDING_STATUSES.has(l.status) : (filterStatus.value && l.status !== filterStatus.value)) return false
+    if (filterType.value   && l.leaveTypeId !== filterType.value) return false
     if (filterFrom.value   && l.startDate < filterFrom.value)  return false
     if (filterTo.value     && l.endDate   > filterTo.value)    return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
-      if (!l.employeeName.toLowerCase().includes(q) && !l.type.toLowerCase().includes(q)) return false
+      if (!l.employeeName.toLowerCase().includes(q) && !l.leaveTypeName.toLowerCase().includes(q)) return false
     }
     return true
   })
@@ -221,7 +218,7 @@ const filtered = computed(() => {
 })
 
 const totalCount   = computed(() => filtered.value.length)
-const pendingCount = computed(() => filtered.value.filter(l => l.status === 'pending').length)
+const pendingCount = computed(() => filtered.value.filter(l => PENDING_STATUSES.has(l.status)).length)
 const pageItems    = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filtered.value.slice(start, start + pageSize.value)

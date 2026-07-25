@@ -51,8 +51,8 @@
                   </div>
                 </template>
 
-                <!-- Jour absent (congé approuvé) -->
-                <template v-else-if="day.isAbsence && day.absenceStatus === 'approved'">
+                <!-- Jour absent (congé approuvé ou déclaré) -->
+                <template v-else-if="day.isAbsence && ['Approved', 'Registered', 'Done', 'Regularized'].includes(day.absenceStatus ?? '')">
                   <div :class="bodyCentered">
                     <span class="inline-block text-[11px] font-semibold text-primary bg-primary/10 rounded-md px-2 py-[3px] text-center break-words">{{ day.absenceType }}</span>
                     <span :class="[statusPill, 'bg-success-bg text-success']">Approuvé</span>
@@ -60,7 +60,7 @@
                 </template>
 
                 <!-- Jour absent (congé en attente) -->
-                <template v-else-if="day.isAbsence && day.absenceStatus === 'pending'">
+                <template v-else-if="day.isAbsence && ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'].includes(day.absenceStatus ?? '')">
                   <div :class="bodyCentered">
                     <span class="inline-block text-[11px] font-semibold text-warning bg-warning-bg rounded-md px-2 py-[3px] text-center break-words">{{ day.absenceType }}</span>
                     <span :class="[statusPill, 'bg-warning-bg text-warning']">En attente de validation</span>
@@ -134,15 +134,19 @@ import { ChevronLeft, ChevronRight, Clock, Coffee, Moon, Briefcase, CalendarOff 
 import * as L from '../../lib/listClasses'
 import { useAuthStore }     from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'
-import { useAbsenceStore }  from '../../stores/absences'
+import { useLeaveRequestStore } from '../../stores/leaveRequests'
+import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { generateWeekPlanning } from '../../utils/calendar'
 import type { DayPlanning, WorkingHours } from '../../types'
 
 const auth          = useAuthStore()
 const calendarStore = useCalendarStore()
-const absenceStore  = useAbsenceStore()
+const leaveStore    = useLeaveRequestStore()
+const balanceStore  = useLeaveTransactionStore()
 if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
+if (leaveStore.mine.length === 0) leaveStore.fetchMine()
+if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
 
 // ── Classes du design system ─────────────────────────────────
 const navBtn = 'w-8 h-8 flex items-center justify-center border border-border rounded-md bg-card text-foreground cursor-pointer transition-colors hover:bg-background'
@@ -235,10 +239,10 @@ const weekDays = computed<DayPlanning[]>(() =>
   generateWeekPlanning(
     currentWeekStart.value,
     calendarStore.calendar,
-    absenceStore.myLeaves.map(l => ({
+    leaveStore.mine.map(l => ({
       startDate: l.startDate,
       endDate:   l.endDate,
-      type:      l.type,
+      type:      l.leaveTypeName,
       status:    l.status,
     })),
   ),
@@ -292,10 +296,10 @@ const effectiveHoursTotal = computed(() => {
   return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`
 })
 
-const balanceSummary = [
-  { label: 'Congé annuel',  days: 12 },
-  { label: 'Maladie',       days: 8  },
-  { label: 'Récupération',  days: 3  },
-  { label: 'Télétravail',   days: 5  },
-]
+const balanceSummary = computed(() =>
+  balanceStore.myBalances
+    .filter(b => b.daysPerYear > 0)
+    .slice(0, 4)
+    .map(b => ({ label: b.leaveTypeName, days: b.balance })),
+)
 </script>

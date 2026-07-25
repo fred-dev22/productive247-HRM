@@ -10,15 +10,19 @@ import StatusPill from '../ui/StatusPill.vue'
 import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import EntityWorkflowActions from './EntityWorkflowActions.vue'
+import ApprovalPoolConfig from './ApprovalPoolConfig.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useEntityStore } from '../../stores/entities'
+import { useEmployeeStore } from '../../stores/employees'
 import type { Entity, EntityType } from '../../types'
 
 const props = defineProps<{ entities: Entity[]; entityId: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const store = useEntityStore()
+const empStore = useEmployeeStore()
+if (empStore.employees.length === 0) empStore.fetchAll()
 
 const TYPE_LABELS: Record<string, string> = { Direction: 'Direction', Department: 'Département', Service: 'Service' }
 const TYPE_BADGE: Record<string, string> = { Direction: 'bg-danger-bg text-danger', Department: 'bg-success-bg text-success', Service: 'bg-primary/10 text-primary' }
@@ -26,6 +30,13 @@ const TYPE_BADGE: Record<string, string> = { Direction: 'bg-danger-bg text-dange
 const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
 function fetchParents({ searchQuery }: LookupFetchParams) {
   let items = store.approvedEntities.filter(e => e.id !== currentId.value)
+  if (searchQuery) { const q = searchQuery.toLowerCase(); items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q)) }
+  return { items, total: items.length }
+}
+
+const employeeColumns = [{ key: 'code', label: 'Matricule', width: '90px' }, { key: 'name', label: 'Nom' }]
+function fetchManagers({ searchQuery }: LookupFetchParams) {
+  let items = empStore.employees
   if (searchQuery) { const q = searchQuery.toLowerCase(); items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q)) }
   return { items, total: items.length }
 }
@@ -42,7 +53,10 @@ const currentNo = computed(() => current.value?.code ?? null)
 
 const parentEntity = computed(() => current.value?.parentId ? store.getEntityById(current.value.parentId) : undefined)
 const children = computed(() => current.value ? store.getChildren(current.value.id) : [])
-const sortedPools = computed(() => [...(current.value?.validatorPools ?? [])].sort((a, b) => a.level - b.level))
+// L'entité racine (sans parent) n'a jamais de parent ni de type modifiables —
+// ce sont des invariants structurels, pas des attributs métier éditables.
+const isRoot = computed(() => current.value?.parentId == null)
+const unitEmployees = computed(() => current.value ? empStore.getByEntityId(current.value.id) : [])
 
 function goPrev() { if (hasPrev.value) { currentId.value = props.entities[currentIndex.value - 1]!.id; isEditMode.value = false } }
 function goNext() { if (hasNext.value) { currentId.value = props.entities[currentIndex.value + 1]!.id; isEditMode.value = false } }
@@ -52,23 +66,33 @@ function selectSidebar(no: string) { const e = props.entities.find(x => x.code =
 const isEditMode = ref(false)
 const canEdit = computed(() => current.value?.status === 'Draft' || current.value?.status === 'Active')
 const parentCode = ref('')
-const form = ref({ name: '', code: '', type: 'Service' as EntityType, parentId: '' as string | null, parentName: '', legalIdentifier: '', address: '', responsibleName: '', phone: '', email: '' })
+const managerCode = ref('')
+const form = ref({ name: '', code: '', type: 'Service' as EntityType, parentId: '' as string | null, parentName: '', legalIdentifier: '', address: '', managerId: '' as string | null, responsibleName: '', phone: '', email: '' })
 
 function enterEdit() {
   if (!current.value) return
   const e = current.value
   form.value = {
     name: e.name, code: e.code, type: e.type, parentId: e.parentId ?? '', parentName: parentEntity.value?.name ?? '',
-    legalIdentifier: e.legalIdentifier ?? '', address: e.address ?? '', responsibleName: e.responsibleName ?? '', phone: e.phone ?? '', email: e.email ?? '',
+    legalIdentifier: e.legalIdentifier ?? '', address: e.address ?? '',
+    managerId: e.managerId ?? '', responsibleName: e.responsibleName ?? '',
+    phone: e.phone ?? '', email: e.email ?? '',
   }
   parentCode.value = parentEntity.value?.code ?? ''
+  managerCode.value = e.managerId ? (empStore.getById(e.managerId)?.code ?? '') : ''
   isEditMode.value = true
 }
 function cancelEdit() { isEditMode.value = false }
 function onParentSelect(item: Record<string, unknown>) { form.value.parentId = String(item.id); form.value.parentName = String(item.name); parentCode.value = String(item.code) }
+function onManagerSelect(item: Record<string, unknown>) { form.value.managerId = String(item.id); form.value.responsibleName = String(item.name); managerCode.value = String(item.code) }
 async function save() {
   if (!current.value) return
-  await store.updateEntity(current.value.id, { name: form.value.name, type: form.value.type, parentId: form.value.parentId || null, address: form.value.address, phone: form.value.phone, email: form.value.email })
+  await store.updateEntity(current.value.id, {
+    name: form.value.name, type: form.value.type, parentId: form.value.parentId || null,
+    legalIdentifier: form.value.legalIdentifier || undefined,
+    address: form.value.address, managerId: form.value.managerId || null,
+    phone: form.value.phone, email: form.value.email,
+  })
   isEditMode.value = false
 }
 
@@ -122,13 +146,13 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Type</label>
-            <select v-if="isEditMode" v-model="form.type" :class="cls.fieldSelect"><option value="Direction">Direction</option><option value="Department">Département</option><option value="Service">Service</option></select>
+            <select v-if="isEditMode && !isRoot" v-model="form.type" :class="cls.fieldSelect"><option value="Direction">Direction</option><option value="Department">Département</option><option value="Service">Service</option></select>
             <div v-else :class="readBox"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full" :class="TYPE_BADGE[current.type]">{{ TYPE_LABELS[current.type] }}</span></div>
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Entité parente</label>
-            <TableLookupField v-if="isEditMode" :code="parentCode" :name="form.parentName" value-key="code" name-key="name" :columns="entityColumns" :fetch-fn="fetchParents" modal-title="Sélectionner l'entité parente" placeholder="Code entité" @update:code="parentCode = $event" @update:name="form.parentName = $event" @select="onParentSelect" />
-            <div v-else :class="readBox">{{ parentEntity?.name ?? '— Racine —' }}</div>
+            <TableLookupField v-if="isEditMode && !isRoot" :code="parentCode" :name="form.parentName" value-key="code" name-key="name" :columns="entityColumns" :fetch-fn="fetchParents" modal-title="Sélectionner l'entité parente" placeholder="Code entité" @update:code="parentCode = $event" @update:name="form.parentName = $event" @select="onParentSelect" />
+            <div v-else :class="readBox">{{ isRoot ? '— Racine —' : (parentEntity?.name ?? '— Racine —') }}</div>
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Identifiant légal</label>
@@ -149,7 +173,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
         <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Responsable</label>
-            <input v-if="isEditMode" v-model="form.responsibleName" :class="cls.fieldInput" />
+            <TableLookupField v-if="isEditMode" :code="managerCode" :name="form.responsibleName" value-key="code" name-key="name" :columns="employeeColumns" :fetch-fn="fetchManagers" modal-title="Sélectionner le responsable" placeholder="Matricule" @update:code="managerCode = $event" @update:name="form.responsibleName = $event" @select="onManagerSelect" />
             <div v-else :class="readBox">{{ current.responsibleName || '—' }}</div>
           </div>
           <div :class="cls.field">
@@ -171,14 +195,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
 
         <!-- Pools de validation -->
         <FormSection title="Pools de validation">
-        <div v-if="sortedPools.length" class="flex flex-col gap-2.5">
-          <div v-for="pool in sortedPools" :key="pool.level" class="flex items-center gap-2.5 px-2.5 py-2 bg-background rounded-md">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" :style="{ background: pool.validatorColor }">{{ pool.validatorInitials }}</div>
-            <div class="flex-1"><div class="text-[13px] font-medium">{{ pool.validatorName }}</div><div class="text-[11px] text-muted-foreground">Validateur N+{{ pool.level }}</div></div>
-            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">N+{{ pool.level }}</span>
-          </div>
-        </div>
-        <div v-else class="text-xs text-muted-foreground italic">Aucun validateur configuré</div>
+          <ApprovalPoolConfig :entity-id="current.id" />
         </FormSection>
 
         <!-- Sous-entités -->
@@ -190,6 +207,18 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
               <span>{{ child.name }}</span>
             </div>
           </div>
+        </FormSection>
+
+        <!-- Employés rattachés -->
+        <FormSection :title="`Employés rattachés (${unitEmployees.length})`">
+          <div v-if="unitEmployees.length" class="flex flex-col gap-1.5">
+            <div v-for="emp in unitEmployees" :key="emp.id" class="flex items-center gap-2.5 px-2.5 py-2 bg-background rounded-md text-[13px]">
+              <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" :style="{ background: emp.avatarBg, color: emp.avatarText }">{{ emp.initials }}</div>
+              <span class="font-medium">{{ emp.name }}</span>
+              <span class="text-muted-foreground text-xs">{{ emp.jobTitle }}</span>
+            </div>
+          </div>
+          <p v-else class="text-xs text-muted-foreground">Aucun employé rattaché à cette entité.</p>
         </FormSection>
       </div>
     </template>

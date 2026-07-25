@@ -2,6 +2,7 @@
   <ListPageLayout
     :title="t('employee.title')"
     :subtitle="t('employee.sub_title', { count: store.employees.length })"
+    :loading="store.loading"
     :columns="columns"
     :items="pageItems"
     :total="totalCount"
@@ -75,6 +76,7 @@
       </div>
     </template>
     <template #cell-code="{ item }"><span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span></template>
+    <template #cell-jobTitle="{ item }"><span class="text-foreground text-xs truncate">{{ item.jobTitle || '—' }}</span></template>
     <template #cell-entityName="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.entityName || '—' }}</span></template>
     <template #cell-role="{ item }"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="roleBadge(item.role)">{{ roleLabel(item.role) }}</span></template>
     <template #cell-contractType="{ item }"><span class="text-muted-foreground text-xs">{{ item.contractType }}</span></template>
@@ -132,7 +134,16 @@ const { t } = useI18n()
 const store = useEmployeeStore()
 const entityStore = useEntityStore()
 const auth = useAuthStore()
-if (entityStore.entities.length === 0) entityStore.fetchAll()
+// Séquencé (pas en parallèle) : mapEmployee lit entityStore de façon
+// synchrone pour entityName — sans cet ordre, une première visite avec les
+// deux stores vides peut résoudre le nom d'entité en blanc. Le fetch employés
+// n'est PAS gardé par "déjà peuplé" : entityStore.fetchAll() peut avoir
+// peuplé employees comme effet de bord (pour le headcount des entités) sans
+// résoudre entityName — on doit re-mapper une fois les entités disponibles.
+;(async () => {
+  if (entityStore.entities.length === 0) await entityStore.fetchAll()
+  await store.fetchAll()
+})()
 
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
@@ -155,6 +166,7 @@ function roleBadge(role: UserRole): string {
 const columns = computed<ListColumn[]>(() => [
   { key: 'code', label: t('employee.col_code'), sortable: true, hideable: false, width: 110 },
   { key: 'employee', label: t('employee.col_employee'), sortable: true, width: 230 },
+  { key: 'jobTitle', label: t('employee.col_job_title'), sortable: true, width: 160 },
   { key: 'entityName', label: t('employee.col_entity'), sortable: true, width: 160 },
   { key: 'role', label: t('employee.col_role'), width: 150 },
   { key: 'contractType', label: t('employee.col_contract'), width: 110 },
@@ -186,7 +198,7 @@ function resetFilters() {
   fEntity.value = ''; fRole.value = ''; fContract.value = ''; searchQuery.value = ''; activeScope.value = ''; page.value = 1
 }
 
-const sortFieldMap: Record<string, keyof Employee> = { code: 'code', employee: 'name', entityName: 'entityName', hireDate: 'hireDate' }
+const sortFieldMap: Record<string, keyof Employee> = { code: 'code', employee: 'name', jobTitle: 'jobTitle', entityName: 'entityName', hireDate: 'hireDate' }
 
 const filtered = computed(() => {
   let rows = store.employees.filter(e => {

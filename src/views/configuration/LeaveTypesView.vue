@@ -48,8 +48,8 @@
 
           <template #cell-workflow="{ row }">
             <span class="inline-flex items-center text-[11px] font-semibold rounded-full px-2 py-0.5"
-              :class="row.workflow === 'standard' ? 'bg-primary/10 text-primary' : 'bg-danger-bg text-danger'">
-              {{ row.workflow === 'standard' ? 'Standard' : 'Médical' }}
+              :class="row.workflowType === 'Standard' ? 'bg-primary/10 text-primary' : 'bg-danger-bg text-danger'">
+              {{ row.workflowType === 'Standard' ? 'Standard' : 'Médical' }}
             </span>
           </template>
 
@@ -84,8 +84,9 @@
   </div>
 
   <LeaveTypeFormModal
-    v-model="showModal"
+    v-if="showModal"
     :edit-id="editId"
+    @close="showModal = false"
     @saved="onSaved"
   />
 </template>

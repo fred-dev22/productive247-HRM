@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore }       from '../stores/auth'
-import { useOnboardingStore } from '../stores/onboarding'
+import { useCompanySettingsStore } from '../stores/companySettings'
 import LoginView         from '../views/LoginView.vue'
 import DashboardHR       from '../views/DashboardHR.vue'
 import DashboardEmployee from '../views/DashboardEmployee.vue'
@@ -26,6 +26,8 @@ const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   'hr-config-calendar':      'CONFIG_CALENDRIER',
   'hr-config-mission-fees':  'CONFIG_FRAIS_MISSION',
   'hr-config-perdiems':      'CONFIG_FRAIS_MISSION',
+  'hr-config-jobs':          'CONFIG_METIERS_POSTES',
+  'hr-config-positions':     'CONFIG_METIERS_POSTES',
   'hr-statistics':       'RAPPORT_VOIR',
   'hr-absences':         ['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'],
   'hr-leave-balances':   ['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'],
@@ -49,6 +51,14 @@ const router = createRouter({
     {
       path: '/onboarding', name: 'onboarding',
       component: () => import('../views/OnboardingWizard.vue'),
+    },
+
+    // ── Changement de mot de passe obligatoire ─────────────────────
+    // Même forme que /onboarding — pas de requiresAuth (la garde ci-dessous
+    // gère la redirection), pas de layout dashboard (plein écran, propre header).
+    {
+      path: '/change-password', name: 'change-password',
+      component: () => import('../views/ChangePasswordView.vue'),
     },
 
     // ── HR Absences ─────────────────────────────────────────────
@@ -109,6 +119,16 @@ const router = createRouter({
     {
       path: '/hr/config/perdiems', name: 'hr-config-perdiems',
       component: () => import('../views/configuration/PerdiemView.vue'),
+      meta: { requiresAuth: true, layout: 'dashboard' },
+    },
+    {
+      path: '/hr/config/jobs', name: 'hr-config-jobs',
+      component: () => import('../views/configuration/JobsConfigView.vue'),
+      meta: { requiresAuth: true, layout: 'dashboard' },
+    },
+    {
+      path: '/hr/config/positions', name: 'hr-config-positions',
+      component: () => import('../views/configuration/PositionsConfigView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
     },
 
@@ -224,9 +244,9 @@ const router = createRouter({
 })
 
 // ── Guard de navigation ──────────────────────────────────────
-router.beforeEach((to) => {
-  const auth       = useAuthStore()
-  const onboarding = useOnboardingStore()
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+  const companySettings = useCompanySettingsStore()
 
   // Non connecté → login
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
@@ -239,6 +259,16 @@ router.beforeEach((to) => {
   }
 
   if (auth.isLoggedIn) {
+    // Mot de passe temporaire (compte tout juste créé) → priorité sur tout
+    // le reste, y compris l'onboarding — c'est une porte de sécurité, pas
+    // une étape de configuration.
+    if (auth.mustChangePassword && to.path !== '/change-password') {
+      return { path: '/change-password' }
+    }
+    if (!auth.mustChangePassword && to.path === '/change-password') {
+      return auth.isHRSpace ? { path: '/hr' } : { path: '/employee' }
+    }
+
     if (to.path.startsWith('/hr') && auth.isEmployeeSpace) {
       return { path: '/employee' }
     }
@@ -246,13 +276,17 @@ router.beforeEach((to) => {
       return { path: '/hr' }
     }
 
-    // RH connecté + wizard pas terminé → forcer le wizard
-    if (
-      auth.isHRSpace &&
-      !onboarding.allStepsComplete &&
-      to.path !== '/onboarding'
-    ) {
-      return { path: '/onboarding' }
+    // RH connecté + entreprise jamais onboardée (CompanySettings.IsOnboarded,
+    // persisté côté serveur — pas un flag client volatile) → forcer le wizard.
+    // isOnboarded === null signifie "pas encore vérifié" : un seul fetch par
+    // session, mis en cache dans le store ensuite.
+    if (auth.isHRSpace && to.path !== '/onboarding' && to.path !== '/change-password') {
+      if (companySettings.isOnboarded === null) {
+        await companySettings.fetchSettings().catch(() => {})
+      }
+      if (!companySettings.isOnboarded) {
+        return { path: '/onboarding' }
+      }
     }
 
     // Route couverte par une permission précise (voir ROUTE_PERMISSIONS) —

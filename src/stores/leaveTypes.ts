@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { api } from '../lib/api'
+import { api, getApiErrorMessage } from '../lib/api'
+import { withToast } from '../lib/withToast'
 
 // Aligned on the backend LeaveType model (productive247-hrm-backend). `icon`
 // has no backend column — it's a purely client-side display concept, kept
@@ -103,7 +104,7 @@ export const useLeaveTypesStore = defineStore('leaveTypes', () => {
       const { data } = await api.get<BackendLeaveType[]>('/leave-types')
       leaveTypes.value = data.map(mapLeaveType)
     } catch (err) {
-      error.value = 'Impossible de charger les types de congé'
+      error.value = getApiErrorMessage(err, 'Impossible de charger les types de congé')
       throw err
     } finally {
       loading.value = false
@@ -117,7 +118,7 @@ export const useLeaveTypesStore = defineStore('leaveTypes', () => {
       const { data } = await api.get<BackendLeaveType[]>('/leave-types/active')
       return data.map(mapLeaveType)
     } catch (err) {
-      error.value = 'Impossible de charger les types de congé actifs'
+      error.value = getApiErrorMessage(err, 'Impossible de charger les types de congé actifs')
       throw err
     } finally {
       loading.value = false
@@ -126,57 +127,62 @@ export const useLeaveTypesStore = defineStore('leaveTypes', () => {
 
   async function addLeaveType(payload: Omit<LeaveTypeConfig, 'id' | 'icon'>) {
     error.value = null
-    try {
-      const { data } = await api.post<BackendLeaveType>('/leave-types', toBackendPayload(payload))
-      const mapped = mapLeaveType(data)
-      leaveTypes.value.push(mapped)
-      return mapped
-    } catch (err) {
-      error.value = 'Impossible de créer le type de congé'
-      throw err
-    }
+    return withToast('Création du type de congé en cours…', async () => {
+      try {
+        const { data } = await api.post<BackendLeaveType>('/leave-types', toBackendPayload(payload))
+        const mapped = mapLeaveType(data)
+        leaveTypes.value.push(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de créer le type de congé')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de créer le type de congé')
   }
 
   async function updateLeaveType(id: string, payload: Partial<LeaveTypeConfig>) {
     error.value = null
-    try {
-      const { data } = await api.patch<BackendLeaveType>(`/leave-types/${id}`, toBackendPayload(payload))
-      const mapped = mapLeaveType(data)
-      const idx = leaveTypes.value.findIndex(lt => lt.id === id)
-      if (idx !== -1) leaveTypes.value[idx] = mapped
-      return mapped
-    } catch (err) {
-      error.value = 'Impossible de mettre à jour le type de congé'
-      throw err
-    }
+    return withToast('Enregistrement en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendLeaveType>(`/leave-types/${id}`, toBackendPayload(payload))
+        const mapped = mapLeaveType(data)
+        const idx = leaveTypes.value.findIndex(lt => lt.id === id)
+        if (idx !== -1) leaveTypes.value[idx] = mapped
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de mettre à jour le type de congé')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de mettre à jour le type de congé')
   }
 
   async function toggleLeaveType(id: string) {
     error.value = null
-    try {
-      const { data } = await api.patch<BackendLeaveType>(`/leave-types/${id}/toggle`)
-      const mapped = mapLeaveType(data)
-      const idx = leaveTypes.value.findIndex(lt => lt.id === id)
-      if (idx !== -1) leaveTypes.value[idx] = mapped
-      return mapped
-    } catch (err) {
-      error.value = "Impossible de changer le statut du type de congé"
-      throw err
-    }
+    return withToast('Mise à jour en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendLeaveType>(`/leave-types/${id}/toggle`)
+        const mapped = mapLeaveType(data)
+        const idx = leaveTypes.value.findIndex(lt => lt.id === id)
+        if (idx !== -1) leaveTypes.value[idx] = mapped
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de changer le statut du type de congé")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de changer le statut du type de congé")
   }
 
   async function deleteLeaveType(id: string) {
     error.value = null
-    try {
-      await api.delete(`/leave-types/${id}`)
-      leaveTypes.value = leaveTypes.value.filter(lt => lt.id !== id)
-    } catch (err) {
-      // Le backend renvoie 403 pour les types systeme — message deja clair
-      // cote API, on le relaie tel quel plutot que de le generaliser.
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      error.value = message ?? 'Impossible de supprimer le type de congé'
-      throw err
-    }
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/leave-types/${id}`)
+        leaveTypes.value = leaveTypes.value.filter(lt => lt.id !== id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de supprimer le type de congé')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de supprimer le type de congé')
   }
 
   return { leaveTypes, loading, error, activeTypes, fetchAll, fetchActive, addLeaveType, updateLeaveType, toggleLeaveType, deleteLeaveType }

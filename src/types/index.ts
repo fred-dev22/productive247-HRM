@@ -15,10 +15,17 @@ export interface AuthUser {
   validatorLevel?: 1 | 2 | 3 | 4
 }
 
-export type LeaveStatus =
-  | 'draft' | 'pending' | 'approved' | 'rejected'
-  | 'cancelled' | 'returned'
-  | 'registered' | 'done' | 'regularized'
+// Statut de LeaveRequest — reprend tel quel l'enum backend (voir
+// productive247-hrm-backend schema.prisma LeaveRequest.Status), meme
+// convention que EntityStatus (pas de mapping vers des cles minuscules).
+// InApprovalN1..N4 : etape courante dans le pool de validation (WorkflowType
+// Standard). Registered/Done/Regularized : reserves a WorkflowType Medical
+// (declaration directe, sans pool — voir LeaveTypeConfig.workflowType).
+export type LeaveRequestStatus =
+  | 'Draft' | 'Pending'
+  | 'InApprovalN1' | 'InApprovalN2' | 'InApprovalN3' | 'InApprovalN4'
+  | 'Approved' | 'Rejected' | 'Returned' | 'Cancelled'
+  | 'Registered' | 'Done' | 'Regularized'
 
 export interface ValidationStep {
   level:     'employee' | 'n1' | 'n2' | 'n3' | 'n4' | 'rh' | 'system'
@@ -29,38 +36,38 @@ export interface ValidationStep {
   comment?:  string
 }
 
-export type LeaveType =
-  | 'Congé annuel'
-  | 'Congé maladie'
-  | 'Congé maternité'
-  | 'Récupération'
-  | 'Télétravail'
-  | 'Assistance parentale'
-  | 'Permission exceptionnelle'
-
 export interface LeaveRequest {
-  id:               number
-  employeeName:     string
-  employeeInitials: string
-  avatarColor:      string
-  avatarTextColor:  string
-  type:             LeaveType
-  startDate:        string
-  endDate:          string
-  workingDays:      number
-  reason?:          string
-  rejectionReason?: string
-  returnComment?:   string
-  status:           LeaveStatus
-  submittedAt:      string
-  validationHistory?: ValidationStep[]
+  id:                   string
+  referenceCode:        string
+  employeeId:           string
+  employeeName:         string
+  employeeInitials:     string
+  leaveTypeId:          string
+  leaveTypeName:        string
+  leaveTypeColor:       string
+  workflowType:         'Standard' | 'Medical'
+  startDate:            string
+  endDate:              string
+  daysCount:            number
+  reason?:              string
+  interimEmployeeId?:   string
+  interimEmployeeName?: string
+  status:               LeaveRequestStatus
+  approvalPoolId?:      string
+  currentApprovalStep?: number
+  rejectionReason?:     string
+  createdAt:            string
+  modifiedAt?:          string | null
+  validationHistory?:   ValidationStep[]
 }
 
 export interface LeaveBalance {
-  label: string
-  pct: number
-  days: number
-  color: string
+  leaveTypeId:   string
+  leaveTypeName: string
+  leaveTypeCode: string
+  color:         string
+  daysPerYear:   number
+  balance:       number
 }
 
 export type MissionStatus =
@@ -167,17 +174,13 @@ export interface RemoteWorkRequest {
 export type EntityStatus = 'Draft' | 'PendingApproval' | 'Active' | 'Inactive'
 export type EntityType   = 'Direction' | 'Department' | 'Service'
 
-export interface ValidatorPool {
-  level:              1 | 2 | 3 | 4
-  employeeId?:        string
-  validatorName:      string
-  validatorInitials:  string
-  validatorColor:     string
-}
 
 // ── Employees ─────────────────────────────────────────────────
-export type EmployeeStatus = 'active' | 'trial' | 'onleave' | 'inactive'
-export type ContractType   = 'CDI' | 'CDD' | 'Stage' | 'Freelance'
+export type EmployeeStatus  = 'active' | 'trial' | 'onleave' | 'inactive'
+export type ContractType    = 'CDI' | 'CDD' | 'Stage' | 'Freelance'
+export type Gender          = 'M' | 'F'
+export type MaritalStatus   = 'Single' | 'Married' | 'Divorced' | 'Widowed'
+export type IdDocumentType  = 'NationalId' | 'Passport' | 'ResidencePermit'
 
 export interface Employee {
   id:           string
@@ -190,6 +193,10 @@ export interface Employee {
   avatarText:   string
   role:         UserRole
   jobTitle:     string
+  // FK vers la fiche Position réelle (module Position, branché au backend) —
+  // jobTitle ci-dessus est dérivé de positionTitle pour l'affichage, pas
+  // stocké tel quel côté backend (Employee n'a pas de colonne libre pour ça).
+  positionId?:  string
   entityId:     string | null
   entityName?:  string
   email?:       string
@@ -197,7 +204,22 @@ export interface Employee {
   hireDate:     string
   contractType: ContractType
   status:       EmployeeStatus
+  // Dérivé du responsable de l'entité de rattachement (OrganizationUnit.ManagerId)
+  // — Employee n'a pas de colonne ManagerId propre côté backend, voir
+  // stores/employees.ts:mapEmployee.
   managerId?:   string
+  gender:          Gender
+  birthDate:       string
+  birthPlace?:     string
+  maritalStatus:   MaritalStatus
+  idType:          IdDocumentType
+  idNumber?:       string
+  // A un compte système (peut se connecter) — seul un employé avec un compte
+  // peut être choisi comme validateur. Mock local pour l'instant (dérivé du
+  // rôle à la création) ; le vrai backend le porte via Employee.UserId — la
+  // création du compte utilisateur (identifiants, rôle RBAC) est un chantier
+  // séparé, non couvert par ce domaine.
+  hasAccount:   boolean
 }
 
 export interface Entity {
@@ -215,15 +237,12 @@ export interface Entity {
   createdAt:   string
   modifiedBy?: string | null
   modifiedAt?: string | null
-  // Not part of the backend OrganizationUnit response — enriched client-side
-  // by the store (manager lookup / employee count). ApprovalPool wiring
-  // (validatorPools) and a legal-identifier field are not yet backed by any
-  // endpoint; kept here so existing forms/views keep compiling, but neither
-  // is persisted to the API.
   legalIdentifier?: string
+  // Not part of the backend OrganizationUnit response — enriched client-side
+  // by the store (manager lookup / employee count). Pools de validation
+  // (ApprovalPool) vivent dans leur propre store, voir stores/approvalPools.ts.
   responsibleName?: string
   headcount:        number
-  validatorPools:   ValidatorPool[]
   children?:        Entity[]
 }
 
@@ -268,20 +287,10 @@ export interface Holiday {
   organizationUnitId?: string | null // requis si holidayType = 'Local'
 }
 
-export interface LeaveRule {
-  type:             LeaveType
-  daysPerYear:      number
-  daysPerMonth?:    number
-  maxCarryOver:     number
-  requiresDocument: boolean
-  noticeDays:       number
-}
-
 export interface CompanyCalendar {
   id:            string
   workingDays:   WorkingDays
   holidays:      Holiday[]
-  leaveRules:    LeaveRule[]
   perdiemRates?: PerdiemRate[]
   updatedAt:     string
   updatedBy:     string
@@ -301,7 +310,7 @@ export interface DayPlanning {
   isHoliday:      boolean
   holidayName?:   string
   isAbsence:      boolean
-  absenceType?:   LeaveType
-  absenceStatus?: LeaveStatus
+  absenceType?:   string
+  absenceStatus?: LeaveRequestStatus
   hours?:         WorkingHours
 }

@@ -1,9 +1,16 @@
 import type {
-  CompanyCalendar, WorkingDays, DayPlanning, LeaveType, LeaveStatus,
+  CompanyCalendar, WorkingDays, DayPlanning, LeaveRequestStatus,
 } from '../types'
 
 const DAY_KEYS: (keyof WorkingDays)[] = [
   'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+]
+
+// Statuts qui occupent visuellement une case du planning — tout sauf
+// Draft/Rejected/Returned/Cancelled (jamais confirmes ou plus d'actualite).
+const VISIBLE_ON_PLANNING: LeaveRequestStatus[] = [
+  'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4',
+  'Approved', 'Registered', 'Done', 'Regularized',
 ]
 
 function parseLocal(dateStr: string): Date {
@@ -110,8 +117,8 @@ export function generateWeekPlanning(
   absences:  Array<{
     startDate: string
     endDate:   string
-    type:      LeaveType
-    status:    LeaveStatus
+    type:      string
+    status:    LeaveRequestStatus
   }>,
 ): DayPlanning[] {
   const days  : DayPlanning[] = []
@@ -131,7 +138,7 @@ export function generateWeekPlanning(
       a =>
         a.startDate <= dateStr &&
         a.endDate   >= dateStr &&
-        (a.status === 'approved' || a.status === 'pending'),
+        VISIBLE_ON_PLANNING.includes(a.status),
     )
 
     days.push({

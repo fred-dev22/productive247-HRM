@@ -11,7 +11,13 @@
           </router-link>
         </div>
 
-        <div class="flex justify-center">
+        <div v-if="formLoading" class="flex justify-center">
+          <div class="w-full max-w-[800px]">
+            <SkeletonLoader type="form" :lines="8" />
+          </div>
+        </div>
+
+        <div v-else class="flex justify-center">
           <div class="w-full max-w-[800px] bg-card border border-border rounded-lg p-6 flex flex-col gap-6">
 
             <!-- ── Section 1 : Identité ── -->
@@ -42,6 +48,49 @@
                   <label :class="cls.fieldLabel">{{ t('employee.field_phone') }}</label>
                   <input v-model="form.phone" type="tel" :class="cls.fieldInput" :placeholder="t('employee.placeholder_phone')" />
                 </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">{{ t('employee.field_gender') }} *</label>
+                  <select v-model="form.gender" :class="[cls.fieldSelect, err.gender && cls.inputError]">
+                    <option value="">{{ t('employee.placeholder_gender') }}</option>
+                    <option value="M">{{ t('employee.gender_m') }}</option>
+                    <option value="F">{{ t('employee.gender_f') }}</option>
+                  </select>
+                  <div v-if="err.gender" :class="cls.fieldError">{{ err.gender }}</div>
+                </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">{{ t('employee.field_birth_date') }} *</label>
+                  <input v-model="form.birthDate" type="date" :class="[cls.fieldInput, err.birthDate && cls.inputError]" />
+                  <div v-if="err.birthDate" :class="cls.fieldError">{{ err.birthDate }}</div>
+                </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">{{ t('employee.field_birth_place') }}</label>
+                  <input v-model="form.birthPlace" :class="cls.fieldInput" :placeholder="t('employee.placeholder_birth_place')" />
+                </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">{{ t('employee.field_marital_status') }} *</label>
+                  <select v-model="form.maritalStatus" :class="[cls.fieldSelect, err.maritalStatus && cls.inputError]">
+                    <option value="">{{ t('employee.placeholder_marital_status') }}</option>
+                    <option value="Single">{{ t('employee.marital_single') }}</option>
+                    <option value="Married">{{ t('employee.marital_married') }}</option>
+                    <option value="Divorced">{{ t('employee.marital_divorced') }}</option>
+                    <option value="Widowed">{{ t('employee.marital_widowed') }}</option>
+                  </select>
+                  <div v-if="err.maritalStatus" :class="cls.fieldError">{{ err.maritalStatus }}</div>
+                </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">{{ t('employee.field_id_type') }} *</label>
+                  <select v-model="form.idType" :class="[cls.fieldSelect, err.idType && cls.inputError]">
+                    <option value="">{{ t('employee.placeholder_id_type') }}</option>
+                    <option value="NationalId">{{ t('employee.id_type_national') }}</option>
+                    <option value="Passport">{{ t('employee.id_type_passport') }}</option>
+                    <option value="ResidencePermit">{{ t('employee.id_type_residence') }}</option>
+                  </select>
+                  <div v-if="err.idType" :class="cls.fieldError">{{ err.idType }}</div>
+                </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">{{ t('employee.field_id_number') }}</label>
+                  <input v-model="form.idNumber" :class="cls.fieldInput" :placeholder="t('employee.placeholder_id_number')" />
+                </div>
               </div>
             </div>
 
@@ -50,9 +99,14 @@
               <div :class="sectionTitle"><Briefcase class="w-4 h-4 text-primary" /> {{ t('employee.section_position') }}</div>
               <div :class="fieldGrid">
                 <div :class="[cls.field, 'col-span-full']">
-                  <label :class="cls.fieldLabel">{{ t('employee.field_job_title') }} *</label>
-                  <input v-model="form.jobTitle" :class="[cls.fieldInput, err.jobTitle && cls.inputError]" :placeholder="t('employee.placeholder_job')" />
-                  <div v-if="err.jobTitle" :class="cls.fieldError">{{ err.jobTitle }}</div>
+                  <label :class="cls.fieldLabel">{{ t('employee.field_position') }}</label>
+                  <TableLookupField
+                    :code="positionCode" :name="form.positionTitle"
+                    value-key="code" name-key="title"
+                    :columns="positionColumns" :fetch-fn="fetchPositions"
+                    :modal-title="t('employee.field_position')" :placeholder="t('employee.placeholder_position')"
+                    @update:code="positionCode = $event" @update:name="form.positionTitle = $event" @select="onPositionSelect"
+                  />
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">{{ t('employee.field_entity') }} *</label>
@@ -108,43 +162,33 @@
               <div :class="sectionTitle"><ShieldCheck class="w-4 h-4 text-primary" /> {{ t('employee.section_manager') }}</div>
               <p class="text-xs text-muted-foreground -mt-2">{{ t('employee.manager_desc') }}</p>
               <div :class="fieldGrid">
-                <div :class="cls.field">
-                  <label :class="cls.fieldLabel">{{ t('employee.field_manager') }}</label>
-                  <select v-model="form.managerId" :class="cls.fieldSelect">
-                    <option value="">{{ t('employee.placeholder_manager') }}</option>
-                    <optgroup :label="t('employee.group_directors')">
-                      <option v-for="e in mgrs.filter(e => e.role === 'hr_director')" :key="e.id" :value="e.id">
-                        {{ e.code }} — {{ e.name }} · {{ e.jobTitle }}
-                      </option>
-                    </optgroup>
-                    <optgroup :label="t('employee.group_admins')">
-                      <option v-for="e in mgrs.filter(e => e.role === 'hr_admin')" :key="e.id" :value="e.id">
-                        {{ e.code }} — {{ e.name }} · {{ e.jobTitle }}
-                      </option>
-                    </optgroup>
-                    <optgroup :label="t('employee.group_validators')">
-                      <option v-for="e in mgrs.filter(e => e.role === 'validator')" :key="e.id" :value="e.id">
-                        {{ e.code }} — {{ e.name }} · {{ e.jobTitle }}
-                      </option>
-                    </optgroup>
-                  </select>
-                </div>
-                <div :class="cls.field" v-if="selectedManager">
-                  <label :class="cls.fieldLabel">{{ t('employee.selected_manager') }}</label>
-                  <div class="flex items-center gap-2.5 px-3 py-2 bg-background rounded-lg border border-border">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0" :style="{ background: selectedManager.avatarBg, color: selectedManager.avatarText }">
-                      {{ selectedManager.initials }}
-                    </div>
-                    <div>
-                      <div class="text-[13px] font-medium">{{ selectedManager.name }}</div>
-                      <div class="text-[11px] text-muted-foreground mt-px">{{ selectedManager.jobTitle }} · {{ selectedManager.entityName }}</div>
-                    </div>
+                <div :class="[cls.field, 'col-span-full']">
+                  <label :class="cls.fieldLabel">
+                    {{ t('employee.field_manager') }}
+                    <span class="inline-flex items-center gap-[3px] text-[10px] font-semibold text-muted-foreground bg-background border border-border rounded-full px-1.5 py-px ml-1.5 align-middle">
+                      <Lock class="w-2.5 h-2.5" /> {{ t('employee.manager_auto') }}
+                    </span>
+                  </label>
+                  <div
+                    class="flex items-center gap-2 h-9 px-2.5 border border-border rounded-md bg-background text-[13px] text-foreground"
+                    :class="{ 'text-muted-foreground italic': !directManager }"
+                  >
+                    <template v-if="directManager">
+                      <span class="font-medium">{{ directManager.name }}</span>
+                      <span class="text-muted-foreground text-xs">· {{ t('employee.manager_role') }}</span>
+                    </template>
+                    <span v-else class="text-xs text-muted-foreground">{{ t('employee.manager_placeholder') }}</span>
                   </div>
+                  <span class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Info class="w-3 h-3 text-primary" />
+                    {{ t('employee.manager_hint') }}
+                  </span>
                 </div>
               </div>
             </div>
 
             <!-- ── Actions ── -->
+            <p v-if="saveError" class="text-xs text-danger bg-danger-bg px-3 py-2 rounded-md">{{ saveError }}</p>
             <div class="flex gap-2 justify-end pt-2 border-t border-border">
               <button :class="cls.btnPrimary" @click="handleSave">
                 <Save class="w-4 h-4" />
@@ -158,24 +202,28 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, onMounted } from 'vue'
+import { reactive, computed, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ArrowLeft, User, Briefcase, ShieldCheck, Save } from 'lucide-vue-next'
+import { ArrowLeft, User, Briefcase, ShieldCheck, Save, Lock, Info } from 'lucide-vue-next'
+import { SkeletonLoader } from '../../components'
+import TableLookupField from '../../components/ui/table-lookup/TableLookupField.vue'
+import type { LookupFetchParams } from '../../components/ui/table-lookup/TableLookupField.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }     from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore }   from '../../stores/entities'
-import type { UserRole, ContractType, EmployeeStatus } from '../../types'
+import { usePositionStore } from '../../stores/positions'
+import type { UserRole, ContractType, EmployeeStatus, Gender, MaritalStatus, IdDocumentType } from '../../types'
 
 const { t }       = useI18n()
 const auth        = useAuthStore()
 const store       = useEmployeeStore()
 const entityStore = useEntityStore()
+const positionStore = usePositionStore()
 const router      = useRouter()
 const route       = useRoute()
-if (entityStore.entities.length === 0) entityStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const sectionTitle = 'flex items-center gap-2 text-sm font-semibold pb-2.5 border-b border-border'
@@ -185,55 +233,103 @@ const empId  = computed(() => route.params.id as string | undefined)
 const isEdit = computed(() => !!empId.value)
 const editEmp = computed(() => empId.value ? store.getById(empId.value) : undefined)
 
+const positionColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'title', label: 'Poste' }]
+function fetchPositions({ searchQuery }: LookupFetchParams) {
+  let items = positionStore.positions
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase()
+    items = items.filter(p => p.title.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
+  }
+  return { items, total: items.length }
+}
+const positionCode = ref('')
+function onPositionSelect(item: Record<string, unknown>) {
+  form.positionId = String(item.id); form.positionTitle = String(item.title); positionCode.value = String(item.code)
+}
+
 const form = reactive({
   firstName:    '',
   lastName:     '',
   code:         '',
   email:        '',
   phone:        '',
-  jobTitle:     '',
+  positionId:   '' as string | null,
+  positionTitle: '',
   entityId:     '' as string | null,
   entityName:   '',
   role:         '' as UserRole | '',
   contractType: '' as ContractType | '',
   hireDate:     '',
   status:       'active' as EmployeeStatus,
-  managerId:    '',
+  gender:        '' as Gender | '',
+  birthDate:     '',
+  birthPlace:    '',
+  maritalStatus: '' as MaritalStatus | '',
+  idType:        '' as IdDocumentType | '',
+  idNumber:      '',
 })
 
 const err = reactive({
   firstName: '', lastName: '', code: '', email: '',
-  jobTitle: '', entityId: '', role: '', contractType: '', hireDate: '',
+  entityId: '', role: '', contractType: '', hireDate: '',
+  gender: '', birthDate: '', maritalStatus: '', idType: '',
 })
+const saveError = ref('')
 
-const mgrs = computed(() => store.validatorEmployees.filter(e => e.id !== empId.value))
-
-const selectedManager = computed(() =>
-  form.managerId ? store.getById(form.managerId) : undefined
-)
+// Manager auto-dérivé du responsable de l'entité choisie — pas éditable
+// directement (voir Employee.managerId, déduit de l'entité de rattachement).
+const directManager = computed(() => {
+  const entity = entityStore.entities.find(e => e.id === form.entityId)
+  if (!entity?.responsibleName) return null
+  return { name: entity.responsibleName, managerId: entity.managerId ?? null }
+})
 
 function onEntityChange() {
   const e = entityStore.getEntityById(form.entityId ?? '')
   form.entityName = e?.name ?? ''
 }
 
-onMounted(() => {
+function populateForm(e: NonNullable<typeof editEmp.value>) {
+  form.firstName     = e.firstName
+  form.lastName      = e.lastName
+  form.code          = e.code
+  form.email         = e.email ?? ''
+  form.phone         = e.phone ?? ''
+  form.positionId    = e.positionId ?? ''
+  form.positionTitle = e.jobTitle
+  positionCode.value = ''
+  form.entityId      = e.entityId
+  form.entityName    = e.entityName ?? ''
+  form.role          = e.role
+  form.contractType  = e.contractType
+  form.hireDate      = e.hireDate
+  form.status        = e.status
+  form.gender        = e.gender
+  form.birthDate     = e.birthDate
+  form.birthPlace    = e.birthPlace ?? ''
+  form.maritalStatus = e.maritalStatus
+  form.idType        = e.idType
+  form.idNumber      = e.idNumber ?? ''
+}
+
+const formLoading = ref(false)
+onMounted(async () => {
+  // entités/postes d'abord (séquencé, pas en parallèle avec les employés) :
+  // mapEmployee lit ces deux stores de façon synchrone pour entityName/jobTitle.
+  const preTasks: Promise<unknown>[] = []
+  if (entityStore.entities.length === 0) preTasks.push(entityStore.fetchAll())
+  if (positionStore.positions.length === 0) preTasks.push(positionStore.fetchAll())
+  if (preTasks.length > 0) await Promise.all(preTasks)
+
+  if (isEdit.value && !store.getById(empId.value!)) {
+    formLoading.value = true
+    await store.fetchAll()
+  }
+  formLoading.value = false
+
   if (isEdit.value && editEmp.value) {
-    const e = editEmp.value
-    form.firstName    = e.firstName
-    form.lastName     = e.lastName
-    form.code         = e.code
-    form.email        = e.email ?? ''
-    form.phone        = e.phone ?? ''
-    form.jobTitle     = e.jobTitle
-    form.entityId     = e.entityId
-    form.entityName   = e.entityName ?? ''
-    form.role         = e.role
-    form.contractType = e.contractType
-    form.hireDate     = e.hireDate
-    form.status       = e.status
-    form.managerId    = e.managerId ?? ''
-  } else {
+    populateForm(editEmp.value)
+  } else if (!isEdit.value) {
     form.code = store.nextCode
   }
 })
@@ -241,29 +337,34 @@ onMounted(() => {
 function validate(): boolean {
   Object.keys(err).forEach(k => ((err as Record<string, string>)[k] = ''))
   let ok = true
-  if (!form.firstName.trim())  { err.firstName    = t('employee.err_first_name'); ok = false }
-  if (!form.lastName.trim())   { err.lastName     = t('employee.err_last_name');  ok = false }
-  if (!form.code.trim())       { err.code         = t('employee.err_code');       ok = false }
-  if (!form.jobTitle.trim())   { err.jobTitle     = t('employee.err_job_title');  ok = false }
-  if (!form.entityId)          { err.entityId     = t('employee.err_entity');     ok = false }
-  if (!form.role)              { err.role         = t('employee.err_role');       ok = false }
-  if (!form.contractType)      { err.contractType = t('employee.err_contract');   ok = false }
-  if (!form.hireDate)          { err.hireDate     = t('employee.err_hire_date');  ok = false }
+  if (!form.firstName.trim())     { err.firstName     = t('employee.err_first_name'); ok = false }
+  if (!form.lastName.trim())      { err.lastName      = t('employee.err_last_name');  ok = false }
+  if (!form.code.trim())          { err.code          = t('employee.err_code');       ok = false }
+  if (!form.entityId)             { err.entityId      = t('employee.err_entity');     ok = false }
+  if (!form.role)                 { err.role          = t('employee.err_role');       ok = false }
+  if (!form.contractType)         { err.contractType  = t('employee.err_contract');   ok = false }
+  if (!form.hireDate)             { err.hireDate      = t('employee.err_hire_date');  ok = false }
+  if (!form.gender)               { err.gender        = t('employee.err_gender');     ok = false }
+  if (!form.birthDate)            { err.birthDate     = t('employee.err_birth_date'); ok = false }
+  if (!form.maritalStatus)        { err.maritalStatus = t('employee.err_marital_status'); ok = false }
+  if (!form.idType)               { err.idType        = t('employee.err_id_type');    ok = false }
   if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
     err.email = t('employee.err_email'); ok = false
   }
   return ok
 }
 
-function handleSave() {
+async function handleSave() {
   if (!validate()) return
+  saveError.value = ''
 
   const payload = {
     code:         form.code,
     firstName:    form.firstName,
     lastName:     form.lastName,
     role:         form.role as UserRole,
-    jobTitle:     form.jobTitle,
+    jobTitle:     form.positionTitle,
+    positionId:   form.positionId || undefined,
     entityId:     form.entityId,
     entityName:   form.entityName,
     contractType: form.contractType as ContractType,
@@ -271,14 +372,25 @@ function handleSave() {
     status:       form.status,
     email:        form.email || undefined,
     phone:        form.phone || undefined,
-    managerId:    form.managerId || undefined,
+    gender:        form.gender as Gender,
+    birthDate:     form.birthDate,
+    birthPlace:    form.birthPlace || undefined,
+    maritalStatus: form.maritalStatus as MaritalStatus,
+    idType:        form.idType as IdDocumentType,
+    idNumber:      form.idNumber || undefined,
   }
 
-  if (isEdit.value && empId.value) {
-    store.updateEmployee(empId.value, payload)
-  } else {
-    store.createEmployee(payload)
+  try {
+    if (isEdit.value && empId.value) {
+      await store.updateEmployee(empId.value, payload)
+    } else {
+      // Un employé fraîchement créé n'a jamais de compte — hasAccount ne
+      // devient vrai que via l'action "Créer un compte utilisateur".
+      await store.createEmployee({ ...payload, hasAccount: false })
+    }
+    router.push({ name: 'hr-employees' })
+  } catch {
+    saveError.value = store.error ?? "L'enregistrement a échoué. Veuillez réessayer."
   }
-  router.push({ name: 'hr-employees' })
 }
 </script>

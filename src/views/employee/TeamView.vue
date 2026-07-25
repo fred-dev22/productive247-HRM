@@ -68,7 +68,14 @@ import type { Employee } from '../../types'
 const auth = useAuthStore()
 const employeeStore = useEmployeeStore()
 const entityStore = useEntityStore()
-if (entityStore.entities.length === 0) entityStore.fetchAll()
+// Séquencé : mapEmployee lit entityStore de façon synchrone pour entityName.
+// /employees/team (EMPLOYE_VOIR_EQUIPE) plutôt que fetchAll (EMPLOYE_VOIR_TOUT)
+// — cette page est accessible aux managers qui n'ont que la permission
+// restreinte à leur équipe.
+;(async () => {
+  if (entityStore.entities.length === 0) await entityStore.fetchAll()
+  await employeeStore.fetchTeam()
+})()
 
 const openCardId = ref<string | null>(null)
 function openCard(item: Employee) { openCardId.value = item.id }

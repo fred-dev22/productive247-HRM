@@ -162,20 +162,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { FileDown, Save, Camera, PieChart, Zap, CalendarPlus, Plane, Calendar, User, Briefcase, Settings } from 'lucide-vue-next'
 import { StatusPill } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }    from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
-import { useAbsenceStore }  from '../../stores/absences'
+import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useRoute } from 'vue-router'
 
 const auth         = useAuthStore()
 const employeeStore = useEmployeeStore()
-const absenceStore  = useAbsenceStore()
+const balanceStore  = useLeaveTransactionStore()
 const route         = useRoute()
+
+if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
 
 // ── Classes du design system ─────────────────────────────────
 const card = 'bg-card border border-border rounded-[10px] p-4'
@@ -188,8 +190,10 @@ const infoLabel = 'text-[11px] font-semibold text-muted-foreground uppercase tra
 const isHR = computed(() => route.path.startsWith('/hr'))
 
 const employee = computed(() => {
-  return employeeStore.employees.find(e => e.id === auth.user?.id) ?? employeeStore.employees[0]
+  return auth.user?.id ? employeeStore.getById(auth.user.id) : undefined
 })
+
+if (auth.user?.id && !employee.value) employeeStore.fetchOne(auth.user.id)
 
 const form = reactive({
   firstName:    employee.value?.firstName ?? '',
@@ -198,6 +202,16 @@ const form = reactive({
   phone:        employee.value?.phone     ?? '',
   lang:         'fr',
   emailNotifs:  'all',
+})
+
+// Le fetch ci-dessus est async — resynchronise le formulaire une fois la
+// fiche employé chargée (form est un reactive() figé à l'initialisation).
+watch(employee, (e) => {
+  if (!e) return
+  form.firstName = e.firstName
+  form.lastName  = e.lastName
+  form.email     = e.email ?? ''
+  form.phone     = e.phone ?? ''
 })
 
 const roleLabel = computed(() => {
@@ -211,15 +225,13 @@ const roleLabel = computed(() => {
 })
 
 const myBalances = computed(() => {
-  const row = absenceStore.employeeBalances.find(b => b.employeeName === employee.value?.name)
-  if (!row) return []
-  return Object.entries(row.balances)
-    .filter(([, b]) => b.total > 0)
+  return balanceStore.myBalances
+    .filter(b => b.daysPerYear > 0)
     .slice(0, 4)
-    .map(([type, b]) => {
-      const pct   = b.total > 0 ? (b.remaining / b.total) * 100 : 0
+    .map(b => {
+      const pct   = b.daysPerYear > 0 ? (b.balance / b.daysPerYear) * 100 : 0
       const color = pct > 50 ? 'var(--color-success)' : pct > 20 ? 'var(--color-warning)' : 'var(--color-danger)'
-      return { label: type, remaining: b.remaining, pct, color }
+      return { label: b.leaveTypeName, remaining: b.balance, pct, color }
     })
 })
 

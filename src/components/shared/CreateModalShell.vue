@@ -17,7 +17,14 @@ defineProps<{
 const emit = defineEmits<{ close: []; create: [] }>()
 
 const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') emit('close') }
-onMounted(() => document.addEventListener('keydown', onKeydown))
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown)
+  // La coquille se positionne en absolute sur #below-topbar, pas en fixed
+  // sur le viewport — si la page était scrollée (ex: onboarding, dont le
+  // contenu peut dépasser l'écran), le popup apparaît décalé et son pied
+  // (boutons) part hors champ. On force donc le retour en haut à l'ouverture.
+  window.scrollTo({ top: 0 })
+})
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </script>
 
@@ -26,7 +33,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
     <div class="absolute inset-0 z-50 flex">
       <div class="absolute inset-0 bg-black/60 backdrop-blur-md" @click="emit('close')"></div>
 
-      <div class="relative z-10 flex flex-col w-full h-full bg-card overflow-hidden lg:mx-20">
+      <div class="relative z-10 flex flex-col w-full h-full bg-card overflow-hidden mx-4 lg:mx-auto lg:max-w-[1040px] shadow-[0_8px_32px_rgba(0,0,0,0.16)]">
         <!-- Bannière -->
         <div class="bg-primary text-primary-foreground px-6 py-2 flex items-center justify-between text-sm shrink-0">
           <div class="flex items-center gap-2">

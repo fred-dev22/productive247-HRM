@@ -11,20 +11,10 @@
               Dernière mise à jour : {{ calendar.updatedAt }} par {{ calendar.updatedBy }}
             </span>
           </div>
-          <button :class="L.btnPrimary" class="disabled:opacity-45 disabled:cursor-not-allowed" :disabled="saveDisabled" @click="saveChanges">
-            <Save class="w-4 h-4" />
-            Enregistrer les modifications
-          </button>
-        </div>
-
-        <!-- ── Toast ── -->
-        <div v-if="showToast" class="fixed bottom-6 right-6 bg-success text-white px-5 py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 z-[2000] shadow-[0_4px_16px_rgba(0,0,0,0.16)]">
-          <Check class="w-4 h-4" />
-          Calendrier mis à jour
         </div>
 
         <!-- ── Chargement ── -->
-        <SkeletonLoader v-if="pageLoading" type="card" :lines="10" />
+        <SkeletonLoader v-if="pageLoading" type="table" :lines="6" />
 
         <template v-else>
         <!-- ── Tabs ── -->
@@ -145,7 +135,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="{ lt, rule } in unifiedTypes" :key="lt.id" class="hover:bg-background">
+                  <tr v-for="lt in leaveTypesStore.leaveTypes" :key="lt.id" class="hover:bg-background">
                     <td :class="td">
                       <div class="w-7 h-7 rounded-md flex items-center justify-center text-white text-[13px]" :style="{ background: lt.color }">
                         <i :class="`ti ${lt.icon}`" aria-hidden="true"></i>
@@ -156,39 +146,43 @@
                       <Lock v-if="lt.isSystem" class="w-3 h-3 text-muted-foreground inline-block align-middle" title="Type système" />
                     </td>
                     <td :class="[td, 'text-center']">
-                      <input v-if="rule" type="number" min="0" :class="ruleInput" :value="rule.daysPerYear"
-                        @input="updateRule(lt.name, 'daysPerYear', +($event.target as HTMLInputElement).value)" />
-                      <span v-else>—</span>
+                      <input type="number" min="0" :class="ruleInput" :value="lt.daysPerYear"
+                        @change="leaveTypesStore.updateLeaveType(lt.id, { daysPerYear: +($event.target as HTMLInputElement).value })" />
                     </td>
                     <td :class="[td, 'text-center']">
-                      <input v-if="rule" type="number" min="0" step="0.5" :class="ruleInput" :value="rule.daysPerMonth"
-                        @input="updateRule(lt.name, 'daysPerMonth', +($event.target as HTMLInputElement).value)" />
-                      <span v-else>—</span>
+                      <input type="number" min="0" step="0.5" :class="ruleInput" :value="lt.daysPerMonth"
+                        @change="leaveTypesStore.updateLeaveType(lt.id, { daysPerMonth: +($event.target as HTMLInputElement).value })" />
                     </td>
                     <td :class="[td, 'text-center']">
-                      <input v-if="rule" type="number" min="0" :class="ruleInput" :value="rule.noticeDays"
-                        @input="updateRule(lt.name, 'noticeDays', +($event.target as HTMLInputElement).value)" />
-                      <span v-else>—</span>
+                      <input type="number" min="0" :class="ruleInput" :value="lt.noticeDays"
+                        @change="leaveTypesStore.updateLeaveType(lt.id, { noticeDays: +($event.target as HTMLInputElement).value })" />
                     </td>
                     <td :class="[td, 'text-center']">
-                      <label v-if="rule" class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sr-only peer" :checked="rule.requiresDocument"
-                          @change="updateRule(lt.name, 'requiresDocument', ($event.target as HTMLInputElement).checked)" />
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer" :checked="lt.documentRequired"
+                          @change="leaveTypesStore.updateLeaveType(lt.id, { documentRequired: ($event.target as HTMLInputElement).checked })" />
                         <span :class="toggleTrack"></span>
                       </label>
-                      <span v-else>—</span>
                     </td>
                     <td :class="[td, 'text-center']">
-                      <label class="relative inline-flex items-center cursor-pointer" :title="lt.isSystem ? 'Toujours actif' : ''">
-                        <input type="checkbox" class="sr-only peer" :checked="lt.isActive" :disabled="lt.isSystem"
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer" :checked="lt.isActive"
                           @change="leaveTypesStore.toggleLeaveType(lt.id)" />
-                        <span :class="[toggleTrack, 'peer-disabled:opacity-50 peer-disabled:cursor-not-allowed']"></span>
+                        <span :class="toggleTrack"></span>
                       </label>
                     </td>
                     <td :class="[td, 'text-center']">
                       <div class="flex gap-1 items-center justify-center">
                         <button :class="iconBtn" title="Modifier" @click="openEditLT(lt.id)">
                           <Pencil class="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          :class="[iconBtn, 'disabled:opacity-40 disabled:cursor-not-allowed']"
+                          :disabled="lt.isSystem"
+                          :title="lt.isSystem ? 'Type système — désactivez-le plutôt que de le supprimer' : 'Supprimer'"
+                          @click="deleteLT(lt.id)"
+                        >
+                          <Trash2 class="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -197,13 +191,34 @@
               </table>
             </div>
           </div>
+
+          <div :class="sectionCard">
+            <h2 class="text-[15px] font-semibold text-foreground mb-1">Génération des acquisitions</h2>
+            <p class="text-[13px] text-muted-foreground mb-4">Crédite automatiquement les jours de congé (mensuels ou annuels) sur le solde de chaque employé.</p>
+            <div class="grid grid-cols-3 gap-3.5 items-end max-md:grid-cols-1">
+              <div :class="cls.field">
+                <label :class="cls.fieldLabel">Jour du mois d'exécution</label>
+                <select :class="cls.fieldSelect" :value="accrualRunDay ?? ''" @change="accrualRunDay = ($event.target as HTMLSelectElement).value ? +($event.target as HTMLSelectElement).value : null">
+                  <option value="">Manuel uniquement</option>
+                  <option v-for="d in 28" :key="d" :value="d">{{ d }}</option>
+                </select>
+              </div>
+              <div :class="cls.field">
+                <span :class="cls.fieldLabel">Dernière exécution</span>
+                <div class="h-9 flex items-center text-[13px] text-foreground">{{ lastAccrualRun }}</div>
+              </div>
+              <button :class="L.btnOutline" class="disabled:opacity-45 disabled:cursor-not-allowed" :disabled="generatingAccruals" @click="generateAccrualsNow">
+                <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': generatingAccruals }" /> Générer maintenant
+              </button>
+            </div>
+          </div>
         </div>
         </template>
 
   </div>
 
   <!-- ── Modal types d'absence ── -->
-  <LeaveTypeFormModal v-model="showLTModal" :edit-id="editLTId" />
+  <LeaveTypeFormModal v-if="showLTModal" :edit-id="editLTId" @close="showLTModal = false" />
 
   <!-- ── Import CSV toast ── -->
   <Teleport to="body">
@@ -214,71 +229,125 @@
   </Teleport>
 
   <!-- ── Modal férié annuel ── -->
-  <ModalShell :open="showModal === 'annual'" :title="editingHoliday ? 'Modifier' : 'Ajouter un férié annuel'" max-width="max-w-[420px]" @close="closeModal">
-    <label :class="cls.field">
-      <span :class="cls.fieldLabel">Nom *</span>
-      <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Fête du Travail" />
-    </label>
-    <div :class="cls.field">
-      <span :class="cls.fieldLabel">Date (mois — jour)</span>
-      <div class="flex gap-2">
-        <select :class="cls.fieldSelect" v-model="hForm.month">
-          <option v-for="m in MONTHS" :key="m.v" :value="m.v">{{ m.l }}</option>
-        </select>
-        <select :class="cls.fieldSelect" v-model="hForm.day">
-          <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
-        </select>
+  <CreateModalShell
+    v-if="showModal === 'annual'"
+    :title="editingHoliday ? 'Modifier le férié annuel' : 'Ajouter un férié annuel'"
+    :banner-label="editingHoliday ? 'Modifier le férié annuel' : 'Ajouter un férié annuel'"
+    :create-label="editingHoliday ? 'Enregistrer' : 'Ajouter'"
+    :save-error="holidayError"
+    @close="closeModal"
+    @create="saveAnnualHoliday"
+  >
+    <template #form>
+      <div class="flex-1 overflow-auto px-6 py-5">
+        <div class="max-w-md mx-auto">
+          <FormSection title="Informations générales">
+            <div class="flex flex-col gap-3.5">
+              <label :class="cls.field">
+                <span :class="cls.fieldLabel">Nom *</span>
+                <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Fête du Travail" />
+              </label>
+              <div :class="cls.field">
+                <span :class="cls.fieldLabel">Date (mois — jour)</span>
+                <div class="flex gap-2">
+                  <select :class="cls.fieldSelect" v-model="hForm.month">
+                    <option v-for="m in MONTHS" :key="m.v" :value="m.v">{{ m.l }}</option>
+                  </select>
+                  <select :class="cls.fieldSelect" v-model="hForm.day">
+                    <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </FormSection>
+        </div>
       </div>
-    </div>
-    <template #footer>
-      <button :class="cls.btnOutline" @click="closeModal">Annuler</button>
-      <button :class="cls.btnPrimary" @click="saveAnnualHoliday">Enregistrer</button>
     </template>
-  </ModalShell>
+  </CreateModalShell>
 
   <!-- ── Modal férié ponctuel ── -->
-  <ModalShell :open="showModal === 'ponctual'" :title="editingHoliday ? 'Modifier' : 'Ajouter un férié ponctuel'" max-width="max-w-[420px]" @close="closeModal">
-    <label :class="cls.field">
-      <span :class="cls.fieldLabel">Nom *</span>
-      <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Aïd el-Fitr 2026" />
-    </label>
-    <label :class="cls.field">
-      <span :class="cls.fieldLabel">Date complète</span>
-      <input type="date" :class="cls.fieldInput" v-model="hForm.fullDate" />
-    </label>
-    <template #footer>
-      <button :class="cls.btnOutline" @click="closeModal">Annuler</button>
-      <button :class="cls.btnPrimary" @click="savePonctualHoliday">Enregistrer</button>
+  <CreateModalShell
+    v-if="showModal === 'ponctual'"
+    :title="editingHoliday ? 'Modifier le férié ponctuel' : 'Ajouter un férié ponctuel'"
+    :banner-label="editingHoliday ? 'Modifier le férié ponctuel' : 'Ajouter un férié ponctuel'"
+    :create-label="editingHoliday ? 'Enregistrer' : 'Ajouter'"
+    :save-error="holidayError"
+    @close="closeModal"
+    @create="savePonctualHoliday"
+  >
+    <template #form>
+      <div class="flex-1 overflow-auto px-6 py-5">
+        <div class="max-w-md mx-auto">
+          <FormSection title="Informations générales">
+            <div class="flex flex-col gap-3.5">
+              <label :class="cls.field">
+                <span :class="cls.fieldLabel">Nom *</span>
+                <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Aïd el-Fitr 2026" />
+              </label>
+              <label :class="cls.field">
+                <span :class="cls.fieldLabel">Date complète</span>
+                <input type="date" :class="cls.fieldInput" v-model="hForm.fullDate" />
+              </label>
+            </div>
+          </FormSection>
+        </div>
+      </div>
     </template>
-  </ModalShell>
+  </CreateModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
-  ClockArrowDown, Save, Check, Clock, CalendarDays, ListChecks, Upload, Plus,
-  Pencil, Trash2, Lock, Info,
+  ClockArrowDown, Clock, CalendarDays, ListChecks, Upload, Plus,
+  Pencil, Trash2, Lock, Info, RefreshCw,
 } from 'lucide-vue-next'
 import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
 import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
-import ModalShell from '../../components/ui/ModalShell.vue'
+import CreateModalShell from '../../components/shared/CreateModalShell.vue'
+import FormSection from '../../components/ui/form-field/FormSection.vue'
 import { SkeletonLoader } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }       from '../../stores/auth'
 import { useCalendarStore }   from '../../stores/calendar'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
-import type { Holiday, LeaveRule, LeaveType } from '../../types'
+import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
+import { useCompanySettingsStore }  from '../../stores/companySettings'
+import type { Holiday } from '../../types'
 
 const auth            = useAuthStore()
 const calendarStore   = useCalendarStore()
 const leaveTypesStore = useLeaveTypesStore()
+const leaveTransactionStore = useLeaveTransactionStore()
+const companySettingsStore  = useCompanySettingsStore()
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
 
 const pageLoading = computed(() => calendarStore.loading || leaveTypesStore.loading)
 
 calendarStore.fetchCalendar()
+if (!companySettingsStore.settings) companySettingsStore.fetchSettings().catch(() => {})
+
+// ── Génération des acquisitions (cron) ─────────────────────────
+const accrualRunDay = computed({
+  get: () => companySettingsStore.settings?.leaveAccrualRunDay ?? null,
+  set: (value: number | null) => { companySettingsStore.update({ leaveAccrualRunDay: value }) },
+})
+const lastAccrualRun = computed(() => {
+  const raw = companySettingsStore.settings?.lastLeaveAccrualRunAt
+  return raw ? new Date(raw).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Jamais exécuté'
+})
+const generatingAccruals = ref(false)
+async function generateAccrualsNow() {
+  generatingAccruals.value = true
+  try {
+    await leaveTransactionStore.generateAccruals()
+    await companySettingsStore.fetchSettings()
+  } finally {
+    generatingAccruals.value = false
+  }
+}
 calendarStore.fetchHolidays(new Date().getFullYear())
 leaveTypesStore.fetchAll()
 
@@ -300,6 +369,14 @@ const showLTModal = ref(false)
 const editLTId    = ref<string | undefined>(undefined)
 function openAddLT() { editLTId.value = undefined; showLTModal.value = true }
 function openEditLT(id: string) { editLTId.value = id; showLTModal.value = true }
+async function deleteLT(id: string) {
+  if (!confirm('Supprimer ce type de congé ?')) return
+  try {
+    await leaveTypesStore.deleteLeaveType(id)
+  } catch {
+    // leaveTypesStore.error porte le message pour l'UI
+  }
+}
 
 // ── Tabs ──────────────────────────────────────────────────────
 const activeTab = ref<'working-days' | 'holidays' | 'leave-rules'>('working-days')
@@ -309,47 +386,12 @@ const TABS: { id: 'working-days' | 'holidays' | 'leave-rules'; label: string; ic
   { id: 'leave-rules',  label: 'Types & Règles de congés',  icon: ListChecks   },
 ]
 
-const showToast = ref(false)
-function triggerToast() { showToast.value = true; setTimeout(() => { showToast.value = false }, 2500) }
-
-// ── Règles locales ─────────────────────────────────────────────
-const localRules   = ref<LeaveRule[]>(JSON.parse(JSON.stringify(calendar.value.leaveRules)))
-const rulesTouched = ref(false)
-
-const unifiedTypes = computed(() =>
-  leaveTypesStore.leaveTypes.map(lt => ({
-    lt,
-    rule: localRules.value.find(r => r.type === lt.name) ?? null,
-  }))
-)
-
-function updateRule(typeName: string, field: string, value: number | boolean) {
-  const rule = localRules.value.find(r => r.type === typeName)
-  if (rule) {
-    ;(rule as Record<string, unknown>)[field] = value
-    rulesTouched.value = true
-  }
-}
-
-// ── Save ──────────────────────────────────────────────────────
-const saving = ref(false)
-const saveDisabled = computed(() => saving.value)
-
-async function saveChanges() {
-  saving.value = true
-  try {
-    await calendarStore.updateWorkingDays(calendar.value.workingDays)
-    if (rulesTouched.value) {
-      localRules.value.forEach(r => calendarStore.updateLeaveRule(r.type as LeaveType, r))
-      rulesTouched.value = false
-    }
-    triggerToast()
-  } catch {
-    // calendarStore.error porte le message pour l'UI
-  } finally {
-    saving.value = false
-  }
-}
+// ── Règles éditées ────────────────────────────────────────────
+// Édite directement les champs du VRAI LeaveType (daysPerYear/daysPerMonth/
+// noticeDays/documentRequired existent déjà sur leaveTypesStore.leaveTypes —
+// pas de calque "LeaveRule" séparé qui ne persisterait nulle part). Chaque
+// champ s'enregistre immédiatement au blur (@change) — leaveTypesStore
+// affiche déjà son propre toast via withToast(), pas besoin d'un état local.
 
 // ── Display helpers ───────────────────────────────────────────
 // Holiday.date est toujours une date complete "YYYY-MM-DD" (backend) — pour
@@ -370,15 +412,18 @@ const MONTHS = [
 ]
 const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2,'0'))
 const hForm = reactive({ name: '', month: '01', day: '01', fullDate: '' })
+const holidayError = ref('')
 
 function openAddModal(type: 'annual' | 'ponctual') {
   editingHoliday.value = null
   hForm.name = ''; hForm.month = '01'; hForm.day = '01'; hForm.fullDate = ''
+  holidayError.value = ''
   showModal.value = type
 }
 function openEditModal(h: Holiday) {
   editingHoliday.value = h
   hForm.name = h.name
+  holidayError.value = ''
   if (h.isRecurring) {
     const p = h.date.split('-')
     hForm.month = p[1] ?? '01'
@@ -389,13 +434,14 @@ function openEditModal(h: Holiday) {
     showModal.value = 'ponctual'
   }
 }
-function closeModal() { showModal.value = null; editingHoliday.value = null }
+function closeModal() { showModal.value = null; editingHoliday.value = null; holidayError.value = '' }
 
 async function saveAnnualHoliday() {
-  if (!hForm.name.trim()) return
+  if (!hForm.name.trim()) { holidayError.value = 'Le nom est obligatoire'; return }
   // Annee de reference arbitraire — seuls mois/jour comptent pour un ferie
   // recurrent (le backend remappe sur l'annee demandee via /holidays/year/:year).
   const date = `2000-${hForm.month}-${hForm.day}`
+  holidayError.value = ''
   try {
     if (editingHoliday.value) {
       await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date })
@@ -404,12 +450,14 @@ async function saveAnnualHoliday() {
     }
     closeModal()
   } catch {
-    // calendarStore.error porte le message pour l'UI
+    holidayError.value = calendarStore.error ?? "L'enregistrement a échoué. Veuillez réessayer."
   }
 }
 
 async function savePonctualHoliday() {
-  if (!hForm.name.trim() || !hForm.fullDate) return
+  if (!hForm.name.trim()) { holidayError.value = 'Le nom est obligatoire'; return }
+  if (!hForm.fullDate) { holidayError.value = 'La date est obligatoire'; return }
+  holidayError.value = ''
   try {
     if (editingHoliday.value) {
       await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate })
@@ -418,7 +466,7 @@ async function savePonctualHoliday() {
     }
     closeModal()
   } catch {
-    // calendarStore.error porte le message pour l'UI
+    holidayError.value = calendarStore.error ?? "L'enregistrement a échoué. Veuillez réessayer."
   }
 }
 

@@ -117,7 +117,12 @@ const onKeydown = (e: KeyboardEvent) => {
   if (showUnsavedDiscardDialog.value) { cancelLeaveWithoutSaving(); return }
   attemptClose()
 }
-onMounted(() => document.addEventListener('keydown', onKeydown))
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown)
+  // Même raison que CreateModalShell : positionné en absolute sur
+  // #below-topbar, pas en fixed sur le viewport.
+  window.scrollTo({ top: 0 })
+})
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </script>
 

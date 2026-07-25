@@ -46,6 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isRestoring = ref(false)
   const permissions = ref<string[]>([])
   const roleName     = ref<string | null>(null)
+  const mustChangePassword = ref(false)
 
   // ── Getters ──────────────────────────────────────────────────
   const role         = computed<UserRole | null>(() => user.value?.role ?? null)
@@ -101,9 +102,21 @@ export const useAuthStore = defineStore('auth', () => {
     setStoredToken(data.accessToken)
     const payload = decodeJwt(data.accessToken)
     roleName.value = payload.roleName
+    mustChangePassword.value = payload.mustChangePassword
     user.value = await buildAuthUser(payload.employeeId, payload.roleName)
     await fetchPermissions(payload.sub)
     isLoggedIn.value = true
+  }
+
+  // PATCH /auth/change-password renvoie un nouveau token (mustChangePassword
+  // à false) — le vieux token en localStorage garderait sinon l'ancien flag
+  // jusqu'à expiration.
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const { data } = await api.patch<{ accessToken: string }>('/auth/change-password', {
+      currentPassword, newPassword,
+    })
+    setStoredToken(data.accessToken)
+    mustChangePassword.value = false
   }
 
   // Called once at app startup so a page refresh doesn't lose the session —
@@ -121,6 +134,7 @@ export const useAuthStore = defineStore('auth', () => {
     isRestoring.value = true
     try {
       roleName.value = payload.roleName
+      mustChangePassword.value = payload.mustChangePassword
       user.value = await buildAuthUser(payload.employeeId, payload.roleName)
       await fetchPermissions(payload.sub)
       isLoggedIn.value = true
@@ -143,14 +157,15 @@ export const useAuthStore = defineStore('auth', () => {
     roleName.value   = null
     permissions.value = []
     isLoggedIn.value = false
+    mustChangePassword.value = false
     clearStoredToken()
   }
 
   return {
-    user, isLoggedIn, isRestoring, role, roleName, permissions,
+    user, isLoggedIn, isRestoring, role, roleName, permissions, mustChangePassword,
     isValidator, isHRAdmin, isHRDirector,
     isHRSpace, isEmployeeSpace,
     hasPermission, hasAnyPermission,
-    login, logout, restoreSession,
+    login, logout, restoreSession, changePassword,
   }
 })

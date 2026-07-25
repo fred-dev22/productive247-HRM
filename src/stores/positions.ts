@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { api } from '../lib/api'
+import { api, getApiErrorMessage } from '../lib/api'
+import { withToast } from '../lib/withToast'
 
 export type OccupationStatus = 'Vacant' | 'Occupied'
 
@@ -59,7 +60,7 @@ export const usePositionStore = defineStore('positions', () => {
       const { data } = await api.get<BackendPosition[]>('/positions')
       positions.value = data.map(mapPosition)
     } catch (err) {
-      error.value = 'Impossible de charger les postes'
+      error.value = getApiErrorMessage(err, 'Impossible de charger les postes')
       throw err
     } finally {
       loading.value = false
@@ -80,7 +81,7 @@ export const usePositionStore = defineStore('positions', () => {
       const { data } = await api.get<BackendPosition[]>(`/positions/by-unit/${unitId}`)
       return data.map(mapPosition)
     } catch (err) {
-      error.value = "Impossible de charger les postes de cette unité"
+      error.value = getApiErrorMessage(err, "Impossible de charger les postes de cette unité")
       throw err
     } finally {
       loading.value = false
@@ -94,7 +95,7 @@ export const usePositionStore = defineStore('positions', () => {
       const { data } = await api.get<BackendPosition[]>('/positions/vacant')
       return data.map(mapPosition)
     } catch (err) {
-      error.value = 'Impossible de charger les postes vacants'
+      error.value = getApiErrorMessage(err, 'Impossible de charger les postes vacants')
       throw err
     } finally {
       loading.value = false
@@ -103,40 +104,46 @@ export const usePositionStore = defineStore('positions', () => {
 
   async function createPosition(payload: Omit<Position, 'id'>) {
     error.value = null
-    try {
-      const { data } = await api.post<BackendPosition>('/positions', toBackendPayload(payload))
-      const mapped = mapPosition(data)
-      positions.value.push(mapped)
-      return mapped
-    } catch (err) {
-      error.value = 'Impossible de créer le poste'
-      throw err
-    }
+    return withToast('Création du poste en cours…', async () => {
+      try {
+        const { data } = await api.post<BackendPosition>('/positions', toBackendPayload(payload))
+        const mapped = mapPosition(data)
+        positions.value.push(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de créer le poste')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de créer le poste')
   }
 
   async function updatePosition(id: string, payload: Partial<Position>) {
     error.value = null
-    try {
-      const { data } = await api.patch<BackendPosition>(`/positions/${id}`, toBackendPayload(payload))
-      const mapped = mapPosition(data)
-      const idx = positions.value.findIndex(p => p.id === id)
-      if (idx !== -1) positions.value[idx] = mapped
-      return mapped
-    } catch (err) {
-      error.value = 'Impossible de mettre à jour le poste'
-      throw err
-    }
+    return withToast('Enregistrement en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendPosition>(`/positions/${id}`, toBackendPayload(payload))
+        const mapped = mapPosition(data)
+        const idx = positions.value.findIndex(p => p.id === id)
+        if (idx !== -1) positions.value[idx] = mapped
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de mettre à jour le poste')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de mettre à jour le poste')
   }
 
   async function deletePosition(id: string) {
     error.value = null
-    try {
-      await api.delete(`/positions/${id}`)
-      positions.value = positions.value.filter(p => p.id !== id)
-    } catch (err) {
-      error.value = 'Impossible de supprimer le poste'
-      throw err
-    }
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/positions/${id}`)
+        positions.value = positions.value.filter(p => p.id !== id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de supprimer le poste')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de supprimer le poste')
   }
 
   return {

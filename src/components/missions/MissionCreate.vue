@@ -5,6 +5,7 @@
  * bénéficiaire (self / pour un employé), calcul du per diem, acompte.
  */
 import { ref, reactive, computed, watch } from 'vue'
+import { Plus, Trash2 } from 'lucide-vue-next'
 import UserAvatar from '../ui/UserAvatar.vue'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
@@ -59,7 +60,7 @@ const form = reactive({
   destination: '', purpose: '',
   departureDate: '', returnDate: '',
   transportMode: 'plane' as TransportMode, transportModeReturn: 'plane' as TransportMode,
-  advance: 0,
+  advance: 0, description: '',
 })
 const error = ref('')
 
@@ -73,6 +74,24 @@ const perdiemTotal = computed(() => {
   return a.hotelPerDay * computedDays.value + a.transportFlat + a.mealPerDay * computedDays.value
 })
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
+
+// Frais supplémentaires — local uniquement, comme sous l'ancien
+// MissionFormModal : MissionOrder n'a pas de colonne pour stocker des lignes
+// de frais détaillées, seul le total (per diem + ces lignes) alimente le
+// récapitulatif et plafonne l'acompte demandé.
+const EXPENSE_CATS = [
+  { value: 'transport', label: 'Transport' },
+  { value: 'hebergement', label: 'Hébergement' },
+  { value: 'repas', label: 'Repas' },
+  { value: 'fournitures', label: 'Fournitures' },
+  { value: 'autre', label: 'Autre' },
+]
+interface MissionExpenseLine { category: string; description: string; amount: number }
+const expenseLines = reactive<MissionExpenseLine[]>([])
+function addLine() { expenseLines.push({ category: 'transport', description: '', amount: 0 }) }
+function removeLine(i: number) { expenseLines.splice(i, 1) }
+const expenseTotal = computed(() => expenseLines.reduce((s, l) => s + (l.amount || 0), 0))
+const grandTotal = computed(() => perdiemTotal.value + expenseTotal.value)
 
 watch(() => forWhom.value.mode, () => { if (forWhom.value.mode === 'self') forWhom.value.employeeId = '' })
 
@@ -103,6 +122,7 @@ function buildPayload() {
     departureDate: form.departureDate, returnDate: form.returnDate,
     transportMode: form.transportMode, transportModeReturn: form.transportModeReturn,
     advanceRequested: form.advance,
+    description: form.description || undefined,
   }
 }
 
@@ -130,7 +150,7 @@ function saveDraft() {
   >
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
-        <div class="max-w-3xl">
+        <div class="max-w-3xl mx-auto">
 
           <!-- Bénéficiaire -->
           <FormSection title="Bénéficiaire">
@@ -192,13 +212,68 @@ function saveDraft() {
             Sélectionnez un employé et des dates pour calculer le per diem
           </div>
 
-          <div :class="cls.field" class="mt-5">
+          </FormSection>
+
+          <!-- Frais supplémentaires -->
+          <FormSection title="Frais supplémentaires">
+          <p class="text-xs text-muted-foreground -mt-2 mb-3">Optionnel — frais additionnels non couverts par le per diem.</p>
+          <div v-if="expenseLines.length > 0" class="flex flex-col gap-1.5 mb-3">
+            <div class="grid grid-cols-[1fr_1fr_120px_36px] gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.05em] px-0.5">
+              <span>Catégorie</span><span>Description</span><span>Montant (MGA)</span><span></span>
+            </div>
+            <div v-for="(line, i) in expenseLines" :key="i" class="grid grid-cols-[1fr_1fr_120px_36px] gap-1.5 items-center">
+              <select v-model="line.category" :class="cls.fieldInput" class="!h-8 !text-xs">
+                <option v-for="c in EXPENSE_CATS" :key="c.value" :value="c.value">{{ c.label }}</option>
+              </select>
+              <input v-model="line.description" :class="cls.fieldInput" class="!h-8 !text-xs" placeholder="Description…" />
+              <input v-model.number="line.amount" type="number" min="0" :class="cls.fieldInput" class="!h-8 !text-xs" placeholder="0" />
+              <button class="w-8 h-8 rounded-md cursor-pointer flex items-center justify-center bg-danger-bg text-danger shrink-0 transition-opacity hover:opacity-75" @click="removeLine(i)" title="Supprimer">
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <button
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer border border-dashed border-border bg-transparent text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/10"
+            @click="addLine"
+          >
+            <Plus class="w-3.5 h-3.5" /> Ajouter un frais
+          </button>
+          </FormSection>
+
+          <!-- Récapitulatif -->
+          <FormSection v-if="computedDays > 0 || expenseLines.length > 0" title="Récapitulatif">
+          <div class="bg-background border border-border rounded-lg p-3.5 flex flex-col gap-2">
+            <div v-if="computedDays > 0" class="flex items-center justify-between text-[13px] text-muted-foreground">
+              <span>Per diem ({{ computedDays }}j)</span><span>{{ fmt(perdiemTotal) }} MGA</span>
+            </div>
+            <div v-if="expenseLines.length > 0" class="flex items-center justify-between text-[13px] text-muted-foreground">
+              <span>Frais supplémentaires</span><span>{{ fmt(expenseTotal) }} MGA</span>
+            </div>
+            <div class="h-px bg-border"></div>
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-foreground">TOTAL MISSION</span>
+              <span class="text-[15px] font-bold text-primary">{{ fmt(grandTotal) }} MGA</span>
+            </div>
+            <div :class="cls.field" class="mt-3">
+              <label :class="cls.fieldLabel">Acompte demandé (optionnel)</label>
+              <input type="number" min="0" :max="grandTotal" v-model.number="form.advance" :class="cls.fieldInput" placeholder="0" />
+            </div>
+          </div>
+          </FormSection>
+          <div v-else :class="cls.field">
             <label :class="cls.fieldLabel">Acompte demandé (optionnel)</label>
             <input type="number" min="0" v-model.number="form.advance" :class="cls.fieldInput" placeholder="0" />
           </div>
+
+          <!-- Notes -->
+          <FormSection title="Notes">
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Description <span class="font-normal text-muted-foreground">(optionnelle)</span></label>
+            <textarea v-model="form.description" :class="cls.fieldTextarea" rows="2" placeholder="Informations complémentaires…"></textarea>
+          </div>
           </FormSection>
 
-          <div class="mt-6">
+          <div class="mt-6 pt-4 border-t border-border flex justify-end">
             <button :class="cls.btnOutline" @click="saveDraft">Enregistrer comme brouillon</button>
           </div>
         </div>

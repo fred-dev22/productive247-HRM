@@ -127,14 +127,19 @@ import { ref, computed } from 'vue'
 import { FileDown, Users, CalendarOff, Plane, Check, Network } from 'lucide-vue-next'
 import * as L from '../../lib/listClasses'
 import { useAuthStore }    from '../../stores/auth'
-import { useAbsenceStore } from '../../stores/absences'
+import { useLeaveRequestStore } from '../../stores/leaveRequests'
+import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useMissionStore } from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
 
 const auth          = useAuthStore()
-const absenceStore  = useAbsenceStore()
+const leaveStore    = useLeaveRequestStore()
+const leaveTypesStore = useLeaveTypesStore()
 const missionStore  = useMissionStore()
 const employeeStore = useEmployeeStore()
+if (employeeStore.employees.length === 0) employeeStore.fetchAll()
+if (leaveStore.all.length === 0) leaveStore.fetchAll()
+if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const kpiCard = 'bg-card border border-border rounded-[10px] p-4 flex items-center gap-3.5'
@@ -152,41 +157,35 @@ const currentYear  = computed(() => selectedYear.value)
 
 const totalEmployees = computed(() => employeeStore.employees.filter(e => e.status === 'active').length)
 
+const PENDING_STATUSES = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
+
 const absenteeismRate = computed(() => {
-  const approved = absenceStore.allLeaves.filter(l => l.status === 'approved').length
+  const approved = leaveStore.all.filter(l => l.status === 'Approved').length
   return ((approved / totalEmployees.value) * 100).toFixed(1)
 })
 
 const totalMissions  = computed(() => missionStore.missions.length)
 const approvalRate   = computed(() => {
-  const total    = absenceStore.allLeaves.length
-  const approved = absenceStore.allLeaves.filter(l => l.status === 'approved').length
+  const total    = leaveStore.all.length
+  const approved = leaveStore.all.filter(l => l.status === 'Approved').length
   return total > 0 ? ((approved / total) * 100).toFixed(0) : '0'
 })
 
 const absencesByType = computed(() => {
-  const types = [
-    { key: 'Congé annuel',              label: 'Annuel',     color: 'var(--color-primary)' },
-    { key: 'Congé maladie',             label: 'Maladie',    color: 'var(--color-danger)' },
-    { key: 'Récupération',              label: 'Récup.',     color: 'var(--color-info)' },
-    { key: 'Télétravail',               label: 'Télétravail', color: 'var(--color-warning)' },
-    { key: 'Congé maternité',           label: 'Maternité',  color: 'var(--color-neutral)' },
-    { key: 'Permission exceptionnelle', label: 'Permission', color: 'var(--color-success)' },
-  ]
   const max = 100
-  return types.map(t => {
-    const count = absenceStore.allLeaves
-      .filter(l => l.type === t.key)
-      .reduce((acc, l) => acc + l.workingDays, 0)
-    return { ...t, count, pct: Math.min(100, (count / max) * 100) }
+  return leaveTypesStore.leaveTypes.map(lt => {
+    const count = leaveStore.all
+      .filter(l => l.leaveTypeId === lt.id)
+      .reduce((acc, l) => acc + l.daysCount, 0)
+    return { key: lt.id, label: lt.name, color: lt.color, count, pct: Math.min(100, (count / max) * 100) }
   })
 })
 
 const leaveStats = computed(() => [
-  { label: 'En attente',  count: absenceStore.allLeaves.filter(l => l.status === 'pending').length,  color: 'var(--color-warning)' },
-  { label: 'Approuvées',  count: absenceStore.allLeaves.filter(l => l.status === 'approved').length, color: 'var(--color-success)' },
-  { label: 'Refusées',    count: absenceStore.allLeaves.filter(l => l.status === 'rejected').length, color: 'var(--color-danger)'  },
-  { label: 'Brouillons',  count: absenceStore.allLeaves.filter(l => l.status === 'draft').length,    color: 'var(--color-neutral)' },
+  { label: 'En attente',  count: leaveStore.all.filter(l => PENDING_STATUSES.has(l.status)).length, color: 'var(--color-warning)' },
+  { label: 'Approuvées',  count: leaveStore.all.filter(l => l.status === 'Approved').length, color: 'var(--color-success)' },
+  { label: 'Refusées',    count: leaveStore.all.filter(l => l.status === 'Rejected').length, color: 'var(--color-danger)'  },
+  { label: 'Brouillons',  count: leaveStore.all.filter(l => l.status === 'Draft').length,    color: 'var(--color-neutral)' },
 ])
 
 const structureStats = computed(() => [

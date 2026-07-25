@@ -11,8 +11,14 @@
       <span class="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-[11px] font-semibold">Configuration initiale</span>
     </header>
 
+    <!-- id="below-topbar" : cible du <Teleport> de CreateModalShell (voir
+         DashboardLayout, qui fournit le même id) — l'assistant n'utilise pas
+         ce layout mais doit quand même offrir une cible de téléportation aux
+         fiches de création réutilisées (EntityCreate/EmployeeCreate). -->
+    <div id="below-topbar" class="relative flex-1 flex flex-col min-h-0">
+
     <!-- ── Zone centrale ── -->
-    <div class="flex-1 flex flex-col items-center max-w-[860px] w-full mx-auto px-6 py-10 max-md:px-4 max-md:py-6">
+    <div class="flex-1 flex flex-col items-center max-w-[860px] w-full mx-auto px-6 py-10 max-md:px-4 max-md:py-6 overflow-y-auto">
 
       <!-- Titre principal -->
       <div class="text-center mb-10">
@@ -54,6 +60,28 @@
             <!-- ══ ÉTAPE 1 : Calendrier ══ -->
             <template v-if="ob.currentStep === 1">
               <div :class="cardBody">
+                <div class="grid grid-cols-3 gap-3 max-md:grid-cols-1">
+                  <div :class="cls.field">
+                    <label :class="cls.fieldLabel">Nom de l'entreprise *</label>
+                    <input v-model="companyForm.companyName" :class="cls.fieldInput" placeholder="ex : Galana Petroleum Ltd" />
+                  </div>
+                  <div :class="cls.field">
+                    <label :class="cls.fieldLabel">Devise *</label>
+                    <select v-model="companyForm.currency" :class="cls.fieldSelect">
+                      <option value="MGA">Ariary (MGA)</option>
+                      <option value="MUR">Roupie mauricienne (MUR)</option>
+                      <option value="EUR">Euro (EUR)</option>
+                      <option value="USD">Dollar US (USD)</option>
+                    </select>
+                  </div>
+                  <div :class="cls.field">
+                    <label :class="cls.fieldLabel">Fuseau horaire *</label>
+                    <select v-model="companyForm.timezone" :class="cls.fieldSelect">
+                      <option value="Indian/Antananarivo">Madagascar (UTC+3)</option>
+                      <option value="Indian/Mauritius">Île Maurice (UTC+4)</option>
+                    </select>
+                  </div>
+                </div>
                 <WorkingDaysConfig hide-summary />
                 <div v-if="calendarStore.daysPerWeek > 0" class="bg-success-bg border border-success rounded-lg px-4 py-2.5 flex items-center gap-2 text-[13px] text-success">
                   <CircleCheck class="w-4 h-4" />
@@ -61,8 +89,9 @@
                   · {{ calendarStore.formatMinutes(calendarStore.weeklyMinutes) }} par semaine
                 </div>
               </div>
+              <p v-if="companyError" class="px-7 text-xs text-danger">{{ companyError }}</p>
               <div :class="[cardFoot, 'justify-end']">
-                <button :class="btnPrimary" :disabled="calendarStore.daysPerWeek === 0" @click="saveWorkingDaysAndContinue">Continuer →</button>
+                <button :class="btnPrimary" :disabled="calendarStore.daysPerWeek === 0 || !companyForm.companyName.trim()" @click="saveWorkingDaysAndContinue">Continuer →</button>
               </div>
             </template>
 
@@ -161,14 +190,15 @@
     </footer>
 
     <!-- ── Modals (composants existants réutilisés) ── -->
-    <EntityFormModal v-model="showEntityModal" />
-    <EmployeeFormModal v-model="showEmployeeModal" />
+    <EntityCreate v-if="showEntityModal" @close="showEntityModal = false" />
+    <EmployeeCreate v-if="showEmployeeModal" @close="showEmployeeModal = false" />
 
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, type Component } from 'vue'
+import { ref, reactive, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { Check, CalendarDays, Building, Users, CircleCheck, Info, User, Plus, UserPlus } from 'lucide-vue-next'
 import { useAuthStore }       from '../stores/auth'
@@ -176,10 +206,12 @@ import { useCalendarStore }   from '../stores/calendar'
 import { useEntityStore }     from '../stores/entities'
 import { useEmployeeStore }   from '../stores/employees'
 import { useOnboardingStore } from '../stores/onboarding'
+import { useCompanySettingsStore } from '../stores/companySettings'
 import WorkingDaysConfig  from '../components/calendar/WorkingDaysConfig.vue'
-import EntityFormModal    from '../components/entities/EntityFormModal.vue'
-import EmployeeFormModal  from '../components/employees/EmployeeFormModal.vue'
+import EntityCreate       from '../components/entities/EntityCreate.vue'
+import EmployeeCreate     from '../components/employees/EmployeeCreate.vue'
 import UserAvatar         from '../components/ui/UserAvatar.vue'
+import * as cls from '../lib/formClasses'
 import type { Entity } from '../types'
 
 const auth          = useAuthStore()
@@ -187,7 +219,11 @@ const calendarStore = useCalendarStore()
 const entityStore   = useEntityStore()
 const empStore      = useEmployeeStore()
 const ob            = useOnboardingStore()
+const companySettingsStore = useCompanySettingsStore()
 const router        = useRouter()
+
+const companyForm = reactive({ companyName: '', currency: 'MGA', timezone: 'Indian/Antananarivo' })
+const companyError = ref('')
 
 // ── Classes du design system ─────────────────────────────────
 const cardBody = 'px-7 py-6 flex flex-col gap-4 max-md:px-4 max-md:py-5'
@@ -280,7 +316,14 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 // ── Fin du wizard ────────────────────────────────────────────────────
-function finish(withFade: boolean) {
+async function finish(withFade: boolean) {
+  try {
+    await companySettingsStore.completeOnboarding(companyForm)
+  } catch {
+    companyError.value = companySettingsStore.error ?? "La finalisation a échoué. Veuillez réessayer."
+    ob.goToStep(1)
+    return
+  }
   if (withFade) {
     leaving.value = true
     setTimeout(() => {

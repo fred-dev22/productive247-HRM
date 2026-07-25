@@ -8,6 +8,7 @@
     :total-text="`${totalCount} employé(s)`"
     row-key="employeeId"
     search-placeholder="Rechercher un employé…"
+    :loading="balanceStore.loading"
     v-model:search-query="search"
     v-model:page="page"
     v-model:page-size="pageSize"
@@ -21,10 +22,10 @@
     <!-- KPIs -->
     <template #above-table>
       <div class="grid grid-cols-4 gap-3 mb-4 max-[1100px]:grid-cols-2 max-md:grid-cols-2">
-        <div :class="kpiCard"><div :class="kpiIcon" class="bg-success-bg"><Users class="w-[18px] h-[18px] text-success" /></div><div><div :class="kpiVal">{{ absenceStore.employeeBalances.length }}</div><div :class="kpiLabel">Employés suivis</div></div></div>
-        <div :class="kpiCard"><div :class="kpiIcon" class="bg-primary/10"><Sun class="w-[18px] h-[18px] text-primary" /></div><div><div :class="kpiVal">{{ totals['Congé annuel']?.remaining ?? 0 }}j</div><div :class="kpiLabel">Congés annuels restants</div></div></div>
-        <div :class="kpiCard"><div :class="kpiIcon" class="bg-warning-bg"><RefreshCw class="w-[18px] h-[18px] text-warning" /></div><div><div :class="kpiVal">{{ totals['Récupération']?.remaining ?? 0 }}j</div><div :class="kpiLabel">Récupérations restantes</div></div></div>
-        <div :class="kpiCard"><div :class="kpiIcon" class="bg-info-bg"><Home class="w-[18px] h-[18px] text-info" /></div><div><div :class="kpiVal">{{ totals['Télétravail']?.remaining ?? 0 }}j</div><div :class="kpiLabel">Télétravail restants</div></div></div>
+        <div :class="kpiCard"><div :class="kpiIcon" class="bg-success-bg"><Users class="w-[18px] h-[18px] text-success" /></div><div><div :class="kpiVal">{{ balanceStore.allBalances.length }}</div><div :class="kpiLabel">Employés suivis</div></div></div>
+        <div :class="kpiCard"><div :class="kpiIcon" class="bg-primary/10"><Sun class="w-[18px] h-[18px] text-primary" /></div><div><div :class="kpiVal">{{ totalFor('ANNUAL') }}j</div><div :class="kpiLabel">Congés annuels restants</div></div></div>
+        <div :class="kpiCard"><div :class="kpiIcon" class="bg-warning-bg"><RefreshCw class="w-[18px] h-[18px] text-warning" /></div><div><div :class="kpiVal">{{ totalFor('RECOVERY') }}j</div><div :class="kpiLabel">Récupérations restantes</div></div></div>
+        <div :class="kpiCard"><div :class="kpiIcon" class="bg-info-bg"><Home class="w-[18px] h-[18px] text-info" /></div><div><div :class="kpiVal">{{ totalFor('REMOTE') }}j</div><div :class="kpiLabel">Télétravail restants</div></div></div>
       </div>
     </template>
 
@@ -41,7 +42,7 @@
         <label :class="L.fpFieldLabel">Type de congé</label>
         <select v-model="filterType" :class="L.fpSelect">
           <option value="">Tous les types</option>
-          <option v-for="c in TYPE_COLS" :key="c.type" :value="c.type">{{ c.label }}</option>
+          <option v-for="c in TYPE_COLS" :key="c.leaveTypeId" :value="c.leaveTypeId">{{ c.leaveTypeName }}</option>
         </select>
       </div>
       <button class="mt-auto py-[7px] bg-transparent border-0 text-xs text-muted-foreground cursor-pointer text-left hover:text-primary" @click="resetFilters">Réinitialiser les filtres</button>
@@ -59,11 +60,11 @@
     </template>
 
     <!-- Cellules par type (slots dynamiques) -->
-    <template v-for="c in TYPE_COLS" :key="c.key" #[cellSlot(c.key)]="{ item }">
-      <template v-if="item.balances[c.type] && item.balances[c.type].total > 0">
-        <div class="text-sm font-semibold text-foreground mb-1">{{ item.balances[c.type].remaining }}j</div>
-        <div class="h-1 bg-border rounded-sm overflow-hidden mb-[3px]"><div class="h-full rounded-sm" :style="barStyle(item.balances[c.type])"></div></div>
-        <div class="text-[10px] text-muted-foreground">{{ item.balances[c.type].used }}j / {{ item.balances[c.type].total }}j</div>
+    <template v-for="c in TYPE_COLS" :key="c.leaveTypeId" #[cellSlot(c.leaveTypeId)]="{ item }">
+      <template v-if="cellFor(item, c.leaveTypeId) && cellFor(item, c.leaveTypeId)!.daysPerYear > 0">
+        <div class="text-sm font-semibold text-foreground mb-1">{{ cellFor(item, c.leaveTypeId)!.balance }}j</div>
+        <div class="h-1 bg-border rounded-sm overflow-hidden mb-[3px]"><div class="h-full rounded-sm" :style="barStyle(cellFor(item, c.leaveTypeId)!)"></div></div>
+        <div class="text-[10px] text-muted-foreground">{{ cellFor(item, c.leaveTypeId)!.balance }}j / {{ cellFor(item, c.leaveTypeId)!.daysPerYear }}j</div>
       </template>
       <span v-else class="text-[13px] text-muted-foreground">—</span>
     </template>
@@ -78,12 +79,12 @@
             <div class="text-[11px] text-muted-foreground">{{ item.entityName }}</div>
           </div>
         </div>
-        <div v-for="c in TYPE_COLS" :key="c.key" class="text-[12px]">
+        <div v-for="c in TYPE_COLS" :key="c.leaveTypeId" class="text-[12px]">
           <div class="flex items-center justify-between">
-            <span class="text-muted-foreground">{{ c.label }}</span>
-            <span class="font-semibold text-foreground">{{ item.balances[c.type]?.remaining ?? 0 }}j / {{ item.balances[c.type]?.total ?? 0 }}j</span>
+            <span class="text-muted-foreground">{{ c.leaveTypeName }}</span>
+            <span class="font-semibold text-foreground">{{ cellFor(item, c.leaveTypeId)?.balance ?? 0 }}j / {{ cellFor(item, c.leaveTypeId)?.daysPerYear ?? 0 }}j</span>
           </div>
-          <div v-if="item.balances[c.type] && item.balances[c.type].total > 0" class="h-1 bg-border rounded-sm overflow-hidden mt-1"><div class="h-full rounded-sm" :style="barStyle(item.balances[c.type])"></div></div>
+          <div v-if="cellFor(item, c.leaveTypeId) && cellFor(item, c.leaveTypeId)!.daysPerYear > 0" class="h-1 bg-border rounded-sm overflow-hidden mt-1"><div class="h-full rounded-sm" :style="barStyle(cellFor(item, c.leaveTypeId)!)"></div></div>
         </div>
       </div>
     </template>
@@ -96,32 +97,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { FileDown, Users, Sun, RefreshCw, Home } from 'lucide-vue-next'
 import { UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import * as L from '../../lib/listClasses'
-import { useAbsenceStore } from '../../stores/absences'
+import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
+import type { EmployeeLeaveBalances } from '../../stores/leaveTransactions'
 import { useEntityStore }  from '../../stores/entities'
+import type { LeaveBalance } from '../../types'
 
-const absenceStore = useAbsenceStore()
+const balanceStore = useLeaveTransactionStore()
 const entityStore  = useEntityStore()
+
+onMounted(() => {
+  balanceStore.fetchAllBalances()
+  if (entityStore.entities.length === 0) entityStore.fetchAll()
+})
 
 const kpiCard = 'bg-card border border-border rounded-[10px] p-3.5 flex items-center gap-3'
 const kpiIcon = 'w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold text-foreground leading-none'
 const kpiLabel = 'text-[11px] text-muted-foreground mt-0.5'
 
-const TYPE_COLS = [
-  { key: 'annual',     type: 'Congé annuel',              label: 'Annuel' },
-  { key: 'sick',       type: 'Congé maladie',             label: 'Maladie' },
-  { key: 'recovery',   type: 'Récupération',              label: 'Récup.' },
-  { key: 'remote',     type: 'Télétravail',               label: 'Télétravail' },
-  { key: 'maternity',  type: 'Congé maternité',           label: 'Maternité' },
-  { key: 'permission', type: 'Permission exceptionnelle', label: 'Permission' },
-] as const
+// Colonnes dérivées des types de congé réellement présents dans les soldes
+// (tous les types actifs, chaque employé porte la même liste).
+const TYPE_COLS = computed(() => balanceStore.allBalances[0]?.balances ?? [])
 
-function cellSlot(key: string) { return `cell-${key}` }
+function cellSlot(leaveTypeId: string) { return `cell-${leaveTypeId}` }
+function cellFor(item: EmployeeLeaveBalances, leaveTypeId: string): LeaveBalance | undefined {
+  return item.balances.find(b => b.leaveTypeId === leaveTypeId)
+}
+function totalFor(code: string): number {
+  return balanceStore.allBalances.reduce((sum, e) => sum + (e.balances.find(b => b.leaveTypeCode === code)?.balance ?? 0), 0)
+}
 
 const search       = ref('')
 const filterEntity = ref('')
@@ -133,15 +142,15 @@ watch([search, filterEntity, filterType, pageSize], () => { page.value = 1 })
 function resetFilters() { search.value = ''; filterEntity.value = ''; filterType.value = ''; page.value = 1 }
 
 const columns = computed<ListColumn[]>(() => {
-  const cols = filterType.value ? TYPE_COLS.filter(c => c.type === filterType.value) : TYPE_COLS
+  const cols = filterType.value ? TYPE_COLS.value.filter(c => c.leaveTypeId === filterType.value) : TYPE_COLS.value
   return [
     { key: 'employee', label: 'Employé', hideable: false, width: 230 },
-    ...cols.map(c => ({ key: c.key, label: c.label, align: 'center' as const, width: 130 })),
+    ...cols.map(c => ({ key: c.leaveTypeId, label: c.leaveTypeName, align: 'center' as const, width: 130 })),
   ]
 })
 
 const filteredBalances = computed(() => {
-  let list = absenceStore.employeeBalances
+  let list = balanceStore.allBalances
   if (filterEntity.value) list = list.filter(r => r.entityName === filterEntity.value)
   if (search.value) {
     const q = search.value.toLowerCase()
@@ -156,24 +165,11 @@ const pageItems  = computed(() => {
   return filteredBalances.value.slice(start, start + pageSize.value)
 })
 
-const totals = computed(() => {
-  const acc: Record<string, { used: number; total: number; remaining: number }> = {}
-  for (const c of TYPE_COLS) {
-    acc[c.type] = { used: 0, total: 0, remaining: 0 }
-    for (const row of absenceStore.employeeBalances) {
-      const b = row.balances[c.type]
-      if (b && b.total > 0) { acc[c.type]!.used += b.used; acc[c.type]!.total += b.total; acc[c.type]!.remaining += b.remaining }
-    }
-  }
-  return acc
-})
-
-interface BalanceCell { used: number; total: number; remaining: number }
-function barStyle(b: BalanceCell) {
-  if (!b || b.total === 0) return {}
-  const pct    = (b.used / b.total) * 100
-  const remain = b.remaining / b.total
-  const color  = remain > 0.5 ? 'var(--color-success)' : remain > 0.2 ? 'var(--color-warning)' : 'var(--color-danger)'
-  return { width: `${Math.min(100, pct)}%`, background: color }
+function barStyle(b: LeaveBalance) {
+  if (!b || b.daysPerYear === 0) return {}
+  const remainRatio = b.balance / b.daysPerYear
+  const usedPct = Math.max(0, Math.min(100, (1 - remainRatio) * 100))
+  const color   = remainRatio > 0.5 ? 'var(--color-success)' : remainRatio > 0.2 ? 'var(--color-warning)' : 'var(--color-danger)'
+  return { width: `${usedPct}%`, background: color }
 }
 </script>

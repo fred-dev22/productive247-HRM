@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { api } from '../lib/api'
+import { api, getApiErrorMessage } from '../lib/api'
+import { withToast } from '../lib/withToast'
 
 export type JobCategory = 'SeniorExecutive' | 'Manager' | 'Technician' | 'Employee'
 
@@ -55,7 +56,7 @@ export const useJobStore = defineStore('jobs', () => {
       const { data } = await api.get<BackendJob[]>('/jobs')
       jobs.value = data.map(mapJob)
     } catch (err) {
-      error.value = 'Impossible de charger les métiers'
+      error.value = getApiErrorMessage(err, 'Impossible de charger les métiers')
       throw err
     } finally {
       loading.value = false
@@ -69,7 +70,7 @@ export const useJobStore = defineStore('jobs', () => {
       const { data } = await api.get<BackendJob[]>('/jobs/active')
       return data.map(mapJob)
     } catch (err) {
-      error.value = 'Impossible de charger les métiers actifs'
+      error.value = getApiErrorMessage(err, 'Impossible de charger les métiers actifs')
       throw err
     } finally {
       loading.value = false
@@ -78,40 +79,46 @@ export const useJobStore = defineStore('jobs', () => {
 
   async function createJob(payload: Omit<Job, 'id'>) {
     error.value = null
-    try {
-      const { data } = await api.post<BackendJob>('/jobs', toBackendPayload(payload))
-      const mapped = mapJob(data)
-      jobs.value.push(mapped)
-      return mapped
-    } catch (err) {
-      error.value = 'Impossible de créer le métier'
-      throw err
-    }
+    return withToast('Création du métier en cours…', async () => {
+      try {
+        const { data } = await api.post<BackendJob>('/jobs', toBackendPayload(payload))
+        const mapped = mapJob(data)
+        jobs.value.push(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de créer le métier')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de créer le métier')
   }
 
   async function updateJob(id: string, payload: Partial<Job>) {
     error.value = null
-    try {
-      const { data } = await api.patch<BackendJob>(`/jobs/${id}`, toBackendPayload(payload))
-      const mapped = mapJob(data)
-      const idx = jobs.value.findIndex(j => j.id === id)
-      if (idx !== -1) jobs.value[idx] = mapped
-      return mapped
-    } catch (err) {
-      error.value = 'Impossible de mettre à jour le métier'
-      throw err
-    }
+    return withToast('Enregistrement en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendJob>(`/jobs/${id}`, toBackendPayload(payload))
+        const mapped = mapJob(data)
+        const idx = jobs.value.findIndex(j => j.id === id)
+        if (idx !== -1) jobs.value[idx] = mapped
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de mettre à jour le métier')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de mettre à jour le métier')
   }
 
   async function deleteJob(id: string) {
     error.value = null
-    try {
-      await api.delete(`/jobs/${id}`)
-      jobs.value = jobs.value.filter(j => j.id !== id)
-    } catch (err) {
-      error.value = 'Impossible de supprimer le métier'
-      throw err
-    }
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/jobs/${id}`)
+        jobs.value = jobs.value.filter(j => j.id !== id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de supprimer le métier')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de supprimer le métier')
   }
 
   return { jobs, loading, error, fetchAll, fetchActive, createJob, updateJob, deleteJob }

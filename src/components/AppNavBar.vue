@@ -74,13 +74,15 @@ import { useI18n } from 'vue-i18n'
 import { X, Menu } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
-import { useAbsenceStore } from '../stores/absences'
+import { useLeaveRequestStore } from '../stores/leaveRequests'
 
 const router       = useRouter()
 const auth         = useAuthStore()
 const navStore     = useNavigationStore()
-const absenceStore = useAbsenceStore()
+const leaveStore   = useLeaveRequestStore()
 const { t }        = useI18n()
+
+if (auth.hasPermission('CONGE_VALIDER') && leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
 
 const navDividerClass = 'w-px h-5 bg-black/10 mx-3.5 shrink-0'
 const navItemClass =
@@ -120,7 +122,7 @@ function handleHRNav(key: string) {
 
 interface NavItem { key: string; label: string; to?: { name: string }; badge?: number }
 
-const pendingCount = computed(() => absenceStore.pendingLeaves.length)
+const pendingCount = computed(() => leaveStore.pendingForMe.length)
 
 const empNavItems = computed<NavItem[]>(() => [
   { key: 'my-space', label: t('nav.my_space'), to: { name: 'employee-dashboard' }, badge: pendingCount.value },

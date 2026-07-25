@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { api } from '../lib/api'
+import { api, getApiErrorMessage } from '../lib/api'
+import { withToast } from '../lib/withToast'
 import type {
   CompanyCalendar, WorkingDays, WorkingHours,
-  Holiday, HolidayScope, LeaveRule, LeaveType, PerdiemRate,
+  Holiday, HolidayScope, PerdiemRate,
 } from '../types'
 
 // ── Backend <-> frontend mapping ────────────────────────────────
@@ -30,6 +31,12 @@ interface BackendCalendar {
   ModifiedBy: string | null
   ModifiedAt: string | null
   workDays: BackendWorkDay[]
+  createdByEmployee: { FullName: string }
+  modifiedByEmployee: { FullName: string } | null
+}
+
+function resolveUpdatedBy(data: BackendCalendar): string {
+  return (data.modifiedByEmployee ?? data.createdByEmployee).FullName
 }
 interface BackendHoliday {
   Id: string
@@ -57,7 +64,28 @@ function hhmmToIso(hhmm: string): string {
   return `2000-01-01T${hhmm || '00:00'}:00.000Z`
 }
 
+// "lundi 12 mars à 16h30"
+function formatUpdatedAt(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${datePart} à ${d.getHours()}h${minutes}`
+}
+
 const EMPTY_DAY = { enabled: false, start: '', end: '', breakEnabled: false, breakStart: '', breakEnd: '' }
+const DEFAULT_WORKDAY = { enabled: true, start: '08:00', end: '17:00', breakEnabled: true, breakStart: '12:00', breakEnd: '14:00' }
+
+// Point de depart raisonnable pour une toute nouvelle instance (aucun
+// calendrier en base) — lundi a vendredi 08h-17h, plutot qu'une semaine
+// entierement vide qui obligerait a tout cocher a la main des l'onboarding.
+function defaultWorkingDays(): WorkingDays {
+  return {
+    monday: { ...DEFAULT_WORKDAY }, tuesday: { ...DEFAULT_WORKDAY }, wednesday: { ...DEFAULT_WORKDAY },
+    thursday: { ...DEFAULT_WORKDAY }, friday: { ...DEFAULT_WORKDAY },
+    saturday: { ...EMPTY_DAY }, sunday: { ...EMPTY_DAY },
+  }
+}
 function emptyWorkingDays(): WorkingDays {
   return {
     monday: { ...EMPTY_DAY }, tuesday: { ...EMPTY_DAY }, wednesday: { ...EMPTY_DAY },
@@ -122,19 +150,9 @@ export const useCalendarStore = defineStore('calendar', () => {
   const loading = ref(false)
   const error   = ref<string | null>(null)
 
-  // Not backed by an endpoint in this pass — LeaveType (Domaine 3) et
-  // ExpenseConfig couvriront respectivement les regles de conge et les
-  // perdiems reels. Conserves ici, mock, pour ne pas casser les vues qui
-  // les consomment encore.
-  const leaveRules = ref<LeaveRule[]>([
-    { type: 'Congé annuel',              daysPerYear: 24, daysPerMonth: 2,  maxCarryOver: 5,  requiresDocument: false, noticeDays: 7  },
-    { type: 'Congé maladie',             daysPerYear: 8,                    maxCarryOver: 0,  requiresDocument: true,  noticeDays: 0  },
-    { type: 'Congé maternité',           daysPerYear: 90,                   maxCarryOver: 0,  requiresDocument: true,  noticeDays: 30 },
-    { type: 'Récupération',              daysPerYear: 0,                    maxCarryOver: 10, requiresDocument: false, noticeDays: 1  },
-    { type: 'Assistance parentale',      daysPerYear: 5,                    maxCarryOver: 0,  requiresDocument: true,  noticeDays: 2  },
-    { type: 'Permission exceptionnelle', daysPerYear: 5,                    maxCarryOver: 0,  requiresDocument: false, noticeDays: 1  },
-    { type: 'Télétravail',               daysPerYear: 0,                    maxCarryOver: 0,  requiresDocument: false, noticeDays: 1  },
-  ])
+  // ExpenseConfig couvrira les perdiems reels (Domaine 4+). Conserve ici,
+  // mock, pour ne pas casser les vues qui le consomment encore. Les regles
+  // de conge, elles, viennent desormais de stores/leaveTypes.ts (reel).
   const perdiemRates = ref<PerdiemRate[]>([
     { id: 'pd1', category: 'Cadre supérieur',   ratePerDay: 150000, currency: 'MGA', description: 'Direction / Cadres A — valeur provisoire' },
     { id: 'pd2', category: 'Cadre',              ratePerDay: 100000, currency: 'MGA', description: 'Cadres B — valeur provisoire' },
@@ -143,13 +161,12 @@ export const useCalendarStore = defineStore('calendar', () => {
   ])
 
   // Vue agregee retro-compatible avec l'ancien CompanyCalendar mocke —
-  // utils/calendar.ts et plusieurs composants (AbsenceRequestModal,
+  // utils/calendar.ts et plusieurs composants (AbsenceCreate,
   // EmployeePlanningView) attendent workingDays + holidays sur un seul objet.
   const calendar = computed<CompanyCalendar>(() => ({
     id: calendarId.value,
     workingDays: workingDays.value,
     holidays: holidays.value,
-    leaveRules: leaveRules.value,
     perdiemRates: perdiemRates.value,
     updatedAt: updatedAt.value,
     updatedBy: updatedBy.value,
@@ -189,10 +206,6 @@ export const useCalendarStore = defineStore('calendar', () => {
     }, 0),
   )
 
-  function getLeaveRule(type: LeaveType): LeaveRule | undefined {
-    return leaveRules.value.find(r => r.type === type)
-  }
-
   // ── Actions — Calendar / WorkingDays ────────────────────────────
   async function fetchCalendar() {
     loading.value = true
@@ -203,12 +216,14 @@ export const useCalendarStore = defineStore('calendar', () => {
       calendarName.value = data.Name
       isDefault.value    = data.IsDefault
       workingDays.value  = mapWorkingDaysFromBackend(data.workDays)
-      updatedAt.value    = (data.ModifiedAt ?? data.CreatedAt).slice(0, 10)
-      updatedBy.value    = data.ModifiedBy ?? data.CreatedBy
+      updatedAt.value    = formatUpdatedAt(data.ModifiedAt ?? data.CreatedAt)
+      updatedBy.value    = resolveUpdatedBy(data)
     } catch (err) {
       // Pas encore de calendrier par defaut (ex: toute nouvelle instance,
-      // avant que l'onboarding n'en cree un) — pas bloquant, on garde les
-      // valeurs locales par defaut plutot que de casser les appelants.
+      // avant que l'onboarding n'en cree un) — pas bloquant : on propose un
+      // point de depart lundi-vendredi plutot qu'une semaine vide, et
+      // updateWorkingDays() cree le calendrier des la premiere sauvegarde.
+      workingDays.value = defaultWorkingDays()
       error.value = "Aucun calendrier n'est encore configuré"
     } finally {
       loading.value = false
@@ -217,19 +232,37 @@ export const useCalendarStore = defineStore('calendar', () => {
 
   async function updateWorkingDays(days: WorkingDays) {
     workingDays.value = { ...days }
-    if (!calendarId.value) return
     error.value = null
-    try {
-      const { data } = await api.patch<BackendCalendar>(`/calendars/${calendarId.value}`, {
-        WorkDays: mapWorkingDaysToBackend(days),
-      })
-      workingDays.value = mapWorkingDaysFromBackend(data.workDays)
-      updatedAt.value    = (data.ModifiedAt ?? data.CreatedAt).slice(0, 10)
-      updatedBy.value    = data.ModifiedBy ?? data.CreatedBy
-    } catch (err) {
-      error.value = 'Impossible de mettre à jour les jours ouvrables'
-      throw err
-    }
+    return withToast('Enregistrement du calendrier en cours…', async () => {
+      try {
+        // Premiere sauvegarde d'une instance neuve : aucun calendrier n'existe
+        // encore en base (voir fetchCalendar) — on le cree au lieu de PATCHer
+        // un Id inexistant.
+        if (!calendarId.value) {
+          const { data } = await api.post<BackendCalendar>('/calendars', {
+            Name: calendarName.value || 'Calendrier standard',
+            IsDefault: true,
+            WorkDays: mapWorkingDaysToBackend(days),
+          })
+          calendarId.value   = data.Id
+          calendarName.value = data.Name
+          isDefault.value    = data.IsDefault
+          workingDays.value  = mapWorkingDaysFromBackend(data.workDays)
+          updatedAt.value    = formatUpdatedAt(data.ModifiedAt ?? data.CreatedAt)
+          updatedBy.value    = resolveUpdatedBy(data)
+          return
+        }
+        const { data } = await api.patch<BackendCalendar>(`/calendars/${calendarId.value}`, {
+          WorkDays: mapWorkingDaysToBackend(days),
+        })
+        workingDays.value = mapWorkingDaysFromBackend(data.workDays)
+        updatedAt.value    = formatUpdatedAt(data.ModifiedAt ?? data.CreatedAt)
+        updatedBy.value    = resolveUpdatedBy(data)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de mettre à jour les jours ouvrables')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de mettre à jour les jours ouvrables')
   }
 
   async function updateWorkingHours(hours: WorkingHours) {
@@ -252,7 +285,7 @@ export const useCalendarStore = defineStore('calendar', () => {
       })
       holidays.value = data.map(mapHoliday)
     } catch (err) {
-      error.value = 'Impossible de charger les jours fériés'
+      error.value = getApiErrorMessage(err, 'Impossible de charger les jours fériés')
       throw err
     } finally {
       loading.value = false
@@ -261,60 +294,58 @@ export const useCalendarStore = defineStore('calendar', () => {
 
   async function addHoliday(holiday: Omit<Holiday, 'id'>) {
     error.value = null
-    try {
-      const { data } = await api.post<BackendHoliday>('/holidays', {
-        Name: holiday.name,
-        Date: holiday.date,
-        IsRecurring: holiday.isRecurring,
-        HolidayType: holiday.holidayType,
-        OrganizationUnitId: holiday.organizationUnitId ?? undefined,
-      })
-      const mapped = mapHoliday(data)
-      holidays.value.push(mapped)
-      return mapped
-    } catch (err) {
-      error.value = "Impossible de créer le jour férié"
-      throw err
-    }
+    return withToast('Création du jour férié en cours…', async () => {
+      try {
+        const { data } = await api.post<BackendHoliday>('/holidays', {
+          Name: holiday.name,
+          Date: holiday.date,
+          IsRecurring: holiday.isRecurring,
+          HolidayType: holiday.holidayType,
+          OrganizationUnitId: holiday.organizationUnitId ?? undefined,
+        })
+        const mapped = mapHoliday(data)
+        holidays.value.push(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de créer le jour férié")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de créer le jour férié")
   }
 
   async function removeHoliday(id: string) {
     error.value = null
-    try {
-      await api.delete(`/holidays/${id}`)
-      holidays.value = holidays.value.filter(h => h.id !== id)
-    } catch (err) {
-      error.value = 'Impossible de supprimer le jour férié'
-      throw err
-    }
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/holidays/${id}`)
+        holidays.value = holidays.value.filter(h => h.id !== id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de supprimer le jour férié')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de supprimer le jour férié')
   }
 
   async function updateHoliday(id: string, data: Partial<Holiday>) {
     error.value = null
-    try {
-      const body: Record<string, unknown> = {}
-      if (data.name !== undefined) body.Name = data.name
-      if (data.date !== undefined) body.Date = data.date
-      if (data.isRecurring !== undefined) body.IsRecurring = data.isRecurring
-      if (data.holidayType !== undefined) body.HolidayType = data.holidayType
-      if (data.organizationUnitId !== undefined) body.OrganizationUnitId = data.organizationUnitId
-      const { data: updated } = await api.patch<BackendHoliday>(`/holidays/${id}`, body)
-      const mapped = mapHoliday(updated)
-      const idx = holidays.value.findIndex(h => h.id === id)
-      if (idx !== -1) holidays.value[idx] = mapped
-      return mapped
-    } catch (err) {
-      error.value = 'Impossible de mettre à jour le jour férié'
-      throw err
-    }
-  }
-
-  // ── Actions — Leave rules (mock, Domaine 3 les remplacera) ────────
-  function updateLeaveRule(type: LeaveType, rule: Partial<LeaveRule>) {
-    const idx = leaveRules.value.findIndex(r => r.type === type)
-    if (idx !== -1) {
-      leaveRules.value[idx] = { ...leaveRules.value[idx], ...rule } as LeaveRule
-    }
+    return withToast('Enregistrement en cours…', async () => {
+      try {
+        const body: Record<string, unknown> = {}
+        if (data.name !== undefined) body.Name = data.name
+        if (data.date !== undefined) body.Date = data.date
+        if (data.isRecurring !== undefined) body.IsRecurring = data.isRecurring
+        if (data.holidayType !== undefined) body.HolidayType = data.holidayType
+        if (data.organizationUnitId !== undefined) body.OrganizationUnitId = data.organizationUnitId
+        const { data: updated } = await api.patch<BackendHoliday>(`/holidays/${id}`, body)
+        const mapped = mapHoliday(updated)
+        const idx = holidays.value.findIndex(h => h.id === id)
+        if (idx !== -1) holidays.value[idx] = mapped
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de mettre à jour le jour férié')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de mettre à jour le jour férié')
   }
 
   // ── Actions — Perdiem (mock, hors perimetre de cette passe) ───────
@@ -344,7 +375,6 @@ export const useCalendarStore = defineStore('calendar', () => {
     weeklyMinutes,
     toMinutes,
     formatMinutes,
-    getLeaveRule,
     getPerdiemRate,
     fetchCalendar,
     updateWorkingDays,
@@ -353,7 +383,6 @@ export const useCalendarStore = defineStore('calendar', () => {
     addHoliday,
     removeHoliday,
     updateHoliday,
-    updateLeaveRule,
     addPerdiemRate,
     updatePerdiemRate,
     removePerdiemRate,
