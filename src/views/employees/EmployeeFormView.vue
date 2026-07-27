@@ -235,7 +235,9 @@ const editEmp = computed(() => empId.value ? store.getById(empId.value) : undefi
 
 const positionColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'title', label: 'Poste' }]
 function fetchPositions({ searchQuery }: LookupFetchParams) {
-  let items = positionStore.positions
+  // Un poste deja occupe ne doit plus etre propose — sauf celui deja affecte
+  // a cet employe (sinon on ne pourrait plus voir/reselectionner le sien).
+  let items = positionStore.positions.filter(p => p.occupationStatus === 'Vacant' || p.id === form.positionId)
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(p => p.title.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))

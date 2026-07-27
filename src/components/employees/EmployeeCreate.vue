@@ -43,7 +43,9 @@ function fetchEntities({ searchQuery }: LookupFetchParams) {
 
 const positionColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'title', label: 'Poste' }]
 function fetchPositions({ searchQuery }: LookupFetchParams) {
-  let items = positionStore.positions
+  // Un poste deja occupe ne doit plus etre propose a la creation — un seul
+  // employe par poste (voir Position.OccupationStatus).
+  let items = positionStore.positions.filter(p => p.occupationStatus === 'Vacant')
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(p => p.title.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))

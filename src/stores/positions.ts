@@ -10,7 +10,9 @@ export interface Position {
   code:                string
   title:               string
   jobId:               string
-  organizationUnitId:  string
+  // Optionnel : un poste n'est plus necessairement rattache a une entite
+  // precise — c'est l'employe qui l'est (Employee.organizationUnitId).
+  organizationUnitId?: string
   parentPositionId?:   string | null
   occupationStatus:    OccupationStatus
 }
@@ -20,7 +22,7 @@ interface BackendPosition {
   Code: string
   Title: string
   JobId: string
-  OrganizationUnitId: string
+  OrganizationUnitId: string | null
   ParentPositionId: string | null
   OccupationStatus: OccupationStatus
 }
@@ -31,7 +33,7 @@ function mapPosition(raw: BackendPosition): Position {
     code: raw.Code,
     title: raw.Title,
     jobId: raw.JobId,
-    organizationUnitId: raw.OrganizationUnitId,
+    organizationUnitId: raw.OrganizationUnitId ?? undefined,
     parentPositionId: raw.ParentPositionId,
     occupationStatus: raw.OccupationStatus,
   }

@@ -222,7 +222,7 @@ const ob            = useOnboardingStore()
 const companySettingsStore = useCompanySettingsStore()
 const router        = useRouter()
 
-const companyForm = reactive({ companyName: '', currency: 'MGA', timezone: 'Indian/Antananarivo' })
+const companyForm = reactive({ companyName: 'Galana', currency: 'MGA', timezone: 'Indian/Antananarivo' })
 const companyError = ref('')
 
 // ── Classes du design system ─────────────────────────────────

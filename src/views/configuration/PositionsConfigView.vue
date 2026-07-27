@@ -67,23 +67,6 @@
                   <option v-for="j in jobStore.jobs" :key="j.id" :value="j.id">{{ j.code }} — {{ j.title }}</option>
                 </select>
               </div>
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Entité *</label>
-                <TableLookupField
-                  :code="entityCode" :name="form.entityName"
-                  value-key="code" name-key="name"
-                  :columns="entityColumns" :fetch-fn="fetchEntities"
-                  modal-title="Sélectionner une entité" placeholder="Code entité"
-                  @update:code="entityCode = $event" @update:name="form.entityName = $event" @select="onEntitySelect"
-                />
-              </div>
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Poste parent</label>
-                <select v-model="form.parentPositionId" :class="cls.fieldSelect">
-                  <option value="">-- Aucun --</option>
-                  <option v-for="p in parentOptions" :key="p.id" :value="p.id">{{ p.code }} — {{ p.title }}</option>
-                </select>
-              </div>
             </div>
           </FormSection>
         </div>
@@ -93,13 +76,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { Plus, Pencil, Trash2 } from 'lucide-vue-next'
 import DataTable  from '../../components/ui/DataTable.vue'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
-import TableLookupField from '../../components/ui/table-lookup/TableLookupField.vue'
-import type { LookupFetchParams } from '../../components/ui/table-lookup/TableLookupField.vue'
 import { SkeletonLoader } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
@@ -129,63 +110,34 @@ const columns = [
 function jobTitle(jobId: string): string {
   return jobStore.jobs.find(j => j.id === jobId)?.title ?? '—'
 }
-function entityName(entityId: string): string {
+function entityName(entityId?: string): string {
+  if (!entityId) return '—'
   return entityStore.getEntityById(entityId)?.name ?? '—'
-}
-
-const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
-function fetchEntities({ searchQuery }: LookupFetchParams) {
-  let items = entityStore.approvedEntities
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase()
-    items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q))
-  }
-  return { items, total: items.length }
 }
 
 const showModal = ref(false)
 const editingId = ref<string | null>(null)
 const error = ref('')
-const entityCode = ref('')
-const form = reactive({
-  code: '', title: '', jobId: '', entityId: '' as string | null, entityName: '', parentPositionId: '',
-})
-
-const parentOptions = computed(() => store.positions.filter(p => p.id !== editingId.value))
-
-function onEntitySelect(item: Record<string, unknown>) {
-  form.entityId = String(item.id); form.entityName = String(item.name); entityCode.value = String(item.code)
-}
+const form = reactive({ code: '', title: '', jobId: '' })
 
 function openAdd() {
   editingId.value = null
   error.value = ''
-  Object.assign(form, { code: '', title: '', jobId: '', entityId: '', entityName: '', parentPositionId: '' })
-  entityCode.value = ''
+  Object.assign(form, { code: '', title: '', jobId: '' })
   showModal.value = true
 }
 function openEdit(position: Position) {
   editingId.value = position.id
   error.value = ''
-  const entity = entityStore.getEntityById(position.organizationUnitId)
-  Object.assign(form, {
-    code: position.code, title: position.title, jobId: position.jobId,
-    entityId: position.organizationUnitId, entityName: entity?.name ?? '',
-    parentPositionId: position.parentPositionId ?? '',
-  })
-  entityCode.value = entity?.code ?? ''
+  Object.assign(form, { code: position.code, title: position.title, jobId: position.jobId })
   showModal.value = true
 }
 
 async function save() {
   if (!form.code.trim() || !form.title.trim()) { error.value = 'Code et titre sont obligatoires'; return }
   if (!form.jobId) { error.value = 'Le métier est obligatoire'; return }
-  if (!form.entityId) { error.value = "L'entité est obligatoire"; return }
   error.value = ''
-  const payload = {
-    code: form.code, title: form.title, jobId: form.jobId,
-    organizationUnitId: form.entityId, parentPositionId: form.parentPositionId || null,
-  }
+  const payload = { code: form.code, title: form.title, jobId: form.jobId }
   try {
     if (editingId.value) {
       await store.updatePosition(editingId.value, payload)

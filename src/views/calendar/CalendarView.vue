@@ -32,7 +32,12 @@
         <!-- ══════════ Onglet 1 : Jours de travail ══════════ -->
         <div v-if="activeTab === 'working-days'">
           <div :class="sectionCard">
-            <h2 class="text-[15px] font-semibold text-foreground mb-4">Jours ouvrables</h2>
+            <div :class="sectionHeader">
+              <h2 class="text-[15px] font-semibold text-foreground">Jours ouvrables</h2>
+              <button :class="[L.btnPrimary, '!px-3.5 !py-2 !text-xs']" class="disabled:opacity-50 disabled:cursor-not-allowed" :disabled="savingWorkingDays" @click="saveWorkingDays">
+                <Save class="w-3.5 h-3.5" /> {{ savingWorkingDays ? 'Enregistrement…' : 'Enregistrer les modifications' }}
+              </button>
+            </div>
             <!-- Source unique : composant réutilisé dans l'onboarding -->
             <WorkingDaysConfig />
           </div>
@@ -301,7 +306,7 @@ import { ref, reactive, computed, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   ClockArrowDown, Clock, CalendarDays, ListChecks, Upload, Plus,
-  Pencil, Trash2, Lock, Info, RefreshCw,
+  Pencil, Trash2, Lock, Info, RefreshCw, Save,
 } from 'lucide-vue-next'
 import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
 import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
@@ -350,6 +355,20 @@ async function generateAccrualsNow() {
 }
 calendarStore.fetchHolidays(new Date().getFullYear())
 leaveTypesStore.fetchAll()
+
+// ── Jours ouvrables : enregistrement explicite (pas d'auto-save par edit,
+// voir WorkingDaysConfig.vue) ───────────────────────────────────
+const savingWorkingDays = ref(false)
+async function saveWorkingDays() {
+  savingWorkingDays.value = true
+  try {
+    await calendarStore.updateWorkingDays(calendarStore.calendar.workingDays)
+  } catch {
+    // calendarStore.error porte le message pour l'UI (toast)
+  } finally {
+    savingWorkingDays.value = false
+  }
+}
 
 // ── Classes du design system ─────────────────────────────────
 const tabBtn = 'flex items-center gap-1.5 px-[18px] py-2.5 text-[13px] font-medium text-muted-foreground bg-transparent border-0 border-b-2 border-transparent cursor-pointer whitespace-nowrap transition-colors hover:text-foreground'
