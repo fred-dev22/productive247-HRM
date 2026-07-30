@@ -23,9 +23,10 @@
     <template #above-table>
       <div class="grid grid-cols-4 gap-3 mb-4 max-[1100px]:grid-cols-2 max-md:grid-cols-2">
         <div :class="kpiCard"><div :class="kpiIcon" class="bg-success-bg"><Users class="w-[18px] h-[18px] text-success" /></div><div><div :class="kpiVal">{{ balanceStore.allBalances.length }}</div><div :class="kpiLabel">Employés suivis</div></div></div>
-        <div :class="kpiCard"><div :class="kpiIcon" class="bg-primary/10"><Sun class="w-[18px] h-[18px] text-primary" /></div><div><div :class="kpiVal">{{ totalFor('ANNUAL') }}j</div><div :class="kpiLabel">Congés annuels restants</div></div></div>
-        <div :class="kpiCard"><div :class="kpiIcon" class="bg-warning-bg"><RefreshCw class="w-[18px] h-[18px] text-warning" /></div><div><div :class="kpiVal">{{ totalFor('RECOVERY') }}j</div><div :class="kpiLabel">Récupérations restantes</div></div></div>
-        <div :class="kpiCard"><div :class="kpiIcon" class="bg-info-bg"><Home class="w-[18px] h-[18px] text-info" /></div><div><div :class="kpiVal">{{ totalFor('REMOTE') }}j</div><div :class="kpiLabel">Télétravail restants</div></div></div>
+        <div v-for="(c, i) in kpiTypeCols" :key="c.leaveTypeId" :class="kpiCard">
+          <div :class="kpiIcon" :class="KPI_STYLES[i].bg"><component :is="KPI_STYLES[i].icon" class="w-[18px] h-[18px]" :class="KPI_STYLES[i].text" /></div>
+          <div><div :class="kpiVal">{{ totalForType(c.leaveTypeId) }}j</div><div :class="kpiLabel">{{ c.leaveTypeName }} restants</div></div>
+        </div>
       </div>
     </template>
 
@@ -124,12 +125,23 @@ const kpiLabel = 'text-[11px] text-muted-foreground mt-0.5'
 // (tous les types actifs, chaque employé porte la même liste).
 const TYPE_COLS = computed(() => balanceStore.allBalances[0]?.balances ?? [])
 
+// Les 3 cartes KPI reprennent les 3 premiers types réels (par leaveTypeId,
+// jamais par code) — un code fixe ('ANNUAL'/'RECOVERY'/'REMOTE') ne
+// correspond a rien puisque le code d'un type de conge est libre (choisi par
+// le RH a la creation, y compris depuis l'onboarding).
+const KPI_STYLES = [
+  { icon: Sun,       bg: 'bg-primary/10', text: 'text-primary' },
+  { icon: RefreshCw, bg: 'bg-warning-bg', text: 'text-warning' },
+  { icon: Home,      bg: 'bg-info-bg',    text: 'text-info' },
+]
+const kpiTypeCols = computed(() => TYPE_COLS.value.slice(0, 3))
+
 function cellSlot(leaveTypeId: string) { return `cell-${leaveTypeId}` }
 function cellFor(item: EmployeeLeaveBalances, leaveTypeId: string): LeaveBalance | undefined {
   return item.balances.find(b => b.leaveTypeId === leaveTypeId)
 }
-function totalFor(code: string): number {
-  return balanceStore.allBalances.reduce((sum, e) => sum + (e.balances.find(b => b.leaveTypeCode === code)?.balance ?? 0), 0)
+function totalForType(leaveTypeId: string): number {
+  return balanceStore.allBalances.reduce((sum, e) => sum + (e.balances.find(b => b.leaveTypeId === leaveTypeId)?.balance ?? 0), 0)
 }
 
 const search       = ref('')

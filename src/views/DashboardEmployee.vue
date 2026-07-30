@@ -47,7 +47,7 @@
             <div v-for="r in myRequests" :key="r.id" class="flex items-center gap-2.5 py-[9px] border-b border-border last:border-b-0">
               <div class="flex-1">
                 <div class="text-sm font-medium">{{ r.leaveTypeName }}</div>
-                <div class="text-xs text-muted-foreground">{{ r.startDate }} → {{ r.endDate }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
+                <div class="text-xs text-muted-foreground">{{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
               </div>
               <StatusPill :status="r.status" />
               <button v-if="CANCELLABLE.has(r.status)" class="px-2.5 py-[5px] rounded text-[10px] font-medium cursor-pointer bg-warning-bg text-warning" @click="cancelRequest(r.id)">
@@ -110,6 +110,7 @@ import { useI18n } from 'vue-i18n'
 import { Plus, List, Building, Clock, Plane, Calendar, Check } from 'lucide-vue-next'
 import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
 import { StatusPill } from '../components'
+import { formatDate } from '../lib/date'
 import { useAuthStore }             from '../stores/auth'
 import { useLeaveRequestStore }     from '../stores/leaveRequests'
 import { useLeaveTypesStore }       from '../stores/leaveTypes'

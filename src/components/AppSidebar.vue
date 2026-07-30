@@ -1,5 +1,21 @@
 <template>
-  <aside class="w-[220px] shrink-0 bg-sidebar border-r border-sidebar-border py-2.5 px-[5px] overflow-y-auto overflow-x-hidden hidden md:block">
+  <aside
+    class="relative shrink-0 bg-sidebar border-r border-sidebar-border py-2.5 hidden md:flex md:flex-col transition-[width] duration-200 ease-in-out"
+    :class="collapsed ? 'w-[60px]' : 'w-[220px]'"
+  >
+
+  <!-- Réduire / agrandir — bouton flottant au milieu du bord droit -->
+  <button
+    type="button"
+    class="absolute top-1/2 -right-3 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-card border border-border text-muted-foreground cursor-pointer flex items-center justify-center shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+    :title="collapsed ? 'Agrandir' : 'Réduire'"
+    @click="toggleCollapsed"
+  >
+    <ChevronLeft v-if="!collapsed" class="w-3.5 h-3.5" />
+    <ChevronRight v-else class="w-3.5 h-3.5" />
+  </button>
+
+  <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-[5px]">
 
     <!-- Session en cours de restauration (rechargement de page) -->
     <SkeletonLoader v-if="auth.isRestoring" type="list" :lines="6" class="px-2" />
@@ -14,12 +30,12 @@
           <SidebarItem :icon="CalendarRange"   :label="t('sidebar.my_planning')" :to="{ name: 'hr-planning' }" />
         </SidebarSection>
 
-        <SidebarSection v-if="auth.hasAnyPermission(['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'])" :label="t('sidebar.absence_requests')">
+        <SidebarSection v-if="auth.hasAnyPermission(['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'])" :label="t('sidebar.absence_requests')" data-tour="absences">
           <SidebarItem :icon="CalendarOff" :label="t('sidebar.requests')" :to="{ name: 'hr-absences' }"       :badge="pendingCount" />
           <SidebarItem :icon="PieChart"    :label="t('sidebar.balances')" :to="{ name: 'hr-leave-balances' }" />
         </SidebarSection>
 
-        <SidebarSection v-if="canSeeManagementSection" :label="t('sidebar.management')">
+        <SidebarSection v-if="canSeeManagementSection" :label="t('sidebar.management')" data-tour="management">
           <SidebarItem v-if="auth.hasAnyPermission(['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE'])" :icon="Users"    :label="t('sidebar.employees')" :to="{ name: 'hr-employees' }" />
           <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"                                    :icon="Building" :label="t('sidebar.entities')"  :to="{ name: 'hr-entities' }" />
           <SidebarItem v-if="auth.hasAnyPermission(['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE'])"  :icon="Plane"    :label="t('sidebar.missions')"  :to="{ name: 'hr-missions' }" />
@@ -27,11 +43,10 @@
           <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"                                    :icon="Network"  :label="t('sidebar.org_chart')" :to="{ name: 'hr-org-chart' }" />
         </SidebarSection>
 
-        <SidebarSection v-if="canSeeConfigSection" :label="t('sidebar.configuration')">
+        <SidebarSection v-if="canSeeConfigSection" :label="t('sidebar.configuration')" data-tour="config">
           <SidebarItem v-if="auth.hasPermission('CONFIG_CALENDRIER')"     :icon="CalendarDays" :label="t('sidebar.config_calendar')" :to="{ name: 'hr-config-calendar' }" />
+          <SidebarItem v-if="auth.hasAnyPermission(['CONFIG_METIERS_POSTES', 'CONFIG_CATEGORIES_EMPLOYE'])" :icon="Tags" :label="t('sidebar.classification')" :to="{ name: 'hr-config-classification' }" />
           <SidebarItem v-if="auth.hasPermission('CONFIG_FRAIS_MISSION')"  :icon="Coins"        :label="t('sidebar.fees_perdiems')"   :to="{ name: 'hr-config-mission-fees' }" />
-          <SidebarItem v-if="auth.hasPermission('CONFIG_METIERS_POSTES')" :icon="Briefcase"    :label="t('sidebar.config_jobs')"      :to="{ name: 'hr-config-jobs' }" />
-          <SidebarItem v-if="auth.hasPermission('CONFIG_METIERS_POSTES')" :icon="IdCard"       :label="t('sidebar.config_positions')" :to="{ name: 'hr-config-positions' }" />
         </SidebarSection>
       </template>
 
@@ -154,11 +169,13 @@
       </template>
     </template>
 
+  </div>
+
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, type Component, type PropType } from 'vue'
+import { computed, defineComponent, h, ref, watch, type Component, type PropType } from 'vue'
 import { RouterLink }         from 'vue-router'
 import { useI18n }            from 'vue-i18n'
 import {
@@ -167,7 +184,7 @@ import {
   Inbox, GraduationCap, FilePlus, FileText, Clock, Library, UserPlus, Flame,
   Snowflake, Star, Landmark, ReceiptText, List, Clock3, Upload, AlarmClock, Table,
   TrendingUp, Gift, BarChart3, ArrowLeftRight, Percent, TrendingDown,
-  FileSpreadsheet, Plug, ClipboardCheck, IdCard,
+  FileSpreadsheet, Plug, ClipboardCheck, Tags, ChevronLeft, ChevronRight,
 } from 'lucide-vue-next'
 import { useAuthStore }       from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
@@ -198,6 +215,12 @@ const canSeeMyTeamSection = computed(() => auth.hasAnyPermission([
   'CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER', 'EMPLOYE_VOIR_EQUIPE',
 ]))
 
+// ── Réduction de la sidebar — préférence persistée (survit à un rechargement) ──
+const COLLAPSE_KEY = 'sidebar-collapsed'
+const collapsed = ref(localStorage.getItem(COLLAPSE_KEY) === '1')
+function toggleCollapsed() { collapsed.value = !collapsed.value }
+watch(collapsed, (v) => localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'))
+
 // ── Classes du design system (tokens sidebar) ────────────────
 const itemClass =
   'flex items-center gap-2 py-[7px] pr-4 pl-6 text-[13px] text-muted-foreground cursor-pointer transition-colors no-underline select-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
@@ -207,13 +230,18 @@ const badgeClass =
   'ml-auto bg-primary text-primary-foreground text-[9px] font-bold px-1.5 py-px rounded-full'
 
 // ── Sub-components définis inline ────────────────────────────
+// Réfèrent `collapsed` par fermeture (même portée que le setup() parent) —
+// pas besoin de le repasser en prop sur chaque usage dans le template.
 const SidebarSection = defineComponent({
   props: { label: String },
   setup(props, { slots }) {
-    return () => h('div', { class: 'mb-1' }, [
-      h('div', { class: 'text-[10px] font-bold text-muted-foreground uppercase tracking-[0.07em] pt-2 pb-1 pr-4 pl-5' }, props.label),
-      slots.default?.(),
-    ])
+    return () => {
+      if (collapsed.value) return h('div', { class: 'mb-1' }, slots.default?.())
+      return h('div', { class: 'mb-1' }, [
+        h('div', { class: 'text-[10px] font-bold text-muted-foreground uppercase tracking-[0.07em] pt-2 pb-1 pr-4 pl-5' }, props.label),
+        slots.default?.(),
+      ])
+    }
   },
 })
 
@@ -228,11 +256,21 @@ const SidebarItem = defineComponent({
   setup(props) {
     return () => {
       const iconEl  = h(props.icon, { class: 'w-4 h-4 shrink-0', 'aria-hidden': 'true' })
-      const labelEl = h('span', { class: 'flex-1' }, props.label)
-      const badgeEl = props.badge > 0
-        ? h('span', { class: badgeClass }, String(props.badge))
-        : null
 
+      if (collapsed.value) {
+        // Réduit à un simple point (pas de chiffre, pas de place pour ça) —
+        // positionné en absolu, l'item redevient donc position: relative.
+        const dotEl = props.badge > 0
+          ? h('span', { class: 'absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-primary' })
+          : null
+        return h(RouterLink, {
+          to: props.to, class: [itemClass, 'relative !justify-center !px-0'], activeClass: itemActiveClass, title: props.label,
+        }, () => [iconEl, dotEl].filter(Boolean))
+      }
+
+      const badgeEl = props.badge > 0 ? h('span', { class: badgeClass }, String(props.badge)) : null
+
+      const labelEl = h('span', { class: 'flex-1' }, props.label)
       const children = [iconEl, labelEl, badgeEl].filter(Boolean)
 
       return h(RouterLink, { to: props.to, class: itemClass, activeClass: itemActiveClass }, () => children)

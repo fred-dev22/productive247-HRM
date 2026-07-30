@@ -3,8 +3,6 @@ import { ref } from 'vue'
 import { api, getApiErrorMessage } from '../lib/api'
 import { withToast } from '../lib/withToast'
 
-export type OccupationStatus = 'Vacant' | 'Occupied'
-
 export interface Position {
   id:                  string
   code:                string
@@ -14,7 +12,12 @@ export interface Position {
   // precise — c'est l'employe qui l'est (Employee.organizationUnitId).
   organizationUnitId?: string
   parentPositionId?:   string | null
-  occupationStatus:    OccupationStatus
+  // Nombre de sieges ouverts sur ce poste (voir decision du 30/07) — un
+  // poste est un "type de poste avec N ouvertures", pas un siege unique.
+  capacity:            number
+  // Calcule cote backend (jamais envoye dans un payload) — nombre d'employés
+  // actuellement affectés à ce poste.
+  occupiedCount:       number
 }
 
 interface BackendPosition {
@@ -24,7 +27,8 @@ interface BackendPosition {
   JobId: string
   OrganizationUnitId: string | null
   ParentPositionId: string | null
-  OccupationStatus: OccupationStatus
+  Capacity: number
+  OccupiedCount: number
 }
 
 function mapPosition(raw: BackendPosition): Position {
@@ -35,7 +39,8 @@ function mapPosition(raw: BackendPosition): Position {
     jobId: raw.JobId,
     organizationUnitId: raw.OrganizationUnitId ?? undefined,
     parentPositionId: raw.ParentPositionId,
-    occupationStatus: raw.OccupationStatus,
+    capacity: raw.Capacity,
+    occupiedCount: raw.OccupiedCount,
   }
 }
 
@@ -46,7 +51,7 @@ function toBackendPayload(payload: Partial<Position>) {
   if (payload.jobId !== undefined) body.JobId = payload.jobId
   if (payload.organizationUnitId !== undefined) body.OrganizationUnitId = payload.organizationUnitId
   if (payload.parentPositionId !== undefined) body.ParentPositionId = payload.parentPositionId
-  if (payload.occupationStatus !== undefined) body.OccupationStatus = payload.occupationStatus
+  if (payload.capacity !== undefined) body.Capacity = payload.capacity
   return body
 }
 
@@ -69,13 +74,6 @@ export const usePositionStore = defineStore('positions', () => {
     }
   }
 
-  async function fetchActive() {
-    // Position n'a pas de notion "actif/inactif" cote backend — la
-    // disponibilite se lit via occupationStatus (Vacant/Occupied), portee
-    // par fetchVacant() ci-dessous.
-    return fetchAll()
-  }
-
   async function fetchByUnit(unitId: string) {
     loading.value = true
     error.value = null
@@ -90,21 +88,22 @@ export const usePositionStore = defineStore('positions', () => {
     }
   }
 
-  async function fetchVacant() {
+  // Postes ayant encore au moins un siège libre (Capacity > sièges occupés).
+  async function fetchAvailable() {
     loading.value = true
     error.value = null
     try {
-      const { data } = await api.get<BackendPosition[]>('/positions/vacant')
+      const { data } = await api.get<BackendPosition[]>('/positions/available')
       return data.map(mapPosition)
     } catch (err) {
-      error.value = getApiErrorMessage(err, 'Impossible de charger les postes vacants')
+      error.value = getApiErrorMessage(err, 'Impossible de charger les postes disponibles')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function createPosition(payload: Omit<Position, 'id'>) {
+  async function createPosition(payload: Omit<Position, 'id' | 'occupiedCount'>) {
     error.value = null
     return withToast('Création du poste en cours…', async () => {
       try {
@@ -150,7 +149,7 @@ export const usePositionStore = defineStore('positions', () => {
 
   return {
     positions, loading, error,
-    fetchAll, fetchActive, fetchByUnit, fetchVacant,
+    fetchAll, fetchByUnit, fetchAvailable,
     createPosition, updatePosition, deletePosition,
   }
 })

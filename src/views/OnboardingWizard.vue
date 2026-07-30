@@ -11,54 +11,46 @@
       <span class="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-[11px] font-semibold">Configuration initiale</span>
     </header>
 
-    <!-- id="below-topbar" : cible du <Teleport> de CreateModalShell (voir
-         DashboardLayout, qui fournit le même id) — l'assistant n'utilise pas
-         ce layout mais doit quand même offrir une cible de téléportation aux
-         fiches de création réutilisées (EntityCreate/EmployeeCreate). -->
+    <!-- id="below-topbar" : cible du <Teleport> de CreateModalShell -->
     <div id="below-topbar" class="relative flex-1 flex flex-col min-h-0">
 
     <!-- ── Zone centrale ── -->
     <div class="flex-1 flex flex-col items-center max-w-[860px] w-full mx-auto px-6 py-10 max-md:px-4 max-md:py-6 overflow-y-auto">
 
       <!-- Titre principal -->
-      <div class="text-center mb-10">
+      <div class="text-center mb-8">
         <h1 class="text-[28px] font-extrabold text-foreground m-0 max-md:text-[22px]">Bienvenue sur Productive 247 HRM</h1>
-        <p class="text-[15px] text-muted-foreground mt-2">Configurez votre espace en 3 étapes avant de commencer</p>
+        <p class="text-[15px] text-muted-foreground mt-2">Configurez votre espace en 3 étapes — tout reste modifiable ensuite dans le menu Configuration</p>
       </div>
 
       <!-- Barre de progression -->
-      <div class="flex items-start max-w-[600px] w-full mx-auto mb-10">
+      <div class="flex items-start max-w-[600px] w-full mx-auto mb-8">
         <template v-for="(label, i) in STEP_LABELS" :key="label">
-          <div class="flex flex-col items-center shrink-0" :class="{ 'cursor-pointer': stepState(i + 1) === 'done' }" @click="i + 1 < ob.currentStep && ob.goToStep(i + 1)">
-            <div class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-base transition-all shrink-0"
-              :class="stepCircleClass(i + 1)">
-              <Check v-if="i + 1 < ob.currentStep" class="w-[18px] h-[18px]" />
+          <div class="flex flex-col items-center shrink-0" :class="{ 'cursor-pointer': i + 1 < currentStep }" @click="i + 1 < currentStep && (currentStep = i + 1)">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-base transition-all shrink-0" :class="stepCircleClass(i + 1)">
+              <Check v-if="i + 1 < currentStep" class="w-[18px] h-[18px]" />
               <span v-else>{{ i + 1 }}</span>
             </div>
-            <span class="text-xs font-medium mt-2 text-center max-md:hidden" :class="stepState(i + 1) === 'pending' ? 'text-muted-foreground' : 'text-primary'">{{ label }}</span>
+            <span class="text-xs font-medium mt-2 text-center max-md:hidden" :class="i + 1 === currentStep ? 'text-primary' : 'text-muted-foreground'">{{ label }}</span>
           </div>
-          <div v-if="i < STEP_LABELS.length - 1" class="flex-1 h-[3px] rounded-sm self-center mb-5 transition-colors max-md:mb-0" :class="i + 1 < ob.currentStep ? 'bg-primary' : 'bg-border'"></div>
+          <div v-if="i < STEP_LABELS.length - 1" class="flex-1 h-[3px] rounded-sm self-center mb-5 transition-colors max-md:mb-0" :class="i + 1 < currentStep ? 'bg-primary' : 'bg-border'"></div>
         </template>
       </div>
 
-      <!-- Card contenu principale -->
+      <!-- Card contenu -->
       <div class="max-w-[860px] w-full bg-card rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.10)] border border-border overflow-hidden">
         <Transition name="step" mode="out-in">
-          <div :key="ob.currentStep">
+          <div :key="currentStep">
 
-            <!-- En-tête de la card -->
-            <div class="px-7 py-5 border-b border-border bg-background flex items-center gap-3.5 max-md:px-4">
-              <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <component :is="currentMeta.icon" class="w-6 h-6 text-primary" />
+            <!-- ══ ÉTAPE 1 : Entreprise + Calendrier ══ -->
+            <template v-if="currentStep === 1">
+              <div class="px-7 py-5 border-b border-border bg-background flex items-center gap-3.5 max-md:px-4">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><CalendarDays class="w-6 h-6 text-primary" /></div>
+                <div>
+                  <div class="text-lg font-bold text-foreground">Entreprise et calendrier</div>
+                  <div class="text-[13px] text-muted-foreground mt-1">Nom, devise, fuseau horaire, et les jours/horaires de travail par défaut</div>
+                </div>
               </div>
-              <div>
-                <div class="text-lg font-bold text-foreground">{{ currentMeta.title }}</div>
-                <div class="text-[13px] text-muted-foreground mt-1">{{ currentMeta.sub }}</div>
-              </div>
-            </div>
-
-            <!-- ══ ÉTAPE 1 : Calendrier ══ -->
-            <template v-if="ob.currentStep === 1">
               <div :class="cardBody">
                 <div class="grid grid-cols-3 gap-3 max-md:grid-cols-1">
                   <div :class="cls.field">
@@ -91,90 +83,79 @@
               </div>
               <p v-if="companyError" class="px-7 text-xs text-danger">{{ companyError }}</p>
               <div :class="[cardFoot, 'justify-end']">
-                <button :class="btnPrimary" :disabled="calendarStore.daysPerWeek === 0 || !companyForm.companyName.trim()" @click="saveWorkingDaysAndContinue">Continuer →</button>
-              </div>
-            </template>
-
-            <!-- ══ ÉTAPE 2 : Structure ══ -->
-            <template v-else-if="ob.currentStep === 2">
-              <div :class="cardBody">
-
-                <div :class="infoCard">
-                  <Info class="w-4 h-4 text-info shrink-0 mt-px" />
-                  La Direction Générale a été créée automatiquement.
-                  Ajoutez vos départements et services.
-                </div>
-
-                <!-- Liste hiérarchique des entités -->
-                <div class="flex flex-col gap-1">
-                  <div
-                    v-for="{ entity, depth } in flatEntities"
-                    :key="entity.id"
-                    class="flex items-center gap-2.5 px-2.5 py-2 bg-background border border-border rounded-lg"
-                    :style="{ paddingLeft: `${10 + depth * 24}px` }"
-                  >
-                    <span class="text-[10px] font-bold px-2 py-[3px] rounded whitespace-nowrap shrink-0 tracking-[0.03em]" :class="entTypeBadge(entity.type)">
-                      {{ TYPE_LABELS[entity.type] ?? entity.type }}
-                    </span>
-                    <span class="flex-1 text-[13px] font-medium text-foreground">{{ entity.name }}</span>
-                    <span v-if="entity.responsibleName" class="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
-                      <User class="w-3 h-3" /> {{ entity.responsibleName }}
-                    </span>
-                  </div>
-                </div>
-
-                <button :class="btnOutline" @click="showEntityModal = true">
-                  <Plus class="w-4 h-4" /> Ajouter une entité
+                <button :class="btnPrimary" :disabled="calendarStore.daysPerWeek === 0 || !companyForm.companyName.trim() || saving" @click="saveStep1AndContinue">
+                  {{ saving ? 'Enregistrement…' : 'Continuer →' }}
                 </button>
-
-              </div>
-              <div :class="[cardFoot, 'justify-between max-[480px]:flex-col max-[480px]:gap-2.5 max-[480px]:items-stretch']">
-                <button :class="btnOutline" @click="ob.prevStep()">← Précédent</button>
-                <div class="flex items-center max-[480px]:flex-col max-[480px]:gap-2.5">
-                  <button class="bg-transparent border-0 cursor-pointer text-xs text-muted-foreground mr-3 py-1 transition-colors hover:text-foreground max-[480px]:mr-0" @click="ob.nextStep()">Passer →</button>
-                  <span :title="entityStore.entities.length < 2 ? 'Créez au moins un département pour continuer' : ''">
-                    <button :class="btnPrimary" :disabled="entityStore.entities.length < 2" @click="ob.nextStep()">Continuer →</button>
-                  </span>
-                </div>
               </div>
             </template>
 
-            <!-- ══ ÉTAPE 3 : Équipe ══ -->
-            <template v-else>
+            <!-- ══ ÉTAPE 2 : Jours fériés ══ -->
+            <template v-else-if="currentStep === 2">
+              <div class="px-7 py-5 border-b border-border bg-background flex items-center gap-3.5 max-md:px-4">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><CalendarOff class="w-6 h-6 text-primary" /></div>
+                <div>
+                  <div class="text-lg font-bold text-foreground">Jours fériés</div>
+                  <div class="text-[13px] text-muted-foreground mt-1">Les fériés annuels et ponctuels de l'entreprise — optionnel, vous pouvez les ajouter plus tard</div>
+                </div>
+              </div>
               <div :class="cardBody">
-
-                <div :class="infoCard">
-                  <Info class="w-4 h-4 text-info shrink-0 mt-px" />
-                  Les employés sans accès numérique peuvent quand même avoir
-                  des demandes soumises par leur manager.
+                <div class="flex gap-2">
+                  <button :class="btnOutline" class="!px-3 !py-1.5 !text-xs" @click="openHolidayModal('annual')"><Plus class="w-3.5 h-3.5" /> Férié annuel</button>
+                  <button :class="btnOutline" class="!px-3 !py-1.5 !text-xs" @click="openHolidayModal('ponctual')"><Plus class="w-3.5 h-3.5" /> Férié ponctuel</button>
                 </div>
-
-                <!-- État vide -->
-                <div v-if="empStore.employees.length === 0" class="flex flex-col items-center gap-1.5 px-4 py-7 text-center">
-                  <Users class="w-12 h-12 text-muted-foreground" />
-                  <div class="text-sm font-semibold text-foreground">Aucun employé créé</div>
-                  <div class="text-xs text-muted-foreground">Commencez par ajouter votre premier collaborateur</div>
+                <div v-if="calendarStore.holidays.length === 0" class="flex flex-col items-center gap-1.5 px-4 py-7 text-center">
+                  <CalendarOff class="w-10 h-10 text-muted-foreground" />
+                  <div class="text-sm font-semibold text-foreground">Aucun jour férié</div>
+                  <div class="text-xs text-muted-foreground">Ajoutez les fêtes légales de votre pays, ou passez cette étape</div>
                 </div>
-
-                <!-- Liste compacte -->
                 <div v-else class="flex flex-col gap-1">
-                  <div v-for="emp in empStore.employees" :key="emp.id" class="flex items-center gap-2.5 px-2.5 py-2 bg-background border border-border rounded-lg">
-                    <UserAvatar :name="emp.name" size="sm" />
-                    <span class="text-[13px] font-medium text-foreground">{{ emp.name }}</span>
-                    <span class="flex-1 text-xs text-muted-foreground">{{ emp.entityName }}</span>
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap shrink-0">{{ ROLE_LABELS[emp.role] ?? emp.role }}</span>
+                  <div v-for="h in calendarStore.holidays" :key="h.id" class="flex items-center gap-2.5 px-2.5 py-2 bg-background border border-border rounded-lg">
+                    <span class="text-[10px] font-bold px-2 py-[3px] rounded whitespace-nowrap shrink-0" :class="h.isRecurring ? 'bg-success text-white' : 'bg-danger text-white'">{{ h.isRecurring ? 'Annuel' : 'Ponctuel' }}</span>
+                    <span class="flex-1 text-[13px] font-medium text-foreground">{{ h.name }}</span>
+                    <span class="text-xs text-muted-foreground shrink-0">{{ h.date }}</span>
+                    <button class="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:bg-danger-bg hover:text-danger shrink-0" @click="deleteHoliday(h.id)"><Trash2 class="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
-
-                <button :class="btnOutline" @click="showEmployeeModal = true">
-                  <UserPlus class="w-4 h-4" /> Ajouter un employé
-                </button>
-
               </div>
               <div :class="[cardFoot, 'justify-between max-[480px]:flex-col max-[480px]:gap-2.5 max-[480px]:items-stretch']">
-                <button :class="btnOutline" @click="ob.prevStep()">← Précédent</button>
-                <button v-if="empStore.employees.length === 0" :class="btnOutline" @click="finish(false)">Passer et accéder →</button>
-                <button v-else :class="btnPrimary" @click="finish(true)">Accéder à l'application →</button>
+                <button :class="btnOutline" @click="currentStep = 1">← Précédent</button>
+                <button :class="btnPrimary" @click="currentStep = 3">Continuer →</button>
+              </div>
+            </template>
+
+            <!-- ══ ÉTAPE 3 : Types de congé ══ -->
+            <template v-else>
+              <div class="px-7 py-5 border-b border-border bg-background flex items-center gap-3.5 max-md:px-4">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><ListChecks class="w-6 h-6 text-primary" /></div>
+                <div>
+                  <div class="text-lg font-bold text-foreground">Types de congé</div>
+                  <div class="text-[13px] text-muted-foreground mt-1">Au moins un type (ex: Congé annuel) est nécessaire pour que vos employés puissent soumettre une demande</div>
+                </div>
+              </div>
+              <div :class="cardBody">
+                <div v-if="leaveTypesStore.leaveTypes.length === 0" class="flex flex-col items-center gap-1.5 px-4 py-7 text-center">
+                  <ListChecks class="w-10 h-10 text-muted-foreground" />
+                  <div class="text-sm font-semibold text-foreground">Aucun type de congé créé</div>
+                  <div class="text-xs text-muted-foreground">Commencez par ajouter "Congé annuel"</div>
+                </div>
+                <div v-else class="flex flex-col gap-1">
+                  <div v-for="lt in leaveTypesStore.leaveTypes" :key="lt.id" class="flex items-center gap-2.5 px-2.5 py-2 bg-background border border-border rounded-lg">
+                    <span class="w-6 h-6 rounded-md shrink-0" :style="{ background: lt.color }"></span>
+                    <span class="flex-1 text-[13px] font-medium text-foreground">{{ lt.name }}</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap shrink-0">{{ lt.workflowType === 'Medical' ? 'Médical' : 'Standard' }}</span>
+                    <span class="text-xs text-muted-foreground shrink-0">{{ lt.daysPerYear }} j/an</span>
+                  </div>
+                </div>
+                <button :class="btnOutline" @click="showLTModal = true">
+                  <Plus class="w-4 h-4" /> Ajouter un type de congé
+                </button>
+              </div>
+              <div :class="[cardFoot, 'justify-between max-[480px]:flex-col max-[480px]:gap-2.5 max-[480px]:items-stretch']">
+                <button :class="btnOutline" @click="currentStep = 2">← Précédent</button>
+                <div class="flex items-center max-[480px]:flex-col max-[480px]:gap-2.5">
+                  <button v-if="leaveTypesStore.leaveTypes.length === 0" class="bg-transparent border-0 cursor-pointer text-xs text-muted-foreground mr-3 py-1 transition-colors hover:text-foreground max-[480px]:mr-0" @click="finish">Passer et accéder →</button>
+                  <button v-else :class="btnPrimary" :disabled="finishing" @click="finish">{{ finishing ? 'Enregistrement…' : "Terminer et accéder à l'application →" }}</button>
+                </div>
               </div>
             </template>
 
@@ -189,46 +170,100 @@
       Vous pourrez modifier ces configurations à tout moment dans le menu Configuration
     </footer>
 
-    <!-- ── Modals (composants existants réutilisés) ── -->
-    <EntityCreate v-if="showEntityModal" @close="showEntityModal = false" />
-    <EmployeeCreate v-if="showEmployeeModal" @close="showEmployeeModal = false" />
+    <!-- ── Modal type de congé (composant existant réutilisé) ── -->
+    <LeaveTypeFormModal v-if="showLTModal" @close="showLTModal = false" @saved="showLTModal = false" />
+
+    <!-- ── Modals férié (mêmes formulaires que CalendarView.vue) ── -->
+    <CreateModalShell
+      v-if="holidayModal === 'annual'"
+      title="Ajouter un férié annuel" banner-label="Ajouter un férié annuel" create-label="Ajouter"
+      :save-error="holidayError" @close="holidayModal = null" @create="saveAnnualHoliday"
+    >
+      <template #form>
+        <div class="flex-1 overflow-auto px-6 py-5">
+          <div class="max-w-md mx-auto">
+            <FormSection title="Informations générales">
+              <div class="flex flex-col gap-3.5">
+                <label :class="cls.field">
+                  <span :class="cls.fieldLabel">Nom *</span>
+                  <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Fête du Travail" />
+                </label>
+                <div :class="cls.field">
+                  <span :class="cls.fieldLabel">Date (mois — jour)</span>
+                  <div class="flex gap-2">
+                    <select :class="cls.fieldSelect" v-model="hForm.month">
+                      <option v-for="m in MONTHS" :key="m.v" :value="m.v">{{ m.l }}</option>
+                    </select>
+                    <select :class="cls.fieldSelect" v-model="hForm.day">
+                      <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </FormSection>
+          </div>
+        </div>
+      </template>
+    </CreateModalShell>
+
+    <CreateModalShell
+      v-if="holidayModal === 'ponctual'"
+      title="Ajouter un férié ponctuel" banner-label="Ajouter un férié ponctuel" create-label="Ajouter"
+      :save-error="holidayError" @close="holidayModal = null" @create="savePonctualHoliday"
+    >
+      <template #form>
+        <div class="flex-1 overflow-auto px-6 py-5">
+          <div class="max-w-md mx-auto">
+            <FormSection title="Informations générales">
+              <div class="flex flex-col gap-3.5">
+                <label :class="cls.field">
+                  <span :class="cls.fieldLabel">Nom *</span>
+                  <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Aïd el-Fitr 2026" />
+                </label>
+                <label :class="cls.field">
+                  <span :class="cls.fieldLabel">Date complète</span>
+                  <input type="date" :class="cls.fieldInput" v-model="hForm.fullDate" />
+                </label>
+              </div>
+            </FormSection>
+          </div>
+        </div>
+      </template>
+    </CreateModalShell>
 
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, type Component } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Check, CalendarDays, Building, Users, CircleCheck, Info, User, Plus, UserPlus } from 'lucide-vue-next'
+import { Check, CalendarDays, CalendarOff, ListChecks, CircleCheck, Plus, Trash2 } from 'lucide-vue-next'
 import { useAuthStore }       from '../stores/auth'
 import { useCalendarStore }   from '../stores/calendar'
-import { useEntityStore }     from '../stores/entities'
-import { useEmployeeStore }   from '../stores/employees'
-import { useOnboardingStore } from '../stores/onboarding'
+import { useLeaveTypesStore } from '../stores/leaveTypes'
 import { useCompanySettingsStore } from '../stores/companySettings'
 import WorkingDaysConfig  from '../components/calendar/WorkingDaysConfig.vue'
-import EntityCreate       from '../components/entities/EntityCreate.vue'
-import EmployeeCreate     from '../components/employees/EmployeeCreate.vue'
-import UserAvatar         from '../components/ui/UserAvatar.vue'
+import LeaveTypeFormModal from '../components/configuration/LeaveTypeFormModal.vue'
+import CreateModalShell   from '../components/shared/CreateModalShell.vue'
+import FormSection        from '../components/ui/form-field/FormSection.vue'
 import * as cls from '../lib/formClasses'
-import type { Entity } from '../types'
 
 const auth          = useAuthStore()
 const calendarStore = useCalendarStore()
-const entityStore   = useEntityStore()
-const empStore      = useEmployeeStore()
-const ob            = useOnboardingStore()
+const leaveTypesStore = useLeaveTypesStore()
 const companySettingsStore = useCompanySettingsStore()
 const router        = useRouter()
 
 const companyForm = reactive({ companyName: 'Galana', currency: 'MGA', timezone: 'Indian/Antananarivo' })
 const companyError = ref('')
+const saving        = ref(false)
+const finishing      = ref(false)
+const leaving        = ref(false)
 
 // ── Classes du design system ─────────────────────────────────
 const cardBody = 'px-7 py-6 flex flex-col gap-4 max-md:px-4 max-md:py-5'
 const cardFoot = 'px-7 py-4 border-t border-border flex items-center max-md:px-4'
-const infoCard = 'bg-info-bg border-l-[3px] border-info rounded-lg px-4 py-3 flex items-start gap-2 text-[13px] text-foreground leading-relaxed'
 const btnPrimary = 'inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold cursor-pointer border-0 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap max-[480px]:w-full max-[480px]:justify-center'
 const btnOutline = 'inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold cursor-pointer bg-card text-foreground border border-border transition-colors hover:bg-background whitespace-nowrap max-[480px]:w-full max-[480px]:justify-center'
 
@@ -237,20 +272,12 @@ const bgStyle = {
   background: 'linear-gradient(135deg, var(--galana-green-light) 0%, #ffffff 50%, var(--galana-red-light) 100%)',
 }
 
+// ── Étapes (suivent exactement les 3 onglets de l'écran Calendrier) ──
+const STEP_LABELS = ['Entreprise', 'Jours fériés', 'Types de congé'] as const
+const currentStep = ref(1)
 function stepCircleClass(step: number): string {
-  const state = stepState(step)
-  if (state === 'pending') return 'bg-card text-muted-foreground border-2 border-border'
-  // done / current : cercle plein vert avec halo
-  return 'bg-primary text-white shadow-[0_0_0_4px_var(--color-primary-light)]' + (state === 'current' ? ' ob-pulse' : '')
-}
-
-function entTypeBadge(type: string): string {
-  const m: Record<string, string> = {
-    Direction:  'bg-danger text-white',
-    Department: 'bg-success text-white',
-    Service:    'bg-card text-success border border-success',
-  }
-  return m[type] ?? 'bg-neutral-bg text-neutral'
+  if (step > currentStep.value) return 'bg-card text-muted-foreground border-2 border-border'
+  return 'bg-primary text-white shadow-[0_0_0_4px_var(--color-primary-light)]' + (step === currentStep.value ? ' ob-pulse' : '')
 }
 
 // Vérification auth manuelle (la route n'a pas requiresAuth pour éviter les boucles)
@@ -259,81 +286,96 @@ onMounted(() => {
   else if (auth.isEmployeeSpace) router.replace({ path: '/employee' })
   else {
     calendarStore.fetchCalendar()
-    if (entityStore.entities.length === 0) entityStore.fetchAll()
+    calendarStore.fetchHolidays(new Date().getFullYear())
+    leaveTypesStore.fetchAll()
   }
 })
 
-async function saveWorkingDaysAndContinue() {
+async function saveStep1AndContinue() {
+  saving.value = true
+  companyError.value = ''
   try {
     await calendarStore.updateWorkingDays(calendarStore.calendar.workingDays)
   } catch {
-    // calendarStore.error porte le message ; on n'empeche pas de continuer
+    companyError.value = calendarStore.error ?? "L'enregistrement du calendrier a échoué. Veuillez réessayer."
+    saving.value = false
+    return
   }
-  ob.nextStep()
+  saving.value = false
+  currentStep.value = 2
 }
 
-const showEntityModal   = ref(false)
-const showEmployeeModal = ref(false)
-const leaving           = ref(false)
+// ── Étape 2 : jours fériés (mêmes actions que CalendarView.vue) ──────
+const holidayModal = ref<'annual' | 'ponctual' | null>(null)
+const holidayError = ref('')
+const MONTHS = [
+  {v:'01',l:'Janvier'},{v:'02',l:'Février'},{v:'03',l:'Mars'},{v:'04',l:'Avril'},
+  {v:'05',l:'Mai'},{v:'06',l:'Juin'},{v:'07',l:'Juillet'},{v:'08',l:'Août'},
+  {v:'09',l:'Septembre'},{v:'10',l:'Octobre'},{v:'11',l:'Novembre'},{v:'12',l:'Décembre'},
+]
+const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2,'0'))
+const hForm = reactive({ name: '', month: '01', day: '01', fullDate: '' })
 
-// ── Steps ────────────────────────────────────────────────────────────
-const STEP_LABELS = ['Calendrier', 'Structure', 'Équipe'] as const
-
-const STEP_META: Record<number, { icon: Component; title: string; sub: string }> = {
-  1: { icon: CalendarDays, title: 'Configurez votre calendrier', sub: 'Définissez les jours et horaires de travail de votre entreprise' },
-  2: { icon: Building,     title: 'Créez votre structure',       sub: 'Définissez la hiérarchie de votre organisation' },
-  3: { icon: Users,        title: 'Ajoutez votre équipe',        sub: 'Créez les comptes de vos collaborateurs' },
-}
-const currentMeta = computed(() => STEP_META[ob.currentStep]!)
-
-function stepState(step: number): 'done' | 'current' | 'pending' {
-  if (step < ob.currentStep)  return 'done'
-  if (step === ob.currentStep) return 'current'
-  return 'pending'
+function openHolidayModal(type: 'annual' | 'ponctual') {
+  hForm.name = ''; hForm.month = '01'; hForm.day = '01'; hForm.fullDate = ''
+  holidayError.value = ''
+  holidayModal.value = type
 }
 
-// ── Étape 2 : entités (hiérarchie aplatie depuis buildTree) ──────────
-const TYPE_LABELS: Record<string, string> = {
-  Direction: 'Direction', Department: 'Département', Service: 'Service',
-}
-
-const flatEntities = computed(() => {
-  const out: { entity: Entity; depth: number }[] = []
-  const walk = (nodes: Entity[], depth: number) => {
-    nodes.forEach(n => {
-      out.push({ entity: n, depth })
-      if (n.children) walk(n.children, depth + 1)
-    })
+async function saveAnnualHoliday() {
+  if (!hForm.name.trim()) { holidayError.value = 'Le nom est obligatoire'; return }
+  const date = `2000-${hForm.month}-${hForm.day}`
+  holidayError.value = ''
+  try {
+    await calendarStore.addHoliday({ name: hForm.name, date, isRecurring: true, holidayType: 'National' })
+    holidayModal.value = null
+  } catch {
+    holidayError.value = calendarStore.error ?? "L'enregistrement a échoué. Veuillez réessayer."
   }
-  walk(entityStore.buildTree, 0)
-  return out
-})
-
-// ── Étape 3 : employés ───────────────────────────────────────────────
-const ROLE_LABELS: Record<string, string> = {
-  hr_admin: 'RH Admin', hr_director: 'Dir. RH',
-  validator: 'Manager', employee: 'Employé',
 }
+
+async function savePonctualHoliday() {
+  if (!hForm.name.trim()) { holidayError.value = 'Le nom est obligatoire'; return }
+  if (!hForm.fullDate) { holidayError.value = 'La date est obligatoire'; return }
+  holidayError.value = ''
+  try {
+    await calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, isRecurring: false, holidayType: 'National' })
+    holidayModal.value = null
+  } catch {
+    holidayError.value = calendarStore.error ?? "L'enregistrement a échoué. Veuillez réessayer."
+  }
+}
+
+async function deleteHoliday(id: string) {
+  if (!confirm('Supprimer ce jour férié ?')) return
+  try {
+    await calendarStore.removeHoliday(id)
+  } catch {
+    // calendarStore.error porte le message pour l'UI
+  }
+}
+
+// ── Étape 3 : types de congé ──────────────────────────────────────
+const showLTModal = ref(false)
 
 // ── Fin du wizard ────────────────────────────────────────────────────
-async function finish(withFade: boolean) {
+async function finish() {
+  finishing.value = true
+  companyError.value = ''
   try {
     await companySettingsStore.completeOnboarding(companyForm)
   } catch {
     companyError.value = companySettingsStore.error ?? "La finalisation a échoué. Veuillez réessayer."
-    ob.goToStep(1)
+    finishing.value = false
+    currentStep.value = 1
     return
   }
-  if (withFade) {
-    leaving.value = true
-    setTimeout(() => {
-      ob.complete()
-      router.push({ path: '/hr' })
-    }, 250)
-  } else {
-    ob.complete()
-    router.push({ path: '/hr' })
-  }
+  leaving.value = true
+  setTimeout(() => {
+    // Lance le tour guidé au premier chargement du tableau de bord (voir
+    // DashboardHR.vue) — evite d'ouvrir directement sur Employés/Entités.
+    router.push({ path: '/hr', query: { tour: '1' } })
+  }, 250)
 }
 </script>
 

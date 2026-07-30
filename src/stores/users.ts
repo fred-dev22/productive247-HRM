@@ -3,46 +3,29 @@ import { ref } from 'vue'
 import { api, getApiErrorMessage } from '../lib/api'
 import { withToast } from '../lib/withToast'
 
-export interface Role {
-  id: string
-  name: string
-  description?: string
-  isSystem: boolean
-}
-
-interface BackendRole {
-  Id: string
-  Name: string
-  Description: string | null
-  IsSystem: boolean
-}
-
-function mapRole(raw: BackendRole): Role {
-  return { id: raw.Id, name: raw.Name, description: raw.Description ?? undefined, isSystem: raw.IsSystem }
-}
-
 export interface CreateUserAccountPayload {
   employeeId: string
   username: string
   email: string
   password: string
-  roleId: string
+  employeeCategoryId: string
+}
+
+export interface UserPermissionGrant {
+  permissionId: string
+  code: string
+  module: string
+  label: string
+}
+
+interface EffectivePermissionsResponse {
+  categoryName: string
+  permissions: string[]
+  individualGrants: UserPermissionGrant[]
 }
 
 export const useUserStore = defineStore('users', () => {
-  const roles = ref<Role[]>([])
   const error = ref<string | null>(null)
-
-  async function fetchRoles() {
-    error.value = null
-    try {
-      const { data } = await api.get<BackendRole[]>('/roles')
-      roles.value = data.map(mapRole)
-    } catch (err) {
-      error.value = getApiErrorMessage(err, 'Impossible de charger les rôles')
-      throw err
-    }
-  }
 
   async function createUserAccount(payload: CreateUserAccountPayload) {
     error.value = null
@@ -53,7 +36,7 @@ export const useUserStore = defineStore('users', () => {
           Email: payload.email,
           Password: payload.password,
           EmployeeId: payload.employeeId,
-          RoleId: payload.roleId,
+          EmployeeCategoryId: payload.employeeCategoryId,
           IsActive: true,
         })
         return data
@@ -64,5 +47,33 @@ export const useUserStore = defineStore('users', () => {
     }, () => error.value ?? 'Impossible de créer le compte utilisateur')
   }
 
-  return { roles, error, fetchRoles, createUserAccount }
+  // Permissions individuelles d'un compte — indépendantes de la catégorie
+  // une fois le compte créé (voir decision du 29/07 : la catégorie n'est
+  // qu'un gabarit copié une seule fois à la création du compte).
+  async function fetchUserPermissions(userId: string) {
+    const { data } = await api.get<EffectivePermissionsResponse>(`/users/${userId}/permissions`)
+    return data
+  }
+
+  async function grantUserPermission(userId: string, permissionId: string) {
+    try {
+      const { data } = await api.post<EffectivePermissionsResponse>(`/users/${userId}/permissions`, { PermissionId: permissionId })
+      return data
+    } catch (err) {
+      error.value = getApiErrorMessage(err, "Impossible d'ajouter cette permission")
+      throw err
+    }
+  }
+
+  async function revokeUserPermission(userId: string, permissionId: string) {
+    try {
+      const { data } = await api.delete<EffectivePermissionsResponse>(`/users/${userId}/permissions/${permissionId}`)
+      return data
+    } catch (err) {
+      error.value = getApiErrorMessage(err, 'Impossible de retirer cette permission')
+      throw err
+    }
+  }
+
+  return { error, createUserAccount, fetchUserPermissions, grantUserPermission, revokeUserPermission }
 })

@@ -36,6 +36,11 @@
       </div>
     </template>
 
+    <!-- Actions contextuelles (ligne sélectionnée) -->
+    <template #row-actions="{ item }">
+      <button :class="quickBtn" @click="openCard(item)">Ouvrir la fiche</button>
+    </template>
+
     <!-- Filtres -->
     <template #filters>
       <div :class="L.fpField">
@@ -46,13 +51,10 @@
         </select>
       </div>
       <div :class="L.fpField">
-        <label :class="L.fpFieldLabel">{{ t('employee.filter_role') }}</label>
-        <select v-model="fRole" :class="L.fpSelect">
-          <option value="">{{ t('employee.filter_role') }}</option>
-          <option value="employee">{{ t('employee.role_employee') }}</option>
-          <option value="validator">{{ t('employee.role_validator') }}</option>
-          <option value="hr_admin">{{ t('employee.role_hr_admin') }}</option>
-          <option value="hr_director">{{ t('employee.role_hr_director') }}</option>
+        <label :class="L.fpFieldLabel">Catégorie</label>
+        <select v-model="fCategory" :class="L.fpSelect">
+          <option value="">Catégorie</option>
+          <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
       <div :class="L.fpField">
@@ -78,9 +80,9 @@
     <template #cell-code="{ item }"><span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span></template>
     <template #cell-jobTitle="{ item }"><span class="text-foreground text-xs truncate">{{ item.jobTitle || '—' }}</span></template>
     <template #cell-entityName="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.entityName || '—' }}</span></template>
-    <template #cell-role="{ item }"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="roleBadge(item.role)">{{ roleLabel(item.role) }}</span></template>
+    <template #cell-category="{ item }"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-primary/10 text-primary">{{ categoryName(item.employeeCategoryId) }}</span></template>
     <template #cell-contractType="{ item }"><span class="text-muted-foreground text-xs">{{ item.contractType }}</span></template>
-    <template #cell-hireDate="{ item }"><span class="text-muted-foreground text-xs">{{ item.hireDate }}</span></template>
+    <template #cell-hireDate="{ item }"><span class="text-muted-foreground text-xs">{{ formatDate(item.hireDate) }}</span></template>
     <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
     <!-- Aperçu rapide -->
@@ -96,10 +98,10 @@
         <div><StatusPill :status="item.status" /></div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
           <div><div class="text-muted-foreground text-[11px]">Matricule</div>{{ item.code }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Rôle</div>{{ roleLabel(item.role) }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Catégorie</div>{{ categoryName(item.employeeCategoryId) }}</div>
           <div><div class="text-muted-foreground text-[11px]">Entité</div>{{ item.entityName || '—' }}</div>
           <div><div class="text-muted-foreground text-[11px]">Contrat</div>{{ item.contractType }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Embauche</div>{{ item.hireDate }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Embauche</div>{{ formatDate(item.hireDate) }}</div>
         </div>
         <div v-if="item.email" class="text-[12px]"><div class="text-muted-foreground text-[11px]">Email</div>{{ item.email }}</div>
         <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
@@ -125,15 +127,19 @@ import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import EmployeeCard from '../../components/employees/EmployeeCard.vue'
 import EmployeeCreate from '../../components/employees/EmployeeCreate.vue'
 import * as L from '../../lib/listClasses'
+import { formatDate } from '../../lib/date'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
 import { useAuthStore } from '../../stores/auth'
-import type { Employee, UserRole, EmployeeStatus } from '../../types'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import type { Employee, EmployeeStatus } from '../../types'
 
 const { t } = useI18n()
 const store = useEmployeeStore()
 const entityStore = useEntityStore()
 const auth = useAuthStore()
+const categoryStore = useEmployeeCategoryStore()
+if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 // Séquencé (pas en parallèle) : mapEmployee lit entityStore de façon
 // synchrone pour entityName — sans cet ordre, une première visite avec les
 // deux stores vides peut résoudre le nom d'entité en blanc. Le fetch employés
@@ -145,6 +151,8 @@ const auth = useAuthStore()
   await store.fetchAll()
 })()
 
+const quickBtn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground hover:text-foreground'
+
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
@@ -154,13 +162,9 @@ const showCreate = ref(false)
 const openCardId = ref<string | null>(null)
 function openCard(item: Employee) { openCardId.value = item.id }
 
-function roleLabel(r: UserRole): string {
-  const m: Record<string, string> = { employee: t('employee.role_employee'), validator: t('employee.role_validator'), hr_admin: t('employee.role_hr_admin'), hr_director: t('employee.role_hr_director') }
-  return m[r] ?? r
-}
-function roleBadge(role: UserRole): string {
-  const m: Record<string, string> = { employee: 'bg-success-bg text-success', validator: 'bg-success-bg text-success', hr_admin: 'bg-primary/10 text-primary', hr_director: 'bg-warning-bg text-warning' }
-  return m[role] ?? 'bg-neutral-bg text-neutral'
+function categoryName(id?: string): string {
+  if (!id) return '—'
+  return categoryStore.categories.find(c => c.id === id)?.name ?? '—'
 }
 
 const columns = computed<ListColumn[]>(() => [
@@ -168,7 +172,7 @@ const columns = computed<ListColumn[]>(() => [
   { key: 'employee', label: t('employee.col_employee'), sortable: true, width: 230 },
   { key: 'jobTitle', label: t('employee.col_job_title'), sortable: true, width: 160 },
   { key: 'entityName', label: t('employee.col_entity'), sortable: true, width: 160 },
-  { key: 'role', label: t('employee.col_role'), width: 150 },
+  { key: 'category', label: 'Catégorie', width: 150 },
   { key: 'contractType', label: t('employee.col_contract'), width: 110 },
   { key: 'hireDate', label: t('employee.col_hire_date'), sortable: true, width: 130 },
   { key: 'status', label: t('employee.col_status'), width: 120 },
@@ -184,7 +188,7 @@ const scopeOptions = [
 const activeScope = ref('')
 
 const fEntity = ref('')
-const fRole = ref('')
+const fCategory = ref('')
 const fContract = ref('')
 const searchQuery = ref('')
 const sortKey = ref('')
@@ -192,10 +196,10 @@ const sortDir = ref<'asc' | 'desc'>('asc')
 const page = ref(1)
 const pageSize = ref(15)
 
-watch([activeScope, fEntity, fRole, fContract, searchQuery, pageSize], () => { page.value = 1 })
+watch([activeScope, fEntity, fCategory, fContract, searchQuery, pageSize], () => { page.value = 1 })
 
 function resetFilters() {
-  fEntity.value = ''; fRole.value = ''; fContract.value = ''; searchQuery.value = ''; activeScope.value = ''; page.value = 1
+  fEntity.value = ''; fCategory.value = ''; fContract.value = ''; searchQuery.value = ''; activeScope.value = ''; page.value = 1
 }
 
 const sortFieldMap: Record<string, keyof Employee> = { code: 'code', employee: 'name', jobTitle: 'jobTitle', entityName: 'entityName', hireDate: 'hireDate' }
@@ -204,7 +208,7 @@ const filtered = computed(() => {
   let rows = store.employees.filter(e => {
     if (activeScope.value && e.status !== (activeScope.value as EmployeeStatus)) return false
     if (fEntity.value && e.entityId !== fEntity.value) return false
-    if (fRole.value && e.role !== fRole.value) return false
+    if (fCategory.value && e.employeeCategoryId !== fCategory.value) return false
     if (fContract.value && e.contractType !== fContract.value) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()

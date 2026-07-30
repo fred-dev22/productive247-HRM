@@ -1,7 +1,7 @@
 export interface JwtPayload {
   sub: string        // User.Id
   employeeId: string
-  roleName: string
+  categoryName: string
   mustChangePassword: boolean
   iat: number
   exp: number

@@ -5,47 +5,41 @@
  * Volontairement pas sur ModalShell.vue : la fermeture doit être bloquée
  * (pas de clic-fond, pas d'Escape) pendant l'étape de révélation.
  */
-import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { X, RefreshCw, Copy, Check, ShieldAlert } from 'lucide-vue-next'
 import * as cls from '../../lib/formClasses'
 import { generatePassword } from '../../lib/password'
 import { useUserStore } from '../../stores/users'
-import type { UserRole } from '../../types'
+import { useEmployeeStore } from '../../stores/employees'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 
 const props = defineProps<{
   employeeId: string
   employeeName: string
   employeeEmail?: string
-  employeeRole: UserRole
 }>()
-const emit = defineEmits<{ close: []; created: [] }>()
+const emit = defineEmits<{ close: []; created: [userId: string] }>()
 
 const store = useUserStore()
-onMounted(() => { if (store.roles.length === 0) store.fetchRoles() })
-
-// Le role mock de l'employé (front) n'a pas d'equivalent backend direct —
-// on fait correspondre par nom, cohérent avec le catalogue seedé (voir
-// prisma/seed.ts ROLES).
-const ROLE_NAME_GUESS: Record<UserRole, string> = {
-  employee: 'Employé', validator: 'Validateur', hr_admin: 'Admin RH', hr_director: 'Directeur RH',
-}
+const employeeStore = useEmployeeStore()
+const categoryStore = useEmployeeCategoryStore()
+onMounted(() => {
+  if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+})
 
 const step = ref<'form' | 'reveal'>('form')
 const error = ref('')
 const submitting = ref(false)
 const copied = ref(false)
+const createdUserId = ref('')
 
+// Présélectionne la catégorie déjà assignée à l'employé (voir
+// Employee.employeeCategoryId, Configuration > Catégories) — l'admin RH
+// peut toujours en choisir une autre à cet instant.
 const form = reactive({
   username: props.employeeEmail ?? '',
-  roleId: '',
+  employeeCategoryId: employeeStore.getById(props.employeeId)?.employeeCategoryId ?? '',
   password: generatePassword(),
-})
-
-const guessedRole = computed(() => store.roles.find(r => r.name === ROLE_NAME_GUESS[props.employeeRole]))
-// Une fois les rôles chargés, présélectionner celui qui correspond au rôle
-// mock de l'employé (si trouvé) — l'admin RH peut toujours changer.
-watch(() => store.roles.length, (len) => {
-  if (len > 0 && !form.roleId) form.roleId = guessedRole.value?.id ?? store.roles[0]?.id ?? ''
 })
 
 function regenerate() {
@@ -61,15 +55,16 @@ async function copyPassword() {
 
 async function submit() {
   if (!form.username.trim()) { error.value = "Le nom d'utilisateur est obligatoire"; return }
-  if (!form.roleId) { error.value = 'Le rôle est obligatoire'; return }
+  if (!form.employeeCategoryId) { error.value = 'La catégorie est obligatoire'; return }
   if (!props.employeeEmail) { error.value = "L'employé doit avoir un email pour créer un compte"; return }
   error.value = ''
   submitting.value = true
   try {
-    await store.createUserAccount({
+    const created = await store.createUserAccount({
       employeeId: props.employeeId, username: form.username,
-      email: props.employeeEmail, password: form.password, roleId: form.roleId,
-    })
+      email: props.employeeEmail, password: form.password, employeeCategoryId: form.employeeCategoryId,
+    }) as { Id: string }
+    createdUserId.value = created.Id
     step.value = 'reveal'
   } catch {
     error.value = store.error ?? 'La création a échoué. Veuillez réessayer.'
@@ -79,7 +74,7 @@ async function submit() {
 }
 
 function finish() {
-  emit('created')
+  emit('created', createdUserId.value)
   emit('close')
 }
 
@@ -126,11 +121,12 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
               <input v-model="form.username" :class="cls.fieldInput" placeholder="prenom.nom@galana.com" />
             </div>
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Rôle *</label>
-              <select v-model="form.roleId" :class="cls.fieldSelect">
+              <label :class="cls.fieldLabel">Catégorie *</label>
+              <select v-model="form.employeeCategoryId" :class="cls.fieldSelect">
                 <option value="">-- Choisir --</option>
-                <option v-for="r in store.roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+                <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
+              <p class="text-[11px] text-muted-foreground mt-1">Détermine les permissions accordées à ce compte à sa création — modifiables individuellement ensuite.</p>
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Mot de passe temporaire</label>

@@ -26,8 +26,7 @@ const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   'hr-config-calendar':      'CONFIG_CALENDRIER',
   'hr-config-mission-fees':  'CONFIG_FRAIS_MISSION',
   'hr-config-perdiems':      'CONFIG_FRAIS_MISSION',
-  'hr-config-jobs':          'CONFIG_METIERS_POSTES',
-  'hr-config-positions':     'CONFIG_METIERS_POSTES',
+  'hr-config-classification': ['CONFIG_METIERS_POSTES', 'CONFIG_CATEGORIES_EMPLOYE'],
   'hr-statistics':       'RAPPORT_VOIR',
   'hr-absences':         ['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'],
   'hr-leave-balances':   ['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'],
@@ -112,6 +111,11 @@ const router = createRouter({
     },
     { path: '/hr/config/leave-types', name: 'hr-config-leave-types', redirect: '/hr/config/calendar' },
     {
+      path: '/hr/config/classification', name: 'hr-config-classification',
+      component: () => import('../views/configuration/ClassificationConfigView.vue'),
+      meta: { requiresAuth: true, layout: 'dashboard' },
+    },
+    {
       path: '/hr/config/mission-fees', name: 'hr-config-mission-fees',
       component: () => import('../views/configuration/MissionConfigView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
@@ -121,16 +125,11 @@ const router = createRouter({
       component: () => import('../views/configuration/PerdiemView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
     },
-    {
-      path: '/hr/config/jobs', name: 'hr-config-jobs',
-      component: () => import('../views/configuration/JobsConfigView.vue'),
-      meta: { requiresAuth: true, layout: 'dashboard' },
-    },
-    {
-      path: '/hr/config/positions', name: 'hr-config-positions',
-      component: () => import('../views/configuration/PositionsConfigView.vue'),
-      meta: { requiresAuth: true, layout: 'dashboard' },
-    },
+    // Redirects de compatibilité — les 3 écrans séparés ont fusionné dans
+    // Classification (voir decision du 29/07).
+    { path: '/hr/config/jobs', redirect: '/hr/config/classification' },
+    { path: '/hr/config/positions', redirect: '/hr/config/classification' },
+    { path: '/hr/config/employee-categories', redirect: '/hr/config/classification' },
 
     // Redirects de compatibilité (anciennes URLs)
     { path: '/hr/calendar', redirect: '/hr/config/calendar' },

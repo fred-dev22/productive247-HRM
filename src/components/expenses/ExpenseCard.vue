@@ -12,6 +12,7 @@ import ValidationTimeline from '../ui/ValidationTimeline.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import ExpenseWorkflowActions from './ExpenseWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
+import { formatDate } from '../../lib/date'
 import { useExpenseStore } from '../../stores/expenses'
 import type { ExpenseReport, ExpenseLine, ExpenseCategory } from '../../types'
 
@@ -150,7 +151,7 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
             <!-- Lecture -->
             <template v-if="!isEditMode">
               <tr v-for="l in current.lines" :key="l.id">
-                <td :class="td">{{ l.date }}</td>
+                <td :class="td">{{ formatDate(l.date) }}</td>
                 <td :class="td">{{ CATEGORY_LABELS[l.category] }}</td>
                 <td :class="td">{{ l.description }}</td>
                 <td :class="[td, 'text-right tabular-nums']">{{ fmt(l.amount) }} {{ l.currency }}</td>

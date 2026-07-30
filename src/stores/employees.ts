@@ -4,7 +4,13 @@ import { api, getApiErrorMessage } from '../lib/api'
 import { withToast } from '../lib/withToast'
 import { useEntityStore } from './entities'
 import { usePositionStore } from './positions'
-import type { Employee, ContractType, EmployeeStatus, UserRole } from '../types'
+import { useEmployeeCategoryStore } from './employeeCategories'
+import type { Employee, ContractType, EmployeeStatus } from '../types'
+
+// Permissions considérées comme "capacité de valider" pour le KPI Managers/RH
+// — un employé compte comme validateur potentiel si la catégorie de son
+// compte accorde au moins un de ces droits (voir stores/employeeCategories.ts).
+const VALIDATOR_PERMISSION_CODES = new Set(['CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER'])
 
 const PALETTE = [
   { bg: '#B5D4F4', text: '#0C447C' },
@@ -34,10 +40,10 @@ const STATUS_FROM_BACKEND: Record<string, EmployeeStatus> = {
 // ── Backend <-> frontend mapping ────────────────────────────────
 // Employee n'a pas de colonne JobTitle libre (seulement PositionId, une FK
 // vers le module Position), pas de ManagerId propre (dérivé du responsable
-// de l'OrganizationUnit de rattachement), et pas de Role (porté par un
-// compte User séparé, Employee.UserId — le rôle applicatif fin, à ce jour
-// non branché ici, voir types/index.ts). hasAccount en revanche reflète
-// désormais la vraie colonne backend Employee.UserId.
+// de l'OrganizationUnit de rattachement). hasAccount reflète la vraie
+// colonne backend Employee.UserId ; les droits effectifs d'un compte sont
+// portés par sa Catégorie (voir stores/employeeCategories.ts), plus aucun
+// "rôle" séparé/mock côté Employee (voir decision du 29/07).
 interface BackendEmployee {
   Id: string
   EmployeeNumber: string
@@ -58,6 +64,7 @@ interface BackendEmployee {
   TerminationDate: string | null
   PositionId: string | null
   OrganizationUnitId: string
+  EmployeeCategoryId: string | null
   UserId: string | null
   Status: string
 }
@@ -78,7 +85,6 @@ function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
     initials:     (raw.FirstName.charAt(0) + raw.LastName.charAt(0)).toUpperCase(),
     avatarBg:     c.bg,
     avatarText:   c.text,
-    role:         'employee',
     jobTitle:     position?.title ?? '',
     positionId:   raw.PositionId ?? undefined,
     entityId:     raw.OrganizationUnitId,
@@ -95,7 +101,9 @@ function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
     maritalStatus: (raw.MaritalStatus as Employee['maritalStatus']) ?? 'Single',
     idType:        (raw.IdType as Employee['idType']) ?? 'NationalId',
     idNumber:      raw.IdNumber ?? undefined,
+    employeeCategoryId: raw.EmployeeCategoryId ?? undefined,
     hasAccount:   raw.UserId != null,
+    userId:       raw.UserId ?? undefined,
   }
 }
 
@@ -116,6 +124,7 @@ function toBackendPayload(payload: Partial<Employee>): Record<string, unknown> {
   if (payload.hireDate !== undefined) body.HireDate = payload.hireDate
   if (payload.positionId !== undefined) body.PositionId = payload.positionId || null
   if (payload.entityId !== undefined) body.OrganizationUnitId = payload.entityId
+  if (payload.employeeCategoryId !== undefined) body.EmployeeCategoryId = payload.employeeCategoryId || null
   if (payload.status !== undefined) body.Status = STATUS_TO_BACKEND[payload.status]
   return body
 }
@@ -127,15 +136,23 @@ export const useEmployeeStore = defineStore('employees', () => {
 
   const activeEmployees   = computed(() => employees.value.filter(e => e.status === 'active'))
   const trialEmployees    = computed(() => employees.value.filter(e => e.status === 'trial'))
-  const validatorEmployees = computed(() => employees.value.filter(e => e.role === 'validator' || e.role === 'hr_admin' || e.role === 'hr_director'))
+  // Approximation via le gabarit de permissions de la catégorie (pas les
+  // droits individuels réels du compte, potentiellement ajustés au cas par
+  // cas — voir stores/users.ts) : suffisant pour ce KPI/filtre, pas pour une
+  // décision de sécurité.
+  const validatorEmployees = computed(() => employees.value.filter((e) => {
+    if (!e.hasAccount || !e.employeeCategoryId) return false
+    const category = useEmployeeCategoryStore().categories.find(c => c.id === e.employeeCategoryId)
+    return !!category?.permissions.some(p => VALIDATOR_PERMISSION_CODES.has(p.code))
+  }))
 
-  const nextCode = computed(() => {
-    const max = employees.value.reduce((m, e) => {
-      const n = parseInt(e.code.replace('EMP', '')) || 0
-      return n > m ? n : m
-    }, 0)
-    return `EMP${String(max + 1).padStart(3, '0')}`
-  })
+  // Genere cote serveur (voir employee.service.ts:generateEmployeeNumber) —
+  // evite les collisions qu'avait le calcul cote client (base sur la liste
+  // deja chargee en memoire, potentiellement incomplete ou desynchronisee).
+  async function fetchNextNumber(): Promise<string> {
+    const { data } = await api.get<{ EmployeeNumber: string }>('/employees/next-number')
+    return data.EmployeeNumber
+  }
 
   function getById(id: string): Employee | undefined {
     return employees.value.find(e => e.id === id)
@@ -213,16 +230,11 @@ export const useEmployeeStore = defineStore('employees', () => {
     error.value = null
     return withToast("Création de l'employé en cours…", async () => {
       try {
-        const body = toBackendPayload({ ...payload, code: payload.code ?? nextCode.value })
+        const body = toBackendPayload(payload)
         const { data } = await api.post<BackendEmployee>('/employees', body)
         const mapped = mapEmployee(data, employees.value.length)
-        // role n'a pas de colonne backend — on conserve le choix fait dans le
-        // formulaire pour la session en cours (voir mapEmployee). hasAccount
-        // en revanche vient de mapEmployee (Employee.UserId, réel) : jamais
-        // fixé ici, seulement via markHasAccount() après un vrai POST /users.
-        const withMock: Employee = { ...mapped, role: payload.role }
-        employees.value.push(withMock)
-        return withMock
+        employees.value.push(mapped)
+        return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, "Impossible de créer l'employé")
         throw err
@@ -238,10 +250,8 @@ export const useEmployeeStore = defineStore('employees', () => {
         const idx = employees.value.findIndex(e => e.id === id)
         const paletteIndex = idx !== -1 ? idx : employees.value.length
         const mapped = mapEmployee(data, paletteIndex)
-        const existing = idx !== -1 ? employees.value[idx] : undefined
-        const withMock: Employee = { ...mapped, role: payload.role ?? existing?.role ?? mapped.role }
-        if (idx !== -1) employees.value[idx] = withMock
-        return withMock
+        if (idx !== -1) employees.value[idx] = mapped
+        return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, "Impossible de mettre à jour l'employé")
         throw err
@@ -258,10 +268,7 @@ export const useEmployeeStore = defineStore('employees', () => {
       try {
         const { data } = await api.delete<BackendEmployee>(`/employees/${id}`)
         const idx = employees.value.findIndex(e => e.id === id)
-        if (idx !== -1) {
-          const mapped = mapEmployee(data, idx)
-          employees.value[idx] = { ...mapped, role: employees.value[idx]!.role }
-        }
+        if (idx !== -1) employees.value[idx] = mapEmployee(data, idx)
       } catch (err) {
         error.value = getApiErrorMessage(err, "Impossible de désactiver l'employé")
         throw err
@@ -272,14 +279,14 @@ export const useEmployeeStore = defineStore('employees', () => {
   // Mise à jour locale après la création réussie d'un compte utilisateur
   // (POST /users, voir stores/users.ts) — évite un re-fetch, la source de
   // vérité (Employee.UserId) vient d'être posée côté backend à l'instant.
-  function markHasAccount(employeeId: string) {
+  function markHasAccount(employeeId: string, userId: string) {
     const idx = employees.value.findIndex(e => e.id === employeeId)
-    if (idx !== -1) employees.value[idx] = { ...employees.value[idx]!, hasAccount: true }
+    if (idx !== -1) employees.value[idx] = { ...employees.value[idx]!, hasAccount: true, userId }
   }
 
   return {
     employees, loading, error,
-    activeEmployees, trialEmployees, validatorEmployees, nextCode,
+    activeEmployees, trialEmployees, validatorEmployees, fetchNextNumber,
     getById, getByEntityId, fetchAll, fetchTeam, fetchOne, createEmployee, updateEmployee, deactivateEmployee, markHasAccount,
   }
 })

@@ -13,11 +13,15 @@ import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import CreateUserAccountDialog from './CreateUserAccountDialog.vue'
 import * as cls from '../../lib/formClasses'
+import { formatDate } from '../../lib/date'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
 import { usePositionStore } from '../../stores/positions'
 import { useAuthStore } from '../../stores/auth'
-import type { Employee, UserRole, ContractType, EmployeeStatus } from '../../types'
+import { useUserStore } from '../../stores/users'
+import { usePermissionStore } from '../../stores/permissions'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import type { Employee, ContractType, EmployeeStatus } from '../../types'
 
 const props = defineProps<{ employees: Employee[]; employeeId: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -26,10 +30,18 @@ const store = useEmployeeStore()
 const entityStore = useEntityStore()
 const positionStore = usePositionStore()
 const auth = useAuthStore()
+const userStore = useUserStore()
+const permissionStore = usePermissionStore()
+const categoryStore = useEmployeeCategoryStore()
 if (positionStore.positions.length === 0) positionStore.fetchAll()
+if (permissionStore.permissions.length === 0) permissionStore.fetchAll()
+if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
-const ROLE_LABELS: Record<string, string> = { employee: 'Employé', validator: 'Validateur / Manager', hr_admin: 'Administrateur RH', hr_director: 'Directeur RH' }
 const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Inactif' }
+function categoryName(id?: string): string {
+  if (!id) return '—'
+  return categoryStore.categories.find(c => c.id === id)?.name ?? '—'
+}
 
 const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
 function fetchEntities({ searchQuery }: LookupFetchParams) {
@@ -77,7 +89,7 @@ const form = ref({
   firstName: '', lastName: '', email: '', phone: '',
   positionId: '' as string | null, positionTitle: '',
   entityId: '' as string | null, entityName: '',
-  role: 'employee' as UserRole, contractType: 'CDI' as ContractType,
+  employeeCategoryId: '' as string, contractType: 'CDI' as ContractType,
   hireDate: '', status: 'active' as EmployeeStatus,
 })
 
@@ -87,7 +99,7 @@ function enterEdit() {
   form.value = {
     firstName: e.firstName, lastName: e.lastName, email: e.email ?? '', phone: e.phone ?? '',
     positionId: e.positionId ?? '', positionTitle: e.jobTitle,
-    entityId: e.entityId, entityName: e.entityName ?? '', role: e.role, contractType: e.contractType,
+    entityId: e.entityId, entityName: e.entityName ?? '', employeeCategoryId: e.employeeCategoryId ?? '', contractType: e.contractType,
     hireDate: e.hireDate, status: e.status,
   }
   const ent = e.entityId ? entityStore.getEntityById(e.entityId) : undefined
@@ -118,8 +130,53 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
 
 /* ── Accès système (compte utilisateur) ────────────────────────── */
 const showCreateAccount = ref(false)
-function onAccountCreated() {
-  if (current.value) store.markHasAccount(current.value.id)
+function onAccountCreated(userId: string) {
+  if (current.value) store.markHasAccount(current.value.id, userId)
+  loadUserPermissions()
+}
+
+/* ── Permissions individuelles du compte — indépendantes de la
+   catégorie une fois le compte créé (voir decision du 29/07). ────── */
+const userPermissions = ref<{ permissionId: string; code: string; module: string; label: string }[]>([])
+const loadingPermissions = ref(false)
+
+async function loadUserPermissions() {
+  if (!current.value?.userId) { userPermissions.value = []; return }
+  loadingPermissions.value = true
+  try {
+    const data = await userStore.fetchUserPermissions(current.value.userId)
+    userPermissions.value = data.individualGrants
+  } catch {
+    userPermissions.value = []
+  } finally {
+    loadingPermissions.value = false
+  }
+}
+watch(() => current.value?.id, () => { loadUserPermissions() }, { immediate: true })
+
+const permissionsByModule = computed(() => {
+  const groups = new Map<string, typeof permissionStore.permissions>()
+  for (const p of permissionStore.permissions) {
+    if (!groups.has(p.module)) groups.set(p.module, [])
+    groups.get(p.module)!.push(p)
+  }
+  return [...groups.entries()].map(([module, items]) => ({ module, items }))
+})
+
+function hasUserPermission(permissionId: string): boolean {
+  return userPermissions.value.some(p => p.permissionId === permissionId)
+}
+
+async function toggleUserPermission(permissionId: string, checked: boolean) {
+  if (!current.value?.userId) return
+  try {
+    const data = checked
+      ? await userStore.grantUserPermission(current.value.userId, permissionId)
+      : await userStore.revokeUserPermission(current.value.userId, permissionId)
+    userPermissions.value = data.individualGrants
+  } catch {
+    // userStore.error porte le message pour l'UI (toast)
+  }
 }
 
 /* ── Désactivation ──────────────────────────────────────────────── */
@@ -207,7 +264,7 @@ async function deactivate() {
         </FormSection>
 
         <!-- Affectation -->
-        <FormSection title="Affectation" :recaps="[current.entityName, ROLE_LABELS[current.role]]">
+        <FormSection title="Affectation" :recaps="[current.entityName, categoryName(current.employeeCategoryId)]">
         <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Entité</label>
@@ -222,11 +279,12 @@ async function deactivate() {
             <div v-else :class="readBox">{{ current.entityName || '—' }}</div>
           </div>
           <div :class="cls.field">
-            <label :class="cls.fieldLabel">Rôle</label>
-            <select v-if="isEditMode" v-model="form.role" :class="cls.fieldSelect">
-              <option v-for="(l, v) in ROLE_LABELS" :key="v" :value="v">{{ l }}</option>
+            <label :class="cls.fieldLabel">Catégorie</label>
+            <select v-if="isEditMode" v-model="form.employeeCategoryId" :class="cls.fieldSelect">
+              <option value="">-- Aucune --</option>
+              <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
-            <div v-else :class="readBox">{{ ROLE_LABELS[current.role] }}</div>
+            <div v-else :class="readBox">{{ categoryName(current.employeeCategoryId) }}</div>
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Type de contrat</label>
@@ -238,7 +296,7 @@ async function deactivate() {
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Date d'embauche</label>
             <input v-if="isEditMode" type="date" v-model="form.hireDate" :class="cls.fieldInput" />
-            <div v-else :class="readBox">{{ current.hireDate }}</div>
+            <div v-else :class="readBox">{{ formatDate(current.hireDate) }}</div>
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Statut</label>
@@ -267,6 +325,34 @@ async function deactivate() {
         </div>
         </FormSection>
 
+        <!-- Permissions individuelles du compte -->
+        <FormSection v-if="current.hasAccount && auth.hasPermission('EMPLOYE_PERMISSION_GERER')" title="Permissions individuelles">
+          <p class="text-[11px] text-muted-foreground -mt-1 mb-2">
+            Ajoutées/retirées indépendamment de la catégorie de l'employé — un changement ici n'affecte que ce compte.
+          </p>
+          <div v-if="loadingPermissions" class="text-[13px] text-muted-foreground italic px-1 py-2">Chargement…</div>
+          <div v-else class="flex flex-col gap-3 max-h-[280px] overflow-auto pr-1">
+            <div v-for="mod in permissionsByModule" :key="mod.module">
+              <div class="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] mb-1">{{ mod.module }}</div>
+              <div class="flex flex-col gap-0.5">
+                <label
+                  v-for="p in mod.items"
+                  :key="p.id"
+                  class="flex items-center gap-2.5 px-2 py-1 rounded-md hover:bg-background cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    class="accent-primary"
+                    :checked="hasUserPermission(p.id)"
+                    @change="toggleUserPermission(p.id, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span class="text-[13px] text-foreground">{{ p.label }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </FormSection>
+
         <!-- Désactivation -->
         <div v-if="current.status !== 'inactive' && auth.hasPermission('EMPLOYE_DESACTIVER')" class="flex justify-end mt-1">
           <button :class="[cls.btnOutline, '!text-danger !border-danger/30 hover:!bg-danger-bg']" :disabled="deactivating" @click="deactivate">
@@ -282,7 +368,6 @@ async function deactivate() {
     :employee-id="current.id"
     :employee-name="current.name"
     :employee-email="current.email"
-    :employee-role="current.role"
     @close="showCreateAccount = false"
     @created="onAccountCreated"
   />

@@ -12,11 +12,28 @@ import * as cls from '../../lib/formClasses'
 import { useApprovalPoolStore } from '../../stores/approvalPools'
 import type { ApprovalObjectType } from '../../stores/approvalPools'
 import { useEmployeeStore } from '../../stores/employees'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 
 const props = defineProps<{ entityId: string }>()
 
 const store = useApprovalPoolStore()
 const empStore = useEmployeeStore()
+const categoryStore = useEmployeeCategoryStore()
+if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+
+// Regroupement par catégorie réelle (voir stores/employeeCategories.ts) —
+// remplace les 3 optgroups figés par rôle (Directeur RH/Admin RH/
+// Validateur), qui n'existent plus (voir decision du 29/07).
+const validatorsByCategory = computed(() => {
+  const groups = new Map<string, typeof empStore.employees>()
+  for (const e of empStore.employees) {
+    if (!e.hasAccount) continue
+    const label = categoryStore.categories.find(c => c.id === e.employeeCategoryId)?.name ?? 'Sans catégorie'
+    if (!groups.has(label)) groups.set(label, [])
+    groups.get(label)!.push(e)
+  }
+  return [...groups.entries()].map(([label, employees]) => ({ label, employees }))
+})
 
 function load() { store.fetchByUnit(props.entityId) }
 onMounted(load)
@@ -125,14 +142,8 @@ function employeeLabel(id?: string): string {
               @change="addValidator(level, ($event.target as HTMLSelectElement).value)"
             >
               <option value="">-- Choisir un validateur --</option>
-              <optgroup label="Directeurs RH">
-                <option v-for="e in empStore.employees.filter(x => x.role === 'hr_director' && x.hasAccount)" :key="e.id" :value="e.id">{{ e.name }} · {{ e.jobTitle }}</option>
-              </optgroup>
-              <optgroup label="Admins RH">
-                <option v-for="e in empStore.employees.filter(x => x.role === 'hr_admin' && x.hasAccount)" :key="e.id" :value="e.id">{{ e.name }} · {{ e.jobTitle }}</option>
-              </optgroup>
-              <optgroup label="Validateurs">
-                <option v-for="e in empStore.employees.filter(x => x.role === 'validator' && x.hasAccount)" :key="e.id" :value="e.id">{{ e.name }} · {{ e.jobTitle }}</option>
+              <optgroup v-for="grp in validatorsByCategory" :key="grp.label" :label="grp.label">
+                <option v-for="e in grp.employees" :key="e.id" :value="e.id">{{ e.name }} · {{ e.jobTitle }}</option>
               </optgroup>
             </select>
           </template>

@@ -14,6 +14,7 @@ import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useMissionStore } from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useAuthStore } from '../../stores/auth'
 import type { EmployeeCategory, TransportMode } from '../../types'
 
@@ -22,7 +23,9 @@ const emit = defineEmits<{ close: []; created: [] }>()
 
 const missionStore = useMissionStore()
 const employeeStore = useEmployeeStore()
+const categoryStore = useEmployeeCategoryStore()
 const auth = useAuthStore()
+if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
 const TRANSPORT_MODES: { value: TransportMode; label: string }[] = [
   { value: 'personal_car', label: 'Voiture personnelle' },
@@ -41,19 +44,25 @@ const employeeItems = computed(() =>
 const selectedEmployee = computed(() => {
   if (forWhom.value.mode === 'self') {
     const u = auth.user
-    return u ? { id: u.id, name: u.name, initials: u.initials, role: u.role as string } : null
+    return u ? { id: u.id, name: u.name, initials: u.initials, categoryName: auth.categoryName ?? '' } : null
   }
   const emp = employeeStore.getById(forWhom.value.employeeId)
-  return emp ? { id: emp.id, name: emp.name, initials: emp.initials, role: emp.role as string } : null
+  if (!emp) return null
+  const categoryName = categoryStore.categories.find(c => c.id === emp.employeeCategoryId)?.name ?? ''
+  return { id: emp.id, name: emp.name, initials: emp.initials, categoryName }
 })
 
-function roleToCategory(role: string): EmployeeCategory {
-  if (role === 'hr_director') return 'cat_a'
-  if (role === 'hr_admin') return 'cat_b'
-  if (role === 'validator') return 'cat_c'
+// Estimation provisoire (voir mission-order.service.ts côté backend pour le
+// vrai calcul basé sur ExpenseConfig) — mappe le nom de la catégorie réelle
+// de l'employé sur les 4 paliers mock du store missions.ts en attendant que
+// cet écran soit branché sur /mission-orders/estimate (Domaine 5 frontend).
+function categoryNameToTier(name: string): EmployeeCategory {
+  if (name === 'Directeur RH') return 'cat_a'
+  if (name === 'Admin RH') return 'cat_b'
+  if (name === 'Cadre supérieur' || name === 'Manager' || name === 'Validateur') return 'cat_c'
   return 'cat_d'
 }
-const employeeCategory = computed<EmployeeCategory>(() => selectedEmployee.value ? roleToCategory(selectedEmployee.value.role) : 'cat_d')
+const employeeCategory = computed<EmployeeCategory>(() => selectedEmployee.value ? categoryNameToTier(selectedEmployee.value.categoryName) : 'cat_d')
 const allowance = computed(() => missionStore.getAllowance(employeeCategory.value))
 
 const form = reactive({

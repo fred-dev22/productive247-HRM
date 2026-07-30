@@ -191,7 +191,6 @@ export interface Employee {
   initials:     string
   avatarBg:     string
   avatarText:   string
-  role:         UserRole
   jobTitle:     string
   // FK vers la fiche Position réelle (module Position, branché au backend) —
   // jobTitle ci-dessus est dérivé de positionTitle pour l'affichage, pas
@@ -214,12 +213,16 @@ export interface Employee {
   maritalStatus:   MaritalStatus
   idType:          IdDocumentType
   idNumber?:       string
+  // Catégorie (voir stores/employeeCategories.ts) — détermine le taux de
+  // frais/perdiem (ExpenseConfig) et, à la création d'un compte utilisateur
+  // pour cet employé, le paquet de permissions proposé par défaut.
+  employeeCategoryId?: string
   // A un compte système (peut se connecter) — seul un employé avec un compte
-  // peut être choisi comme validateur. Mock local pour l'instant (dérivé du
-  // rôle à la création) ; le vrai backend le porte via Employee.UserId — la
-  // création du compte utilisateur (identifiants, rôle RBAC) est un chantier
-  // séparé, non couvert par ce domaine.
+  // peut être choisi comme validateur. Reflète Employee.UserId != null.
   hasAccount:   boolean
+  // Employee.UserId — présent seulement si hasAccount, sert à interroger/
+  // modifier les permissions individuelles du compte (voir EmployeeCard.vue).
+  userId?:      string
 }
 
 export interface Entity {

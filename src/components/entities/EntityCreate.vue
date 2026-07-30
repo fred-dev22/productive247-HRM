@@ -10,6 +10,7 @@ import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
+import { suggestCode } from '../../lib/codeGen'
 import { useEntityStore } from '../../stores/entities'
 import { useEmployeeStore } from '../../stores/employees'
 import type { EntityType } from '../../types'
@@ -37,6 +38,14 @@ const parentCode = ref('')
 const managerCode = ref('')
 const form = reactive({ name: '', code: '', type: '' as EntityType | '', parentId: '' as string | null, parentName: '', legalIdentifier: '', address: '', managerId: '' as string | null, responsibleName: '', phone: '', email: '' })
 const error = ref('')
+
+// Le code suit l'intitulé tant que l'utilisateur ne l'a pas modifié à la
+// main (voir décision du 25/07 : suggestion courte dérivée du nom, modifiable).
+const codeTouched = ref(false)
+function onNameInput() {
+  if (!codeTouched.value) form.code = suggestCode(form.name, store.entities.length)
+}
+function onCodeInput() { codeTouched.value = true }
 
 function onParentSelect(item: Record<string, unknown>) { form.parentId = String(item.id); form.parentName = String(item.name); parentCode.value = String(item.code) }
 function onManagerSelect(item: Record<string, unknown>) { form.managerId = String(item.id); form.responsibleName = String(item.name); managerCode.value = String(item.code) }
@@ -97,11 +106,11 @@ async function saveDraft() {
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="[cls.field, 'col-span-full']">
               <label :class="cls.fieldLabel">Intitulé <span class="text-danger">*</span></label>
-              <input v-model="form.name" :class="cls.fieldInput" placeholder="ex : Direction des Ressources Humaines" />
+              <input v-model="form.name" :class="cls.fieldInput" placeholder="ex : Direction des Ressources Humaines" @input="onNameInput" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Code <span class="text-danger">*</span></label>
-              <input v-model="form.code" :class="cls.fieldInput" maxlength="10" placeholder="ex : DRH" @input="form.code = form.code.toUpperCase()" />
+              <input v-model="form.code" :class="cls.fieldInput" placeholder="ex : DIRE-RESS-001" @input="onCodeInput" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Type <span class="text-danger">*</span></label>

@@ -41,9 +41,9 @@
 
     <!-- Cellules -->
     <template #cell-type="{ item }"><span class="whitespace-nowrap">{{ item.leaveTypeName }}</span></template>
-    <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ item.startDate }} → {{ item.endDate }}</span></template>
+    <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ formatDate(item.startDate) }} → {{ formatDate(item.endDate) }}</span></template>
     <template #cell-days="{ item }"><span class="font-medium whitespace-nowrap">{{ item.daysCount }}j</span></template>
-    <template #cell-submitted="{ item }"><span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ item.createdAt.slice(0, 10) }}</span></template>
+    <template #cell-submitted="{ item }"><span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ formatDate(item.createdAt) }}</span></template>
     <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
     <!-- Aperçu -->
@@ -52,10 +52,10 @@
         <div class="text-sm font-semibold text-foreground">{{ item.leaveTypeName }}</div>
         <div><StatusPill :status="item.status" /></div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
-          <div><div class="text-muted-foreground text-[11px]">Début</div>{{ item.startDate }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Fin</div>{{ item.endDate }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Début</div>{{ formatDate(item.startDate) }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Fin</div>{{ formatDate(item.endDate) }}</div>
           <div><div class="text-muted-foreground text-[11px]">Jours ouvrés</div>{{ item.daysCount }}j</div>
-          <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ item.createdAt.slice(0, 10) }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ formatDate(item.createdAt) }}</div>
         </div>
         <div v-if="item.reason" class="text-[12px]"><div class="text-muted-foreground text-[11px]">Motif</div>{{ item.reason }}</div>
         <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
@@ -83,6 +83,7 @@ import AbsenceCard from '../../components/absences/AbsenceCard.vue'
 import AbsenceCreate from '../../components/absences/AbsenceCreate.vue'
 import AbsenceWorkflowActions from '../../components/absences/AbsenceWorkflowActions.vue'
 import * as L from '../../lib/listClasses'
+import { formatDate } from '../../lib/date'
 import { useAuthStore } from '../../stores/auth'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'

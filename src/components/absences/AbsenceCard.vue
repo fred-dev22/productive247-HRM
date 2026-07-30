@@ -13,6 +13,7 @@ import FormSection from '../ui/form-field/FormSection.vue'
 import SearchableDropdown from '../ui/SearchableDropdown.vue'
 import AbsenceWorkflowActions from './AbsenceWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
+import { formatDate } from '../../lib/date'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { LeaveRequest } from '../../types'
@@ -164,14 +165,14 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Date de début</label>
             <input v-if="isEditMode" type="date" v-model="form.startDate" :class="cls.fieldInput" />
-            <div v-else :class="readBox">{{ current.startDate }}</div>
+            <div v-else :class="readBox">{{ formatDate(current.startDate) }}</div>
           </div>
 
           <!-- Date fin -->
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Date de fin</label>
             <input v-if="isEditMode" type="date" v-model="form.endDate" :min="form.startDate" :class="cls.fieldInput" />
-            <div v-else :class="readBox">{{ current.endDate }}</div>
+            <div v-else :class="readBox">{{ formatDate(current.endDate) }}</div>
           </div>
 
           <!-- Jours ouvrés -->

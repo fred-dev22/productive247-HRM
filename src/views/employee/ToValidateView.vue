@@ -26,9 +26,9 @@
       <div class="flex items-center gap-2"><UserAvatar :name="item.employeeName" size="sm" /><span class="truncate">{{ item.employeeName }}</span></div>
     </template>
     <template #cell-type="{ item }"><span class="whitespace-nowrap">{{ item.leaveTypeName }}</span></template>
-    <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ item.startDate }} → {{ item.endDate }}</span></template>
+    <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ formatDate(item.startDate) }} → {{ formatDate(item.endDate) }}</span></template>
     <template #cell-workingDays="{ item }"><span class="font-medium">{{ item.daysCount }}j</span></template>
-    <template #cell-createdAt="{ item }"><span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ item.createdAt.slice(0, 10) }}</span></template>
+    <template #cell-createdAt="{ item }"><span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ formatDate(item.createdAt) }}</span></template>
     <!-- Cellules MISSIONS -->
     <template #cell-code="{ item }"><span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span></template>
     <template #cell-destination="{ item }"><span class="truncate">{{ item.destination }}</span></template>
@@ -56,6 +56,7 @@ import AbsenceCard from '../../components/absences/AbsenceCard.vue'
 import AbsenceWorkflowActions from '../../components/absences/AbsenceWorkflowActions.vue'
 import MissionCard from '../../components/missions/MissionCard.vue'
 import MissionWorkflowActions from '../../components/missions/MissionWorkflowActions.vue'
+import { formatDate } from '../../lib/date'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useMissionStore } from '../../stores/missions'
 import type { LeaveRequest, MissionOrder } from '../../types'
