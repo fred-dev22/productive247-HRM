@@ -25,7 +25,6 @@ const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   'hr-org-chart':        'ENTITE_VOIR',
   'hr-config-calendar':      'CONFIG_CALENDRIER',
   'hr-config-mission-fees':  'CONFIG_FRAIS_MISSION',
-  'hr-config-perdiems':      'CONFIG_FRAIS_MISSION',
   'hr-config-classification': ['CONFIG_METIERS_POSTES', 'CONFIG_CATEGORIES_EMPLOYE'],
   'hr-statistics':       'RAPPORT_VOIR',
   'hr-absences':         ['CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE'],
@@ -118,11 +117,6 @@ const router = createRouter({
     {
       path: '/hr/config/mission-fees', name: 'hr-config-mission-fees',
       component: () => import('../views/configuration/MissionConfigView.vue'),
-      meta: { requiresAuth: true, layout: 'dashboard' },
-    },
-    {
-      path: '/hr/config/perdiems', name: 'hr-config-perdiems',
-      component: () => import('../views/configuration/PerdiemView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
     },
     // Redirects de compatibilité — les 3 écrans séparés ont fusionné dans

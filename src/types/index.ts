@@ -70,21 +70,21 @@ export interface LeaveBalance {
   balance:       number
 }
 
+// Statut de MissionOrder — reprend tel quel l'enum backend (voir
+// productive247-hrm-backend mission-order.service.ts), meme convention que
+// LeaveRequestStatus (workflow N+1..N+4 partagé via ApprovalPool).
 export type MissionStatus =
-  | 'draft' | 'pending' | 'approved' | 'rejected' | 'returned' | 'cancelled'
+  | 'Draft' | 'Pending'
+  | 'InApprovalN1' | 'InApprovalN2' | 'InApprovalN3' | 'InApprovalN4'
+  | 'Approved' | 'Rejected' | 'Returned' | 'Cancelled'
 
 export type TransportMode =
-  | 'personal_car' | 'company_car' | 'public_transport' | 'plane' | 'other'
+  | 'PersonalCar' | 'CompanyCar' | 'PublicTransport' | 'Plane' | 'Other'
 
-export type EmployeeCategory = 'cat_a' | 'cat_b' | 'cat_c' | 'cat_d'
-
-export interface MissionAllowance {
-  category:       EmployeeCategory
-  hotelPerDay:    number
-  transportFlat:  number
-  mealPerDay:     number
-  currency:       string
-}
+// MissionCategory (Local/National/International) determine, croisee avec la
+// EmployeeCategory reelle de l'employe (voir stores/employeeCategories.ts),
+// quelle ligne de la matrice ExpenseConfig s'applique — voir missionConfig.ts.
+export type MissionCategory = 'Local' | 'National' | 'International'
 
 export interface PerdiemRate {
   id:          string
@@ -94,78 +94,93 @@ export interface PerdiemRate {
   description: string
 }
 
-export interface MissionOrder {
-  id:                  string
-  code:                string
-  employeeId:          string
-  employeeName:        string
-  employeeInitials:    string
-  employeeCategory:    EmployeeCategory
-  destination:         string
-  purpose:             string
-  departureDate:       string
-  returnDate:          string
-  transportMode:       TransportMode
-  transportModeReturn: TransportMode
-  description?:        string
-  numberOfDays:        number
-  hotelAllowance:      number
-  transportAllowance:  number
-  mealAllowance:       number
-  totalMission:        number
-  advanceRequested:    number
-  status:              MissionStatus
-  validationHistory:   ValidationStep[]
-  createdAt:           string
-  submittedAt?:        string
+// Une ligne d'indemnite calculee cote backend a partir de la matrice
+// ExpenseConfig (EmployeeCategory x ExpenseType x MissionCategory) — voir
+// mission-order.service.ts computeAllowanceEstimate(). Aucun montant n'est
+// stocke sur MissionOrder, tout est recalcule a la volee.
+export interface MissionAllowanceLine {
+  expenseTypeId:     string
+  expenseTypeName:   string
+  unit:              'PerDay' | 'PerTrip' | 'PerItem'
+  rate:              number
+  days:              number
+  amount:            number
+  currency:          string
+  documentRequired:  boolean
 }
 
-export type ExpenseStatus = 'draft' | 'pending' | 'approved' | 'rejected'
+export interface MissionOrder {
+  id:                   string
+  referenceCode:        string
+  employeeId:           string
+  employeeName:         string
+  employeeInitials:     string
+  employeeCategoryId?:  string
+  destination:          string
+  missionCategory:      MissionCategory
+  purpose:              string
+  departureDate:        string
+  returnDate:           string
+  daysCount:            number
+  transportModeGo:      TransportMode
+  transportModeReturn:  TransportMode
+  advanceRequested:     number
+  currency:             string
+  status:               MissionStatus
+  approvalPoolId?:      string
+  currentApprovalStep?: number
+  rejectionReason?:     string
+  // Present sur les listes (mine/team/all/pendingForMe) — total estime via
+  // attachEstimatedTotals(), pas de detail par ligne.
+  estimatedTotal?:      number
+  // Present uniquement sur le detail (GET /mission-orders/:id).
+  allowance?:           { lines: MissionAllowanceLine[]; total: number }
+  createdAt:            string
+  modifiedAt?:          string | null
+  validationHistory?:   ValidationStep[]
+}
 
-export type ExpenseCategory =
-  | 'transport' | 'hebergement' | 'repas' | 'carburant'
-  | 'fournitures' | 'communication' | 'representation' | 'autre'
+// Statut d'ExpenseReport — reprend tel quel l'enum backend (voir
+// expense-report.service.ts), meme convention que LeaveRequestStatus/
+// MissionStatus (workflow N+1..N+4 partage via ApprovalPool).
+export type ExpenseStatus =
+  | 'Draft' | 'Pending'
+  | 'InApprovalN1' | 'InApprovalN2' | 'InApprovalN3' | 'InApprovalN4'
+  | 'Approved' | 'Rejected' | 'Returned' | 'Cancelled' | 'Reimbursed'
 
+// La categorie d'une ligne est un ExpenseType reel (voir
+// stores/missionConfig.ts) — le meme catalogue que celui utilise pour le per
+// diem des missions, pas une enumeration figee separee.
 export interface ExpenseLine {
-  id:          string
-  date:        string
-  category:    ExpenseCategory
-  description: string
-  amount:      number
-  currency:    string
-  receipt:     boolean
+  id:              string
+  date:            string
+  expenseTypeId:   string
+  expenseTypeName: string
+  description?:    string
+  amount:          number
+  currency:        string
+  hasDocument:     boolean
 }
 
 export interface ExpenseReport {
-  id:               string
-  code:             string
-  employeeId:       string
-  employeeName:     string
-  employeeInitials: string
-  title:            string
-  missionId?:       string
-  lines:            ExpenseLine[]
-  totalAmount:      number
-  currency:         string
-  status:           ExpenseStatus
-  rejectionReason?: string
-  submittedAt?:     string
-  createdAt:        string
-  validationHistory: ValidationStep[]
-}
-
-export type RemoteStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
-
-export interface RemoteWorkRequest {
-  id: number
-  employeeName: string
-  employeeInitials: string
-  startDate: string
-  endDate: string
-  reason: string
-  status: RemoteStatus
-  rejectionReason?: string
-  submittedAt: string
+  id:                   string
+  referenceCode:        string
+  employeeId:           string
+  employeeName:         string
+  employeeInitials:     string
+  title:                string
+  missionOrderId?:      string
+  lines:                ExpenseLine[]
+  totalAmount:          number
+  currency:             string
+  status:               ExpenseStatus
+  approvalPoolId?:      string
+  currentApprovalStep?: number
+  rejectionReason?:     string
+  submittedAt?:         string
+  createdAt:            string
+  modifiedAt?:          string | null
+  validationHistory?:   ValidationStep[]
 }
 
 // ── Entities ─────────────────────────────────────────────────

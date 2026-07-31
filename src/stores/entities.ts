@@ -220,5 +220,9 @@ export const useEntityStore = defineStore('entities', {
     async deactivateEntity(id: string) {
       await this.updateEntity(id, { status: 'Inactive' })
     },
+
+    async reactivateEntity(id: string) {
+      await this.updateEntity(id, { status: 'Active' })
+    },
   },
 })

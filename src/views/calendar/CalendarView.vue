@@ -315,6 +315,7 @@ import FormSection from '../../components/ui/form-field/FormSection.vue'
 import { SkeletonLoader } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
+import { confirmDialog } from '../../lib/confirm'
 import { useAuthStore }       from '../../stores/auth'
 import { useCalendarStore }   from '../../stores/calendar'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
@@ -389,7 +390,7 @@ const editLTId    = ref<string | undefined>(undefined)
 function openAddLT() { editLTId.value = undefined; showLTModal.value = true }
 function openEditLT(id: string) { editLTId.value = id; showLTModal.value = true }
 async function deleteLT(id: string) {
-  if (!confirm('Supprimer ce type de congé ?')) return
+  if (!(await confirmDialog('Supprimer ce type de congé ?'))) return
   try {
     await leaveTypesStore.deleteLeaveType(id)
   } catch {
@@ -490,7 +491,7 @@ async function savePonctualHoliday() {
 }
 
 async function deleteHoliday(id: string) {
-  if (!confirm('Supprimer ce jour férié ?')) return
+  if (!(await confirmDialog('Supprimer ce jour férié ?'))) return
   try {
     await calendarStore.removeHoliday(id)
   } catch {

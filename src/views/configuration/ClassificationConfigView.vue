@@ -314,6 +314,7 @@ import type { Job } from '../../stores/jobs'
 import { usePositionStore } from '../../stores/positions'
 import type { Position } from '../../stores/positions'
 import { useEntityStore } from '../../stores/entities'
+import { confirmDialog } from '../../lib/confirm'
 
 const iconBtn = 'w-7 h-7 flex items-center justify-center border-0 rounded-md bg-background text-muted-foreground cursor-pointer transition-colors hover:bg-primary/10 hover:text-primary'
 
@@ -379,7 +380,7 @@ async function saveCat() {
   }
 }
 async function removeCat(category: EmployeeCategory) {
-  if (!confirm(`Supprimer la catégorie « ${category.name} » ?`)) return
+  if (!(await confirmDialog(`Supprimer la catégorie « ${category.name} » ?`))) return
   try {
     await catStore.deleteCategory(category.id)
   } catch {
@@ -471,7 +472,7 @@ async function saveJob() {
   }
 }
 async function removeJob(job: Job) {
-  if (!confirm(`Supprimer le métier « ${job.title} » ?`)) return
+  if (!(await confirmDialog(`Supprimer le métier « ${job.title} » ?`))) return
   try {
     await jobStore.deleteJob(job.id)
   } catch {
@@ -482,7 +483,10 @@ async function removeJob(job: Job) {
 // ═══════════════════════ Poste ═══════════════════════
 const posStore = usePositionStore()
 const entityStore = useEntityStore()
-if (posStore.positions.length === 0) posStore.fetchAll()
+// Toujours rafraichir (pas de garde sur .length) — l'occupation change a
+// chaque creation/suppression d'employe ailleurs dans l'app (meme raison
+// que EmployeeCreate.vue / EmployeeFormView.vue, voir decision du 30/07).
+posStore.fetchAll()
 if (entityStore.entities.length === 0) entityStore.fetchAll()
 
 const posColumns = [
@@ -568,7 +572,7 @@ async function savePos() {
   }
 }
 async function removePos(position: Position) {
-  if (!confirm(`Supprimer le poste « ${position.title} » ?`)) return
+  if (!(await confirmDialog(`Supprimer le poste « ${position.title} » ?`))) return
   try {
     await posStore.deletePosition(position.id)
   } catch {

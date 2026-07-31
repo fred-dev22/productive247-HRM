@@ -30,8 +30,8 @@
     </template>
 
     <!-- Cellules -->
-    <template #cell-code="{ item }">
-      <span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span>
+    <template #cell-referenceCode="{ item }">
+      <span class="font-mono text-xs font-semibold text-primary">{{ item.referenceCode }}</span>
     </template>
     <template #cell-employeeName="{ item }">
       <div class="flex items-center gap-2">
@@ -42,11 +42,11 @@
     <template #cell-dates="{ item }">
       <span class="whitespace-nowrap text-[11px]">{{ shortDate(item.departureDate) }} → {{ shortDate(item.returnDate) }}</span>
     </template>
-    <template #cell-numberOfDays="{ item }">
-      <span class="bg-info-bg text-info text-[11px] font-semibold px-2 py-0.5 rounded-full">{{ item.numberOfDays }}j</span>
+    <template #cell-daysCount="{ item }">
+      <span class="bg-info-bg text-info text-[11px] font-semibold px-2 py-0.5 rounded-full">{{ item.daysCount }}j</span>
     </template>
-    <template #cell-totalMission="{ item }">
-      <span class="font-semibold whitespace-nowrap tabular-nums">{{ fmtNum(item.totalMission) }} MGA</span>
+    <template #cell-estimatedTotal="{ item }">
+      <span class="font-semibold whitespace-nowrap tabular-nums">{{ fmtNum(item.estimatedTotal ?? 0) }} MGA</span>
     </template>
     <template #cell-status="{ item }">
       <StatusPill :status="item.status" />
@@ -59,19 +59,19 @@
           <UserAvatar :name="item.employeeName" size="md" />
           <div class="min-w-0">
             <div class="text-sm font-semibold text-foreground truncate">{{ item.employeeName }}</div>
-            <div class="text-[11px] text-muted-foreground font-mono">{{ item.code }}</div>
+            <div class="text-[11px] text-muted-foreground font-mono">{{ item.referenceCode }}</div>
           </div>
         </div>
         <div><StatusPill :status="item.status" /></div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
           <div><div class="text-muted-foreground text-[11px]">Destination</div>{{ item.destination }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Durée</div>{{ item.numberOfDays }}j</div>
+          <div><div class="text-muted-foreground text-[11px]">Durée</div>{{ item.daysCount }}j</div>
           <div><div class="text-muted-foreground text-[11px]">Départ</div>{{ shortDate(item.departureDate) }}</div>
           <div><div class="text-muted-foreground text-[11px]">Retour</div>{{ shortDate(item.returnDate) }}</div>
         </div>
         <div class="text-[12px]">
-          <div class="text-muted-foreground text-[11px]">Total mission</div>
-          <span class="font-semibold text-primary">{{ fmtNum(item.totalMission) }} MGA</span>
+          <div class="text-muted-foreground text-[11px]">Total mission (estimé)</div>
+          <span class="font-semibold text-primary">{{ fmtNum(item.estimatedTotal ?? 0) }} MGA</span>
         </div>
         <div v-if="item.purpose" class="text-[12px]">
           <div class="text-muted-foreground text-[11px]">Objet</div>{{ item.purpose }}
@@ -89,12 +89,12 @@
 
     <!-- Fiche (double-clic) + création -->
     <MissionCard v-if="openCardId !== null" :missions="filtered" :mission-id="openCardId" @close="openCardId = null" />
-    <MissionCreate v-if="showCreate" :mode="isRh ? 'for-employee' : 'self'" @close="showCreate = false" />
+    <MissionCreate v-if="showCreate" :mode="isRh ? 'for-employee' : 'self'" @close="showCreate = false" @created="reload" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Plus, Plane } from 'lucide-vue-next'
 import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -109,7 +109,21 @@ import type { MissionOrder } from '../../types'
 const auth = useAuthStore()
 const missionStore = useMissionStore()
 
-const isRh = computed(() => auth.hasAnyPermission(['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE']))
+const canSeeAll = computed(() => auth.hasPermission('MISSION_VOIR_TOUT'))
+const canSeeTeam = computed(() => auth.hasPermission('MISSION_VOIR_EQUIPE'))
+const isRh = computed(() => canSeeAll.value || canSeeTeam.value)
+
+// Source de données : la portée la plus large a laquelle l'utilisateur a
+// droit (MISSION_VOIR_TOUT > MISSION_VOIR_EQUIPE > soi-meme), reflete les 3
+// endpoints reels du backend (findAll/findTeam/findMine).
+const sourceList = computed<MissionOrder[]>(() => canSeeAll.value ? missionStore.all : canSeeTeam.value ? missionStore.team : missionStore.mine)
+
+function reload() {
+  if (canSeeAll.value) missionStore.fetchAll()
+  else if (canSeeTeam.value) missionStore.fetchTeam()
+  else missionStore.fetchMine()
+}
+onMounted(reload)
 
 const showCreate = ref(false)
 const openCardId = ref<string | null>(null)
@@ -124,14 +138,14 @@ function fmtNum(n: number) { return n.toLocaleString('fr-FR') }
 /* ── Colonnes (sans colonne Actions) ────────────────────────── */
 const columns = computed<ListColumn[]>(() => {
   const base: ListColumn[] = [
-    { key: 'code', label: 'Code', sortable: true, hideable: false, width: 130 },
+    { key: 'referenceCode', label: 'Code', sortable: true, hideable: false, width: 130 },
   ]
   if (isRh.value) base.push({ key: 'employeeName', label: 'Employé', sortable: true, width: 200 })
   base.push(
     { key: 'destination', label: 'Destination', sortable: true, width: 170 },
     { key: 'dates', label: 'Dates', width: 170 },
-    { key: 'numberOfDays', label: 'Jours', align: 'center', width: 90 },
-    { key: 'totalMission', label: 'Total', sortable: true, align: 'right', width: 150 },
+    { key: 'daysCount', label: 'Jours', align: 'center', width: 90 },
+    { key: 'estimatedTotal', label: 'Total', sortable: true, align: 'right', width: 150 },
     { key: 'status', label: 'Statut', width: 130 },
   )
   return base
@@ -140,13 +154,14 @@ const columns = computed<ListColumn[]>(() => {
 /* ── Scope (statut) ─────────────────────────────────────────── */
 const scopeOptions = [
   { value: '', label: 'Toutes' },
-  { value: 'draft', label: 'Brouillon' },
+  { value: 'Draft', label: 'Brouillon' },
   { value: 'pending', label: 'En attente' },
-  { value: 'approved', label: 'Approuvée' },
-  { value: 'rejected', label: 'Refusée' },
-  { value: 'returned', label: 'Retournée' },
-  { value: 'cancelled', label: 'Annulée' },
+  { value: 'Approved', label: 'Approuvée' },
+  { value: 'Rejected', label: 'Refusée' },
+  { value: 'Returned', label: 'Retournée' },
+  { value: 'Cancelled', label: 'Annulée' },
 ]
+const IN_APPROVAL = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
 const activeScope = ref('')
 
 /* ── État liste ─────────────────────────────────────────────── */
@@ -159,15 +174,16 @@ const pageSize = ref(10)
 watch([activeScope, searchQuery, pageSize], () => { page.value = 1 })
 
 const sortFieldMap: Record<string, keyof MissionOrder> = {
-  code: 'code', employeeName: 'employeeName', destination: 'destination', totalMission: 'totalMission',
+  referenceCode: 'referenceCode', employeeName: 'employeeName', destination: 'destination', estimatedTotal: 'estimatedTotal',
 }
 
 const filtered = computed(() => {
-  let rows = isRh.value ? missionStore.missions : missionStore.myMissions(auth.user?.id ?? '')
-  if (activeScope.value) rows = rows.filter(m => m.status === activeScope.value)
+  let rows = sourceList.value
+  if (activeScope.value === 'pending') rows = rows.filter(m => IN_APPROVAL.has(m.status))
+  else if (activeScope.value) rows = rows.filter(m => m.status === activeScope.value)
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
-    rows = rows.filter(m => m.code.toLowerCase().includes(q) || m.employeeName.toLowerCase().includes(q) || m.destination.toLowerCase().includes(q))
+    rows = rows.filter(m => m.referenceCode.toLowerCase().includes(q) || m.employeeName.toLowerCase().includes(q) || m.destination.toLowerCase().includes(q))
   }
   if (sortKey.value && sortFieldMap[sortKey.value]) {
     const f = sortFieldMap[sortKey.value]!

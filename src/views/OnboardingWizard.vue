@@ -248,6 +248,7 @@ import LeaveTypeFormModal from '../components/configuration/LeaveTypeFormModal.v
 import CreateModalShell   from '../components/shared/CreateModalShell.vue'
 import FormSection        from '../components/ui/form-field/FormSection.vue'
 import * as cls from '../lib/formClasses'
+import { confirmDialog } from '../lib/confirm'
 
 const auth          = useAuthStore()
 const calendarStore = useCalendarStore()
@@ -347,7 +348,7 @@ async function savePonctualHoliday() {
 }
 
 async function deleteHoliday(id: string) {
-  if (!confirm('Supprimer ce jour férié ?')) return
+  if (!(await confirmDialog('Supprimer ce jour férié ?'))) return
   try {
     await calendarStore.removeHoliday(id)
   } catch {

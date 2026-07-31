@@ -1,210 +1,398 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
+import { api, getApiErrorMessage } from '../lib/api'
+import { withToast } from '../lib/withToast'
 import type {
-  MissionOrder, MissionStatus, EmployeeCategory,
-  TransportMode, MissionAllowance, ValidationStep,
+  MissionOrder, MissionStatus, MissionCategory, TransportMode,
+  MissionAllowanceLine, ValidationStep,
 } from '../types'
 
-const ALLOWANCES: MissionAllowance[] = [
-  { category: 'cat_a', hotelPerDay: 150000, transportFlat: 50000, mealPerDay: 30000, currency: 'MGA' },
-  { category: 'cat_b', hotelPerDay: 100000, transportFlat: 40000, mealPerDay: 25000, currency: 'MGA' },
-  { category: 'cat_c', hotelPerDay:  75000, transportFlat: 30000, mealPerDay: 20000, currency: 'MGA' },
-  { category: 'cat_d', hotelPerDay:  50000, transportFlat: 20000, mealPerDay: 15000, currency: 'MGA' },
-]
-
-function computeDays(departure: string, returnD: string): number {
-  const d = new Date(departure)
-  const r = new Date(returnD)
-  const diff = Math.ceil((r.getTime() - d.getTime()) / 86400000)
-  return Math.max(1, diff)
+// ── Backend <-> frontend mapping ────────────────────────────────
+interface BackendEmployeeRef { Id: string; FullName: string; EmployeeNumber?: string; EmployeeCategoryId?: string | null }
+interface BackendDecision {
+  Id: string
+  StepOrder: number
+  Decision: 'Pending' | 'Approved' | 'Rejected' | 'Returned'
+  Comment: string | null
+  DecidedAt: string | null
+  CreatedAt: string
+  validatedByEmployee?: BackendEmployeeRef
+}
+interface BackendAllowanceLine {
+  expenseTypeId: string
+  expenseTypeName: string
+  unit: 'PerDay' | 'PerTrip' | 'PerItem'
+  rate: number
+  days: number
+  amount: number
+  currency: string
+  documentRequired: boolean
+}
+interface BackendMissionOrder {
+  Id: string
+  ReferenceCode: string
+  EmployeeId: string
+  Destination: string
+  MissionCategory: string
+  Purpose: string
+  DepartureDate: string
+  ReturnDate: string
+  DaysCount: string | number
+  TransportModeGo: string
+  TransportModeReturn: string
+  AdvanceRequested: string | number
+  Currency: string
+  Status: string
+  ApprovalPoolId: string | null
+  CurrentApprovalStep: number | null
+  RejectionReason: string | null
+  CreatedAt: string
+  ModifiedAt?: string | null
+  employee?: BackendEmployeeRef
+  EstimatedTotal?: number
+  decisions?: BackendDecision[]
+  allowance?: { lines: BackendAllowanceLine[]; total: number }
 }
 
-function buildMission(
-  id: string, code: string,
-  employeeId: string, employeeName: string, employeeInitials: string,
-  category: EmployeeCategory,
-  destination: string, purpose: string,
-  departure: string, returnD: string,
-  transport: TransportMode, transportReturn: TransportMode,
-  status: MissionStatus, createdAt: string,
-  history: ValidationStep[], description?: string, submittedAt?: string, advance = 0,
-): MissionOrder {
-  const allowance = ALLOWANCES.find(a => a.category === category)!
-  const days      = computeDays(departure, returnD)
-  const hotel     = allowance.hotelPerDay * days
-  const meal      = allowance.mealPerDay  * days
-  const transport2 = allowance.transportFlat
+function initialsFromFullName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] ?? '') + (parts[parts.length - 1]?.[0] ?? '')).toUpperCase()
+}
+
+const STEP_LEVEL: Record<number, ValidationStep['level']> = { 1: 'n1', 2: 'n2', 3: 'n3', 4: 'n4' }
+const DECISION_ACTION: Record<string, ValidationStep['action']> = {
+  Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Returned: 'returned',
+}
+
+function mapDecision(d: BackendDecision): ValidationStep {
+  const name = d.validatedByEmployee?.FullName ?? ''
   return {
-    id, code, employeeId, employeeName, employeeInitials, employeeCategory: category,
-    destination, purpose, departureDate: departure, returnDate: returnD,
-    transportMode: transport, transportModeReturn: transportReturn,
-    description, numberOfDays: days,
-    hotelAllowance: hotel, transportAllowance: transport2, mealAllowance: meal,
-    totalMission: hotel + transport2 + meal,
-    advanceRequested: advance, status,
-    validationHistory: history,
-    createdAt, submittedAt,
+    level: STEP_LEVEL[d.StepOrder] ?? 'n1',
+    actorName: name,
+    actorInitials: initialsFromFullName(name),
+    action: DECISION_ACTION[d.Decision] ?? 'pending',
+    date: d.DecidedAt ?? '',
+    comment: d.Comment ?? undefined,
   }
 }
 
-let _idSeq = 5
+function mapAllowanceLine(l: BackendAllowanceLine): MissionAllowanceLine {
+  return {
+    expenseTypeId: l.expenseTypeId,
+    expenseTypeName: l.expenseTypeName,
+    unit: l.unit,
+    rate: l.rate,
+    days: l.days,
+    amount: l.amount,
+    currency: l.currency,
+    documentRequired: l.documentRequired,
+  }
+}
+
+function mapMissionOrder(raw: BackendMissionOrder): MissionOrder {
+  const employeeName = raw.employee?.FullName ?? ''
+  return {
+    id: raw.Id,
+    referenceCode: raw.ReferenceCode,
+    employeeId: raw.EmployeeId,
+    employeeName,
+    employeeInitials: initialsFromFullName(employeeName),
+    employeeCategoryId: raw.employee?.EmployeeCategoryId ?? undefined,
+    destination: raw.Destination,
+    missionCategory: raw.MissionCategory as MissionCategory,
+    purpose: raw.Purpose,
+    departureDate: raw.DepartureDate.slice(0, 10),
+    returnDate: raw.ReturnDate.slice(0, 10),
+    daysCount: Number(raw.DaysCount),
+    transportModeGo: raw.TransportModeGo as TransportMode,
+    transportModeReturn: raw.TransportModeReturn as TransportMode,
+    advanceRequested: Number(raw.AdvanceRequested),
+    currency: raw.Currency,
+    status: raw.Status as MissionStatus,
+    approvalPoolId: raw.ApprovalPoolId ?? undefined,
+    currentApprovalStep: raw.CurrentApprovalStep ?? undefined,
+    rejectionReason: raw.RejectionReason ?? undefined,
+    estimatedTotal: raw.EstimatedTotal,
+    allowance: raw.allowance ? { lines: raw.allowance.lines.map(mapAllowanceLine), total: raw.allowance.total } : undefined,
+    createdAt: raw.CreatedAt,
+    modifiedAt: raw.ModifiedAt ?? undefined,
+    validationHistory: raw.decisions ? raw.decisions.map(mapDecision) : undefined,
+  }
+}
+
+export interface CreateMissionPayload {
+  destination: string
+  missionCategory: MissionCategory
+  purpose: string
+  departureDate: string
+  returnDate: string
+  transportModeGo: TransportMode
+  transportModeReturn: TransportMode
+  advanceRequested?: number
+  currency?: string
+  employeeId?: string // uniquement si on soumet pour un autre employé (MISSION_VOIR_TOUT)
+}
+
+function toBackendCreatePayload(p: CreateMissionPayload) {
+  return {
+    EmployeeId: p.employeeId,
+    Destination: p.destination,
+    MissionCategory: p.missionCategory,
+    Purpose: p.purpose,
+    DepartureDate: p.departureDate,
+    ReturnDate: p.returnDate,
+    TransportModeGo: p.transportModeGo,
+    TransportModeReturn: p.transportModeReturn,
+    AdvanceRequested: p.advanceRequested,
+    Currency: p.currency,
+  }
+}
+
+export interface EstimateResult {
+  days: number
+  lines: MissionAllowanceLine[]
+  total: number
+}
 
 export const useMissionStore = defineStore('missions', () => {
+  const mine         = ref<MissionOrder[]>([])
+  const team         = ref<MissionOrder[]>([])
+  const all          = ref<MissionOrder[]>([])
+  const pendingForMe = ref<MissionOrder[]>([])
+  const loading      = ref(false)
+  const error        = ref<string | null>(null)
 
-  const missions = ref<MissionOrder[]>([
-    buildMission(
-      'mis-1', 'OM-2026-001', 'emp-1', 'Aminata Diallo', 'AD', 'cat_b',
-      'Antananarivo', 'Réunion de coordination interservices',
-      '2026-07-14T08:00', '2026-07-16T18:00', 'plane', 'plane',
-      'approved', '2026-06-10T09:00:00',
-      [
-        { level: 'employee', actorName: 'Aminata Diallo', actorInitials: 'AD', action: 'submitted', date: '2026-06-10T09:00:00' },
-        { level: 'n1', actorName: 'Sonia Boodhun', actorInitials: 'SB', action: 'approved', date: '2026-06-11T10:00:00', comment: 'Validé, bon voyage' },
-      ],
-      'Déplacement pour réunion DG', '2026-06-10T09:00:00', 50000,
-    ),
-    buildMission(
-      'mis-2', 'OM-2026-002', 'emp-4', 'Jean-Pierre Mvondo', 'JP', 'cat_a',
-      'Toamasina', 'Audit comptable site de Toamasina',
-      '2026-07-20T06:00', '2026-07-23T20:00', 'company_car', 'company_car',
-      'pending', '2026-06-28T11:00:00',
-      [
-        { level: 'employee', actorName: 'Jean-Pierre Mvondo', actorInitials: 'JP', action: 'submitted', date: '2026-06-28T11:00:00' },
-        { level: 'n1', actorName: 'Sonia Boodhun', actorInitials: 'SB', action: 'pending', date: '' },
-      ],
-      undefined, '2026-06-28T11:00:00',
-    ),
-    buildMission(
-      'mis-3', 'OM-2026-003', 'emp-6', 'Ibrahim Touré', 'IT', 'cat_c',
-      'Mahajanga', 'Prospection client région Nord',
-      '2026-08-04T07:00', '2026-08-06T19:00', 'personal_car', 'personal_car',
-      'draft', '2026-07-01T14:00:00',
-      [],
-    ),
-    buildMission(
-      'mis-4', 'OM-2026-004', 'emp-2', 'Kofi Mensah', 'KM', 'cat_b',
-      'Fianarantsoa', 'Formation managers filiale Sud',
-      '2026-07-28T08:00', '2026-07-30T18:00', 'plane', 'plane',
-      'rejected', '2026-06-20T10:00:00',
-      [
-        { level: 'employee', actorName: 'Kofi Mensah', actorInitials: 'KM', action: 'submitted', date: '2026-06-20T10:00:00' },
-        { level: 'n1', actorName: 'Sonia Boodhun', actorInitials: 'SB', action: 'rejected', date: '2026-06-21T09:00:00', comment: 'Budget dépassé ce trimestre' },
-      ],
-      undefined, '2026-06-20T10:00:00',
-    ),
-  ])
-
-  const pendingMissions = computed(() => missions.value.filter(m => m.status === 'pending'))
-
-  function getAllowance(category: EmployeeCategory): MissionAllowance {
-    return ALLOWANCES.find(a => a.category === category) ?? ALLOWANCES[3]!
-  }
-
-  function myMissions(employeeId: string) {
-    return missions.value.filter(m => m.employeeId === employeeId)
-  }
-
-  function createMission(payload: {
-    employeeId: string; employeeName: string; employeeInitials: string
-    employeeCategory: EmployeeCategory
-    destination: string; purpose: string
-    departureDate: string; returnDate: string
-    transportMode: TransportMode; transportModeReturn: TransportMode
-    description?: string; advanceRequested?: number
-  }): MissionOrder {
-    const id    = `mis-${++_idSeq}`
-    const year  = new Date().getFullYear()
-    const code  = `OM-${year}-${String(_idSeq).padStart(3, '0')}`
-    const allow = getAllowance(payload.employeeCategory)
-    const days  = computeDays(payload.departureDate, payload.returnDate)
-    const hotel = allow.hotelPerDay * days
-    const meal  = allow.mealPerDay  * days
-    const total = hotel + allow.transportFlat + meal
-    const mission: MissionOrder = {
-      id, code,
-      employeeId: payload.employeeId,
-      employeeName: payload.employeeName,
-      employeeInitials: payload.employeeInitials,
-      employeeCategory: payload.employeeCategory,
-      destination: payload.destination,
-      purpose: payload.purpose,
-      departureDate: payload.departureDate,
-      returnDate:    payload.returnDate,
-      transportMode:       payload.transportMode,
-      transportModeReturn: payload.transportModeReturn,
-      description:    payload.description,
-      numberOfDays:   days,
-      hotelAllowance: hotel,
-      transportAllowance: allow.transportFlat,
-      mealAllowance:  meal,
-      totalMission:   total,
-      advanceRequested: payload.advanceRequested ?? 0,
-      status: 'draft',
-      validationHistory: [],
-      createdAt: new Date().toISOString(),
+  async function fetchMine() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendMissionOrder[]>('/mission-orders/mine')
+      mine.value = data.map(mapMissionOrder)
+    } catch (err) {
+      error.value = getApiErrorMessage(err, 'Impossible de charger vos ordres de mission')
+      throw err
+    } finally {
+      loading.value = false
     }
-    missions.value.unshift(mission)
-    return mission
   }
 
-  function submitMission(id: string) {
-    const m = missions.value.find(m => m.id === id)
-    if (!m || m.status !== 'draft') return
-    m.status = 'pending'
-    m.submittedAt = new Date().toISOString()
-    m.validationHistory = [
-      { level: 'employee', actorName: m.employeeName, actorInitials: m.employeeInitials, action: 'submitted', date: m.submittedAt },
-      { level: 'n1', actorName: 'Sonia Boodhun', actorInitials: 'SB', action: 'pending', date: '' },
-    ]
-  }
-
-  function approveMission(id: string, comment?: string) {
-    const m = missions.value.find(m => m.id === id)
-    if (!m) return
-    const vstep: ValidationStep = { level: 'n1', actorName: 'Sonia Boodhun', actorInitials: 'SB', action: 'approved', date: new Date().toISOString(), comment }
-    m.status = 'approved'
-    m.validationHistory = [...m.validationHistory.filter(s => s.action !== 'pending'), vstep]
-  }
-
-  function rejectMission(id: string, reason: string) {
-    const m = missions.value.find(m => m.id === id)
-    if (!m) return
-    const vstep: ValidationStep = { level: 'n1', actorName: 'Sonia Boodhun', actorInitials: 'SB', action: 'rejected', date: new Date().toISOString(), comment: reason }
-    m.status = 'rejected'
-    m.validationHistory = [...m.validationHistory.filter(s => s.action !== 'pending'), vstep]
-  }
-
-  function returnMission(id: string, comment: string) {
-    const m = missions.value.find(m => m.id === id)
-    if (!m) return
-    const vstep: ValidationStep = { level: 'n1', actorName: 'Sonia Boodhun', actorInitials: 'SB', action: 'returned', date: new Date().toISOString(), comment }
-    m.status = 'returned'
-    m.validationHistory = [...m.validationHistory.filter(s => s.action !== 'pending'), vstep]
-  }
-
-  function cancelMission(id: string) {
-    const m = missions.value.find(m => m.id === id)
-    if (m) m.status = 'cancelled'
-  }
-
-  function updateMission(id: string, payload: Partial<Omit<MissionOrder, 'id' | 'code' | 'status' | 'validationHistory' | 'createdAt'>>) {
-    const m = missions.value.find(m => m.id === id)
-    if (!m) return
-    Object.assign(m, payload)
-    if (payload.departureDate || payload.returnDate || payload.employeeCategory) {
-      const allow = getAllowance(m.employeeCategory)
-      m.numberOfDays     = computeDays(m.departureDate, m.returnDate)
-      m.hotelAllowance   = allow.hotelPerDay * m.numberOfDays
-      m.mealAllowance    = allow.mealPerDay  * m.numberOfDays
-      m.transportAllowance = allow.transportFlat
-      m.totalMission     = m.hotelAllowance + m.transportAllowance + m.mealAllowance
+  async function fetchTeam() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendMissionOrder[]>('/mission-orders/team')
+      team.value = data.map(mapMissionOrder)
+    } catch (err) {
+      error.value = getApiErrorMessage(err, "Impossible de charger les ordres de mission de l'équipe")
+      throw err
+    } finally {
+      loading.value = false
     }
+  }
+
+  async function fetchAll() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendMissionOrder[]>('/mission-orders')
+      all.value = data.map(mapMissionOrder)
+    } catch (err) {
+      error.value = getApiErrorMessage(err, 'Impossible de charger les ordres de mission')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchPendingForMe() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendMissionOrder[]>('/mission-orders/pending-for-me')
+      pendingForMe.value = data.map(mapMissionOrder)
+    } catch (err) {
+      error.value = getApiErrorMessage(err, 'Impossible de charger les ordres de mission à valider')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchOne(id: string): Promise<MissionOrder> {
+    const { data } = await api.get<BackendMissionOrder>(`/mission-orders/${id}`)
+    return mapMissionOrder(data)
+  }
+
+  async function estimate(employeeId: string, missionCategory: MissionCategory, departureDate: string, returnDate: string): Promise<EstimateResult> {
+    const { data } = await api.get<{ days: number; lines: BackendAllowanceLine[]; total: number }>('/mission-orders/estimate', {
+      params: { employeeId, missionCategory, departureDate, returnDate },
+    })
+    return { days: data.days, lines: data.lines.map(mapAllowanceLine), total: data.total }
+  }
+
+  // Remplace l'entrée correspondante dans toutes les listes locales déjà
+  // chargées (mine/team/all/pendingForMe) — évite un refetch complet après
+  // chaque action de workflow.
+  function replaceEverywhere(updated: MissionOrder) {
+    for (const list of [mine, team, all, pendingForMe]) {
+      const idx = list.value.findIndex(m => m.id === updated.id)
+      if (idx !== -1) list.value[idx] = updated
+    }
+  }
+  function removeEverywhere(id: string) {
+    for (const list of [mine, team, all, pendingForMe]) {
+      list.value = list.value.filter(m => m.id !== id)
+    }
+  }
+
+  async function create(payload: CreateMissionPayload): Promise<MissionOrder> {
+    error.value = null
+    try {
+      const { data } = await api.post<BackendMissionOrder>('/mission-orders', toBackendCreatePayload(payload))
+      const mapped = mapMissionOrder(data)
+      mine.value.unshift(mapped)
+      return mapped
+    } catch (err) {
+      error.value = getApiErrorMessage(err, "Impossible de créer l'ordre de mission")
+      throw err
+    }
+  }
+
+  async function submit(id: string): Promise<MissionOrder> {
+    const { data } = await api.post<BackendMissionOrder>(`/mission-orders/${id}/submit`)
+    const mapped = mapMissionOrder(data)
+    replaceEverywhere(mapped)
+    return mapped
+  }
+
+  /** Crée puis soumet immédiatement. */
+  async function createAndSubmit(payload: CreateMissionPayload): Promise<MissionOrder> {
+    error.value = null
+    return withToast("Soumission de l'ordre de mission en cours…", async () => {
+      try {
+        const created = await create(payload)
+        return await submit(created.id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de soumettre l'ordre de mission")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de soumettre l'ordre de mission")
+  }
+
+  async function saveDraft(payload: CreateMissionPayload): Promise<MissionOrder> {
+    error.value = null
+    return withToast('Enregistrement du brouillon en cours…', async () => {
+      try {
+        return await create(payload)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible d'enregistrer le brouillon")
+        throw err
+      }
+    }, () => error.value ?? "Impossible d'enregistrer le brouillon")
+  }
+
+  async function update(id: string, patch: Partial<Omit<CreateMissionPayload, 'employeeId'>>): Promise<MissionOrder> {
+    error.value = null
+    return withToast('Enregistrement en cours…', async () => {
+      try {
+        const body: Record<string, unknown> = {}
+        if (patch.destination !== undefined) body.Destination = patch.destination
+        if (patch.missionCategory !== undefined) body.MissionCategory = patch.missionCategory
+        if (patch.purpose !== undefined) body.Purpose = patch.purpose
+        if (patch.departureDate !== undefined) body.DepartureDate = patch.departureDate
+        if (patch.returnDate !== undefined) body.ReturnDate = patch.returnDate
+        if (patch.transportModeGo !== undefined) body.TransportModeGo = patch.transportModeGo
+        if (patch.transportModeReturn !== undefined) body.TransportModeReturn = patch.transportModeReturn
+        if (patch.advanceRequested !== undefined) body.AdvanceRequested = patch.advanceRequested
+        if (patch.currency !== undefined) body.Currency = patch.currency
+        const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}`, body)
+        const mapped = mapMissionOrder(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de mettre à jour l'ordre de mission")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de mettre à jour l'ordre de mission")
+  }
+
+  async function remove(id: string) {
+    error.value = null
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/mission-orders/${id}`)
+        removeEverywhere(id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de supprimer l'ordre de mission")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de supprimer l'ordre de mission")
+  }
+
+  async function approve(id: string, comment?: string) {
+    error.value = null
+    return withToast('Validation en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}/approve`, { Comment: comment })
+        const mapped = mapMissionOrder(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de valider cet ordre de mission')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de valider cet ordre de mission')
+  }
+
+  async function reject(id: string, comment: string) {
+    error.value = null
+    return withToast('Refus en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}/reject`, { Comment: comment })
+        const mapped = mapMissionOrder(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de refuser cet ordre de mission')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de refuser cet ordre de mission')
+  }
+
+  async function returnMission(id: string, comment: string) {
+    error.value = null
+    return withToast('Retour en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}/return`, { Comment: comment })
+        const mapped = mapMissionOrder(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de retourner cet ordre de mission')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de retourner cet ordre de mission')
+  }
+
+  async function cancel(id: string) {
+    error.value = null
+    return withToast('Annulation en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}/cancel`)
+        const mapped = mapMissionOrder(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible d’annuler cet ordre de mission')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible d’annuler cet ordre de mission')
   }
 
   return {
-    missions, pendingMissions,
-    getAllowance, myMissions, ALLOWANCES,
-    createMission, submitMission,
-    approveMission, rejectMission, returnMission, cancelMission, updateMission,
+    mine, team, all, pendingForMe, loading, error,
+    fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchOne, estimate,
+    create, submit, createAndSubmit, saveDraft, update, remove,
+    approve, reject, returnMission, cancel,
   }
 })

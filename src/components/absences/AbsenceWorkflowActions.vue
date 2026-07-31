@@ -14,6 +14,7 @@ import { reactive } from 'vue'
 import { Undo2, Check, X, Send, CheckCheck, RotateCcw, Ban } from 'lucide-vue-next'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
+import { confirmDialog } from '../../lib/confirm'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useAuthStore } from '../../stores/auth'
 import type { LeaveRequest } from '../../types'
@@ -38,8 +39,8 @@ function approve() { store.approve(props.leave.id) }
 function submit()  { store.submit(props.leave.id) }
 function markDone() { store.markDone(props.leave.id) }
 function regularize() { store.regularize(props.leave.id) }
-function cancel() {
-  if (confirm('Annuler cette demande ?')) store.cancel(props.leave.id)
+async function cancel() {
+  if (await confirmDialog('Annuler cette demande ?')) store.cancel(props.leave.id)
 }
 
 /* ── Modale Retourner ───────────────────────────────────────── */

@@ -1,7 +1,7 @@
 <template>
   <ListPageLayout
-    title="Notes de frais"
-    :subtitle="`${totalCount} note(s) · ${pendingCount} en attente`"
+    :title="isRh ? 'Gestion des notes de frais' : 'Mes notes de frais'"
+    :subtitle="isRh ? 'Toutes les notes de frais' : 'Vos notes de frais'"
     :columns="columns"
     :items="pageItems"
     :total="totalCount"
@@ -27,8 +27,8 @@
       <ExpenseWorkflowActions :report="item" />
     </template>
 
-    <template #cell-code="{ item }">
-      <span class="font-mono text-xs font-semibold text-primary">{{ item.code }}</span>
+    <template #cell-referenceCode="{ item }">
+      <span class="font-mono text-xs font-semibold text-primary">{{ item.referenceCode }}</span>
     </template>
     <template #cell-employeeName="{ item }">
       <div class="flex items-center gap-2">
@@ -46,7 +46,7 @@
       <span class="font-semibold whitespace-nowrap tabular-nums">{{ fmtNum(item.totalAmount) }} {{ item.currency }}</span>
     </template>
     <template #cell-submittedAt="{ item }">
-      <span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ item.submittedAt ?? '—' }}</span>
+      <span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ item.submittedAt ? formatDate(item.submittedAt) : '—' }}</span>
     </template>
     <template #cell-status="{ item }">
       <StatusPill :status="item.status" />
@@ -58,7 +58,7 @@
           <UserAvatar :name="item.employeeName" size="md" />
           <div class="min-w-0">
             <div class="text-sm font-semibold text-foreground truncate">{{ item.employeeName }}</div>
-            <div class="text-[11px] text-muted-foreground font-mono">{{ item.code }}</div>
+            <div class="text-[11px] text-muted-foreground font-mono">{{ item.referenceCode }}</div>
           </div>
         </div>
         <div><StatusPill :status="item.status" /></div>
@@ -80,12 +80,12 @@
     </template>
 
     <ExpenseCard v-if="openCardId !== null" :reports="filtered" :report-id="openCardId" @close="openCardId = null" />
-    <ExpenseCreate v-if="showCreate" :mode="isRh ? 'for-employee' : 'self'" @close="showCreate = false" />
+    <ExpenseCreate v-if="showCreate" :mode="isRh ? 'for-employee' : 'self'" @close="showCreate = false" @created="reload" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Plus, ReceiptText } from 'lucide-vue-next'
 import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -93,6 +93,7 @@ import ExpenseCard from '../../components/expenses/ExpenseCard.vue'
 import ExpenseCreate from '../../components/expenses/ExpenseCreate.vue'
 import ExpenseWorkflowActions from '../../components/expenses/ExpenseWorkflowActions.vue'
 import * as L from '../../lib/listClasses'
+import { formatDate } from '../../lib/date'
 import { useAuthStore } from '../../stores/auth'
 import { useExpenseStore } from '../../stores/expenses'
 import type { ExpenseReport } from '../../types'
@@ -100,7 +101,18 @@ import type { ExpenseReport } from '../../types'
 const auth = useAuthStore()
 const expenseStore = useExpenseStore()
 
-const isRh = computed(() => auth.hasAnyPermission(['FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE']))
+const canSeeAll = computed(() => auth.hasPermission('FRAIS_VOIR_TOUT'))
+const canSeeTeam = computed(() => auth.hasPermission('FRAIS_VOIR_EQUIPE'))
+const isRh = computed(() => canSeeAll.value || canSeeTeam.value)
+
+const sourceList = computed<ExpenseReport[]>(() => canSeeAll.value ? expenseStore.all : canSeeTeam.value ? expenseStore.team : expenseStore.mine)
+
+function reload() {
+  if (canSeeAll.value) expenseStore.fetchAll()
+  else if (canSeeTeam.value) expenseStore.fetchTeam()
+  else expenseStore.fetchMine()
+}
+onMounted(reload)
 
 const showCreate = ref(false)
 const openCardId = ref<string | null>(null)
@@ -108,7 +120,7 @@ function openCard(item: ExpenseReport) { openCardId.value = item.id }
 function fmtNum(n: number) { return n.toLocaleString('fr-FR') }
 
 const columns = computed<ListColumn[]>(() => {
-  const base: ListColumn[] = [{ key: 'code', label: 'Code', sortable: true, hideable: false, width: 130 }]
+  const base: ListColumn[] = [{ key: 'referenceCode', label: 'Code', sortable: true, hideable: false, width: 130 }]
   if (isRh.value) base.push({ key: 'employeeName', label: 'Employé', sortable: true, width: 200 })
   base.push(
     { key: 'title', label: 'Titre', sortable: true, width: 220 },
@@ -122,11 +134,14 @@ const columns = computed<ListColumn[]>(() => {
 
 const scopeOptions = [
   { value: '', label: 'Toutes' },
-  { value: 'draft', label: 'Brouillon' },
+  { value: 'Draft', label: 'Brouillon' },
   { value: 'pending', label: 'En attente' },
-  { value: 'approved', label: 'Approuvée' },
-  { value: 'rejected', label: 'Refusée' },
+  { value: 'Approved', label: 'Approuvée' },
+  { value: 'Rejected', label: 'Refusée' },
+  { value: 'Returned', label: 'Retournée' },
+  { value: 'Cancelled', label: 'Annulée' },
 ]
+const IN_APPROVAL = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
 const activeScope = ref('')
 
 const searchQuery = ref('')
@@ -137,15 +152,16 @@ const pageSize = ref(10)
 watch([activeScope, searchQuery, pageSize], () => { page.value = 1 })
 
 const sortFieldMap: Record<string, keyof ExpenseReport> = {
-  code: 'code', employeeName: 'employeeName', title: 'title', totalAmount: 'totalAmount',
+  referenceCode: 'referenceCode', employeeName: 'employeeName', title: 'title', totalAmount: 'totalAmount',
 }
 
 const filtered = computed(() => {
-  let rows = isRh.value ? expenseStore.reports : expenseStore.myReports(auth.user?.id ?? '')
-  if (activeScope.value) rows = rows.filter(r => r.status === activeScope.value)
+  let rows = sourceList.value
+  if (activeScope.value === 'pending') rows = rows.filter(r => IN_APPROVAL.has(r.status))
+  else if (activeScope.value) rows = rows.filter(r => r.status === activeScope.value)
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
-    rows = rows.filter(r => r.code.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q) || r.title.toLowerCase().includes(q))
+    rows = rows.filter(r => r.referenceCode.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q) || r.title.toLowerCase().includes(q))
   }
   if (sortKey.value && sortFieldMap[sortKey.value]) {
     const f = sortFieldMap[sortKey.value]!
@@ -159,7 +175,6 @@ const filtered = computed(() => {
 })
 
 const totalCount = computed(() => filtered.value.length)
-const pendingCount = computed(() => filtered.value.filter(r => r.status === 'pending').length)
 const pageItems = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filtered.value.slice(start, start + pageSize.value)

@@ -140,6 +140,7 @@ const employeeStore = useEmployeeStore()
 if (employeeStore.employees.length === 0) employeeStore.fetchAll()
 if (leaveStore.all.length === 0) leaveStore.fetchAll()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+if (missionStore.all.length === 0) missionStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const kpiCard = 'bg-card border border-border rounded-[10px] p-4 flex items-center gap-3.5'
@@ -164,7 +165,7 @@ const absenteeismRate = computed(() => {
   return ((approved / totalEmployees.value) * 100).toFixed(1)
 })
 
-const totalMissions  = computed(() => missionStore.missions.length)
+const totalMissions  = computed(() => missionStore.all.length)
 const approvalRate   = computed(() => {
   const total    = leaveStore.all.length
   const approved = leaveStore.all.filter(l => l.status === 'Approved').length
@@ -196,15 +197,15 @@ const structureStats = computed(() => [
 ])
 
 const missionStats = computed(() => [
-  { label: 'En attente',  count: missionStore.missions.filter(m => m.status === 'pending').length,  color: 'var(--color-warning)' },
-  { label: 'Approuvées',  count: missionStore.missions.filter(m => m.status === 'approved').length, color: 'var(--color-success)' },
-  { label: 'Refusées',    count: missionStore.missions.filter(m => m.status === 'rejected').length, color: 'var(--color-danger)'  },
-  { label: 'Brouillons',  count: missionStore.missions.filter(m => m.status === 'draft').length,    color: 'var(--color-neutral)' },
+  { label: 'En attente',  count: missionStore.all.filter(m => PENDING_STATUSES.has(m.status)).length, color: 'var(--color-warning)' },
+  { label: 'Approuvées',  count: missionStore.all.filter(m => m.status === 'Approved').length, color: 'var(--color-success)' },
+  { label: 'Refusées',    count: missionStore.all.filter(m => m.status === 'Rejected').length, color: 'var(--color-danger)'  },
+  { label: 'Brouillons',  count: missionStore.all.filter(m => m.status === 'Draft').length,    color: 'var(--color-neutral)' },
 ])
 
 const missionAmounts = computed(() => {
-  const approved = missionStore.missions.filter(m => m.status === 'approved').reduce((s, m) => s + m.totalMission, 0)
-  const pending  = missionStore.missions.filter(m => m.status === 'pending').reduce((s, m) => s + m.totalMission, 0)
+  const approved = missionStore.all.filter(m => m.status === 'Approved').reduce((s, m) => s + (m.estimatedTotal ?? 0), 0)
+  const pending  = missionStore.all.filter(m => PENDING_STATUSES.has(m.status)).reduce((s, m) => s + (m.estimatedTotal ?? 0), 0)
   return { approved, pending, total: approved + pending }
 })
 

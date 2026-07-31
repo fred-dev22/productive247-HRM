@@ -203,6 +203,7 @@ import { SkeletonLoader } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { suggestCode } from '../../lib/codeGen'
+import { confirmDialog } from '../../lib/confirm'
 import { useMissionConfigStore } from '../../stores/missionConfig'
 import type { ExpenseUnit, MissionCategory } from '../../stores/missionConfig'
 
@@ -329,7 +330,7 @@ async function saveFee() {
 }
 
 async function deleteFee(id: string, name: string) {
-  if (!confirm(`Supprimer le type de frais « ${name} » ?`)) return
+  if (!(await confirmDialog(`Supprimer le type de frais « ${name} » ?`))) return
   try {
     await store.deleteExpenseType(id)
   } catch {

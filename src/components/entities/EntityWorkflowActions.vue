@@ -4,7 +4,7 @@
  * Désactiver). Réutilisé dans la toolbar de la liste (actions contextuelles)
  * ET dans la barre d'actions de la fiche (EntityCard).
  */
-import { Check, X, Send, Ban } from 'lucide-vue-next'
+import { Check, X, Send, Ban, RotateCcw } from 'lucide-vue-next'
 import { useEntityStore } from '../../stores/entities'
 import { useAuthStore } from '../../stores/auth'
 import type { Entity } from '../../types'
@@ -29,6 +29,9 @@ const rejectCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
     </template>
     <template v-else-if="entity.status === 'Active' && auth.hasPermission('ENTITE_DESACTIVER')">
       <button :class="rejectCls" @click="store.deactivateEntity(entity.id)"><Ban class="w-3.5 h-3.5" /> Désactiver</button>
+    </template>
+    <template v-else-if="entity.status === 'Inactive' && auth.hasPermission('ENTITE_DESACTIVER')">
+      <button :class="approveCls" @click="store.reactivateEntity(entity.id)"><RotateCcw class="w-3.5 h-3.5" /> Réactiver</button>
     </template>
     <span v-else class="text-xs text-muted-foreground italic">Aucune action disponible</span>
   </div>

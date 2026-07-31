@@ -40,7 +40,7 @@
                   <div v-if="err.code" :class="cls.fieldError">{{ err.code }}</div>
                 </div>
                 <div :class="cls.field">
-                  <label :class="cls.fieldLabel">{{ t('employee.field_email') }}</label>
+                  <label :class="cls.fieldLabel">{{ t('employee.field_email') }} <span class="text-danger">*</span></label>
                   <input v-model="form.email" type="email" :class="[cls.fieldInput, err.email && cls.inputError]" :placeholder="t('employee.placeholder_email')" />
                   <div v-if="err.email" :class="cls.fieldError">{{ err.email }}</div>
                 </div>
@@ -369,9 +369,8 @@ function validate(): boolean {
   if (!form.birthDate)            { err.birthDate     = t('employee.err_birth_date'); ok = false }
   if (!form.maritalStatus)        { err.maritalStatus = t('employee.err_marital_status'); ok = false }
   if (!form.idType)               { err.idType        = t('employee.err_id_type');    ok = false }
-  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-    err.email = t('employee.err_email'); ok = false
-  }
+  if (!form.email.trim()) { err.email = t('employee.err_email_required'); ok = false }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { err.email = t('employee.err_email'); ok = false }
   return ok
 }
 

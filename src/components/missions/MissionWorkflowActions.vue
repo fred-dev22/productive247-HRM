@@ -4,25 +4,42 @@
  * Refuser / Soumettre / Annuler) + modales de commentaire. Réutilisé dans la
  * toolbar de la liste (actions contextuelles) ET dans la barre d'actions de la
  * fiche (MissionCard). Calqué sur AbsenceWorkflowActions.
+ *
+ * Le serveur reste la seule autorité sur qui peut valider quoi (voir
+ * mission-order.service.ts assertIsCurrentApprover) — les gates ci-dessous
+ * n'évitent que les clics manifestement hors sujet, pas de logique de
+ * permission dupliquée côté client.
  */
 import { reactive } from 'vue'
-import { Undo2, Check, X, Send, Trash2 } from 'lucide-vue-next'
+import { Undo2, Check, X, Send, Ban } from 'lucide-vue-next'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
+import { confirmDialog } from '../../lib/confirm'
 import { useMissionStore } from '../../stores/missions'
+import { useAuthStore } from '../../stores/auth'
 import type { MissionOrder } from '../../types'
 
 const props = defineProps<{ mission: MissionOrder }>()
 const missionStore = useMissionStore()
+const auth = useAuthStore()
 
 const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
 const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'
 const returnCls  = btn + ' bg-info-bg text-info hover:brightness-95'
 const rejectCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
+const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
 
-function approve() { missionStore.approveMission(props.mission.id, 'Approuvé') }
-function submit()  { missionStore.submitMission(props.mission.id) }
-function cancel()  { missionStore.cancelMission(props.mission.id) }
+const IN_APPROVAL: MissionOrder['status'][] = ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
+const CANCELLABLE: MissionOrder['status'][] = ['Draft', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved']
+
+const isOwner   = () => props.mission.employeeId === auth.user?.id
+const canValidate = () => auth.hasPermission('MISSION_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.mission.status)
+
+function approve() { missionStore.approve(props.mission.id) }
+function submit()  { missionStore.submit(props.mission.id) }
+async function cancel() {
+  if (await confirmDialog('Annuler cet ordre de mission ?')) missionStore.cancel(props.mission.id)
+}
 
 /* ── Modale Retourner ───────────────────────────────────────── */
 const returnModal = reactive({ open: false, comment: '', error: '' })
@@ -37,24 +54,27 @@ function confirmReturn() {
 const rejectModal = reactive({ open: false, reason: '', error: '' })
 function openReject() { Object.assign(rejectModal, { open: true, reason: '', error: '' }) }
 function confirmReject() {
-  if (rejectModal.reason.trim().length < 3) { rejectModal.error = 'Le motif est obligatoire'; return }
-  missionStore.rejectMission(props.mission.id, rejectModal.reason.trim())
+  if (rejectModal.reason.trim().length < 10) { rejectModal.error = 'Le motif doit comporter au moins 10 caractères'; return }
+  missionStore.reject(props.mission.id, rejectModal.reason.trim())
   rejectModal.open = false
 }
 </script>
 
 <template>
-  <div class="flex items-center gap-1.5">
-    <template v-if="mission.status === 'pending'">
+  <div class="flex items-center gap-1.5 flex-wrap">
+    <template v-if="canValidate()">
       <button :class="approveCls" @click="approve"><Check class="w-3.5 h-3.5" /> Approuver</button>
       <button :class="returnCls" @click="openReturn"><Undo2 class="w-3.5 h-3.5" /> Retourner</button>
       <button :class="rejectCls" @click="openReject"><X class="w-3.5 h-3.5" /> Refuser</button>
     </template>
-    <template v-else-if="mission.status === 'draft' || mission.status === 'returned'">
+    <template v-else-if="isOwner() && (mission.status === 'Draft' || mission.status === 'Returned')">
       <button :class="approveCls" @click="submit"><Send class="w-3.5 h-3.5" /> Soumettre</button>
-      <button :class="rejectCls" @click="cancel"><Trash2 class="w-3.5 h-3.5" /> Annuler</button>
     </template>
-    <span v-else class="text-xs text-muted-foreground italic">Aucune action disponible</span>
+    <span v-else-if="!isOwner() || !CANCELLABLE.includes(mission.status)" class="text-xs text-muted-foreground italic">Aucune action disponible</span>
+
+    <button v-if="isOwner() && CANCELLABLE.includes(mission.status) && !canValidate()" :class="cancelCls" @click="cancel">
+      <Ban class="w-3.5 h-3.5" /> Annuler
+    </button>
   </div>
 
   <!-- Modale Retourner -->

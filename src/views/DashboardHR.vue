@@ -185,15 +185,15 @@
                 :key="i"
                 class="text-xs text-center py-[5px] px-0.5 rounded cursor-pointer text-foreground relative hover:bg-background"
                 :class="dayClass(day)"
-                @mouseenter="day.dateStr ? showTooltip($event, day.dateStr) : undefined"
+                @mouseenter="day.dateStr ? showTooltip($event, day) : undefined"
                 @mouseleave="hideTooltip"
               >
                 {{ day.n ?? '' }}
               </div>
             </div>
             <div class="flex gap-3 mt-2.5 flex-wrap">
-              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0" style="background:#B5D4F4"></span>{{ t('absence.types.annual') }}</span>
-              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0" style="background:#FAC775"></span>{{ t('absence.types.remote') }}</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Absence approuvée</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-info"></span>Jour férié</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-primary"></span>Aujourd'hui</span>
             </div>
           </div>
@@ -244,12 +244,15 @@ import { useLeaveRequestStore } from '../stores/leaveRequests'
 import { useEntityStore } from '../stores/entities'
 import { useEmployeeStore } from '../stores/employees'
 import { useLeaveTransactionStore } from '../stores/leaveTransactions'
+import { useCalendarStore } from '../stores/calendar'
+import { isHoliday } from '../utils/calendar'
 
 const auth        = useAuthStore()
 const leaves      = useLeaveRequestStore()
 const entityStore = useEntityStore()
 const employeeStore = useEmployeeStore()
 const balanceStore = useLeaveTransactionStore()
+const calendarStore = useCalendarStore()
 const { t, locale } = useI18n()
 const route  = useRoute()
 const router = useRouter()
@@ -270,6 +273,8 @@ const TOUR_STEPS: TourStep[] = [
 if (entityStore.entities.length === 0) entityStore.fetchAll()
 if (leaves.all.length === 0) leaves.fetchAll()
 if (employeeStore.employees.length === 0) employeeStore.fetchAll()
+if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
+if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 
 // ── KPIs ─────────────────────────────────────────────────────
 const todayIso = new Date().toISOString().slice(0, 10)
@@ -315,6 +320,7 @@ function sortIcon(key: string) {
 function dayClass(day: CalDay): string {
   if (day.cls === 'empty') return 'text-transparent pointer-events-none'
   if (day.cls === 'today') return 'bg-primary text-primary-foreground font-semibold'
+  if (day.hasHoliday) return 'bg-info-bg text-info font-medium'
   if (day.hasLeave) return 'bg-success-bg text-success font-medium'
   return ''
 }
@@ -416,7 +422,7 @@ function nextMonth() {
   else calMonth.value++
 }
 
-interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean }
+interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean; hasHoliday: boolean; holidayName?: string }
 
 const calDays = computed((): CalDay[] => {
   const y = calYear.value
@@ -428,7 +434,7 @@ const calDays = computed((): CalDay[] => {
   const todayNum    = isThisMonth ? todayObj.getDate() : -1
   const result: CalDay[] = []
 
-  for (let i = 0; i < firstDay; i++) result.push({ n: null, dateStr: null, cls: 'empty', hasLeave: false })
+  for (let i = 0; i < firstDay; i++) result.push({ n: null, dateStr: null, cls: 'empty', hasLeave: false, hasHoliday: false })
 
   for (let d = 1; d <= daysInMonth; d++) {
     const mm      = String(m + 1).padStart(2, '0')
@@ -437,7 +443,8 @@ const calDays = computed((): CalDay[] => {
     const hasLeave = leaves.all.some(
       l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
     )
-    result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave })
+    const holiday = isHoliday(new Date(y, m, d), calendarStore.calendar)
+    result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
   }
   return result
 })
@@ -460,14 +467,15 @@ const tooltipStyle = computed(() => ({
   pointerEvents: 'none' as const,
 }))
 
-function showTooltip(event: MouseEvent, dateStr: string) {
+function showTooltip(event: MouseEvent, day: CalDay) {
   const rect    = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const matches = leaves.all.filter(
-    l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
+    l => l.status === 'Approved' && l.startDate <= (day.dateStr ?? '') && l.endDate >= (day.dateStr ?? '')
   )
-  tooltip.lines = matches.length > 0
-    ? matches.map(l => ({ text: `${l.employeeName} — ${l.leaveTypeName}`, color: l.leaveTypeColor }))
-    : [{ text: t('absence.no_absence'), color: '' }]
+  const lines: { text: string; color: string }[] = []
+  if (day.hasHoliday) lines.push({ text: `Férié — ${day.holidayName}`, color: 'var(--color-info)' })
+  lines.push(...matches.map(l => ({ text: `${l.employeeName} — ${l.leaveTypeName}`, color: l.leaveTypeColor })))
+  tooltip.lines = lines.length > 0 ? lines : [{ text: t('absence.no_absence'), color: '' }]
   tooltip.x     = rect.left + rect.width / 2
   tooltip.above = rect.top > window.innerHeight / 2
   tooltip.y     = tooltip.above ? rect.top : rect.bottom

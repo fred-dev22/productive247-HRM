@@ -71,17 +71,27 @@
           <div :class="card">
             <div :class="cardHeader">
               <div :class="cardTitle">
-                <Calendar class="w-4 h-4 text-primary" /> {{ t('absence.calendar_title') }} — Juillet 2026
+                <Calendar class="w-4 h-4 text-primary" /> <span class="capitalize">{{ calTitle }}</span>
+              </div>
+              <div class="flex gap-1">
+                <button :class="calNavBtn" @click="prevMonth"><ChevronLeft class="w-3 h-3" /></button>
+                <button :class="calNavBtn" @click="nextMonth"><ChevronRight class="w-3 h-3" /></button>
               </div>
             </div>
             <div class="grid grid-cols-7 gap-0.5">
               <div v-for="(d, i) in weekDays" :key="i" class="text-xs text-muted-foreground text-center py-[3px] font-medium">{{ d }}</div>
-              <div v-for="(day, i) in calDays" :key="i" class="text-xs text-center py-[5px] px-0.5 rounded cursor-pointer text-foreground hover:bg-background" :class="dayClass(day)">
+              <div
+                v-for="(day, i) in calDays" :key="i"
+                class="text-xs text-center py-[5px] px-0.5 rounded cursor-pointer text-foreground hover:bg-background"
+                :class="dayClass(day)"
+                :title="day.holidayName"
+              >
                 {{ day.n ?? '' }}
               </div>
             </div>
-            <div class="flex gap-3 mt-2.5">
-              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0" style="background:#B5D4F4"></span>{{ t('absence.types.annual') }}</span>
+            <div class="flex gap-3 mt-2.5 flex-wrap">
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Mon absence approuvée</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-info"></span>Jour férié</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-primary"></span>Aujourd'hui</span>
             </div>
           </div>
@@ -107,25 +117,31 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Plus, List, Building, Clock, Plane, Calendar, Check } from 'lucide-vue-next'
+import { Plus, List, Building, Clock, Plane, Calendar, Check, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
 import { StatusPill } from '../components'
 import { formatDate } from '../lib/date'
+import { confirmDialog } from '../lib/confirm'
+import { isHoliday } from '../utils/calendar'
 import { useAuthStore }             from '../stores/auth'
 import { useLeaveRequestStore }     from '../stores/leaveRequests'
 import { useLeaveTypesStore }       from '../stores/leaveTypes'
 import { useLeaveTransactionStore } from '../stores/leaveTransactions'
+import { useCalendarStore }         from '../stores/calendar'
 
 const auth   = useAuthStore()
 const leaves = useLeaveRequestStore()
 const leaveTypesStore = useLeaveTypesStore()
 const balanceStore     = useLeaveTransactionStore()
-const { t }  = useI18n()
+const calendarStore    = useCalendarStore()
+const { t, locale }  = useI18n()
 const router = useRouter()
 
 if (leaves.mine.length === 0) leaves.fetchMine()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
+if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
+if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 
 function balanceFor(code: string) {
   return balanceStore.myBalances.find(b => b.leaveTypeCode === code)?.balance ?? 0
@@ -142,12 +158,13 @@ const card = 'bg-card border border-border rounded-lg p-3.5'
 const cardHeader = 'flex items-center justify-between mb-3'
 const cardTitle = 'flex items-center gap-1.5 text-sm font-semibold'
 const legClass = 'flex items-center gap-1.5 text-[11px] text-muted-foreground'
+const calNavBtn = 'border border-border rounded w-[22px] h-[22px] flex items-center justify-center cursor-pointer text-muted-foreground transition-colors hover:bg-background hover:text-foreground'
 
 const myRequests = computed(() => leaves.mine.slice(0, 5))
 
 const CANCELLABLE = new Set(['Draft', 'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved', 'Registered'])
-function cancelRequest(id: string) {
-  if (confirm('Annuler cette demande ?')) leaves.cancel(id)
+async function cancelRequest(id: string) {
+  if (await confirmDialog('Annuler cette demande ?')) leaves.cancel(id)
 }
 
 // ── Modale ───────────────────────────────────────────────────
@@ -170,22 +187,60 @@ function showToast(msg: string) {
   setTimeout(() => { toastMsg.value = '' }, 3000)
 }
 
-// ── Calendrier (mock juillet 2026) ───────────────────────────
+// ── Calendrier (mois réel, mes absences + jours fériés) ───────
 const weekDays = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-interface CalDay { n: number | null; cls: string }
-const calDays: CalDay[] = [
-  ...Array<CalDay>(2).fill({ n: null, cls: 'empty' }),
-  ...Array.from({ length: 31 }, (_, i): CalDay => {
-    const n = i + 1
-    return { n, cls: n === 15 ? 'today' : (n === 10 || n === 11) ? 'has-leave' : '' }
-  }),
-  ...Array<CalDay>(3).fill({ n: null, cls: 'empty' }),
-]
+
+const _now     = new Date()
+const calYear  = ref(_now.getFullYear())
+const calMonth = ref(_now.getMonth())
+
+const calTitle = computed(() =>
+  new Date(calYear.value, calMonth.value, 1)
+    .toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US', { month: 'long', year: 'numeric' })
+)
+
+function prevMonth() {
+  if (calMonth.value === 0) { calMonth.value = 11; calYear.value-- }
+  else calMonth.value--
+}
+function nextMonth() {
+  if (calMonth.value === 11) { calMonth.value = 0; calYear.value++ }
+  else calMonth.value++
+}
+
+interface CalDay { n: number | null; cls: string; hasLeave: boolean; hasHoliday: boolean; holidayName?: string }
+
+const MINE_APPROVED_LIKE = new Set(['Approved', 'Registered', 'Done', 'Regularized'])
+const calDays = computed((): CalDay[] => {
+  const y = calYear.value
+  const m = calMonth.value
+  const daysInMonth = new Date(y, m + 1, 0).getDate()
+  const firstDay    = (new Date(y, m, 1).getDay() + 6) % 7
+  const todayObj    = new Date()
+  const isThisMonth = todayObj.getFullYear() === y && todayObj.getMonth() === m
+  const todayNum    = isThisMonth ? todayObj.getDate() : -1
+  const result: CalDay[] = []
+
+  for (let i = 0; i < firstDay; i++) result.push({ n: null, cls: 'empty', hasLeave: false, hasHoliday: false })
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm      = String(m + 1).padStart(2, '0')
+    const dd      = String(d).padStart(2, '0')
+    const dateStr = `${y}-${mm}-${dd}`
+    const hasLeave = leaves.mine.some(
+      l => MINE_APPROVED_LIKE.has(l.status) && l.startDate <= dateStr && l.endDate >= dateStr
+    )
+    const holiday = isHoliday(new Date(y, m, d), calendarStore.calendar)
+    result.push({ n: d, cls: d === todayNum ? 'today' : '', hasLeave, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
+  }
+  return result
+})
 
 function dayClass(day: CalDay): string {
   if (day.cls === 'empty') return 'text-transparent pointer-events-none'
   if (day.cls === 'today') return 'bg-primary text-primary-foreground font-semibold'
-  if (day.cls === 'has-leave') return 'bg-success-bg text-success font-medium'
+  if (day.hasHoliday) return 'bg-info-bg text-info font-medium'
+  if (day.hasLeave) return 'bg-success-bg text-success font-medium'
   return ''
 }
 </script>

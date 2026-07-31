@@ -30,7 +30,9 @@
     "submit": "Se connecter",
     "loading": "Connexion en cours…",
     "error_fields": "Veuillez remplir tous les champs.",
-    "error_invalid": "Email ou mot de passe incorrect."
+    "error_invalid": "Email ou mot de passe incorrect.",
+    "forgot_password": "Mot de passe oublié ?",
+    "forgot_password_message": "Contactez votre administrateur RH pour réinitialiser votre mot de passe."
   },
   "dashboard": {
     "welcome": "Tableau de bord RH",
@@ -252,6 +254,7 @@
     "err_last_name": "Le nom est obligatoire",
     "err_code": "Le code est obligatoire",
     "err_email": "Format email invalide",
+    "err_email_required": "L'email est obligatoire",
     "err_job_title": "La fonction est obligatoire",
     "err_entity": "L'entité est obligatoire",
     "err_contract": "Le type de contrat est obligatoire",

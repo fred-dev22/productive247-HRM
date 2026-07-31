@@ -14,6 +14,7 @@ import FormSection from '../ui/form-field/FormSection.vue'
 import CreateUserAccountDialog from './CreateUserAccountDialog.vue'
 import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
+import { confirmDialog } from '../../lib/confirm'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
 import { usePositionStore } from '../../stores/positions'
@@ -183,7 +184,7 @@ async function toggleUserPermission(permissionId: string, checked: boolean) {
 const deactivating = ref(false)
 async function deactivate() {
   if (!current.value) return
-  if (!confirm(`Désactiver ${current.value.name} ? L'employé ne sera plus actif mais reste consultable.`)) return
+  if (!(await confirmDialog(`Désactiver ${current.value.name} ? L'employé ne sera plus actif mais reste consultable.`))) return
   deactivating.value = true
   try {
     await store.deactivateEmployee(current.value.id)

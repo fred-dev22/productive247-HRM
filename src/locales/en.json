@@ -30,7 +30,9 @@
     "submit": "Sign in",
     "loading": "Signing in…",
     "error_fields": "Please fill in all fields.",
-    "error_invalid": "Invalid email or password."
+    "error_invalid": "Invalid email or password.",
+    "forgot_password": "Forgot your password?",
+    "forgot_password_message": "Contact your HR administrator to reset your password."
   },
   "dashboard": {
     "welcome": "HR Dashboard",
@@ -252,6 +254,7 @@
     "err_last_name": "Last name is required",
     "err_code": "Code is required",
     "err_email": "Invalid email format",
+    "err_email_required": "Email is required",
     "err_job_title": "Job title is required",
     "err_entity": "Entity is required",
     "err_contract": "Contract type is required",

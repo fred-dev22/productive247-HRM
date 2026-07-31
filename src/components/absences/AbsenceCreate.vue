@@ -21,6 +21,7 @@ import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useCalendarStore } from '../../stores/calendar'
 import { useEmployeeStore } from '../../stores/employees'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
+import { useAuthStore } from '../../stores/auth'
 import { calculateEndDate, getWorkingDaysBetween, isWorkingDay } from '../../utils/calendar'
 
 const props = defineProps<{ initialLeaveTypeId?: string }>()
@@ -31,6 +32,7 @@ const leaveTransactionStore = useLeaveTransactionStore()
 const calendarStore         = useCalendarStore()
 const employeeStore         = useEmployeeStore()
 const leaveTypesStore       = useLeaveTypesStore()
+const auth                  = useAuthStore()
 
 if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
@@ -40,6 +42,20 @@ if (leaveTransactionStore.myBalances.length === 0) leaveTransactionStore.fetchMy
 const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
 const employeeItems = computed(() =>
   employeeStore.employees.map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+)
+
+// L'intérimaire remplace le bénéficiaire de la demande à son poste — n'a de
+// sens que dans la même entité que lui (decision du 30/07), pas n'importe
+// quel employé de l'entreprise.
+const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : auth.user?.id)
+const beneficiaryEntityId = computed(() => {
+  if (forWhom.value.mode === 'for-employee') return employeeStore.getById(forWhom.value.employeeId)?.entityId
+  return auth.user?.entityId
+})
+const interimItems = computed(() =>
+  employeeStore.employees
+    .filter(e => e.entityId === beneficiaryEntityId.value && e.id !== beneficiaryId.value)
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
 
 const leaveTypeItems = computed(() =>
@@ -291,7 +307,7 @@ async function saveDraft() {
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Intérimaire <span :class="cls.fieldOptional">(optionnel)</span></label>
               <SearchableDropdown
-                :items="employeeItems"
+                :items="interimItems"
                 :model-value="form.interimEmployeeId"
                 placeholder="Qui assure votre intérim ?"
                 @update:model-value="form.interimEmployeeId = String($event)"

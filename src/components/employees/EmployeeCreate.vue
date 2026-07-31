@@ -117,7 +117,8 @@ function validate(): boolean {
   if (!form.birthDate) { error.value = 'Date de naissance requise'; return false }
   if (!form.maritalStatus) { error.value = 'Situation familiale requise'; return false }
   if (!form.idType) { error.value = "Type de pièce d'identité requis"; return false }
-  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { error.value = 'Format email invalide'; return false }
+  if (!form.email.trim()) { error.value = 'Email requis'; return false }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { error.value = 'Format email invalide'; return false }
   error.value = ''
   return true
 }
@@ -179,7 +180,7 @@ async function create() {
               <input v-model="form.lastName" :class="cls.fieldInput" placeholder="ex : Diallo" />
             </div>
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Email</label>
+              <label :class="cls.fieldLabel">Email <span class="text-danger">*</span></label>
               <input type="email" v-model="form.email" :class="cls.fieldInput" placeholder="prenom.nom@galana.com" />
             </div>
             <div :class="cls.field">

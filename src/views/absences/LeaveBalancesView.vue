@@ -14,8 +14,9 @@
     v-model:page-size="pageSize"
     @reset-filters="resetFilters"
   >
-    <!-- Export -->
+    <!-- Export + crédit manuel -->
     <template #header-actions>
+      <button :class="L.btnOutline" @click="openCredit"><PlusCircle class="w-4 h-4" /> Créditer un employé</button>
       <button :class="L.btnOutline" @click="() => {}"><FileDown class="w-4 h-4" /> Exporter</button>
     </template>
 
@@ -24,7 +25,7 @@
       <div class="grid grid-cols-4 gap-3 mb-4 max-[1100px]:grid-cols-2 max-md:grid-cols-2">
         <div :class="kpiCard"><div :class="kpiIcon" class="bg-success-bg"><Users class="w-[18px] h-[18px] text-success" /></div><div><div :class="kpiVal">{{ balanceStore.allBalances.length }}</div><div :class="kpiLabel">Employés suivis</div></div></div>
         <div v-for="(c, i) in kpiTypeCols" :key="c.leaveTypeId" :class="kpiCard">
-          <div :class="kpiIcon" :class="KPI_STYLES[i].bg"><component :is="KPI_STYLES[i].icon" class="w-[18px] h-[18px]" :class="KPI_STYLES[i].text" /></div>
+          <div :class="[kpiIcon, KPI_STYLES[i].bg]"><component :is="KPI_STYLES[i].icon" class="w-[18px] h-[18px]" :class="KPI_STYLES[i].text" /></div>
           <div><div :class="kpiVal">{{ totalForType(c.leaveTypeId) }}j</div><div :class="kpiLabel">{{ c.leaveTypeName }} restants</div></div>
         </div>
       </div>
@@ -95,14 +96,62 @@
       <p class="text-[13px]">Aucun résultat</p>
     </template>
   </ListPageLayout>
+
+  <!-- Crédit manuel — regularisation ponctuelle, distincte de la génération
+       automatique (voir bouton "Générer maintenant" dans Configuration > Calendrier). -->
+  <CreateModalShell
+    v-if="showCreditModal"
+    title="Créditer un employé"
+    banner-label="Créditer un employé"
+    create-label="Créditer"
+    :save-error="creditError"
+    @close="showCreditModal = false"
+    @create="submitCredit"
+  >
+    <template #form>
+      <div class="flex-1 overflow-auto px-6 py-5">
+        <div class="max-w-md mx-auto">
+          <FormSection title="Crédit">
+            <div class="flex flex-col gap-3.5">
+              <div :class="fcls.field">
+                <label :class="fcls.fieldLabel">Employé *</label>
+                <select v-model="creditForm.employeeId" :class="fcls.fieldSelect">
+                  <option value="">-- Choisir --</option>
+                  <option v-for="e in balanceStore.allBalances" :key="e.employeeId" :value="e.employeeId">{{ e.employeeName }}</option>
+                </select>
+              </div>
+              <div :class="fcls.field">
+                <label :class="fcls.fieldLabel">Type de congé *</label>
+                <select v-model="creditForm.leaveTypeId" :class="fcls.fieldSelect">
+                  <option value="">-- Choisir --</option>
+                  <option v-for="c in TYPE_COLS" :key="c.leaveTypeId" :value="c.leaveTypeId">{{ c.leaveTypeName }}</option>
+                </select>
+              </div>
+              <div :class="fcls.field">
+                <label :class="fcls.fieldLabel">Jours à créditer *</label>
+                <input v-model.number="creditForm.amount" type="number" min="0.5" step="0.5" :class="fcls.fieldInput" placeholder="ex : 2" />
+              </div>
+              <div :class="fcls.field">
+                <label :class="fcls.fieldLabel">Motif <span :class="fcls.fieldOptional">(optionnel)</span></label>
+                <textarea v-model="creditForm.reason" :class="fcls.fieldTextarea" rows="2" placeholder="ex : régularisation oubli de génération de mai"></textarea>
+              </div>
+            </div>
+          </FormSection>
+        </div>
+      </div>
+    </template>
+  </CreateModalShell>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import { FileDown, Users, Sun, RefreshCw, Home } from 'lucide-vue-next'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { FileDown, Users, Sun, RefreshCw, Home, PlusCircle } from 'lucide-vue-next'
 import { UserAvatar, ListPageLayout } from '../../components'
+import CreateModalShell from '../../components/shared/CreateModalShell.vue'
+import FormSection from '../../components/ui/form-field/FormSection.vue'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import * as L from '../../lib/listClasses'
+import * as fcls from '../../lib/formClasses'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import type { EmployeeLeaveBalances } from '../../stores/leaveTransactions'
 import { useEntityStore }  from '../../stores/entities'
@@ -115,6 +164,29 @@ onMounted(() => {
   balanceStore.fetchAllBalances()
   if (entityStore.entities.length === 0) entityStore.fetchAll()
 })
+
+// ── Crédit manuel ────────────────────────────────────────────
+const showCreditModal = ref(false)
+const creditError = ref('')
+const creditForm = reactive({ employeeId: '', leaveTypeId: '', amount: 1, reason: '' })
+
+function openCredit() {
+  Object.assign(creditForm, { employeeId: '', leaveTypeId: '', amount: 1, reason: '' })
+  creditError.value = ''
+  showCreditModal.value = true
+}
+async function submitCredit() {
+  if (!creditForm.employeeId) { creditError.value = "L'employé est obligatoire"; return }
+  if (!creditForm.leaveTypeId) { creditError.value = 'Le type de congé est obligatoire'; return }
+  if (!creditForm.amount || creditForm.amount <= 0) { creditError.value = 'Le nombre de jours doit être positif'; return }
+  creditError.value = ''
+  try {
+    await balanceStore.creditManual(creditForm.employeeId, creditForm.leaveTypeId, creditForm.amount, creditForm.reason || undefined)
+    showCreditModal.value = false
+  } catch {
+    creditError.value = balanceStore.error ?? "Le crédit a échoué. Veuillez réessayer."
+  }
+}
 
 const kpiCard = 'bg-card border border-border rounded-[10px] p-3.5 flex items-center gap-3'
 const kpiIcon = 'w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0'

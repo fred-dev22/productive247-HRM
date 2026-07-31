@@ -66,5 +66,22 @@ export const useLeaveTransactionStore = defineStore('leaveTransactions', () => {
     }, () => error.value ?? "Impossible de générer les acquisitions de congés")
   }
 
-  return { myBalances, allBalances, loading, error, fetchMyBalances, fetchBalancesFor, fetchAllBalances, generateAccruals }
+  async function creditManual(employeeId: string, leaveTypeId: string, amount: number, reason?: string) {
+    error.value = null
+    return withToast('Crédit en cours…', async () => {
+      try {
+        const { data } = await api.post<LeaveBalance[]>('/leave-transactions/credit', {
+          EmployeeId: employeeId, LeaveTypeId: leaveTypeId, Amount: amount, Reason: reason || undefined,
+        })
+        const idx = allBalances.value.findIndex(b => b.employeeId === employeeId)
+        if (idx !== -1) allBalances.value[idx] = { ...allBalances.value[idx], balances: data }
+        return data
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de créditer ce solde")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de créditer ce solde")
+  }
+
+  return { myBalances, allBalances, loading, error, fetchMyBalances, fetchBalancesFor, fetchAllBalances, generateAccruals, creditManual }
 })
