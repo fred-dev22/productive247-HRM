@@ -212,10 +212,11 @@
                 <span :class="cls.fieldLabel">Dernière exécution</span>
                 <div class="h-9 flex items-center text-[13px] text-foreground">{{ lastAccrualRun }}</div>
               </div>
-              <button :class="L.btnOutline" class="disabled:opacity-45 disabled:cursor-not-allowed" :disabled="generatingAccruals" @click="generateAccrualsNow">
+              <button :class="L.btnOutline" class="disabled:opacity-45 disabled:cursor-not-allowed" :disabled="generateDisabled" :title="accrualStatusMessage ?? ''" @click="generateAccrualsNow">
                 <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': generatingAccruals }" /> Générer maintenant
               </button>
             </div>
+            <p v-if="accrualStatusMessage" class="text-[11px] text-muted-foreground mt-2.5">{{ accrualStatusMessage }}</p>
           </div>
         </div>
         </template>
@@ -336,13 +337,43 @@ calendarStore.fetchCalendar()
 if (!companySettingsStore.settings) companySettingsStore.fetchSettings().catch(() => {})
 
 // ── Génération des acquisitions (cron) ─────────────────────────
+// dayJustChanged : changer le jour d'exécution réactive le bouton manuel
+// même si une génération a déjà eu lieu ce mois-ci (voir generateDisabled
+// ci-dessous) — modifier la date ne déclenche rien tout de suite (le cron
+// ne tourne qu'au jour configuré, à 1h), c'est juste un déverrouillage.
+const dayJustChanged = ref(false)
 const accrualRunDay = computed({
   get: () => companySettingsStore.settings?.leaveAccrualRunDay ?? null,
-  set: (value: number | null) => { companySettingsStore.update({ leaveAccrualRunDay: value }) },
+  set: (value: number | null) => {
+    dayJustChanged.value = true
+    companySettingsStore.update({ leaveAccrualRunDay: value })
+  },
 })
 const lastAccrualRun = computed(() => {
   const raw = companySettingsStore.settings?.lastLeaveAccrualRunAt
   return raw ? new Date(raw).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Jamais exécuté'
+})
+const alreadyRanThisMonth = computed(() => {
+  const raw = companySettingsStore.settings?.lastLeaveAccrualRunAt
+  if (!raw) return false
+  const last = new Date(raw)
+  const now = new Date()
+  return last.getFullYear() === now.getFullYear() && last.getMonth() === now.getMonth()
+})
+// En mode "Manuel uniquement" (pas de jour configuré), le bouton est le seul
+// moyen de générer — pas de verrou mensuel, sinon on prive l'entreprise de
+// son unique outil pendant un mois entier.
+const generateDisabled = computed(() =>
+  generatingAccruals.value || (accrualRunDay.value !== null && alreadyRanThisMonth.value && !dayJustChanged.value),
+)
+const accrualStatusMessage = computed(() => {
+  if (dayJustChanged.value) {
+    return "Date modifiée — ça ne déclenche rien immédiatement : la prochaine génération automatique aura lieu au jour configuré, à 1h du matin."
+  }
+  if (accrualRunDay.value !== null && alreadyRanThisMonth.value) {
+    return `Déjà généré ce mois-ci (${lastAccrualRun.value}). Prochaine génération automatique le ${accrualRunDay.value} du mois, à 1h.`
+  }
+  return null
 })
 const generatingAccruals = ref(false)
 async function generateAccrualsNow() {
@@ -350,6 +381,7 @@ async function generateAccrualsNow() {
   try {
     await leaveTransactionStore.generateAccruals()
     await companySettingsStore.fetchSettings()
+    dayJustChanged.value = false
   } finally {
     generatingAccruals.value = false
   }

@@ -16,7 +16,7 @@
   >
     <!-- Export + crédit manuel -->
     <template #header-actions>
-      <button :class="L.btnOutline" @click="openCredit"><PlusCircle class="w-4 h-4" /> Créditer un employé</button>
+      <button :class="L.btnOutline" @click="openCredit"><PlusCircle class="w-4 h-4" /> Ajuster un solde</button>
       <button :class="L.btnOutline" @click="() => {}"><FileDown class="w-4 h-4" /> Exporter</button>
     </template>
 
@@ -97,13 +97,14 @@
     </template>
   </ListPageLayout>
 
-  <!-- Crédit manuel — regularisation ponctuelle, distincte de la génération
-       automatique (voir bouton "Générer maintenant" dans Configuration > Calendrier). -->
+  <!-- Ajustement manuel (crédit ou décrément) — regularisation ponctuelle,
+       distincte de la génération automatique (voir bouton "Générer
+       maintenant" dans Configuration > Calendrier). -->
   <CreateModalShell
     v-if="showCreditModal"
-    title="Créditer un employé"
-    banner-label="Créditer un employé"
-    create-label="Créditer"
+    title="Ajuster un solde"
+    banner-label="Ajuster un solde"
+    create-label="Valider"
     :save-error="creditError"
     @close="showCreditModal = false"
     @create="submitCredit"
@@ -128,8 +129,9 @@
                 </select>
               </div>
               <div :class="fcls.field">
-                <label :class="fcls.fieldLabel">Jours à créditer *</label>
-                <input v-model.number="creditForm.amount" type="number" min="0.5" step="0.5" :class="fcls.fieldInput" placeholder="ex : 2" />
+                <label :class="fcls.fieldLabel">Jours *</label>
+                <input v-model.number="creditForm.amount" type="number" step="0.5" :class="fcls.fieldInput" placeholder="ex : 2 (positif = crédit, -2 = décrément)" />
+                <p class="text-[11px] text-muted-foreground mt-1">Positif pour créditer, négatif pour décrémenter (ex : correction d'une erreur de saisie). Le solde ne descend jamais sous 0.</p>
               </div>
               <div :class="fcls.field">
                 <label :class="fcls.fieldLabel">Motif <span :class="fcls.fieldOptional">(optionnel)</span></label>
@@ -178,13 +180,17 @@ function openCredit() {
 async function submitCredit() {
   if (!creditForm.employeeId) { creditError.value = "L'employé est obligatoire"; return }
   if (!creditForm.leaveTypeId) { creditError.value = 'Le type de congé est obligatoire'; return }
-  if (!creditForm.amount || creditForm.amount <= 0) { creditError.value = 'Le nombre de jours doit être positif'; return }
+  if (!creditForm.amount) { creditError.value = 'Le nombre de jours ne peut pas être 0'; return }
   creditError.value = ''
   try {
-    await balanceStore.creditManual(creditForm.employeeId, creditForm.leaveTypeId, creditForm.amount, creditForm.reason || undefined)
+    const result = await balanceStore.creditManual(creditForm.employeeId, creditForm.leaveTypeId, creditForm.amount, creditForm.reason || undefined)
+    if (result.wasClamped) {
+      creditError.value = `Décrément limité au solde disponible — ramené à 0 (au lieu de ${creditForm.amount}j demandé).`
+      return
+    }
     showCreditModal.value = false
   } catch {
-    creditError.value = balanceStore.error ?? "Le crédit a échoué. Veuillez réessayer."
+    creditError.value = balanceStore.error ?? "L'ajustement a échoué. Veuillez réessayer."
   }
 }
 
