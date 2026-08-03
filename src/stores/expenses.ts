@@ -224,6 +224,12 @@ export const useExpenseStore = defineStore('expenses', () => {
       list.value = list.value.filter(r => r.id !== id)
     }
   }
+  // Voir leaveRequests.ts removeFromPending — une decision retire tout de
+  // suite la ligne de "à valider" pour l'acteur courant, sans attendre un
+  // rechargement complet de la page.
+  function removeFromPending(id: string) {
+    pendingForMe.value = pendingForMe.value.filter(r => r.id !== id)
+  }
 
   async function create(payload: CreateExpenseReportPayload): Promise<ExpenseReport> {
     error.value = null
@@ -249,10 +255,18 @@ export const useExpenseStore = defineStore('expenses', () => {
   async function createAndSubmit(payload: CreateExpenseReportPayload): Promise<ExpenseReport> {
     error.value = null
     return withToast('Soumission de la note de frais en cours…', async () => {
+      let created: ExpenseReport | undefined
       try {
-        const created = await create(payload)
+        created = await create(payload)
         return await submit(created.id)
       } catch (err) {
+        // Ne laisse pas trainer le brouillon cree juste avant si la
+        // soumission echoue apres coup — l'utilisateur voulait une
+        // soumission directe, pas un brouillon.
+        if (created) {
+          await api.delete(`/expense-reports/${created.id}`).catch(() => {})
+          removeEverywhere(created.id)
+        }
         error.value = getApiErrorMessage(err, 'Impossible de soumettre la note de frais')
         throw err
       }
@@ -311,6 +325,7 @@ export const useExpenseStore = defineStore('expenses', () => {
         const { data } = await api.patch<BackendExpenseReport>(`/expense-reports/${id}/approve`, { Comment: comment })
         const mapped = mapExpenseReport(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de valider cette note de frais')
@@ -326,6 +341,7 @@ export const useExpenseStore = defineStore('expenses', () => {
         const { data } = await api.patch<BackendExpenseReport>(`/expense-reports/${id}/reject`, { Comment: comment })
         const mapped = mapExpenseReport(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de refuser cette note de frais')
@@ -341,6 +357,7 @@ export const useExpenseStore = defineStore('expenses', () => {
         const { data } = await api.patch<BackendExpenseReport>(`/expense-reports/${id}/return`, { Comment: comment })
         const mapped = mapExpenseReport(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de retourner cette note de frais')

@@ -13,7 +13,7 @@ import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import CreateUserAccountDialog from './CreateUserAccountDialog.vue'
 import * as cls from '../../lib/formClasses'
-import { formatDate } from '../../lib/date'
+import { formatDate, todayIso } from '../../lib/date'
 import { confirmDialog } from '../../lib/confirm'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
@@ -296,7 +296,7 @@ async function deactivate() {
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Date d'embauche</label>
-            <input v-if="isEditMode" type="date" v-model="form.hireDate" :class="cls.fieldInput" />
+            <input v-if="isEditMode" type="date" v-model="form.hireDate" :max="todayIso()" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ formatDate(current.hireDate) }}</div>
           </div>
           <div :class="cls.field">

@@ -241,8 +241,12 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const companySettings = useCompanySettingsStore()
 
-  // Non connecté → login
+  // Non connecté → login — vide aussi les autres stores au passage : sans
+  // ça, une session invalidée autrement qu'via logout() (ex: restoreSession
+  // qui échoue) pouvait laisser les données de l'utilisateur précédent en
+  // mémoire jusqu'à la prochaine connexion.
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
+    auth.resetOtherStores()
     return { path: '/' }
   }
 

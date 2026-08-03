@@ -41,6 +41,63 @@
     <!-- Commun -->
     <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
+    <!-- Panneau d'aperçu rapide — mixe les 3 types selon le scope actif,
+         comme les cellules #cell-* ci-dessus. -->
+    <template #details-panel="{ item }">
+      <div class="flex flex-col gap-3.5">
+        <div class="flex items-center gap-2.5">
+          <UserAvatar :name="item.employeeName" size="md" />
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-foreground truncate">{{ item.employeeName }}</div>
+            <div class="text-[11px] text-muted-foreground">
+              {{ scope === 'absences' ? item.leaveTypeName : (item.referenceCode || '') }}
+            </div>
+          </div>
+        </div>
+        <div><StatusPill :status="item.status" /></div>
+
+        <template v-if="scope === 'absences'">
+          <div class="grid grid-cols-2 gap-2 text-[12px]">
+            <div><div class="text-muted-foreground text-[11px]">Début</div>{{ formatDate(item.startDate) }}</div>
+            <div><div class="text-muted-foreground text-[11px]">Fin</div>{{ formatDate(item.endDate) }}</div>
+            <div><div class="text-muted-foreground text-[11px]">Jours ouvrés</div>{{ item.daysCount }}j</div>
+            <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ formatDate(item.createdAt) }}</div>
+          </div>
+          <div v-if="item.reason" class="text-[12px]">
+            <div class="text-muted-foreground text-[11px]">Motif</div>{{ item.reason }}
+          </div>
+        </template>
+
+        <template v-else-if="scope === 'missions'">
+          <div class="grid grid-cols-2 gap-2 text-[12px]">
+            <div><div class="text-muted-foreground text-[11px]">Destination</div>{{ item.destination }}</div>
+            <div><div class="text-muted-foreground text-[11px]">Durée</div>{{ item.daysCount }}j</div>
+            <div><div class="text-muted-foreground text-[11px]">Départ</div>{{ shortDate(item.departureDate) }}</div>
+            <div><div class="text-muted-foreground text-[11px]">Retour</div>{{ shortDate(item.returnDate) }}</div>
+          </div>
+          <div class="text-[12px]">
+            <div class="text-muted-foreground text-[11px]">Total mission (estimé)</div>
+            <span class="font-semibold text-primary">{{ fmtNum(item.estimatedTotal ?? 0) }} MGA</span>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="text-[12px]">
+            <div class="text-muted-foreground text-[11px]">Titre</div>{{ item.title }}
+          </div>
+          <div class="text-[12px]">
+            <div class="text-muted-foreground text-[11px]">Total</div>
+            <span class="font-semibold text-primary">{{ fmtNum(item.totalAmount) }} {{ item.currency }}</span>
+          </div>
+        </template>
+
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
+        <AbsenceWorkflowActions v-if="scope === 'absences'" :leave="item" />
+        <MissionWorkflowActions v-else-if="scope === 'missions'" :mission="item" />
+        <ExpenseWorkflowActions v-else :report="item" />
+      </div>
+    </template>
+
     <template #empty>
       <ClipboardCheck class="w-8 h-8" />
       <p class="text-[13px]">{{ scope === 'absences' ? 'Aucune demande d\'absence' : scope === 'missions' ? 'Aucun ordre de mission' : 'Aucune note de frais' }}</p>
@@ -64,6 +121,7 @@ import MissionWorkflowActions from '../../components/missions/MissionWorkflowAct
 import ExpenseCard from '../../components/expenses/ExpenseCard.vue'
 import ExpenseWorkflowActions from '../../components/expenses/ExpenseWorkflowActions.vue'
 import { formatDate } from '../../lib/date'
+import * as L from '../../lib/listClasses'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useMissionStore } from '../../stores/missions'
 import { useExpenseStore } from '../../stores/expenses'

@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { defineStore, getActivePinia } from 'pinia'
 import { ref, computed } from 'vue'
 import type { AuthUser, UserRole } from '../types'
 import { api, getStoredToken, setStoredToken, clearStoredToken } from '../lib/api'
@@ -105,8 +105,44 @@ export const useAuthStore = defineStore('auth', () => {
     permissions.value = data.permissions
   }
 
+  // Tous les autres stores (employees, leaveRequests, missions, expenses...)
+  // sont de simples singletons Pinia qui restent en mémoire pour toute la
+  // durée de l'onglet — se déconnecter puis se reconnecter avec un autre
+  // compte, sans rechargement complet de la page, laissait les anciennes
+  // données de l'utilisateur précédent visibles jusqu'à ce que chaque écran
+  // pense à les rafraîchir (beaucoup de fetch* ont un garde-fou "si déjà
+  // chargé, ne refais rien"). $reset() n'existe pas sur les stores en
+  // syntaxe "setup" (composition) qu'utilise tout ce projet — on utilise
+  // donc $dispose() sur chaque store actif sauf auth : au prochain
+  // useXStore(), Pinia relance sa fonction setup depuis zéro, ce qui
+  // réinitialise vraiment ses refs (contrairement à $patch/$reset qui
+  // n'existent pas ici). pinia._s est une API interne non documentée mais
+  // stable — c'est le contournement standard pour ce besoin avec des stores
+  // en syntaxe setup.
+  //
+  // Exception : les stores UI "singleton racine" (toast, confirmDialog) ne
+  // portent aucune donnée utilisateur à rafraîchir, seulement un état
+  // d'affichage éphémère — et Snackbar.vue/ConfirmDialog.vue les récupèrent
+  // UNE SEULE FOIS dans App.vue (monté en dehors du <RouterView>, jamais
+  // recréé). Les disposer ici les orpheline silencieusement : le composant
+  // racine garde l'ancienne instance (jamais mise à jour), tandis que
+  // withToast()/confirmDialog() recréent une nouvelle instance à chaque
+  // appel — plus aucune UI ne réagit. D'où le snackbar qui cessait de
+  // s'afficher après un premier login/logout dans l'onglet.
+  const UI_SINGLETON_STORE_IDS = new Set(['toast', 'confirmDialog'])
+  function resetOtherStores() {
+    const pinia = getActivePinia()
+    if (!pinia) return
+    const activeStores = (pinia as unknown as { _s: Map<string, { $dispose: () => void }> })._s
+    for (const [id, store] of activeStores) {
+      if (id === 'auth' || UI_SINGLETON_STORE_IDS.has(id)) continue
+      store.$dispose()
+    }
+  }
+
   // ── Actions ──────────────────────────────────────────────────
   async function login(email: string, password: string) {
+    resetOtherStores()
     const { data } = await api.post<{ accessToken: string }>('/auth/login', { email, password })
     setStoredToken(data.accessToken)
     const payload = decodeJwt(data.accessToken)
@@ -156,6 +192,7 @@ export const useAuthStore = defineStore('auth', () => {
       categoryName.value = null
       permissions.value = []
       isLoggedIn.value = false
+      resetOtherStores()
     } finally {
       isRestoring.value = false
     }
@@ -168,6 +205,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn.value = false
     mustChangePassword.value = false
     clearStoredToken()
+    resetOtherStores()
   }
 
   return {
@@ -175,6 +213,6 @@ export const useAuthStore = defineStore('auth', () => {
     isValidator, isHRAdmin, isHRDirector,
     isHRSpace, isEmployeeSpace,
     hasPermission, hasAnyPermission,
-    login, logout, restoreSession, changePassword,
+    login, logout, restoreSession, changePassword, resetOtherStores,
   }
 })

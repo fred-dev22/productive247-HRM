@@ -59,7 +59,7 @@
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">{{ t('employee.field_birth_date') }} *</label>
-                  <input v-model="form.birthDate" type="date" :class="[cls.fieldInput, err.birthDate && cls.inputError]" />
+                  <input v-model="form.birthDate" type="date" :max="todayIso()" :class="[cls.fieldInput, err.birthDate && cls.inputError]" />
                   <div v-if="err.birthDate" :class="cls.fieldError">{{ err.birthDate }}</div>
                 </div>
                 <div :class="cls.field">
@@ -139,7 +139,7 @@
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">{{ t('employee.field_hire_date') }} *</label>
-                  <input v-model="form.hireDate" type="date" :class="[cls.fieldInput, err.hireDate && cls.inputError]" />
+                  <input v-model="form.hireDate" type="date" :max="todayIso()" :class="[cls.fieldInput, err.hireDate && cls.inputError]" />
                   <div v-if="err.hireDate" :class="cls.fieldError">{{ err.hireDate }}</div>
                 </div>
                 <div :class="cls.field">
@@ -208,6 +208,7 @@ import TableLookupField from '../../components/ui/table-lookup/TableLookupField.
 import type { LookupFetchParams } from '../../components/ui/table-lookup/TableLookupField.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
+import { todayIso } from '../../lib/date'
 import { useAuthStore }     from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore }   from '../../stores/entities'

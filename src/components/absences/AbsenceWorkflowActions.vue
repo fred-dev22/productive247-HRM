@@ -11,7 +11,7 @@
  * demande), pas de logique de permission dupliquée côté client.
  */
 import { reactive } from 'vue'
-import { Undo2, Check, X, Send, CheckCheck, RotateCcw, Ban } from 'lucide-vue-next'
+import { Undo2, Check, X, Send, CheckCheck, RotateCcw, Ban, Trash2 } from 'lucide-vue-next'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
@@ -20,6 +20,7 @@ import { useAuthStore } from '../../stores/auth'
 import type { LeaveRequest } from '../../types'
 
 const props = defineProps<{ leave: LeaveRequest }>()
+const emit = defineEmits<{ deleted: [] }>()
 const store = useLeaveRequestStore()
 const auth  = useAuthStore()
 
@@ -28,9 +29,13 @@ const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'
 const returnCls  = btn + ' bg-info-bg text-info hover:brightness-95'
 const rejectCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
+const deleteCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 
 const IN_APPROVAL: LeaveRequest['status'][] = ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
-const CANCELLABLE: LeaveRequest['status'][] = ['Draft', 'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved', 'Registered']
+// Une fois Approved/Registered, seule une action administrative peut encore
+// annuler (voir LeaveRequestService.cancel côté backend) — le demandeur lui-
+// même ne peut plus revenir en arrière depuis ce bouton self-service.
+const CANCELLABLE: LeaveRequest['status'][] = ['Draft', 'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
 
 const isOwner   = () => props.leave.employeeId === auth.user?.id
 const canValidate = () => auth.hasPermission('CONGE_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.leave.status)
@@ -41,6 +46,16 @@ function markDone() { store.markDone(props.leave.id) }
 function regularize() { store.regularize(props.leave.id) }
 async function cancel() {
   if (await confirmDialog('Annuler cette demande ?')) store.cancel(props.leave.id)
+}
+// Suppression definitive — distincte d'Annuler (qui garde la trace, statut
+// Cancelled). Reservee au createur et aux brouillons (le serveur refait la
+// meme verification, voir LeaveRequestService.remove) : rien n'a encore ete
+// soumis, aucune trace d'audit a preserver.
+async function remove() {
+  if (await confirmDialog('Supprimer définitivement cette demande ? Cette action est irréversible.', { danger: true })) {
+    await store.remove(props.leave.id)
+    emit('deleted')
+  }
 }
 
 /* ── Modale Retourner ───────────────────────────────────────── */
@@ -82,6 +97,9 @@ function confirmReject() {
 
     <button v-if="isOwner() && CANCELLABLE.includes(leave.status) && !canValidate()" :class="cancelCls" @click="cancel">
       <Ban class="w-3.5 h-3.5" /> Annuler
+    </button>
+    <button v-if="isOwner() && leave.status === 'Draft'" :class="deleteCls" @click="remove">
+      <Trash2 class="w-3.5 h-3.5" /> Supprimer
     </button>
   </div>
 

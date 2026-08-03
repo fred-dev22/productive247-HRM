@@ -11,7 +11,7 @@
  * permission dupliquée côté client.
  */
 import { reactive } from 'vue'
-import { Undo2, Check, X, Send, Ban } from 'lucide-vue-next'
+import { Undo2, Check, X, Send, Ban, Trash2 } from 'lucide-vue-next'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
@@ -20,6 +20,7 @@ import { useAuthStore } from '../../stores/auth'
 import type { MissionOrder } from '../../types'
 
 const props = defineProps<{ mission: MissionOrder }>()
+const emit = defineEmits<{ deleted: [] }>()
 const missionStore = useMissionStore()
 const auth = useAuthStore()
 
@@ -28,6 +29,7 @@ const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'
 const returnCls  = btn + ' bg-info-bg text-info hover:brightness-95'
 const rejectCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
+const deleteCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 
 const IN_APPROVAL: MissionOrder['status'][] = ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
 const CANCELLABLE: MissionOrder['status'][] = ['Draft', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved']
@@ -39,6 +41,12 @@ function approve() { missionStore.approve(props.mission.id) }
 function submit()  { missionStore.submit(props.mission.id) }
 async function cancel() {
   if (await confirmDialog('Annuler cet ordre de mission ?')) missionStore.cancel(props.mission.id)
+}
+async function remove() {
+  if (await confirmDialog('Supprimer définitivement cet ordre de mission ? Cette action est irréversible.', { danger: true })) {
+    await missionStore.remove(props.mission.id)
+    emit('deleted')
+  }
 }
 
 /* ── Modale Retourner ───────────────────────────────────────── */
@@ -74,6 +82,9 @@ function confirmReject() {
 
     <button v-if="isOwner() && CANCELLABLE.includes(mission.status) && !canValidate()" :class="cancelCls" @click="cancel">
       <Ban class="w-3.5 h-3.5" /> Annuler
+    </button>
+    <button v-if="isOwner() && mission.status === 'Draft'" :class="deleteCls" @click="remove">
+      <Trash2 class="w-3.5 h-3.5" /> Supprimer
     </button>
   </div>
 

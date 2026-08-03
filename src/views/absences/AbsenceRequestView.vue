@@ -27,10 +27,14 @@
     <!-- Soldes -->
     <template #above-table>
       <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
-        <div :class="kpiCard" class="border-t-[3px] border-t-primary"><div :class="kpiLabel">{{ t('balances.annual') }}</div><div :class="kpiValue" class="text-primary">{{ balanceFor('ANNUAL') }}</div><div :class="kpiSub">j disponibles</div></div>
-        <div :class="kpiCard" class="border-t-[3px] border-t-success"><div :class="kpiLabel">{{ t('balances.recovery') }}</div><div :class="kpiValue" class="text-success">{{ balanceFor('RECOVERY') }}</div><div :class="kpiSub">j disponibles</div></div>
-        <div :class="kpiCard" class="border-t-[3px] border-t-success"><div :class="kpiLabel">{{ t('balances.sick') }}</div><div :class="kpiValue" class="text-success">{{ balanceFor('SICK') }}</div><div :class="kpiSub">j disponibles</div></div>
-        <div :class="kpiCard" class="border-t-[3px]" style="border-top-color:#854F0B"><div :class="kpiLabel">{{ t('balances.remote') }}</div><div :class="kpiValue" style="color:#854F0B">{{ balanceFor('REMOTE') }}</div><div :class="kpiSub">j disponibles</div></div>
+        <div v-for="b in balanceStore.myBalances" :key="b.leaveTypeId" :class="kpiCard" class="border-t-[3px]" :style="{ borderTopColor: b.color }">
+          <div :class="kpiLabel">{{ b.leaveTypeName }}</div>
+          <div :class="kpiValue" :style="{ color: b.color }">{{ b.balance }}</div>
+          <div :class="kpiSub">j disponible{{ b.balance > 1 ? 's' : '' }}</div>
+        </div>
+        <div v-if="balanceStore.myBalances.length === 0" class="col-span-4 text-[13px] text-muted-foreground italic px-1">
+          Aucun type de congé actif configuré.
+        </div>
       </div>
     </template>
 
@@ -98,10 +102,6 @@ onMounted(() => {
   store.fetchMine()
   if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
 })
-
-function balanceFor(code: string) {
-  return balanceStore.myBalances.find(b => b.leaveTypeCode === code)?.balance ?? 0
-}
 
 const kpiCard = 'bg-card border border-border rounded-lg px-3.5 py-3'
 const kpiLabel = 'text-[13px] text-muted-foreground mb-1'

@@ -244,6 +244,12 @@ export const useMissionStore = defineStore('missions', () => {
       list.value = list.value.filter(m => m.id !== id)
     }
   }
+  // Voir leaveRequests.ts removeFromPending — une decision retire tout de
+  // suite la ligne de "à valider" pour l'acteur courant, sans attendre un
+  // rechargement complet de la page.
+  function removeFromPending(id: string) {
+    pendingForMe.value = pendingForMe.value.filter(m => m.id !== id)
+  }
 
   async function create(payload: CreateMissionPayload): Promise<MissionOrder> {
     error.value = null
@@ -269,10 +275,18 @@ export const useMissionStore = defineStore('missions', () => {
   async function createAndSubmit(payload: CreateMissionPayload): Promise<MissionOrder> {
     error.value = null
     return withToast("Soumission de l'ordre de mission en cours…", async () => {
+      let created: MissionOrder | undefined
       try {
-        const created = await create(payload)
+        created = await create(payload)
         return await submit(created.id)
       } catch (err) {
+        // Ne laisse pas trainer le brouillon cree juste avant si la
+        // soumission echoue apres coup — l'utilisateur voulait une
+        // soumission directe, pas un brouillon.
+        if (created) {
+          await api.delete(`/mission-orders/${created.id}`).catch(() => {})
+          removeEverywhere(created.id)
+        }
         error.value = getApiErrorMessage(err, "Impossible de soumettre l'ordre de mission")
         throw err
       }
@@ -336,6 +350,7 @@ export const useMissionStore = defineStore('missions', () => {
         const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}/approve`, { Comment: comment })
         const mapped = mapMissionOrder(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de valider cet ordre de mission')
@@ -351,6 +366,7 @@ export const useMissionStore = defineStore('missions', () => {
         const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}/reject`, { Comment: comment })
         const mapped = mapMissionOrder(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de refuser cet ordre de mission')
@@ -366,6 +382,7 @@ export const useMissionStore = defineStore('missions', () => {
         const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}/return`, { Comment: comment })
         const mapped = mapMissionOrder(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de retourner cet ordre de mission')

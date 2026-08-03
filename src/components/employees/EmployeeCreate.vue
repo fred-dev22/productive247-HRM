@@ -10,6 +10,7 @@ import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
+import { todayIso } from '../../lib/date'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
 import { usePositionStore } from '../../stores/positions'
@@ -196,7 +197,7 @@ async function create() {
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Date de naissance <span class="text-danger">*</span></label>
-              <input type="date" v-model="form.birthDate" :class="cls.fieldInput" />
+              <input type="date" v-model="form.birthDate" :max="todayIso()" :class="cls.fieldInput" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Lieu de naissance</label>
@@ -264,7 +265,7 @@ async function create() {
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Date d'embauche <span class="text-danger">*</span></label>
-              <input type="date" v-model="form.hireDate" :class="cls.fieldInput" />
+              <input type="date" v-model="form.hireDate" :max="todayIso()" :class="cls.fieldInput" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Statut</label>

@@ -131,7 +131,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
 
     <!-- Barre d'actions métier (mode lecture) -->
     <template v-if="!isEditMode" #action-buttons>
-      <AbsenceWorkflowActions :leave="current" />
+      <AbsenceWorkflowActions :leave="current" @deleted="emit('close')" />
     </template>
 
     <template #form>

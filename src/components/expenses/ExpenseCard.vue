@@ -122,7 +122,7 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
     </template>
 
     <template v-if="!isEditMode" #action-buttons>
-      <ExpenseWorkflowActions :report="current" />
+      <ExpenseWorkflowActions :report="current" @deleted="emit('close')" />
     </template>
 
     <template #form>

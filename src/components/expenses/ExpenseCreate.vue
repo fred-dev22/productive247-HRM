@@ -8,6 +8,7 @@ import { ref, reactive, computed } from 'vue'
 import { Plus, Trash2 } from 'lucide-vue-next'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
+import UserAvatar from '../ui/UserAvatar.vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
@@ -17,6 +18,7 @@ import type { ExpenseLinePayload } from '../../stores/expenses'
 import { useMissionStore } from '../../stores/missions'
 import { useMissionConfigStore } from '../../stores/missionConfig'
 import { useEmployeeStore } from '../../stores/employees'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 
 const props = withDefaults(defineProps<{ mode?: 'self' | 'for-employee' }>(), { mode: 'self' })
 const emit = defineEmits<{ close: []; created: [] }>()
@@ -26,9 +28,11 @@ const expenseStore = useExpenseStore()
 const missionStore = useMissionStore()
 const missionConfigStore = useMissionConfigStore()
 const employeeStore = useEmployeeStore()
+const categoryStore = useEmployeeCategoryStore()
 
 if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
 if (missionStore.mine.length === 0) missionStore.fetchMine()
+if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
 
@@ -36,6 +40,20 @@ const forWhom = ref<BeneficiaryValue>({ mode: props.mode, employeeId: '' })
 const employeeItems = computed(() =>
   employeeStore.employees.map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
+
+// Carte "bénéficiaire" en lecture seule quand ForWhomSelector n'affiche pas
+// le sélecteur (simple employé sans EMPLOYE_VOIR_TOUT/EMPLOYE_VOIR_EQUIPE) —
+// même pattern que MissionCreate.vue.
+const selectedEmployee = computed(() => {
+  if (forWhom.value.mode === 'self') {
+    const u = auth.user
+    return u ? { id: u.id, name: u.name, initials: u.initials, categoryName: auth.categoryName ?? '' } : null
+  }
+  const emp = employeeStore.getById(forWhom.value.employeeId)
+  if (!emp) return null
+  const categoryName = categoryStore.categories.find(c => c.id === emp.employeeCategoryId)?.name ?? ''
+  return { id: emp.id, name: emp.name, initials: emp.initials, categoryName }
+})
 
 const form = reactive({ title: '', missionOrderId: '' })
 const approvedMissions = computed(() => missionStore.mine.filter(m => m.status === 'Approved'))
@@ -99,6 +117,13 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
           <!-- Bénéficiaire -->
           <FormSection title="Général">
           <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" />
+          <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 px-3.5 py-2.5 bg-background border border-border rounded-lg">
+            <UserAvatar :name="selectedEmployee.name" size="sm" />
+            <div>
+              <div class="text-[13px] font-medium text-foreground">{{ selectedEmployee.name }}</div>
+              <div class="text-[11px] text-muted-foreground">{{ selectedEmployee.categoryName || 'Sans catégorie' }}</div>
+            </div>
+          </div>
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mt-4">
             <div :class="[cls.field, 'col-span-full']">
               <label :class="cls.fieldLabel">Titre <span class="text-danger">*</span></label>

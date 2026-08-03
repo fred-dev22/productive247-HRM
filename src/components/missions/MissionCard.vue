@@ -146,7 +146,7 @@ const td = 'px-2.5 py-2 border-b border-border'
 
     <!-- Barre d'actions métier (mode lecture) -->
     <template v-if="!isEditMode" #action-buttons>
-      <MissionWorkflowActions :mission="current" />
+      <MissionWorkflowActions :mission="current" @deleted="emit('close')" />
       <button :class="cls.btnOutline" @click="printPage"><Printer class="w-4 h-4" /> Imprimer</button>
     </template>
 

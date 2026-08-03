@@ -12,25 +12,13 @@
         </div>
 
         <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
-          <div :class="kpiCard" class="border-t-[3px] border-t-primary">
-            <div :class="kpiLabel">{{ t('balances.annual') }}</div>
-            <div :class="kpiValue" class="text-primary">{{ balanceFor('ANNUAL') }}</div>
-            <div :class="kpiSub">j disponibles</div>
+          <div v-for="b in balanceStore.myBalances" :key="b.leaveTypeId" :class="kpiCard" class="border-t-[3px]" :style="{ borderTopColor: b.color }">
+            <div :class="kpiLabel">{{ b.leaveTypeName }}</div>
+            <div :class="kpiValue" :style="{ color: b.color }">{{ b.balance }}</div>
+            <div :class="kpiSub">j disponible{{ b.balance > 1 ? 's' : '' }}</div>
           </div>
-          <div :class="kpiCard" class="border-t-[3px] border-t-success">
-            <div :class="kpiLabel">{{ t('balances.recovery') }}</div>
-            <div :class="kpiValue" class="text-success">{{ balanceFor('RECOVERY') }}</div>
-            <div :class="kpiSub">j disponibles</div>
-          </div>
-          <div :class="kpiCard" class="border-t-[3px] border-t-success">
-            <div :class="kpiLabel">{{ t('balances.sick') }}</div>
-            <div :class="kpiValue" class="text-success">{{ balanceFor('SICK') }}</div>
-            <div :class="kpiSub">{{ t('balances.available') }}</div>
-          </div>
-          <div :class="kpiCard" class="border-t-[3px]" style="border-top-color:#854F0B">
-            <div :class="kpiLabel">{{ t('balances.remote') }}</div>
-            <div :class="kpiValue" style="color:#854F0B">{{ balanceFor('REMOTE') }}</div>
-            <div :class="kpiSub">j disponibles</div>
+          <div v-if="balanceStore.myBalances.length === 0" class="col-span-4 text-[13px] text-muted-foreground italic px-1">
+            Aucun type de congé actif configuré.
           </div>
         </div>
 
@@ -56,11 +44,8 @@
               <router-link v-else :to="{ name: 'employee-absences' }" class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground no-underline">{{ t('absence.actions.view') }}</router-link>
             </div>
             <div class="flex gap-2 flex-wrap mt-3 pt-2.5 border-t border-border">
-              <button :class="[btnOutline, 'text-[11px]']" @click="openModalForCode('REMOTE')">
-                <Building class="w-4 h-4" /> {{ t('absence.types.remote') }}
-              </button>
-              <button :class="[btnOutline, 'text-[11px]']" @click="openModalForCode('RECOVERY')">
-                <Clock class="w-4 h-4" /> {{ t('absence.types.recovery') }}
+              <button :class="[btnOutline, 'text-[11px]']" @click="openModal()">
+                <Plus class="w-4 h-4" /> {{ t('absence.new') }}
               </button>
               <button :class="[btnOutline, 'text-[11px]']" @click="router.push({ name: 'employee-missions' })">
                 <Plane class="w-4 h-4" /> {{ t('nav.my_missions') }}
@@ -117,7 +102,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Plus, List, Building, Clock, Plane, Calendar, Check, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Plus, List, Plane, Calendar, Check, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
 import { StatusPill } from '../components'
 import { formatDate } from '../lib/date'
@@ -143,10 +128,6 @@ if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
 if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 
-function balanceFor(code: string) {
-  return balanceStore.myBalances.find(b => b.leaveTypeCode === code)?.balance ?? 0
-}
-
 // ── Classes du design system ─────────────────────────────────
 const btnPrimary = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-primary text-primary-foreground transition-colors hover:bg-primary/90'
 const btnOutline = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-card text-foreground border border-border transition-colors hover:bg-background'
@@ -162,7 +143,9 @@ const calNavBtn = 'border border-border rounded w-[22px] h-[22px] flex items-cen
 
 const myRequests = computed(() => leaves.mine.slice(0, 5))
 
-const CANCELLABLE = new Set(['Draft', 'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved', 'Registered'])
+// Une fois Approved/Registered, seul le RH/manager peut encore annuler
+// administrativement — plus le demandeur lui-même (voir AbsenceWorkflowActions.vue).
+const CANCELLABLE = new Set(['Draft', 'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
 async function cancelRequest(id: string) {
   if (await confirmDialog('Annuler cette demande ?')) leaves.cancel(id)
 }
@@ -171,10 +154,6 @@ async function cancelRequest(id: string) {
 const showModal        = ref(false)
 const modalInitialType = ref('')
 
-function openModalForCode(code: string) {
-  modalInitialType.value = leaveTypesStore.leaveTypes.find(lt => lt.code === code)?.id ?? ''
-  showModal.value = true
-}
 function openModal() {
   modalInitialType.value = ''
   showModal.value = true

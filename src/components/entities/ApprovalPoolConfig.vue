@@ -77,6 +77,13 @@ function memberAt(level: 1 | 2 | 3 | 4, type: ApprovalObjectType = activeType.va
   return store.poolFor(type)?.members.find(m => m.stepOrder === level)
 }
 
+// Un même employé ne peut pas être validateur à deux niveaux du pool d'une
+// même entité — il approuverait alors sa propre demande en double, ce qui
+// vide le circuit N+1..N+4 de son sens.
+function isAssignedAtOtherLevel(employeeId: string, level: 1 | 2 | 3 | 4): boolean {
+  return ([1, 2, 3, 4] as const).some((l) => l !== level && memberAt(l)?.employeeId === employeeId)
+}
+
 async function ensurePoolFor(type: ApprovalObjectType): Promise<string | undefined> {
   const existing = store.poolFor(type)
   if (existing) return existing.id
@@ -86,19 +93,17 @@ async function ensurePoolFor(type: ApprovalObjectType): Promise<string | undefin
 }
 
 // ── Mode "même pool pour les 3 types" ──────────────────────────────
-const linked = ref(false)
+// Coché par défaut : le cas courant est un seul pool de validation pour
+// tout, pas 3 configurations distinctes à saisir. Pas de confirmation au
+// changement — contrairement à une suppression, rien n'est jamais perdu
+// (décocher laisse les pools divergentats librement depuis leur état
+// synchronisé, voir le commentaire en tête de fichier).
+const linked = ref(true)
 const typesToSync = computed<ApprovalObjectType[]>(() => linked.value ? OBJECT_TYPES.map(t => t.key) : [activeType.value])
 
 async function toggleLinked(next: boolean) {
-  if (next) {
-    const ok = await confirmDialog(
-      `Appliquer les validateurs actuels de « ${OBJECT_TYPES.find(t => t.key === activeType.value)!.label} » aux 3 types ? Les pools des 2 autres types seront remplacés.`,
-      { confirmLabel: 'Appliquer' },
-    )
-    if (!ok) return
-    await syncAllLevelsFrom(activeType.value)
-  }
   linked.value = next
+  if (next) await syncAllLevelsFrom(activeType.value)
 }
 
 // Réplique, pour chaque niveau N+1..N+4, le validateur (+ intérim) du pool
@@ -149,34 +154,31 @@ async function removeValidator(level: 1 | 2 | 3 | 4) {
 }
 
 // ── Intérim ─────────────────────────────────────────────────────
+// Juste la personne substitute — plus de plage de dates à saisir à la
+// main : au moment où une demande arrive à ce niveau, le backend détecte
+// tout seul si ce validateur est en congé approuvé aujourd'hui et route
+// vers son intérimaire le cas échéant (voir LeaveRequestService/
+// MissionOrderService/ExpenseReportService.resolveActualApprover).
 const interimOpenFor = ref<number | null>(null)
-const interimForm = ref({ interimEmployeeId: '', interimStartDate: '', interimEndDate: '' })
+const interimForm = ref({ interimEmployeeId: '' })
 
 function openInterim(level: 1 | 2 | 3 | 4) {
   const m = memberAt(level)
-  interimForm.value = {
-    interimEmployeeId: m?.interimEmployeeId ?? '',
-    interimStartDate: m?.interimStartDate?.slice(0, 10) ?? '',
-    interimEndDate: m?.interimEndDate?.slice(0, 10) ?? '',
-  }
+  interimForm.value = { interimEmployeeId: m?.interimEmployeeId ?? '' }
   interimOpenFor.value = level
 }
 async function saveInterim(level: 1 | 2 | 3 | 4) {
   for (const type of typesToSync.value) {
     const member = memberAt(level, type)
     if (!member) continue
-    await store.updateMember(member.id, {
-      interimEmployeeId: interimForm.value.interimEmployeeId || undefined,
-      interimStartDate: interimForm.value.interimStartDate || undefined,
-      interimEndDate: interimForm.value.interimEndDate || undefined,
-    })
+    await store.updateMember(member.id, { interimEmployeeId: interimForm.value.interimEmployeeId || undefined })
   }
   interimOpenFor.value = null
 }
 async function clearInterim(level: 1 | 2 | 3 | 4) {
   for (const type of typesToSync.value) {
     const member = memberAt(level, type)
-    if (member) await store.updateMember(member.id, { interimEmployeeId: undefined, interimStartDate: undefined, interimEndDate: undefined })
+    if (member) await store.updateMember(member.id, { interimEmployeeId: undefined })
   }
   interimOpenFor.value = null
 }
@@ -200,7 +202,13 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
       Utiliser le même pool de validation pour les 3 types
     </label>
 
-    <div class="flex gap-1.5 border-b border-border">
+    <!-- Un seul onglet tant que "même pool" est coché — les 3 types partagent
+         la même configuration, pas besoin de naviguer entre 3 onglets
+         identiques. Décocher fait réapparaître les 3 onglets pour diverger. -->
+    <div v-if="linked" class="px-3 py-2 text-[13px] font-medium text-primary border-b-2 border-primary w-fit">
+      Validation (Congés, Missions, Notes de frais)
+    </div>
+    <div v-else class="flex gap-1.5 border-b border-border">
       <button
         v-for="t in OBJECT_TYPES" :key="t.key"
         class="px-3 py-2 text-[13px] font-medium border-b-2 -mb-px transition-colors"
@@ -239,9 +247,9 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
               <optgroup v-for="grp in validatorsByCategory" :key="grp.label" :label="grp.label">
                 <option
                   v-for="e in grp.employees" :key="e.id" :value="e.id"
-                  :disabled="!e.hasAccount || !canValidate(e)"
-                  :title="!e.hasAccount ? 'Cet employé n\'a pas de compte utilisateur — il ne peut pas se connecter pour approuver.' : !canValidate(e) ? 'La catégorie de cet employé n\'a pas la permission de validation pour ce type de demande — il ne pourra pas voir ni traiter la file « À valider ».' : ''"
-                >{{ e.name }} · {{ e.jobTitle }}{{ !e.hasAccount ? ' (pas de compte)' : !canValidate(e) ? ' (permission manquante)' : '' }}</option>
+                  :disabled="!e.hasAccount || !canValidate(e) || isAssignedAtOtherLevel(e.id, level)"
+                  :title="!e.hasAccount ? 'Cet employé n\'a pas de compte utilisateur — il ne peut pas se connecter pour approuver.' : !canValidate(e) ? 'La catégorie de cet employé n\'a pas la permission de validation pour ce type de demande — il ne pourra pas voir ni traiter la file « À valider ».' : isAssignedAtOtherLevel(e.id, level) ? 'Déjà validateur à un autre niveau de ce pool.' : ''"
+                >{{ e.name }} · {{ e.jobTitle }}{{ !e.hasAccount ? ' (pas de compte)' : !canValidate(e) ? ' (permission manquante)' : isAssignedAtOtherLevel(e.id, level) ? ' (déjà à un autre niveau)' : '' }}</option>
               </optgroup>
             </select>
           </template>
@@ -249,22 +257,15 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
 
         <!-- Intérim -->
         <div v-if="interimOpenFor === level" class="flex flex-col gap-2 mt-1 pt-2 border-t border-border">
-          <div class="grid grid-cols-3 gap-2">
-            <div :class="cls.field">
-              <label :class="cls.fieldLabel">Intérimaire</label>
-              <select v-model="interimForm.interimEmployeeId" :class="cls.fieldSelect">
-                <option value="">-- Aucun --</option>
-                <option v-for="e in interimCandidates.filter(x => x.id !== memberAt(level)!.employeeId)" :key="e.id" :value="e.id">{{ e.name }}</option>
-              </select>
-            </div>
-            <div :class="cls.field">
-              <label :class="cls.fieldLabel">Du</label>
-              <input type="date" v-model="interimForm.interimStartDate" :class="cls.fieldInput" />
-            </div>
-            <div :class="cls.field">
-              <label :class="cls.fieldLabel">Au</label>
-              <input type="date" v-model="interimForm.interimEndDate" :class="cls.fieldInput" />
-            </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Intérimaire</label>
+            <select v-model="interimForm.interimEmployeeId" :class="cls.fieldSelect">
+              <option value="">-- Aucun --</option>
+              <option v-for="e in interimCandidates.filter(x => x.id !== memberAt(level)!.employeeId)" :key="e.id" :value="e.id">{{ e.name }}</option>
+            </select>
+            <p class="text-[11px] text-muted-foreground mt-1">
+              Utilisé automatiquement quand ce validateur a un congé approuvé couvrant le jour où une demande lui arrive — pas besoin de préciser de dates.
+            </p>
           </div>
           <div class="flex gap-2 justify-end">
             <button type="button" :class="[cls.btnOutline, '!px-2.5 !py-1 !text-xs']" @click="clearInterim(level)">Retirer l'intérim</button>
@@ -273,7 +274,6 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
         </div>
         <div v-else-if="memberAt(level)?.interimEmployeeId" class="text-[11px] text-muted-foreground pl-[calc(2.5rem+8px)]">
           Intérim : {{ employeeLabel(memberAt(level)!.interimEmployeeId) }}
-          ({{ memberAt(level)!.interimStartDate?.slice(0,10) }} → {{ memberAt(level)!.interimEndDate?.slice(0,10) }})
         </div>
       </div>
     </div>
