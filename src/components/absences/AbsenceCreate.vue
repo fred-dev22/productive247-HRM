@@ -10,6 +10,7 @@ import { reactive, ref, computed, watch } from 'vue'
 import {
   Calendar, Clock, Paperclip, TriangleAlert, CircleAlert, CalendarCheck,
 } from 'lucide-vue-next'
+import UserAvatar from '../ui/UserAvatar.vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import SearchableDropdown from '../ui/SearchableDropdown.vue'
@@ -20,7 +21,9 @@ import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useCalendarStore } from '../../stores/calendar'
 import { useEmployeeStore } from '../../stores/employees'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
+import { useAuthStore } from '../../stores/auth'
 import { calculateEndDate, getWorkingDaysBetween, isWorkingDay } from '../../utils/calendar'
 
 const props = defineProps<{ initialLeaveTypeId?: string }>()
@@ -30,16 +33,57 @@ const leaveRequestStore     = useLeaveRequestStore()
 const leaveTransactionStore = useLeaveTransactionStore()
 const calendarStore         = useCalendarStore()
 const employeeStore         = useEmployeeStore()
+const categoryStore         = useEmployeeCategoryStore()
 const leaveTypesStore       = useLeaveTypesStore()
+const auth                  = useAuthStore()
 
 if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 if (leaveTransactionStore.myBalances.length === 0) leaveTransactionStore.fetchMyBalances()
+if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+// N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — un
+// simple employé n'a pas EMPLOYE_VOIR_TOUT/EQUIPE, fetchAll() échouerait en
+// 403. L'annuaire allégé (voir stores/employees.ts fetchDirectory) est
+// accessible à tout compte authentifié et suffit pour ce sélecteur.
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
 const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
+// On exclut soi-même : "Pour moi-même" est déjà l'option dédiée à ce cas,
+// pas besoin de se retrouver aussi dans la liste "Pour un employé".
 const employeeItems = computed(() =>
-  employeeStore.employees.map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+  employeeStore.directory
+    .filter(e => e.id !== auth.user?.id)
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+)
+
+// Carte "bénéficiaire" en lecture seule quand ForWhomSelector n'affiche pas
+// le sélecteur (simple employé sans EMPLOYE_VOIR_TOUT/EMPLOYE_VOIR_EQUIPE) —
+// même pattern que MissionCreate.vue, pour que la rubrique ne reste pas
+// vide : c'est toujours lui le bénéficiaire dans ce cas.
+const selectedEmployee = computed(() => {
+  if (forWhom.value.mode === 'self') {
+    const u = auth.user
+    return u ? { id: u.id, name: u.name, initials: u.initials, categoryName: auth.categoryName ?? '' } : null
+  }
+  const emp = employeeStore.getById(forWhom.value.employeeId)
+  if (!emp) return null
+  const categoryName = categoryStore.categories.find(c => c.id === emp.employeeCategoryId)?.name ?? ''
+  return { id: emp.id, name: emp.name, initials: emp.initials, categoryName }
+})
+
+// L'intérimaire remplace le bénéficiaire de la demande à son poste — aucune
+// restriction d'entité (decision du 01/08, revient sur celle du 30/07) : un
+// responsable en congé peut désigner un intérimaire dans une autre direction.
+const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : auth.user?.id)
+// Seul le bénéficiaire est exclu : il ne peut pas être son propre
+// intérimaire. Quand on crée pour quelqu'un d'autre, le demandeur (soi-même)
+// reste un intérimaire valide ; quand on crée pour soi-même, ce filtre
+// l'exclut déjà puisque beneficiaryId vaut alors son propre id.
+const interimItems = computed(() =>
+  employeeStore.directory
+    .filter(e => e.id !== beneficiaryId.value)
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
 
 const leaveTypeItems = computed(() =>
@@ -85,7 +129,7 @@ const myBalance = computed(() => {
 })
 
 const isBalanceInsufficient = computed(() => {
-  if (!form.workingDaysCount || !currentType.value || isMedicalType.value) return false
+  if (!form.workingDaysCount || !currentType.value) return false
   if (currentType.value.daysPerYear <= 0) return false // illimité
   if (forWhom.value.mode !== 'self' || !myBalance.value) return false
   return form.workingDaysCount > myBalance.value.balance
@@ -100,9 +144,12 @@ const isNoticePeriodViolated = computed(() => {
   return diffDays < currentType.value.noticeDays
 })
 
-// Auto-calcule la date de fin quand début + nombre de jours changent
+// Auto-calcule la date de fin quand début + nombre de jours changent — aussi
+// quand le calendrier termine son chargement (fetchCalendar() est async ;
+// sans ça, remplir le formulaire avant que la réponse arrive calculait la
+// reprise contre un calendrier vide, jamais recalculée ensuite).
 watch(
-  () => [form.startDate, form.workingDaysCount, form.startPeriod] as const,
+  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.workingDays] as const,
   ([start, days, period]) => {
     if (calculating || daysMode.value !== 'from-days') return
     if (!start || !days || days <= 0) { resumeDate.value = ''; return }
@@ -152,7 +199,9 @@ function validate(): boolean {
   if (!form.startDate) { errors.startDate = 'La date de début est obligatoire'; ok = false }
   if (isNotWorkingDay.value) { errors.startDate = "Ce jour n'est pas un jour ouvrable"; ok = false }
   if (!form.workingDaysCount || form.workingDaysCount <= 0) { errors.workingDays = 'Nombre de jours requis (min. 0.5)'; ok = false }
-  if (isBalanceInsufficient.value) { errors.workingDays = `Solde insuffisant (${myBalance.value?.balance ?? 0} j disponibles)` ; ok = false }
+  // Solde insuffisant n'est plus bloquant (décision du 04/08, même
+  // traitement que le préavis) — un avertissement reste affiché en rouge,
+  // le validateur décide en connaissance de cause.
   error.value = ok ? '' : 'Veuillez corriger les champs en erreur'
   return ok
 }
@@ -202,6 +251,13 @@ async function saveDraft() {
         <div class="max-w-3xl mx-auto">
           <FormSection title="Bénéficiaire">
           <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :error-employee="errors.employee" />
+          <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 px-3.5 py-2.5 bg-background border border-border rounded-lg">
+            <UserAvatar :name="selectedEmployee.name" size="sm" />
+            <div>
+              <div class="text-[13px] font-medium text-foreground">{{ selectedEmployee.name }}</div>
+              <div class="text-[11px] text-muted-foreground">{{ selectedEmployee.categoryName || 'Sans catégorie' }}</div>
+            </div>
+          </div>
           </FormSection>
 
           <FormSection title="Détails de la demande">
@@ -291,7 +347,7 @@ async function saveDraft() {
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Intérimaire <span :class="cls.fieldOptional">(optionnel)</span></label>
               <SearchableDropdown
-                :items="employeeItems"
+                :items="interimItems"
                 :model-value="form.interimEmployeeId"
                 placeholder="Qui assure votre intérim ?"
                 @update:model-value="form.interimEmployeeId = String($event)"

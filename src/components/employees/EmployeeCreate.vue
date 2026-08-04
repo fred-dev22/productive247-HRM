@@ -10,22 +10,29 @@ import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
+import { todayIso } from '../../lib/date'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
 import { usePositionStore } from '../../stores/positions'
-import type { UserRole, ContractType, EmployeeStatus, Gender, MaritalStatus, IdDocumentType } from '../../types'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import type { ContractType, EmployeeStatus, Gender, MaritalStatus, IdDocumentType } from '../../types'
 
 const emit = defineEmits<{ close: []; created: [] }>()
 
 const store = useEmployeeStore()
 const entityStore = useEntityStore()
 const positionStore = usePositionStore()
+const categoryStore = useEmployeeCategoryStore()
 
 onMounted(() => {
-  if (positionStore.positions.length === 0) positionStore.fetchAll()
+  // Toujours rafraichir les postes (pas de garde sur .length) — a la
+  // difference des categories, l'occupation d'un poste change a chaque
+  // creation/suppression d'employe, donc une liste deja chargee peut etre
+  // perimee (nombre de places restantes faux dans le picker).
+  positionStore.fetchAll()
+  if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 })
 
-const ROLE_LABELS: Record<string, string> = { employee: 'Employé', validator: 'Validateur / Manager', hr_admin: 'Administrateur RH', hr_director: 'Directeur RH' }
 const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Inactif' }
 const GENDER_LABELS: Record<Gender, string> = { M: 'Homme', F: 'Femme' }
 const MARITAL_LABELS: Record<MaritalStatus, string> = { Single: 'Célibataire', Married: 'Marié(e)', Divorced: 'Divorcé(e)', Widowed: 'Veuf / Veuve' }
@@ -41,38 +48,55 @@ function fetchEntities({ searchQuery }: LookupFetchParams) {
   return { items, total: items.length }
 }
 
-const positionColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'title', label: 'Poste' }]
+const positionColumns = [
+  { key: 'code', label: 'Code', width: '90px' },
+  { key: 'title', label: 'Poste' },
+  { key: 'remaining', label: 'Places dispo.', width: '100px' },
+]
 function fetchPositions({ searchQuery }: LookupFetchParams) {
-  // Un poste deja occupe ne doit plus etre propose a la creation — un seul
-  // employe par poste (voir Position.OccupationStatus).
-  let items = positionStore.positions.filter(p => p.occupationStatus === 'Vacant')
+  // Un poste dont tous les sieges sont occupes ne doit plus etre propose a la
+  // creation (voir Position.Capacity / decision du 30/07).
+  let items = positionStore.positions.filter(p => p.occupiedCount < p.capacity)
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(p => p.title.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
   }
-  return { items, total: items.length }
+  const withRemaining = items.map(p => ({ ...p, remaining: `${p.capacity - p.occupiedCount}/${p.capacity}` }))
+  return { items: withRemaining, total: withRemaining.length }
 }
 
 const entityCode = ref('')
 const positionCode = ref('')
 const form = reactive({
+  employeeNumber: '',
   firstName: '', lastName: '', email: '', phone: '',
   entityId: '' as string | null, entityName: '',
   positionId: '' as string | null, positionTitle: '',
-  role: '' as UserRole | '', contractType: '' as ContractType | '',
+  contractType: '' as ContractType | '',
+  employeeCategoryId: '' as string,
   hireDate: '', status: 'active' as EmployeeStatus,
   gender: '' as Gender | '', birthDate: '', birthPlace: '',
   maritalStatus: '' as MaritalStatus | '', idType: '' as IdDocumentType | '', idNumber: '',
 })
 const error = ref('')
 
-const nextCode = computed(() => store.nextCode)
+store.fetchNextNumber().then(n => { form.employeeNumber = n }).catch(() => {})
 
 function onEntitySelect(item: Record<string, unknown>) {
   form.entityId = String(item.id); form.entityName = String(item.name); entityCode.value = String(item.code)
 }
+// Un poste est rattache a une entite (voir Position.organizationUnitId) —
+// le choisir remplit automatiquement l'entite de l'employe, modifiable
+// ensuite si besoin (voir decision reunion du 25/07).
 function onPositionSelect(item: Record<string, unknown>) {
   form.positionId = String(item.id); form.positionTitle = String(item.title); positionCode.value = String(item.code)
+  const position = positionStore.positions.find(p => p.id === form.positionId)
+  if (position?.organizationUnitId) {
+    const entity = entityStore.getEntityById(position.organizationUnitId)
+    if (entity) {
+      form.entityId = entity.id; form.entityName = entity.name; entityCode.value = entity.code
+    }
+  }
 }
 
 // Manager auto-dérivé du responsable de l'entité choisie — pas éditable
@@ -87,14 +111,15 @@ function validate(): boolean {
   if (!form.firstName.trim()) { error.value = 'Prénom requis'; return false }
   if (!form.lastName.trim()) { error.value = 'Nom requis'; return false }
   if (!form.entityId) { error.value = 'Entité requise'; return false }
-  if (!form.role) { error.value = 'Rôle requis'; return false }
+  if (!form.employeeCategoryId) { error.value = 'Catégorie requise'; return false }
   if (!form.contractType) { error.value = 'Type de contrat requis'; return false }
   if (!form.hireDate) { error.value = 'Date d\'embauche requise'; return false }
   if (!form.gender) { error.value = 'Genre requis'; return false }
   if (!form.birthDate) { error.value = 'Date de naissance requise'; return false }
   if (!form.maritalStatus) { error.value = 'Situation familiale requise'; return false }
   if (!form.idType) { error.value = "Type de pièce d'identité requis"; return false }
-  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { error.value = 'Format email invalide'; return false }
+  if (!form.email.trim()) { error.value = 'Email requis'; return false }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { error.value = 'Format email invalide'; return false }
   error.value = ''
   return true
 }
@@ -103,16 +128,18 @@ async function create() {
   if (!validate()) return
   try {
     await store.createEmployee({
+      code: form.employeeNumber || undefined,
       firstName: form.firstName, lastName: form.lastName,
       jobTitle: form.positionTitle, positionId: form.positionId || undefined,
       email: form.email || undefined, phone: form.phone || undefined,
       entityId: form.entityId, entityName: form.entityName,
-      role: form.role as UserRole, contractType: form.contractType as ContractType,
+      contractType: form.contractType as ContractType,
       hireDate: form.hireDate, status: form.status,
       managerId: directManager.value?.managerId ?? undefined,
       gender: form.gender as Gender, birthDate: form.birthDate, birthPlace: form.birthPlace || undefined,
       maritalStatus: form.maritalStatus as MaritalStatus, idType: form.idType as IdDocumentType,
       idNumber: form.idNumber || undefined,
+      employeeCategoryId: form.employeeCategoryId,
       // Un employé fraîchement créé n'a jamais de compte — hasAccount ne
       // devient vrai que via l'action "Créer un compte utilisateur" (voir
       // CreateUserAccountDialog.vue), jamais choisi à la création.
@@ -142,7 +169,7 @@ async function create() {
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Matricule</label>
-              <div class="text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center text-muted-foreground">{{ nextCode }}</div>
+              <input v-model="form.employeeNumber" :class="cls.fieldInput" placeholder="ex : EMP004" />
             </div>
             <div></div>
             <div :class="cls.field">
@@ -154,7 +181,7 @@ async function create() {
               <input v-model="form.lastName" :class="cls.fieldInput" placeholder="ex : Diallo" />
             </div>
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Email</label>
+              <label :class="cls.fieldLabel">Email <span class="text-danger">*</span></label>
               <input type="email" v-model="form.email" :class="cls.fieldInput" placeholder="prenom.nom@galana.com" />
             </div>
             <div :class="cls.field">
@@ -170,7 +197,7 @@ async function create() {
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Date de naissance <span class="text-danger">*</span></label>
-              <input type="date" v-model="form.birthDate" :class="cls.fieldInput" />
+              <input type="date" v-model="form.birthDate" :max="todayIso()" :class="cls.fieldInput" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Lieu de naissance</label>
@@ -222,11 +249,12 @@ async function create() {
               />
             </div>
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Rôle <span class="text-danger">*</span></label>
-              <select v-model="form.role" :class="cls.fieldSelect">
+              <label :class="cls.fieldLabel">Catégorie <span class="text-danger">*</span></label>
+              <select v-model="form.employeeCategoryId" :class="cls.fieldSelect">
                 <option value="">-- Choisir --</option>
-                <option v-for="(l, v) in ROLE_LABELS" :key="v" :value="v">{{ l }}</option>
+                <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
+              <span class="text-[11px] text-muted-foreground">Détermine le taux de frais/perdiem et les permissions par défaut d'un futur compte</span>
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Type de contrat <span class="text-danger">*</span></label>
@@ -237,7 +265,7 @@ async function create() {
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Date d'embauche <span class="text-danger">*</span></label>
-              <input type="date" v-model="form.hireDate" :class="cls.fieldInput" />
+              <input type="date" v-model="form.hireDate" :max="todayIso()" :class="cls.fieldInput" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Statut</label>

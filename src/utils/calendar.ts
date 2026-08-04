@@ -33,8 +33,13 @@ export function isHoliday(
   const monthDay  = `${mm}-${dd}`
 
   for (const h of calendar.holidays) {
-    if (h.isRecurring  && h.date === monthDay)  return { isHoliday: true, name: h.name }
-    if (!h.isRecurring && h.date === fullDate)  return { isHoliday: true, name: h.name }
+    // Un férié récurrent garde sa date complète en base ("2000-06-26" par
+    // ex., voir mapHoliday()) — seuls mois/jour comptent pour la récurrence,
+    // d'où le slice(5) plutôt qu'une comparaison sur la chaîne complète (qui
+    // ne matchait jamais avant ce correctif, aucun férié annuel n'était donc
+    // jamais détecté nulle part dans l'app).
+    if (h.isRecurring  && h.date.slice(5) === monthDay) return { isHoliday: true, name: h.name }
+    if (!h.isRecurring && h.date === fullDate)          return { isHoliday: true, name: h.name }
   }
   return { isHoliday: false }
 }

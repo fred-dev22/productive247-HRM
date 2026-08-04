@@ -40,7 +40,7 @@
                   <div v-if="err.code" :class="cls.fieldError">{{ err.code }}</div>
                 </div>
                 <div :class="cls.field">
-                  <label :class="cls.fieldLabel">{{ t('employee.field_email') }}</label>
+                  <label :class="cls.fieldLabel">{{ t('employee.field_email') }} <span class="text-danger">*</span></label>
                   <input v-model="form.email" type="email" :class="[cls.fieldInput, err.email && cls.inputError]" :placeholder="t('employee.placeholder_email')" />
                   <div v-if="err.email" :class="cls.fieldError">{{ err.email }}</div>
                 </div>
@@ -59,7 +59,7 @@
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">{{ t('employee.field_birth_date') }} *</label>
-                  <input v-model="form.birthDate" type="date" :class="[cls.fieldInput, err.birthDate && cls.inputError]" />
+                  <input v-model="form.birthDate" type="date" :max="todayIso()" :class="[cls.fieldInput, err.birthDate && cls.inputError]" />
                   <div v-if="err.birthDate" :class="cls.fieldError">{{ err.birthDate }}</div>
                 </div>
                 <div :class="cls.field">
@@ -119,15 +119,12 @@
                   <div v-if="err.entityId" :class="cls.fieldError">{{ err.entityId }}</div>
                 </div>
                 <div :class="cls.field">
-                  <label :class="cls.fieldLabel">{{ t('employee.field_role') }} *</label>
-                  <select v-model="form.role" :class="[cls.fieldSelect, err.role && cls.inputError]">
-                    <option value="">{{ t('employee.placeholder_role') }}</option>
-                    <option value="employee">{{ t('employee.role_employee') }}</option>
-                    <option value="validator">{{ t('employee.role_validator') }}</option>
-                    <option value="hr_admin">{{ t('employee.role_hr_admin') }}</option>
-                    <option value="hr_director">{{ t('employee.role_hr_director') }}</option>
+                  <label :class="cls.fieldLabel">Catégorie *</label>
+                  <select v-model="form.employeeCategoryId" :class="[cls.fieldSelect, err.employeeCategoryId && cls.inputError]">
+                    <option value="">-- Choisir --</option>
+                    <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                   </select>
-                  <div v-if="err.role" :class="cls.fieldError">{{ err.role }}</div>
+                  <div v-if="err.employeeCategoryId" :class="cls.fieldError">{{ err.employeeCategoryId }}</div>
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">{{ t('employee.field_contract') }} *</label>
@@ -142,7 +139,7 @@
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">{{ t('employee.field_hire_date') }} *</label>
-                  <input v-model="form.hireDate" type="date" :class="[cls.fieldInput, err.hireDate && cls.inputError]" />
+                  <input v-model="form.hireDate" type="date" :max="todayIso()" :class="[cls.fieldInput, err.hireDate && cls.inputError]" />
                   <div v-if="err.hireDate" :class="cls.fieldError">{{ err.hireDate }}</div>
                 </div>
                 <div :class="cls.field">
@@ -211,17 +208,20 @@ import TableLookupField from '../../components/ui/table-lookup/TableLookupField.
 import type { LookupFetchParams } from '../../components/ui/table-lookup/TableLookupField.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
+import { todayIso } from '../../lib/date'
 import { useAuthStore }     from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore }   from '../../stores/entities'
 import { usePositionStore } from '../../stores/positions'
-import type { UserRole, ContractType, EmployeeStatus, Gender, MaritalStatus, IdDocumentType } from '../../types'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import type { ContractType, EmployeeStatus, Gender, MaritalStatus, IdDocumentType } from '../../types'
 
 const { t }       = useI18n()
 const auth        = useAuthStore()
 const store       = useEmployeeStore()
 const entityStore = useEntityStore()
 const positionStore = usePositionStore()
+const categoryStore = useEmployeeCategoryStore()
 const router      = useRouter()
 const route       = useRoute()
 
@@ -233,20 +233,37 @@ const empId  = computed(() => route.params.id as string | undefined)
 const isEdit = computed(() => !!empId.value)
 const editEmp = computed(() => empId.value ? store.getById(empId.value) : undefined)
 
-const positionColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'title', label: 'Poste' }]
+const positionColumns = [
+  { key: 'code', label: 'Code', width: '90px' },
+  { key: 'title', label: 'Poste' },
+  { key: 'remaining', label: 'Places dispo.', width: '100px' },
+]
 function fetchPositions({ searchQuery }: LookupFetchParams) {
-  // Un poste deja occupe ne doit plus etre propose — sauf celui deja affecte
-  // a cet employe (sinon on ne pourrait plus voir/reselectionner le sien).
-  let items = positionStore.positions.filter(p => p.occupationStatus === 'Vacant' || p.id === form.positionId)
+  // Un poste dont tous les sieges sont occupes ne doit plus etre propose —
+  // sauf celui deja affecte a cet employe (sinon on ne pourrait plus
+  // voir/reselectionner le sien) (voir Position.Capacity / decision du 30/07).
+  let items = positionStore.positions.filter(p => p.occupiedCount < p.capacity || p.id === form.positionId)
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(p => p.title.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
   }
-  return { items, total: items.length }
+  const withRemaining = items.map(p => ({ ...p, remaining: `${p.capacity - p.occupiedCount}/${p.capacity}` }))
+  return { items: withRemaining, total: withRemaining.length }
 }
 const positionCode = ref('')
+// Un poste est rattache a une entite (voir Position.organizationUnitId) —
+// le choisir remplit automatiquement l'entite de l'employe, modifiable
+// ensuite si besoin (voir decision reunion du 25/07).
 function onPositionSelect(item: Record<string, unknown>) {
   form.positionId = String(item.id); form.positionTitle = String(item.title); positionCode.value = String(item.code)
+  const position = positionStore.positions.find(p => p.id === form.positionId)
+  if (position?.organizationUnitId) {
+    const entity = entityStore.getEntityById(position.organizationUnitId)
+    if (entity) {
+      form.entityId = entity.id
+      onEntityChange()
+    }
+  }
 }
 
 const form = reactive({
@@ -259,7 +276,7 @@ const form = reactive({
   positionTitle: '',
   entityId:     '' as string | null,
   entityName:   '',
-  role:         '' as UserRole | '',
+  employeeCategoryId: '' as string,
   contractType: '' as ContractType | '',
   hireDate:     '',
   status:       'active' as EmployeeStatus,
@@ -273,7 +290,7 @@ const form = reactive({
 
 const err = reactive({
   firstName: '', lastName: '', code: '', email: '',
-  entityId: '', role: '', contractType: '', hireDate: '',
+  entityId: '', employeeCategoryId: '', contractType: '', hireDate: '',
   gender: '', birthDate: '', maritalStatus: '', idType: '',
 })
 const saveError = ref('')
@@ -302,7 +319,7 @@ function populateForm(e: NonNullable<typeof editEmp.value>) {
   positionCode.value = ''
   form.entityId      = e.entityId
   form.entityName    = e.entityName ?? ''
-  form.role          = e.role
+  form.employeeCategoryId = e.employeeCategoryId ?? ''
   form.contractType  = e.contractType
   form.hireDate      = e.hireDate
   form.status        = e.status
@@ -320,7 +337,10 @@ onMounted(async () => {
   // mapEmployee lit ces deux stores de façon synchrone pour entityName/jobTitle.
   const preTasks: Promise<unknown>[] = []
   if (entityStore.entities.length === 0) preTasks.push(entityStore.fetchAll())
-  if (positionStore.positions.length === 0) preTasks.push(positionStore.fetchAll())
+  // Toujours rafraichir les postes (pas de garde sur .length) — l'occupation
+  // change a chaque creation/suppression d'employe ailleurs dans l'app.
+  preTasks.push(positionStore.fetchAll())
+  if (categoryStore.categories.length === 0) preTasks.push(categoryStore.fetchAll())
   if (preTasks.length > 0) await Promise.all(preTasks)
 
   if (isEdit.value && !store.getById(empId.value!)) {
@@ -332,7 +352,7 @@ onMounted(async () => {
   if (isEdit.value && editEmp.value) {
     populateForm(editEmp.value)
   } else if (!isEdit.value) {
-    form.code = store.nextCode
+    store.fetchNextNumber().then(n => { form.code = n }).catch(() => {})
   }
 })
 
@@ -343,16 +363,15 @@ function validate(): boolean {
   if (!form.lastName.trim())      { err.lastName      = t('employee.err_last_name');  ok = false }
   if (!form.code.trim())          { err.code          = t('employee.err_code');       ok = false }
   if (!form.entityId)             { err.entityId      = t('employee.err_entity');     ok = false }
-  if (!form.role)                 { err.role          = t('employee.err_role');       ok = false }
+  if (!form.employeeCategoryId)   { err.employeeCategoryId = 'Catégorie requise';     ok = false }
   if (!form.contractType)         { err.contractType  = t('employee.err_contract');   ok = false }
   if (!form.hireDate)             { err.hireDate      = t('employee.err_hire_date');  ok = false }
   if (!form.gender)               { err.gender        = t('employee.err_gender');     ok = false }
   if (!form.birthDate)            { err.birthDate     = t('employee.err_birth_date'); ok = false }
   if (!form.maritalStatus)        { err.maritalStatus = t('employee.err_marital_status'); ok = false }
   if (!form.idType)               { err.idType        = t('employee.err_id_type');    ok = false }
-  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-    err.email = t('employee.err_email'); ok = false
-  }
+  if (!form.email.trim()) { err.email = t('employee.err_email_required'); ok = false }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { err.email = t('employee.err_email'); ok = false }
   return ok
 }
 
@@ -364,7 +383,7 @@ async function handleSave() {
     code:         form.code,
     firstName:    form.firstName,
     lastName:     form.lastName,
-    role:         form.role as UserRole,
+    employeeCategoryId: form.employeeCategoryId,
     jobTitle:     form.positionTitle,
     positionId:   form.positionId || undefined,
     entityId:     form.entityId,

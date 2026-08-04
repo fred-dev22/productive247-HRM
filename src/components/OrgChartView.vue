@@ -12,7 +12,7 @@
         <template #node="{ item, children, open, toggleChildren }">
           <div
             class="org-node"
-            :class="`org-node--${item.type}`"
+            :class="`org-node--${item.type.toLowerCase()}`"
             @click.stop="onNodeClick(item.id)"
           >
             <div class="org-node__code-badge">{{ item.code }}</div>

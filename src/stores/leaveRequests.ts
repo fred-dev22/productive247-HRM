@@ -35,7 +35,9 @@ interface BackendLeaveRequest {
   employee?: BackendEmployeeRef
   leaveType?: BackendLeaveTypeRef
   interimEmployee?: BackendEmployeeRef
+  createdByEmployee?: BackendEmployeeRef
   decisions?: BackendDecision[]
+  InsufficientBalance?: boolean
 }
 
 function initialsFromFullName(name: string): string {
@@ -68,6 +70,8 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
     employeeId: raw.EmployeeId,
     employeeName,
     employeeInitials: initialsFromFullName(employeeName),
+    createdById: raw.createdByEmployee?.Id,
+    createdByName: raw.createdByEmployee?.FullName,
     leaveTypeId: raw.LeaveTypeId,
     leaveTypeName: raw.leaveType?.Name ?? '',
     leaveTypeColor: raw.leaveType?.Color ?? '#94A3B8',
@@ -85,6 +89,7 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
     createdAt: raw.CreatedAt,
     modifiedAt: raw.ModifiedAt ?? undefined,
     validationHistory: raw.decisions ? raw.decisions.map(mapDecision) : undefined,
+    insufficientBalance: raw.InsufficientBalance ?? false,
   }
 }
 
@@ -191,6 +196,14 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
       list.value = list.value.filter(l => l.id !== id)
     }
   }
+  // Une decision (approuver/refuser/retourner) retire la demande de "à
+  // valider" pour l'acteur courant tout de suite — meme si elle escalade au
+  // niveau superieur, ce n'est plus a lui de la traiter. Sans ça la ligne
+  // restait affichee (avec un statut/des boutons perimes) jusqu'à un
+  // rechargement complet de la page.
+  function removeFromPending(id: string) {
+    pendingForMe.value = pendingForMe.value.filter(l => l.id !== id)
+  }
 
   async function create(payload: CreateLeaveRequestPayload): Promise<LeaveRequest> {
     error.value = null
@@ -216,10 +229,19 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
   async function createAndSubmit(payload: CreateLeaveRequestPayload): Promise<LeaveRequest> {
     error.value = null
     return withToast('Soumission de la demande en cours…', async () => {
+      let created: LeaveRequest | undefined
       try {
-        const created = await create(payload)
+        created = await create(payload)
         return await submit(created.id)
       } catch (err) {
+        // La soumission peut echouer apres coup (ex: preavis insuffisant,
+        // solde insuffisant) — on ne laisse pas trainer le brouillon cree
+        // juste avant, l'utilisateur a demande une soumission directe, pas
+        // un brouillon.
+        if (created) {
+          await api.delete(`/leave-requests/${created.id}`).catch(() => {})
+          removeEverywhere(created.id)
+        }
         error.value = getApiErrorMessage(err, 'Impossible de soumettre la demande de congé')
         throw err
       }
@@ -279,6 +301,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const { data } = await api.patch<BackendLeaveRequest>(`/leave-requests/${id}/approve`, { Comment: comment })
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de valider cette demande')
@@ -294,6 +317,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const { data } = await api.patch<BackendLeaveRequest>(`/leave-requests/${id}/reject`, { Comment: comment })
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de refuser cette demande')
@@ -309,6 +333,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const { data } = await api.patch<BackendLeaveRequest>(`/leave-requests/${id}/return`, { Comment: comment })
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
+        removeFromPending(mapped.id)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de retourner cette demande')

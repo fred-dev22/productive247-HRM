@@ -1,20 +1,24 @@
 <script setup lang="ts">
 /**
  * Fiche de création d'une note de frais — sur CreateModalShell (pattern
- * frontdesk). Bénéficiaire + lignes de dépense + récapitulatif.
+ * frontdesk). Bénéficiaire + lignes de dépense (catégorie = ExpenseType réel,
+ * partagé avec le per diem des missions) + récapitulatif.
  */
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { Plus, Trash2 } from 'lucide-vue-next'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
+import UserAvatar from '../ui/UserAvatar.vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useAuthStore } from '../../stores/auth'
 import { useExpenseStore } from '../../stores/expenses'
+import type { ExpenseLinePayload } from '../../stores/expenses'
 import { useMissionStore } from '../../stores/missions'
+import { useMissionConfigStore } from '../../stores/missionConfig'
 import { useEmployeeStore } from '../../stores/employees'
-import type { ExpenseLine, ExpenseCategory } from '../../types'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 
 const props = withDefaults(defineProps<{ mode?: 'self' | 'for-employee' }>(), { mode: 'self' })
 const emit = defineEmits<{ close: []; created: [] }>()
@@ -22,39 +26,63 @@ const emit = defineEmits<{ close: []; created: [] }>()
 const auth = useAuthStore()
 const expenseStore = useExpenseStore()
 const missionStore = useMissionStore()
+const missionConfigStore = useMissionConfigStore()
 const employeeStore = useEmployeeStore()
+const categoryStore = useEmployeeCategoryStore()
 
-const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
-  transport: 'Transport', hebergement: 'Hébergement', repas: 'Repas', carburant: 'Carburant',
-  fournitures: 'Fournitures', communication: 'Communication', representation: 'Représentation', autre: 'Autre',
-}
-const CATEGORIES = Object.keys(CATEGORY_LABELS) as ExpenseCategory[]
+if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
+if (missionStore.mine.length === 0) missionStore.fetchMine()
+if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+// N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — voir
+// AbsenceCreate.vue pour le detail (fetchAll echouerait en 403 sans
+// EMPLOYE_VOIR_TOUT/EQUIPE).
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
+
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
 
 const forWhom = ref<BeneficiaryValue>({ mode: props.mode, employeeId: '' })
+// On exclut soi-même : "Pour moi-même" est déjà l'option dédiée à ce cas,
+// pas besoin de se retrouver aussi dans la liste "Pour un employé".
 const employeeItems = computed(() =>
-  employeeStore.employees.map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+  employeeStore.directory
+    .filter(e => e.id !== auth.user?.id)
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
 
-const form = reactive({ title: '', missionId: '' })
-const approvedMissions = computed(() => missionStore.missions.filter(m => m.status === 'approved'))
-const lines = ref<ExpenseLine[]>([])
-const error = ref('')
-let lineSeq = 100
+// Carte "bénéficiaire" en lecture seule quand ForWhomSelector n'affiche pas
+// le sélecteur (simple employé sans EMPLOYE_VOIR_TOUT/EMPLOYE_VOIR_EQUIPE) —
+// même pattern que MissionCreate.vue.
+const selectedEmployee = computed(() => {
+  if (forWhom.value.mode === 'self') {
+    const u = auth.user
+    return u ? { id: u.id, name: u.name, initials: u.initials, categoryName: auth.categoryName ?? '' } : null
+  }
+  const emp = employeeStore.getById(forWhom.value.employeeId)
+  if (!emp) return null
+  const categoryName = categoryStore.categories.find(c => c.id === emp.employeeCategoryId)?.name ?? ''
+  return { id: emp.id, name: emp.name, initials: emp.initials, categoryName }
+})
 
+// Quand on crée pour un autre employé, la mission liée peut être une des
+// miennes ou une des siennes — le backend étend "mine" avec forEmployeeId.
+watch(
+  () => (forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : undefined),
+  (forEmployeeId) => { missionStore.fetchMine(forEmployeeId || undefined) },
+)
+
+const form = reactive({ title: '', missionOrderId: '' })
+const approvedMissions = computed(() => missionStore.mine.filter(m => m.status === 'Approved'))
+const lines = ref<ExpenseLinePayload[]>([])
+const error = ref('')
+let lineSeq = 0
+
+function firstExpenseTypeId() { return missionConfigStore.expenseTypes[0]?.id ?? '' }
 function addLine() {
-  lines.value.push({ id: `new-${++lineSeq}`, date: new Date().toISOString().slice(0, 10), category: 'transport', description: '', amount: 0, currency: 'MGA', receipt: false })
+  lineSeq++
+  lines.value.push({ date: new Date().toISOString().slice(0, 10), expenseTypeId: firstExpenseTypeId(), description: '', amount: 0, hasDocument: false })
 }
 function removeLine(i: number) { lines.value.splice(i, 1) }
 const total = computed(() => lines.value.reduce((s, l) => s + (l.amount || 0), 0))
-
-function resolveEmployee() {
-  if (forWhom.value.mode === 'for-employee' && forWhom.value.employeeId) {
-    const emp = employeeStore.getById(forWhom.value.employeeId)
-    if (emp) return { id: emp.id, name: emp.name, initials: emp.initials }
-  }
-  return { id: auth.user?.id ?? '', name: auth.user?.name ?? '', initials: auth.user?.initials ?? '' }
-}
 
 function validate(): boolean {
   if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) { error.value = 'Sélectionnez un employé'; return false }
@@ -64,16 +92,24 @@ function validate(): boolean {
   return true
 }
 
-function build(submit: boolean) {
+function buildPayload() {
+  return {
+    employeeId: forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : undefined,
+    title: form.title,
+    missionOrderId: form.missionOrderId || undefined,
+    lines: lines.value,
+  }
+}
+
+async function build(submit: boolean) {
   if (!validate()) return
-  const emp = resolveEmployee()
-  const r = expenseStore.createReport({
-    employeeId: emp.id, employeeName: emp.name, employeeInitials: emp.initials,
-    title: form.title, missionId: form.missionId || undefined,
-    lines: lines.value, totalAmount: total.value, currency: 'MGA',
-  })
-  if (submit) expenseStore.submitReport(r.id)
-  emit('created'); emit('close')
+  try {
+    if (submit) await expenseStore.createAndSubmit(buildPayload())
+    else await expenseStore.saveDraft(buildPayload())
+    emit('created'); emit('close')
+  } catch {
+    error.value = expenseStore.error ?? "L'opération a échoué."
+  }
 }
 
 const th = 'text-left px-2.5 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border'
@@ -96,6 +132,13 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
           <!-- Bénéficiaire -->
           <FormSection title="Général">
           <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" />
+          <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 px-3.5 py-2.5 bg-background border border-border rounded-lg">
+            <UserAvatar :name="selectedEmployee.name" size="sm" />
+            <div>
+              <div class="text-[13px] font-medium text-foreground">{{ selectedEmployee.name }}</div>
+              <div class="text-[11px] text-muted-foreground">{{ selectedEmployee.categoryName || 'Sans catégorie' }}</div>
+            </div>
+          </div>
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1 mt-4">
             <div :class="[cls.field, 'col-span-full']">
               <label :class="cls.fieldLabel">Titre <span class="text-danger">*</span></label>
@@ -103,9 +146,9 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Mission liée <span class="font-normal text-muted-foreground">(optionnel)</span></label>
-              <select v-model="form.missionId" :class="cls.fieldSelect">
+              <select v-model="form.missionOrderId" :class="cls.fieldSelect">
                 <option value="">Aucune</option>
-                <option v-for="m in approvedMissions" :key="m.id" :value="m.id">{{ m.code }} — {{ m.destination }}</option>
+                <option v-for="m in approvedMissions" :key="m.id" :value="m.id">{{ m.referenceCode }} — {{ m.destination }}</option>
               </select>
             </div>
           </div>
@@ -130,12 +173,16 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(l, i) in lines" :key="l.id">
+              <tr v-for="(l, i) in lines" :key="i">
                 <td :class="td"><input type="date" v-model="l.date" :class="cellInput" /></td>
-                <td :class="td"><select v-model="l.category" :class="cellInput"><option v-for="c in CATEGORIES" :key="c" :value="c">{{ CATEGORY_LABELS[c] }}</option></select></td>
+                <td :class="td">
+                  <select v-model="l.expenseTypeId" :class="cellInput">
+                    <option v-for="t in missionConfigStore.expenseTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                  </select>
+                </td>
                 <td :class="td"><input v-model="l.description" :class="cellInput" placeholder="Description…" /></td>
                 <td :class="td"><input type="number" min="0" v-model.number="l.amount" :class="[cellInput, 'text-right']" /></td>
-                <td :class="[td, 'text-center']"><input type="checkbox" class="accent-primary" v-model="l.receipt" /></td>
+                <td :class="[td, 'text-center']"><input type="checkbox" class="accent-primary" v-model="l.hasDocument" /></td>
                 <td :class="td"><button class="w-7 h-7 rounded-md bg-danger-bg text-danger flex items-center justify-center cursor-pointer hover:brightness-95" @click="removeLine(i)"><Trash2 class="w-3.5 h-3.5" /></button></td>
               </tr>
               <tr v-if="lines.length === 0"><td colspan="6" class="px-2.5 py-5 text-center text-muted-foreground italic">Aucune ligne — cliquez « Ajouter »</td></tr>

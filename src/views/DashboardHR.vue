@@ -94,8 +94,11 @@
               {{ r.employeeInitials }}
             </div>
             <div class="flex-1">
-              <div class="text-sm font-medium">{{ r.employeeName }}</div>
-              <div class="text-xs text-muted-foreground">{{ r.leaveTypeName }} · {{ r.startDate }} → {{ r.endDate }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
+              <div class="text-sm font-medium">
+                {{ r.employeeName }}
+                <span v-if="r.createdByName && r.createdByName !== r.employeeName" class="text-xs font-normal text-muted-foreground">— créé par {{ r.createdByName }}</span>
+              </div>
+              <div class="text-xs text-muted-foreground">{{ r.leaveTypeName }} · {{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
             </div>
             <StatusPill :status="r.status" />
             <AbsenceWorkflowActions :leave="r" />
@@ -123,9 +126,9 @@
                         <span class="ml-auto"><component :is="sortIcon('name')" class="w-3 h-3" :class="balSortKey==='name' ? 'text-primary' : 'text-foreground/30'" /></span>
                       </div>
                     </th>
-                    <th v-for="col in balCols" :key="col.key" :class="balTh" :title="t(col.i18n)" @click="balSort(col.key)">
-                      <div class="flex items-center gap-1">{{ t(col.i18n) }}
-                        <span class="ml-auto"><component :is="sortIcon(col.key)" class="w-3 h-3" :class="balSortKey===col.key ? 'text-primary' : 'text-foreground/30'" /></span>
+                    <th v-for="col in balCols" :key="col.leaveTypeId" :class="balTh" :title="col.leaveTypeName" @click="balSort(col.leaveTypeId)">
+                      <div class="flex items-center gap-1">{{ col.leaveTypeName }}
+                        <span class="ml-auto"><component :is="sortIcon(col.leaveTypeId)" class="w-3 h-3" :class="balSortKey===col.leaveTypeId ? 'text-primary' : 'text-foreground/30'" /></span>
                       </div>
                     </th>
                   </tr>
@@ -138,10 +141,7 @@
                         <span>{{ e.name }}</span>
                       </div>
                     </td>
-                    <td :class="[balTd, 'text-center font-medium']">{{ e.congeAnnuel }}j</td>
-                    <td :class="[balTd, 'text-center font-medium']">{{ e.recuperation }}j</td>
-                    <td :class="[balTd, 'text-center font-medium']">{{ e.maladie }}j</td>
-                    <td :class="[balTd, 'text-center font-medium']">{{ e.teletravail }}j</td>
+                    <td v-for="col in balCols" :key="col.leaveTypeId" :class="[balTd, 'text-center font-medium']">{{ e.balances[col.leaveTypeId] ?? 0 }}j</td>
                   </tr>
                 </tbody>
               </table>
@@ -188,15 +188,15 @@
                 :key="i"
                 class="text-xs text-center py-[5px] px-0.5 rounded cursor-pointer text-foreground relative hover:bg-background"
                 :class="dayClass(day)"
-                @mouseenter="day.dateStr ? showTooltip($event, day.dateStr) : undefined"
+                @mouseenter="day.dateStr ? showTooltip($event, day) : undefined"
                 @mouseleave="hideTooltip"
               >
                 {{ day.n ?? '' }}
               </div>
             </div>
             <div class="flex gap-3 mt-2.5 flex-wrap">
-              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0" style="background:#B5D4F4"></span>{{ t('absence.types.annual') }}</span>
-              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0" style="background:#FAC775"></span>{{ t('absence.types.remote') }}</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Absence approuvée</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-info"></span>Jour férié</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-primary"></span>Aujourd'hui</span>
             </div>
           </div>
@@ -222,33 +222,62 @@
     @created="onAbsenceSubmitted"
   />
 
+  <!-- Tour guidé — uniquement juste après l'onboarding (?tour=1), voir
+       OnboardingWizard.vue:finish() -->
+  <ProductTour v-if="showTour" :steps="TOUR_STEPS" @close="closeTour" />
+
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import {
   FileDown, Plus, Users, Clock, Check, UserX, Network, ChevronRight, ChevronLeft,
   CalendarClock, BarChart3, GripVertical, Calendar, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-vue-next'
 import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
 import AbsenceWorkflowActions from '../components/absences/AbsenceWorkflowActions.vue'
+import ProductTour from '../components/ui/ProductTour.vue'
+import type { TourStep } from '../components/ui/ProductTour.vue'
 import { SkeletonLoader, StatusPill } from '../components'
+import { formatDate } from '../lib/date'
 import { useAuthStore } from '../stores/auth'
 import { useLeaveRequestStore } from '../stores/leaveRequests'
 import { useEntityStore } from '../stores/entities'
 import { useEmployeeStore } from '../stores/employees'
 import { useLeaveTransactionStore } from '../stores/leaveTransactions'
+import { useCalendarStore } from '../stores/calendar'
+import { isHoliday } from '../utils/calendar'
 
 const auth        = useAuthStore()
 const leaves      = useLeaveRequestStore()
 const entityStore = useEntityStore()
 const employeeStore = useEmployeeStore()
 const balanceStore = useLeaveTransactionStore()
+const calendarStore = useCalendarStore()
 const { t, locale } = useI18n()
+const route  = useRoute()
+const router = useRouter()
+
+// Tour guidé — déclenché une seule fois juste après l'onboarding (voir
+// OnboardingWizard.vue:finish(), qui pousse ici avec ?tour=1). On retire le
+// paramètre dès la fermeture pour ne pas le redéclencher au rechargement.
+const showTour = ref(route.query.tour === '1')
+function closeTour() {
+  showTour.value = false
+  router.replace({ query: {} })
+}
+const TOUR_STEPS: TourStep[] = [
+  { target: '[data-tour="config"]', title: 'Configuration', description: "Gérez ici le calendrier et les jours fériés, la Classification (catégories, métiers et postes de l'entreprise) et les taux de frais/perdiems de mission." },
+  { target: '[data-tour="management"]', title: 'Employés et entités', description: 'Créez et gérez vos employés, entités, ordres de mission et notes de frais depuis cette section.' },
+  { target: '[data-tour="absences"]', title: "Demandes d'absence", description: "Suivez et validez les demandes de congé de votre équipe, et consultez les soldes." },
+]
 if (entityStore.entities.length === 0) entityStore.fetchAll()
 if (leaves.all.length === 0) leaves.fetchAll()
 if (employeeStore.employees.length === 0) employeeStore.fetchAll()
+if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
+if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 
 // ── KPIs ─────────────────────────────────────────────────────
 const todayIso = new Date().toISOString().slice(0, 10)
@@ -286,13 +315,6 @@ const pagBtnActive = '!bg-primary !text-primary-foreground !border-primary'
 const calNavBtn = 'border border-border rounded w-[22px] h-[22px] flex items-center justify-center cursor-pointer text-muted-foreground transition-colors hover:bg-background hover:text-foreground'
 const legClass = 'flex items-center gap-1.5 text-xs text-muted-foreground'
 
-const balCols = [
-  { key: 'congeAnnuel',  i18n: 'absence.types.annual' },
-  { key: 'recuperation', i18n: 'absence.types.recovery' },
-  { key: 'maladie',      i18n: 'absence.types.sick' },
-  { key: 'teletravail',  i18n: 'absence.types.remote' },
-]
-
 function sortIcon(key: string) {
   if (balSortKey.value !== key) return ArrowUpDown
   return balSortDir.value === 'asc' ? ArrowUp : ArrowDown
@@ -301,6 +323,7 @@ function sortIcon(key: string) {
 function dayClass(day: CalDay): string {
   if (day.cls === 'empty') return 'text-transparent pointer-events-none'
   if (day.cls === 'today') return 'bg-primary text-primary-foreground font-semibold'
+  if (day.hasHoliday) return 'bg-info-bg text-info font-medium'
   if (day.hasLeave) return 'bg-success-bg text-success font-medium'
   return ''
 }
@@ -350,27 +373,29 @@ function balSort(key: string) {
 
 if (balanceStore.allBalances.length === 0) balanceStore.fetchAllBalances()
 
-function balanceOf(employeeId: string, code: string): number {
-  return balanceStore.allBalances.find(b => b.employeeId === employeeId)?.balances.find(b => b.leaveTypeCode === code)?.balance ?? 0
-}
+// Colonnes derivees des types de conge reellement presents dans les soldes
+// (jamais de code fixe 'ANNUAL'/'RECOVERY'/... — le code d'un type de conge
+// est libre, choisi par le RH y compris depuis l'onboarding, donc rien ne
+// garantit que ces codes existent).
+const balCols = computed(() => (balanceStore.allBalances[0]?.balances ?? []).slice(0, 4).map(b => ({ leaveTypeId: b.leaveTypeId, leaveTypeName: b.leaveTypeName })))
+
 const employeeBalances = computed(() => balanceStore.allBalances.map(b => {
   const emp = employeeStore.getById(b.employeeId)
+  const balances: Record<string, number> = {}
+  for (const bal of b.balances) balances[bal.leaveTypeId] = bal.balance
   return {
     name: b.employeeName,
     initials: emp?.initials ?? '',
     avatarColor: emp?.avatarBg ?? '#E2E8F0',
     avatarTextColor: emp?.avatarText ?? '#475569',
-    congeAnnuel: balanceOf(b.employeeId, 'ANNUAL'),
-    recuperation: balanceOf(b.employeeId, 'RECOVERY'),
-    maladie: balanceOf(b.employeeId, 'SICK'),
-    teletravail: balanceOf(b.employeeId, 'REMOTE'),
+    balances,
   }
 }))
 
 const sortedBalances = computed(() => {
   const list = [...employeeBalances.value].sort((a, b) => {
-    const va = (a as any)[balSortKey.value]
-    const vb = (b as any)[balSortKey.value]
+    const va = balSortKey.value === 'name' ? a.name : (a.balances[balSortKey.value] ?? 0)
+    const vb = balSortKey.value === 'name' ? b.name : (b.balances[balSortKey.value] ?? 0)
     const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
     return balSortDir.value === 'asc' ? cmp : -cmp
   })
@@ -400,7 +425,7 @@ function nextMonth() {
   else calMonth.value++
 }
 
-interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean }
+interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean; hasHoliday: boolean; holidayName?: string }
 
 const calDays = computed((): CalDay[] => {
   const y = calYear.value
@@ -412,7 +437,7 @@ const calDays = computed((): CalDay[] => {
   const todayNum    = isThisMonth ? todayObj.getDate() : -1
   const result: CalDay[] = []
 
-  for (let i = 0; i < firstDay; i++) result.push({ n: null, dateStr: null, cls: 'empty', hasLeave: false })
+  for (let i = 0; i < firstDay; i++) result.push({ n: null, dateStr: null, cls: 'empty', hasLeave: false, hasHoliday: false })
 
   for (let d = 1; d <= daysInMonth; d++) {
     const mm      = String(m + 1).padStart(2, '0')
@@ -421,7 +446,8 @@ const calDays = computed((): CalDay[] => {
     const hasLeave = leaves.all.some(
       l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
     )
-    result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave })
+    const holiday = isHoliday(new Date(y, m, d), calendarStore.calendar)
+    result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
   }
   return result
 })
@@ -444,14 +470,15 @@ const tooltipStyle = computed(() => ({
   pointerEvents: 'none' as const,
 }))
 
-function showTooltip(event: MouseEvent, dateStr: string) {
+function showTooltip(event: MouseEvent, day: CalDay) {
   const rect    = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const matches = leaves.all.filter(
-    l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
+    l => l.status === 'Approved' && l.startDate <= (day.dateStr ?? '') && l.endDate >= (day.dateStr ?? '')
   )
-  tooltip.lines = matches.length > 0
-    ? matches.map(l => ({ text: `${l.employeeName} — ${l.leaveTypeName}`, color: l.leaveTypeColor }))
-    : [{ text: t('absence.no_absence'), color: '' }]
+  const lines: { text: string; color: string }[] = []
+  if (day.hasHoliday) lines.push({ text: `Férié — ${day.holidayName}`, color: 'var(--color-info)' })
+  lines.push(...matches.map(l => ({ text: `${l.employeeName} — ${l.leaveTypeName}`, color: l.leaveTypeColor })))
+  tooltip.lines = lines.length > 0 ? lines : [{ text: t('absence.no_absence'), color: '' }]
   tooltip.x     = rect.left + rect.width / 2
   tooltip.above = rect.top > window.innerHeight / 2
   tooltip.y     = tooltip.above ? rect.top : rect.bottom

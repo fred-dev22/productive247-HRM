@@ -74,7 +74,12 @@ const entityStore = useEntityStore()
 // restreinte à leur équipe.
 ;(async () => {
   if (entityStore.entities.length === 0) await entityStore.fetchAll()
-  await employeeStore.fetchTeam()
+  try {
+    await employeeStore.fetchTeam()
+  } catch {
+    // employeeStore.error porte le message ; la page reste affichée
+    // avec la liste vide plutôt que d'échouer silencieusement.
+  }
 })()
 
 const openCardId = ref<string | null>(null)

@@ -66,5 +66,27 @@ export const useLeaveTransactionStore = defineStore('leaveTransactions', () => {
     }, () => error.value ?? "Impossible de générer les acquisitions de congés")
   }
 
-  return { myBalances, allBalances, loading, error, fetchMyBalances, fetchBalancesFor, fetchAllBalances, generateAccruals }
+  // amount positif = crédit, négatif = décrément (plafonné à 0 côté backend
+  // — jamais de solde négatif en base, voir LeaveTransactionService.adjustBalance).
+  // wasClamped indique que le décrément demandé dépassait le solde
+  // disponible et a été limité à ce qu'il restait.
+  async function creditManual(employeeId: string, leaveTypeId: string, amount: number, reason?: string) {
+    error.value = null
+    return withToast('Mise à jour du solde en cours…', async () => {
+      try {
+        const { data } = await api.post<{ balances: LeaveBalance[]; wasClamped: boolean; newBalance: number }>(
+          '/leave-transactions/credit',
+          { EmployeeId: employeeId, LeaveTypeId: leaveTypeId, Amount: amount, Reason: reason || undefined },
+        )
+        const idx = allBalances.value.findIndex(b => b.employeeId === employeeId)
+        if (idx !== -1) allBalances.value[idx] = { ...allBalances.value[idx], balances: data.balances }
+        return data
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de mettre à jour ce solde")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de mettre à jour ce solde")
+  }
+
+  return { myBalances, allBalances, loading, error, fetchMyBalances, fetchBalancesFor, fetchAllBalances, generateAccruals, creditManual }
 })

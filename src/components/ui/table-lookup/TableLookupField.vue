@@ -76,6 +76,7 @@ const dropdownOpen = ref(false)
 const wrapperRef = ref<HTMLElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref({ top: 0, left: 0, width: 280 })
+const dropdownMaxHeight = ref(240)
 const listItems = ref<AnyItem[]>([])
 const dropdownLoading = ref(false)
 const searchQuery = ref('')
@@ -100,10 +101,35 @@ watch(searchQuery, () => {
   searchDebounce = setTimeout(() => { if (dropdownOpen.value) loadDropdownItems() }, DEBOUNCE_MS)
 })
 
+// Positionne le dropdown sous le champ par defaut, mais bascule au-dessus
+// (et reduit sa hauteur max) s'il n'y a pas la place en dessous — sinon,
+// pour un champ situe bas dans une popup, le dropdown deborde du viewport
+// et rien ne permet de scroller pour voir le reste (c'est un panneau
+// position:fixed hors de tout conteneur scrollable, pas une simple
+// superposition dans le flux de la page).
+const DROPDOWN_FOOTER_HEIGHT = 40
+const DROPDOWN_MAX = 240
+const DROPDOWN_MARGIN = 8
+
 function updateDropdownPosition() {
   if (!wrapperRef.value) return
   const rect = wrapperRef.value.getBoundingClientRect()
-  dropdownPosition.value = { top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 280) }
+  const width = Math.max(rect.width, 280)
+  const spaceBelow = window.innerHeight - rect.bottom - DROPDOWN_MARGIN
+  const spaceAbove = rect.top - DROPDOWN_MARGIN
+  const fitsBelow = spaceBelow >= DROPDOWN_MAX + DROPDOWN_FOOTER_HEIGHT
+  const openUpward = !fitsBelow && spaceAbove > spaceBelow
+
+  const available = (openUpward ? spaceAbove : spaceBelow) - DROPDOWN_FOOTER_HEIGHT
+  dropdownMaxHeight.value = Math.max(80, Math.min(DROPDOWN_MAX, available))
+
+  dropdownPosition.value = {
+    top: openUpward
+      ? Math.max(DROPDOWN_MARGIN, rect.top - dropdownMaxHeight.value - DROPDOWN_FOOTER_HEIGHT - 4)
+      : rect.bottom + 4,
+    left: rect.left,
+    width,
+  }
 }
 
 function openDropdown() {
@@ -260,7 +286,7 @@ onUnmounted(() => {
           class="fixed z-[9999] bg-card border border-border shadow-lg rounded-md overflow-hidden"
           :style="{ top: `${dropdownPosition.top}px`, left: `${dropdownPosition.left}px`, width: `${dropdownPosition.width}px`, minWidth: '280px' }"
         >
-          <div class="max-h-[240px] overflow-y-auto min-h-[80px] flex flex-col">
+          <div class="overflow-y-auto min-h-[80px] flex flex-col" :style="{ maxHeight: `${dropdownMaxHeight}px` }">
             <div v-if="dropdownLoading" class="flex-1 flex items-center justify-center py-8 text-muted-foreground text-[13px]">Chargement…</div>
             <table v-else class="w-full text-[13px] table-fixed">
               <thead>

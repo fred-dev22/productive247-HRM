@@ -3,15 +3,12 @@ import { ref } from 'vue'
 import { api, getApiErrorMessage } from '../lib/api'
 import { withToast } from '../lib/withToast'
 
-export type JobCategory = 'SeniorExecutive' | 'Manager' | 'Technician' | 'Employee'
-
 export interface Job {
-  id:          string
-  code:        string
-  title:       string
-  description?: string
-  category:    JobCategory
-  isActive:    boolean
+  id:            string
+  code:          string
+  title:         string
+  description?:  string
+  isActive:      boolean
 }
 
 interface BackendJob {
@@ -19,7 +16,6 @@ interface BackendJob {
   Code: string
   Title: string
   Description: string | null
-  Category: JobCategory
   IsActive: boolean
 }
 
@@ -29,7 +25,6 @@ function mapJob(raw: BackendJob): Job {
     code: raw.Code,
     title: raw.Title,
     description: raw.Description ?? undefined,
-    category: raw.Category,
     isActive: raw.IsActive,
   }
 }
@@ -39,7 +34,6 @@ function toBackendPayload(payload: Partial<Job>) {
   if (payload.code !== undefined) body.Code = payload.code
   if (payload.title !== undefined) body.Title = payload.title
   if (payload.description !== undefined) body.Description = payload.description
-  if (payload.category !== undefined) body.Category = payload.category
   if (payload.isActive !== undefined) body.IsActive = payload.isActive
   return body
 }

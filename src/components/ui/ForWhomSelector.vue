@@ -1,5 +1,5 @@
 <template>
-  <div v-if="canSwitchMode" class="flex flex-col gap-2.5">
+  <div class="flex flex-col gap-2.5">
     <div class="flex gap-1.5">
       <button
         :class="[modeBtn, modelValue.mode === 'self' && modeActive]"
@@ -41,7 +41,6 @@ import { computed } from 'vue'
 import { User, Users } from 'lucide-vue-next'
 import TableLookupField from './table-lookup/TableLookupField.vue'
 import type { LookupColumn, LookupFetchParams } from './table-lookup/TableLookupField.vue'
-import { useAuthStore } from '../../stores/auth'
 
 export interface BeneficiaryValue {
   mode: 'self' | 'for-employee'
@@ -67,14 +66,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: BeneficiaryValue]
 }>()
 
-const auth = useAuthStore()
-
 const modeBtn = 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium cursor-pointer border border-border bg-background text-muted-foreground transition-colors hover:bg-card hover:text-foreground'
 const modeActive = '!bg-primary/10 !text-primary !border-primary'
-
-const canSwitchMode = computed(() =>
-  auth.hasAnyPermission(['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE']),
-)
 
 function setMode(mode: 'self' | 'for-employee') {
   emit('update:modelValue', { mode, employeeId: '' })

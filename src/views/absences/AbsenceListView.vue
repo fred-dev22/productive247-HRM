@@ -67,20 +67,25 @@
     <template #cell-employee="{ item: r }">
       <div class="flex items-center gap-2">
         <UserAvatar :name="r.employeeName" size="sm" />
-        <span class="font-medium whitespace-nowrap">{{ r.employeeName }}</span>
+        <div class="min-w-0">
+          <div class="font-medium whitespace-nowrap">{{ r.employeeName }}</div>
+          <div v-if="r.createdByName && r.createdByName !== r.employeeName" class="text-[10px] text-muted-foreground truncate">
+            Créé par {{ r.createdByName }}
+          </div>
+        </div>
       </div>
     </template>
     <template #cell-type="{ item: r }">
       <span class="text-muted-foreground whitespace-nowrap">{{ r.leaveTypeName }}</span>
     </template>
     <template #cell-dates="{ item: r }">
-      <span class="whitespace-nowrap text-[11px]">{{ r.startDate }} → {{ r.endDate }}</span>
+      <span class="whitespace-nowrap text-[11px]">{{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }}</span>
     </template>
     <template #cell-days="{ item: r }">
       <span class="font-medium whitespace-nowrap">{{ r.daysCount }}j</span>
     </template>
     <template #cell-submitted="{ item: r }">
-      <span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ r.createdAt.slice(0, 10) }}</span>
+      <span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ formatDate(r.createdAt) }}</span>
     </template>
     <template #cell-status="{ item: r }">
       <StatusPill :status="r.status" />
@@ -97,11 +102,14 @@
           </div>
         </div>
         <div><StatusPill :status="r.status" /></div>
+        <div v-if="r.createdByName && r.createdByName !== r.employeeName" class="text-[12px]">
+          <div class="text-muted-foreground text-[11px]">Créé par</div>{{ r.createdByName }}
+        </div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
-          <div><div class="text-muted-foreground text-[11px]">Début</div>{{ r.startDate }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Fin</div>{{ r.endDate }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Début</div>{{ formatDate(r.startDate) }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Fin</div>{{ formatDate(r.endDate) }}</div>
           <div><div class="text-muted-foreground text-[11px]">Jours ouvrés</div>{{ r.daysCount }}j</div>
-          <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ r.createdAt.slice(0, 10) }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ formatDate(r.createdAt) }}</div>
         </div>
         <div v-if="r.reason" class="text-[12px]">
           <div class="text-muted-foreground text-[11px]">Motif</div>{{ r.reason }}
@@ -136,6 +144,7 @@ import AbsenceCard from '../../components/absences/AbsenceCard.vue'
 import AbsenceCreate from '../../components/absences/AbsenceCreate.vue'
 import AbsenceWorkflowActions from '../../components/absences/AbsenceWorkflowActions.vue'
 import * as L from '../../lib/listClasses'
+import { formatDate } from '../../lib/date'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { LeaveRequest } from '../../types'

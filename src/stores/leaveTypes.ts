@@ -125,11 +125,19 @@ export const useLeaveTypesStore = defineStore('leaveTypes', () => {
     }
   }
 
-  async function addLeaveType(payload: Omit<LeaveTypeConfig, 'id' | 'icon'>) {
+  // creditExistingEmployees : si vrai, le backend crédite immédiatement les
+  // employés déjà actifs sur ce nouveau type (mois en cours si accumulation
+  // mensuelle, année complète sinon) — voir LeaveTypeService.create côté
+  // backend. Sans ça, ils ne recevraient ce type qu'à la prochaine
+  // génération (cron ou clic manuel).
+  async function addLeaveType(payload: Omit<LeaveTypeConfig, 'id' | 'icon'>, creditExistingEmployees = true) {
     error.value = null
     return withToast('Création du type de congé en cours…', async () => {
       try {
-        const { data } = await api.post<BackendLeaveType>('/leave-types', toBackendPayload(payload))
+        const { data } = await api.post<BackendLeaveType>('/leave-types', {
+          ...toBackendPayload(payload),
+          CreditExistingEmployees: creditExistingEmployees,
+        })
         const mapped = mapLeaveType(data)
         leaveTypes.value.push(mapped)
         return mapped

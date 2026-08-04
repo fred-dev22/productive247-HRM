@@ -31,27 +31,19 @@
         <SkeletonLoader v-if="initialLoading" type="table" :lines="6" />
         <template v-else>
 
-        <!-- Section 1 : Catégories d'employés -->
+        <!-- Section 1 : Catégories d'employés (rappel — gestion complète, y compris les permissions, dans Configuration > Catégories) -->
         <div :class="L.tableCard">
           <div class="flex items-start justify-between px-5 pt-4 gap-3">
             <div>
               <h2 class="text-[15px] font-semibold text-foreground">Catégories d'employés</h2>
-              <p class="text-[11px] text-warning mt-0.5">⚠️ À valider avec la direction — les catégories sont provisoires</p>
+              <p class="text-[11px] text-muted-foreground mt-0.5">Gérées dans Configuration &gt; Catégories (code, libellé, permissions)</p>
             </div>
-            <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="showCatModal = true">
-              <Plus class="w-3.5 h-3.5" /> Ajouter
-            </button>
+            <RouterLink :to="{ name: 'hr-config-classification' }" :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']">
+              Gérer les catégories →
+            </RouterLink>
           </div>
 
-          <DataTable :columns="catColumns" :rows="store.categories" row-key="id">
-            <template #cell-actions="{ row }">
-              <div class="flex gap-1 justify-center">
-                <button :class="iconBtn" title="Modifier" @click="openEditCat(row)">
-                  <Pencil class="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </template>
-          </DataTable>
+          <DataTable :columns="catColumns" :rows="store.categories" row-key="id" />
         </div>
 
         <!-- Section 2 : Types de frais -->
@@ -159,36 +151,6 @@
 
   </div>
 
-  <!-- Modal catégorie -->
-  <CreateModalShell
-    v-if="showCatModal"
-    :title="editingCat ? 'Modifier la catégorie' : 'Nouvelle catégorie'"
-    :banner-label="editingCat ? 'Modifier la catégorie' : 'Nouvelle catégorie'"
-    :create-label="editingCat ? 'Enregistrer' : 'Ajouter'"
-    :save-error="catError"
-    @close="showCatModal = false"
-    @create="saveCat"
-  >
-    <template #form>
-      <div class="flex-1 overflow-auto px-6 py-5">
-        <div class="max-w-md mx-auto">
-          <FormSection title="Informations générales">
-            <div class="flex flex-col gap-3.5">
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Code *</label>
-                <input v-model="catForm.code" :class="cls.fieldInput" placeholder="ex: CAT-E" @input="catForm.code = catForm.code.toUpperCase()" />
-              </div>
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Libellé *</label>
-                <input v-model="catForm.name" :class="cls.fieldInput" placeholder="ex: Stagiaire" />
-              </div>
-            </div>
-          </FormSection>
-        </div>
-      </div>
-    </template>
-  </CreateModalShell>
-
   <!-- Modal type de frais -->
   <CreateModalShell
     v-if="showFeeModal"
@@ -206,11 +168,11 @@
             <div class="flex flex-col gap-3.5">
               <div :class="cls.field">
                 <label :class="cls.fieldLabel">Nom *</label>
-                <input v-model="feeForm.name" :class="cls.fieldInput" placeholder="ex: Repas" />
+                <input v-model="feeForm.name" :class="cls.fieldInput" placeholder="ex: Repas" @input="onFeeNameInput" />
               </div>
               <div :class="cls.field">
                 <label :class="cls.fieldLabel">Code</label>
-                <input v-model="feeForm.code" :class="cls.fieldInput" placeholder="ex: REPAS" @input="feeForm.code = feeForm.code.toUpperCase()" />
+                <input v-model="feeForm.code" :class="cls.fieldInput" placeholder="ex: REPA-001" @input="feeCodeTouched = true" />
               </div>
               <div :class="cls.field">
                 <label :class="cls.fieldLabel">Unité</label>
@@ -240,8 +202,10 @@ import FormSection from '../../components/ui/form-field/FormSection.vue'
 import { SkeletonLoader } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
+import { suggestCode } from '../../lib/codeGen'
+import { confirmDialog } from '../../lib/confirm'
 import { useMissionConfigStore } from '../../stores/missionConfig'
-import type { EmpCategory, ExpenseUnit, MissionCategory } from '../../stores/missionConfig'
+import type { ExpenseUnit, MissionCategory } from '../../stores/missionConfig'
 
 const store = useMissionConfigStore()
 
@@ -282,42 +246,11 @@ const MISSION_CATEGORY_LABELS: Record<MissionCategory, string> = {
 }
 const selectedMissionCategory = ref<MissionCategory>('Local')
 
-// ── Table catégories ──
+// ── Table catégories (lecture seule — gestion dans Configuration > Catégories) ──
 const catColumns = [
   { key: 'code',        label: 'Code',        width: '100px' },
   { key: 'name',        label: 'Libellé',     width: '180px' },
-  { key: 'actions',     label: 'Actions',     width: '80px', align: 'center' as const },
 ]
-
-// ── Modal catégorie ──
-const showCatModal = ref(false)
-const editingCat   = ref<EmpCategory | null>(null)
-const catError     = ref('')
-const catForm      = reactive({ code: '', name: '' })
-
-function openEditCat(cat: EmpCategory) {
-  editingCat.value = cat
-  catError.value      = ''
-  catForm.code        = cat.code
-  catForm.name        = cat.name
-  showCatModal.value  = true
-}
-
-async function saveCat() {
-  if (!catForm.code.trim() || !catForm.name.trim()) { catError.value = 'Code et libellé sont obligatoires'; return }
-  catError.value = ''
-  try {
-    if (editingCat.value) {
-      await store.updateCategory(editingCat.value.id, { code: catForm.code, name: catForm.name })
-    } else {
-      await store.addCategory({ code: catForm.code, name: catForm.name })
-    }
-    showCatModal.value = false
-    editingCat.value   = null
-  } catch {
-    catError.value = store.error ?? "L'enregistrement a échoué. Veuillez réessayer."
-  }
-}
 
 // ── Montants + justificatif inline (grille 3D) ──
 const editing = ref<{ feeId: string; catId: string } | null>(null)
@@ -352,9 +285,17 @@ const editingFeeId  = ref<string | null>(null)
 const feeError      = ref('')
 const feeForm       = reactive({ name: '', code: '', unit: 'PerDay' as ExpenseUnit })
 
+// Le code suit le nom tant que l'utilisateur ne l'a pas modifié à la main
+// (voir décision du 25/07 : suggestion courte dérivée du nom, modifiable).
+const feeCodeTouched = ref(false)
+function onFeeNameInput() {
+  if (!feeCodeTouched.value) feeForm.code = suggestCode(feeForm.name, store.expenseTypes.length)
+}
+
 function openAddFee() {
   editingFeeId.value  = null
   feeError.value      = ''
+  feeCodeTouched.value = false
   feeForm.name        = ''
   feeForm.code        = ''
   feeForm.unit        = 'PerDay'
@@ -366,6 +307,7 @@ function openEditFee(id: string) {
   if (!ft) return
   editingFeeId.value = id
   feeError.value     = ''
+  feeCodeTouched.value = true
   feeForm.name       = ft.name
   feeForm.code       = ft.code
   feeForm.unit       = ft.unit
@@ -388,7 +330,7 @@ async function saveFee() {
 }
 
 async function deleteFee(id: string, name: string) {
-  if (!confirm(`Supprimer le type de frais « ${name} » ?`)) return
+  if (!(await confirmDialog(`Supprimer le type de frais « ${name} » ?`))) return
   try {
     await store.deleteExpenseType(id)
   } catch {

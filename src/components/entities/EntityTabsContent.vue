@@ -118,7 +118,7 @@
               <td :class="L.td"><StatusPill :status="e.status" /></td>
               <td :class="L.td">
                 <div class="flex gap-1 flex-wrap">
-                  <button :class="L.actView" @click="navigateTo(e.id)">Voir →</button>
+                  <button :class="L.actView" @click="openCard(e.id)">Voir →</button>
                   <button v-if="e.status === 'Draft'"           :class="actWarning" @click="store.submitEntity(e.id)">Soumettre</button>
                   <button v-if="e.status === 'PendingApproval'" :class="L.actApprove" @click="store.approveEntity(e.id)">Approuver</button>
                   <button v-if="e.status === 'PendingApproval'" :class="L.actReject"  @click="store.rejectEntity(e.id)">Rejeter</button>
@@ -173,7 +173,7 @@
               <td :class="[L.td, 'text-muted-foreground text-xs']">{{ e.submittedAt || '—' }}</td>
               <td :class="L.td">
                 <div class="flex gap-1 flex-wrap">
-                  <button :class="L.actView" @click="navigateTo(e.id)">Voir →</button>
+                  <button :class="L.actView" @click="openCard(e.id)">Voir →</button>
                   <button :class="L.actApprove" @click="store.approveEntity(e.id)">
                     <Check class="w-3.5 h-3.5" /> Approuver
                   </button>
@@ -188,11 +188,14 @@
       </div>
     </div>
   </template>
+
+  <!-- Fiche entité — voir commentaire sur openCardId plus bas -->
+  <EntityCard v-if="openCardId !== null" :entities="store.entities" :entity-id="openCardId" @close="openCardId = null" />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, provide, onMounted, watch, type Component } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import {
   ListTree, Network, List, Clock, Maximize2, Minimize2, Info, Search,
   RefreshCw, Users, Check, X, CircleCheck, ChevronLeft, ChevronRight,
@@ -202,10 +205,10 @@ import { useNavigationStore } from '../../stores/navigation'
 import OrgNode      from '../../views/entities/OrgNode.vue'
 import OrgChartView from '../OrgChartView.vue'
 import StatusPill   from '../ui/StatusPill.vue'
+import EntityCard   from './EntityCard.vue'
 import * as L from '../../lib/listClasses'
 import type { EntityType } from '../../types'
 
-const router   = useRouter()
 const route    = useRoute()
 const store    = useEntityStore()
 const navStore = useNavigationStore()
@@ -252,14 +255,15 @@ onMounted(() => {
   }
 })
 
-// ── Navigation contextuelle ───────────────────────────────────
-function navigateTo(id: string) {
-  navStore.setPreviousRoute(`/hr/entities?tab=${navStore.activeEntityTab}`)
-  router.push({ name: 'hr-entity-detail', params: { id } })
-}
+// ── Fiche entité (même comportement que EntityListView.vue — un overlay
+// "fiche" (EntityCard), pas une navigation de route séparée, pour que
+// l'édition/vue d'une entité soit identique quel que soit l'onglet d'où on
+// vient : arbre, organigramme, liste ou en attente. Voir décision du 30/07.
+const openCardId = ref<string | null>(null)
+function openCard(id: string) { openCardId.value = id }
 
-// Fournit la navigation aux OrgNodes enfants
-provide('navigate-to-detail', (id: string) => navigateTo(id))
+// Fournit l'ouverture de fiche aux OrgNodes / nœuds d'organigramme enfants
+provide('navigate-to-detail', (id: string) => openCard(id))
 
 // ── Provide pour OrgNode (collapse) ──────────────────────────
 const collapsedIds = ref<string[]>([])

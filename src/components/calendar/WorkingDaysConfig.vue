@@ -57,7 +57,6 @@
       <Clock class="w-[15px] h-[15px] text-primary" />
       {{ calendarStore.daysPerWeek }} jour{{ calendarStore.daysPerWeek > 1 ? 's' : '' }}
       · {{ calendarStore.formatMinutes(calendarStore.weeklyMinutes) }} par semaine
-      · {{ calendarStore.formatMinutes(Math.round(calendarStore.weeklyMinutes * 4.33)) }} par mois
     </div>
 
   </div>

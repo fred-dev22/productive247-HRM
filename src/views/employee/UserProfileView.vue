@@ -122,11 +122,11 @@
                 </div>
                 <div class="flex flex-col gap-0.5">
                   <span :class="infoLabel">Date d'embauche</span>
-                  <span class="text-[13px] text-foreground">{{ employee?.hireDate }}</span>
+                  <span class="text-[13px] text-foreground">{{ formatDate(employee?.hireDate) }}</span>
                 </div>
                 <div class="flex flex-col gap-0.5">
-                  <span :class="infoLabel">Rôle système</span>
-                  <span class="text-[13px] text-foreground">{{ roleLabel }}</span>
+                  <span :class="infoLabel">Catégorie</span>
+                  <span class="text-[13px] text-foreground">{{ categoryName }}</span>
                 </div>
               </div>
             </div>
@@ -167,17 +167,21 @@ import { FileDown, Save, Camera, PieChart, Zap, CalendarPlus, Plane, Calendar, U
 import { StatusPill } from '../../components'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
+import { formatDate } from '../../lib/date'
 import { useAuthStore }    from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useRoute } from 'vue-router'
 
 const auth         = useAuthStore()
 const employeeStore = useEmployeeStore()
+const categoryStore = useEmployeeCategoryStore()
 const balanceStore  = useLeaveTransactionStore()
 const route         = useRoute()
 
 if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
+if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const card = 'bg-card border border-border rounded-[10px] p-4'
@@ -214,14 +218,10 @@ watch(employee, (e) => {
   form.phone     = e.phone ?? ''
 })
 
-const roleLabel = computed(() => {
-  const map: Record<string, string> = {
-    hr_admin:    'RH Administrateur',
-    hr_director: 'RH Directeur',
-    validator:   'Manager / Validateur',
-    employee:    'Employé',
-  }
-  return map[employee.value?.role ?? ''] ?? ''
+const categoryName = computed(() => {
+  const id = employee.value?.employeeCategoryId
+  if (!id) return '—'
+  return categoryStore.categories.find(c => c.id === id)?.name ?? '—'
 })
 
 const myBalances = computed(() => {

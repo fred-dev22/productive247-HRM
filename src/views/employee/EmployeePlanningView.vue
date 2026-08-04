@@ -157,11 +157,18 @@ const summaryItem = 'flex items-center gap-3 p-3 bg-background rounded-lg'
 
 const today = new Date().toISOString().split('T')[0] ?? ''
 
+// Memes ensembles de statuts que le contenu interne du jour (lignes 55/63
+// du template) — utilisaient auparavant 'approved'/'pending' en minuscules,
+// qui ne correspondent a aucune valeur reelle de LeaveRequestStatus
+// (toujours PascalCase, ex: 'Approved'), rendant ces deux branches mortes.
+const APPROVED_LIKE_STATUSES = ['Approved', 'Registered', 'Done', 'Regularized']
+const PENDING_LIKE_STATUSES  = ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
+
 function dayCardClass(day: DayPlanning): string {
   if (day.date === today) return '!bg-primary/10 !border-2 !border-primary'
   if (day.isWorkingDay && !day.isAbsence && !day.isHoliday) return 'bg-card border-border'
-  if (day.isAbsence && day.absenceStatus === 'approved') return 'bg-primary/10 border-primary'
-  if (day.isAbsence && day.absenceStatus === 'pending') return 'bg-warning-bg border-warning'
+  if (day.isAbsence && APPROVED_LIKE_STATUSES.includes(day.absenceStatus ?? '')) return 'bg-primary/10 border-primary'
+  if (day.isAbsence && PENDING_LIKE_STATUSES.includes(day.absenceStatus ?? '')) return 'bg-warning-bg border-warning'
   if (day.isHoliday) return 'bg-info-bg border-info'
   return 'bg-background border-border opacity-60'
 }
