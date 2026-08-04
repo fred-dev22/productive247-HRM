@@ -94,7 +94,10 @@
               {{ r.employeeInitials }}
             </div>
             <div class="flex-1">
-              <div class="text-sm font-medium">{{ r.employeeName }}</div>
+              <div class="text-sm font-medium">
+                {{ r.employeeName }}
+                <span v-if="r.createdByName && r.createdByName !== r.employeeName" class="text-xs font-normal text-muted-foreground">— créé par {{ r.createdByName }}</span>
+              </div>
               <div class="text-xs text-muted-foreground">{{ r.leaveTypeName }} · {{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
             </div>
             <StatusPill :status="r.status" />

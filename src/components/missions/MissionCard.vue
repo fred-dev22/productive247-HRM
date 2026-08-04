@@ -60,7 +60,10 @@ const currentNo = computed(() => current.value?.referenceCode ?? null)
 // des indemnités ni l'historique de validation — seul le detail
 // (GET /mission-orders/:id) les inclut.
 const detail = ref<MissionOrder | null>(null)
-watch(currentId, async (id) => {
+// Re-fetch aussi quand le statut de l'enregistrement courant change (ex :
+// approbation depuis cette même fiche, currentId inchangé) — sinon le
+// détail reste figé sur son état d'ouverture jusqu'au rechargement.
+watch(() => [currentId.value, current.value?.status] as const, async ([id]) => {
   detail.value = null
   if (!id) return
   try {
@@ -165,6 +168,10 @@ const td = 'px-2.5 py-2 border-b border-border'
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Catégorie</label>
             <div :class="readBox">{{ categoryName || '—' }}</div>
+          </div>
+          <div v-if="current.createdByName && current.createdByName !== current.employeeName" :class="cls.field">
+            <label :class="cls.fieldLabel">Créée par</label>
+            <div :class="readBox">{{ current.createdByName }}</div>
           </div>
         </div>
         </FormSection>

@@ -37,7 +37,6 @@ const CANCELLABLE: ExpenseReport['status'][] = ['Draft', 'InApprovalN1', 'InAppr
 const isOwner   = () => props.report.employeeId === auth.user?.id
 const canValidate = () => auth.hasPermission('FRAIS_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.report.status)
 
-function approve() { expenseStore.approve(props.report.id) }
 function submit()  { expenseStore.submit(props.report.id) }
 async function cancel() {
   if (await confirmDialog('Annuler cette note de frais ?')) expenseStore.cancel(props.report.id)
@@ -49,29 +48,54 @@ async function remove() {
   }
 }
 
+/* ── Modale Approuver (commentaire facultatif) ────────────────── */
+const approveModal = reactive({ open: false, comment: '', error: '' })
+function openApprove() { Object.assign(approveModal, { open: true, comment: '', error: '' }) }
+// Attend l'appel avant de fermer : sans ça, un échec serveur fermait la
+// modale silencieusement — l'utilisateur voyait juste "rien ne se passe".
+async function confirmApprove() {
+  approveModal.error = ''
+  try {
+    await expenseStore.approve(props.report.id, approveModal.comment.trim() || undefined)
+    approveModal.open = false
+  } catch {
+    approveModal.error = expenseStore.error ?? 'Impossible de valider cette note de frais'
+  }
+}
+
 /* ── Modale Retourner ───────────────────────────────────────── */
 const returnModal = reactive({ open: false, comment: '', error: '' })
 function openReturn() { Object.assign(returnModal, { open: true, comment: '', error: '' }) }
-function confirmReturn() {
+async function confirmReturn() {
   if (returnModal.comment.trim().length < 10) { returnModal.error = 'Le commentaire doit comporter au moins 10 caractères'; return }
-  expenseStore.returnReport(props.report.id, returnModal.comment.trim())
-  returnModal.open = false
+  returnModal.error = ''
+  try {
+    await expenseStore.returnReport(props.report.id, returnModal.comment.trim())
+    returnModal.open = false
+  } catch {
+    returnModal.error = expenseStore.error ?? 'Impossible de retourner cette note de frais'
+  }
 }
 
 /* ── Modale Refuser ─────────────────────────────────────────── */
 const rejectModal = reactive({ open: false, reason: '', error: '' })
 function openReject() { Object.assign(rejectModal, { open: true, reason: '', error: '' }) }
-function confirmReject() {
+async function confirmReject() {
   if (rejectModal.reason.trim().length < 10) { rejectModal.error = 'Le motif doit comporter au moins 10 caractères'; return }
-  expenseStore.reject(props.report.id, rejectModal.reason.trim())
-  rejectModal.open = false
+  rejectModal.error = ''
+  try {
+    await expenseStore.reject(props.report.id, rejectModal.reason.trim())
+    rejectModal.open = false
+  } catch {
+    rejectModal.error = expenseStore.error ?? 'Impossible de refuser cette note de frais'
+  }
 }
 </script>
 
 <template>
   <div class="flex items-center gap-1.5 flex-wrap">
     <template v-if="canValidate()">
-      <button :class="approveCls" @click="approve"><Check class="w-3.5 h-3.5" /> Approuver</button>
+      <button :class="approveCls" @click="openApprove"><Check class="w-3.5 h-3.5" /> Approuver</button>
       <button :class="returnCls" @click="openReturn"><Undo2 class="w-3.5 h-3.5" /> Retourner</button>
       <button :class="rejectCls" @click="openReject"><X class="w-3.5 h-3.5" /> Refuser</button>
     </template>
@@ -87,6 +111,17 @@ function confirmReject() {
       <Trash2 class="w-3.5 h-3.5" /> Supprimer
     </button>
   </div>
+
+  <!-- Modale Approuver -->
+  <ModalShell :open="approveModal.open" :title="`Approuver la note de ${report.employeeName}`" max-width="max-w-[420px]" @close="approveModal.open = false">
+    <label :class="cls.fieldLabel">Commentaire <span :class="cls.fieldOptional">(optionnel)</span></label>
+    <textarea v-model="approveModal.comment" :class="cls.fieldTextarea" placeholder="Un commentaire pour l'employé…" rows="3"></textarea>
+    <div v-if="approveModal.error" :class="cls.fieldError">{{ approveModal.error }}</div>
+    <template #footer>
+      <button :class="cls.btnPrimary" @click="confirmApprove"><Check class="w-4 h-4" /> Approuver</button>
+      <button :class="cls.btnOutline" @click="approveModal.open = false">Annuler</button>
+    </template>
+  </ModalShell>
 
   <!-- Modale Retourner -->
   <ModalShell :open="returnModal.open" :title="`Retourner la note de ${report.employeeName}`" max-width="max-w-[420px]" @close="returnModal.open = false">

@@ -42,6 +42,11 @@ export interface LeaveRequest {
   employeeId:           string
   employeeName:         string
   employeeInitials:     string
+  // Créateur de la demande, quand il diffère du bénéficiaire (employeeId) —
+  // n'importe qui peut soumettre pour n'importe qui (decision du 01/08), le
+  // créateur doit rester identifiable sur la demande.
+  createdById?:         string
+  createdByName?:       string
   leaveTypeId:          string
   leaveTypeName:        string
   leaveTypeColor:       string
@@ -59,6 +64,10 @@ export interface LeaveRequest {
   createdAt:            string
   modifiedAt?:          string | null
   validationHistory?:   ValidationStep[]
+  // Solde insuffisant au moment de l'affichage — non bloquant (decision du
+  // 04/08, même traitement que le préavis), juste un avertissement pour le
+  // validateur.
+  insufficientBalance?: boolean
 }
 
 export interface LeaveBalance {
@@ -115,6 +124,8 @@ export interface MissionOrder {
   employeeId:           string
   employeeName:         string
   employeeInitials:     string
+  createdById?:         string
+  createdByName?:       string
   employeeCategoryId?:  string
   destination:          string
   missionCategory:      MissionCategory
@@ -168,6 +179,8 @@ export interface ExpenseReport {
   employeeId:           string
   employeeName:         string
   employeeInitials:     string
+  createdById?:         string
+  createdByName?:       string
   title:                string
   missionOrderId?:      string
   lines:                ExpenseLine[]

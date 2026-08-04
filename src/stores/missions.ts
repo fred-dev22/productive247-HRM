@@ -49,6 +49,7 @@ interface BackendMissionOrder {
   CreatedAt: string
   ModifiedAt?: string | null
   employee?: BackendEmployeeRef
+  createdByEmployee?: BackendEmployeeRef
   EstimatedTotal?: number
   decisions?: BackendDecision[]
   allowance?: { lines: BackendAllowanceLine[]; total: number }
@@ -97,6 +98,8 @@ function mapMissionOrder(raw: BackendMissionOrder): MissionOrder {
     employeeId: raw.EmployeeId,
     employeeName,
     employeeInitials: initialsFromFullName(employeeName),
+    createdById: raw.createdByEmployee?.Id,
+    createdByName: raw.createdByEmployee?.FullName,
     employeeCategoryId: raw.employee?.EmployeeCategoryId ?? undefined,
     destination: raw.Destination,
     missionCategory: raw.MissionCategory as MissionCategory,
@@ -162,11 +165,17 @@ export const useMissionStore = defineStore('missions', () => {
   const loading      = ref(false)
   const error        = ref<string | null>(null)
 
-  async function fetchMine() {
+  // forEmployeeId (optionnel) : etend le resultat aux missions du
+  // beneficiaire vise par une note de frais en cours de creation pour lui
+  // (voir ExpenseCreate.vue) — le picker "Mission liee" doit proposer ses
+  // missions en plus des miennes.
+  async function fetchMine(forEmployeeId?: string) {
     loading.value = true
     error.value = null
     try {
-      const { data } = await api.get<BackendMissionOrder[]>('/mission-orders/mine')
+      const { data } = await api.get<BackendMissionOrder[]>('/mission-orders/mine', {
+        params: forEmployeeId ? { forEmployeeId } : undefined,
+      })
       mine.value = data.map(mapMissionOrder)
     } catch (err) {
       error.value = getApiErrorMessage(err, 'Impossible de charger vos ordres de mission')

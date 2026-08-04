@@ -67,7 +67,12 @@
     <template #cell-employee="{ item: r }">
       <div class="flex items-center gap-2">
         <UserAvatar :name="r.employeeName" size="sm" />
-        <span class="font-medium whitespace-nowrap">{{ r.employeeName }}</span>
+        <div class="min-w-0">
+          <div class="font-medium whitespace-nowrap">{{ r.employeeName }}</div>
+          <div v-if="r.createdByName && r.createdByName !== r.employeeName" class="text-[10px] text-muted-foreground truncate">
+            Créé par {{ r.createdByName }}
+          </div>
+        </div>
       </div>
     </template>
     <template #cell-type="{ item: r }">
@@ -97,6 +102,9 @@
           </div>
         </div>
         <div><StatusPill :status="r.status" /></div>
+        <div v-if="r.createdByName && r.createdByName !== r.employeeName" class="text-[12px]">
+          <div class="text-muted-foreground text-[11px]">Créé par</div>{{ r.createdByName }}
+        </div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
           <div><div class="text-muted-foreground text-[11px]">Début</div>{{ formatDate(r.startDate) }}</div>
           <div><div class="text-muted-foreground text-[11px]">Fin</div>{{ formatDate(r.endDate) }}</div>

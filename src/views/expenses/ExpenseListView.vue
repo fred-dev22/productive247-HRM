@@ -33,7 +33,12 @@
     <template #cell-employeeName="{ item }">
       <div class="flex items-center gap-2">
         <UserAvatar :name="item.employeeName" size="sm" />
-        <span class="truncate">{{ item.employeeName }}</span>
+        <div class="min-w-0">
+          <div class="truncate">{{ item.employeeName }}</div>
+          <div v-if="item.createdByName && item.createdByName !== item.employeeName" class="text-[10px] text-muted-foreground truncate">
+            Créé par {{ item.createdByName }}
+          </div>
+        </div>
       </div>
     </template>
     <template #cell-title="{ item }">
@@ -60,6 +65,9 @@
             <div class="text-sm font-semibold text-foreground truncate">{{ item.employeeName }}</div>
             <div class="text-[11px] text-muted-foreground font-mono">{{ item.referenceCode }}</div>
           </div>
+        </div>
+        <div v-if="item.createdByName && item.createdByName !== item.employeeName" class="text-[12px]">
+          <div class="text-muted-foreground text-[11px]">Créé par</div>{{ item.createdByName }}
         </div>
         <div><StatusPill :status="item.status" /></div>
         <div class="text-[12px]">
@@ -120,8 +128,10 @@ function openCard(item: ExpenseReport) { openCardId.value = item.id }
 function fmtNum(n: number) { return n.toLocaleString('fr-FR') }
 
 const columns = computed<ListColumn[]>(() => {
-  const base: ListColumn[] = [{ key: 'referenceCode', label: 'Code', sortable: true, hideable: false, width: 130 }]
-  if (isRh.value) base.push({ key: 'employeeName', label: 'Employé', sortable: true, width: 200 })
+  const base: ListColumn[] = [
+    { key: 'referenceCode', label: 'Code', sortable: true, hideable: false, width: 130 },
+    { key: 'employeeName', label: isRh.value ? 'Employé' : 'Bénéficiaire', sortable: true, width: 200 },
+  ]
   base.push(
     { key: 'title', label: 'Titre', sortable: true, width: 220 },
     { key: 'linesCount', label: 'Lignes', align: 'center', width: 90 },

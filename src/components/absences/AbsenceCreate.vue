@@ -42,10 +42,19 @@ if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 if (leaveTransactionStore.myBalances.length === 0) leaveTransactionStore.fetchMyBalances()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+// N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — un
+// simple employé n'a pas EMPLOYE_VOIR_TOUT/EQUIPE, fetchAll() échouerait en
+// 403. L'annuaire allégé (voir stores/employees.ts fetchDirectory) est
+// accessible à tout compte authentifié et suffit pour ce sélecteur.
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
 const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
+// On exclut soi-même : "Pour moi-même" est déjà l'option dédiée à ce cas,
+// pas besoin de se retrouver aussi dans la liste "Pour un employé".
 const employeeItems = computed(() =>
-  employeeStore.employees.map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+  employeeStore.directory
+    .filter(e => e.id !== auth.user?.id)
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
 
 // Carte "bénéficiaire" en lecture seule quand ForWhomSelector n'affiche pas
@@ -63,17 +72,17 @@ const selectedEmployee = computed(() => {
   return { id: emp.id, name: emp.name, initials: emp.initials, categoryName }
 })
 
-// L'intérimaire remplace le bénéficiaire de la demande à son poste — n'a de
-// sens que dans la même entité que lui (decision du 30/07), pas n'importe
-// quel employé de l'entreprise.
+// L'intérimaire remplace le bénéficiaire de la demande à son poste — aucune
+// restriction d'entité (decision du 01/08, revient sur celle du 30/07) : un
+// responsable en congé peut désigner un intérimaire dans une autre direction.
 const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : auth.user?.id)
-const beneficiaryEntityId = computed(() => {
-  if (forWhom.value.mode === 'for-employee') return employeeStore.getById(forWhom.value.employeeId)?.entityId
-  return auth.user?.entityId
-})
+// Seul le bénéficiaire est exclu : il ne peut pas être son propre
+// intérimaire. Quand on crée pour quelqu'un d'autre, le demandeur (soi-même)
+// reste un intérimaire valide ; quand on crée pour soi-même, ce filtre
+// l'exclut déjà puisque beneficiaryId vaut alors son propre id.
 const interimItems = computed(() =>
-  employeeStore.employees
-    .filter(e => e.entityId === beneficiaryEntityId.value && e.id !== beneficiaryId.value)
+  employeeStore.directory
+    .filter(e => e.id !== beneficiaryId.value)
     .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
 
@@ -190,7 +199,9 @@ function validate(): boolean {
   if (!form.startDate) { errors.startDate = 'La date de début est obligatoire'; ok = false }
   if (isNotWorkingDay.value) { errors.startDate = "Ce jour n'est pas un jour ouvrable"; ok = false }
   if (!form.workingDaysCount || form.workingDaysCount <= 0) { errors.workingDays = 'Nombre de jours requis (min. 0.5)'; ok = false }
-  if (isBalanceInsufficient.value) { errors.workingDays = `Solde insuffisant (${myBalance.value?.balance ?? 0} j disponibles)` ; ok = false }
+  // Solde insuffisant n'est plus bloquant (décision du 04/08, même
+  // traitement que le préavis) — un avertissement reste affiché en rouge,
+  // le validateur décide en connaissance de cause.
   error.value = ok ? '' : 'Veuillez corriger les champs en erreur'
   return ok
 }

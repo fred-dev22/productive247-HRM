@@ -28,6 +28,10 @@ const employeeStore = useEmployeeStore()
 const categoryStore = useEmployeeCategoryStore()
 const auth = useAuthStore()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+// N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — voir
+// AbsenceCreate.vue pour le detail (fetchAll echouerait en 403 sans
+// EMPLOYE_VOIR_TOUT/EQUIPE).
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
 const TRANSPORT_MODES: { value: TransportMode; label: string }[] = [
   { value: 'PersonalCar', label: 'Voiture personnelle' },
@@ -44,8 +48,12 @@ const MISSION_CATEGORIES: { value: MissionCategory; label: string }[] = [
 
 const forWhom = ref<BeneficiaryValue>({ mode: props.mode, employeeId: '' })
 
+// On exclut soi-même : "Pour moi-même" est déjà l'option dédiée à ce cas,
+// pas besoin de se retrouver aussi dans la liste "Pour un employé".
 const employeeItems = computed(() =>
-  employeeStore.employees.map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, code: e.code, initials: e.avatarText, avatarColor: e.avatarBg })),
+  employeeStore.directory
+    .filter(e => e.id !== auth.user?.id)
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, code: e.code, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
 
 const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : (auth.user?.id ?? ''))

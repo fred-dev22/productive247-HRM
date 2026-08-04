@@ -4,7 +4,7 @@
  * frontdesk). Bénéficiaire + lignes de dépense (catégorie = ExpenseType réel,
  * partagé avec le per diem des missions) + récapitulatif.
  */
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { Plus, Trash2 } from 'lucide-vue-next'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
@@ -33,12 +33,20 @@ const categoryStore = useEmployeeCategoryStore()
 if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
 if (missionStore.mine.length === 0) missionStore.fetchMine()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+// N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — voir
+// AbsenceCreate.vue pour le detail (fetchAll echouerait en 403 sans
+// EMPLOYE_VOIR_TOUT/EQUIPE).
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
 
 const forWhom = ref<BeneficiaryValue>({ mode: props.mode, employeeId: '' })
+// On exclut soi-même : "Pour moi-même" est déjà l'option dédiée à ce cas,
+// pas besoin de se retrouver aussi dans la liste "Pour un employé".
 const employeeItems = computed(() =>
-  employeeStore.employees.map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+  employeeStore.directory
+    .filter(e => e.id !== auth.user?.id)
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
 )
 
 // Carte "bénéficiaire" en lecture seule quand ForWhomSelector n'affiche pas
@@ -54,6 +62,13 @@ const selectedEmployee = computed(() => {
   const categoryName = categoryStore.categories.find(c => c.id === emp.employeeCategoryId)?.name ?? ''
   return { id: emp.id, name: emp.name, initials: emp.initials, categoryName }
 })
+
+// Quand on crée pour un autre employé, la mission liée peut être une des
+// miennes ou une des siennes — le backend étend "mine" avec forEmployeeId.
+watch(
+  () => (forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : undefined),
+  (forEmployeeId) => { missionStore.fetchMine(forEmployeeId || undefined) },
+)
 
 const form = reactive({ title: '', missionOrderId: '' })
 const approvedMissions = computed(() => missionStore.mine.filter(m => m.status === 'Approved'))

@@ -41,6 +41,7 @@ interface BackendExpenseReport {
   CreatedAt: string
   ModifiedAt?: string | null
   employee?: BackendEmployeeRef
+  createdByEmployee?: BackendEmployeeRef
   lines: BackendExpenseLine[]
   TotalAmount?: number
   decisions?: BackendDecision[]
@@ -90,6 +91,8 @@ function mapExpenseReport(raw: BackendExpenseReport): ExpenseReport {
     employeeId: raw.EmployeeId,
     employeeName,
     employeeInitials: initialsFromFullName(employeeName),
+    createdById: raw.createdByEmployee?.Id,
+    createdByName: raw.createdByEmployee?.FullName,
     title: raw.Title,
     missionOrderId: raw.MissionOrderId ?? undefined,
     lines,

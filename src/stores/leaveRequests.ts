@@ -35,7 +35,9 @@ interface BackendLeaveRequest {
   employee?: BackendEmployeeRef
   leaveType?: BackendLeaveTypeRef
   interimEmployee?: BackendEmployeeRef
+  createdByEmployee?: BackendEmployeeRef
   decisions?: BackendDecision[]
+  InsufficientBalance?: boolean
 }
 
 function initialsFromFullName(name: string): string {
@@ -68,6 +70,8 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
     employeeId: raw.EmployeeId,
     employeeName,
     employeeInitials: initialsFromFullName(employeeName),
+    createdById: raw.createdByEmployee?.Id,
+    createdByName: raw.createdByEmployee?.FullName,
     leaveTypeId: raw.LeaveTypeId,
     leaveTypeName: raw.leaveType?.Name ?? '',
     leaveTypeColor: raw.leaveType?.Color ?? '#94A3B8',
@@ -85,6 +89,7 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
     createdAt: raw.CreatedAt,
     modifiedAt: raw.ModifiedAt ?? undefined,
     validationHistory: raw.decisions ? raw.decisions.map(mapDecision) : undefined,
+    insufficientBalance: raw.InsufficientBalance ?? false,
   }
 }
 

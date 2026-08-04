@@ -41,7 +41,10 @@ const currentNo = computed(() => current.value?.referenceCode ?? null)
 // La liste passée en prop ne porte pas l'historique de validation — seul le
 // detail (GET /expense-reports/:id) l'inclut.
 const validationHistory = ref<ExpenseReport['validationHistory']>(undefined)
-watch(currentId, async (id) => {
+// Re-fetch aussi quand le statut de l'enregistrement courant change (ex :
+// approbation depuis cette même fiche, currentId inchangé) — sinon
+// l'historique reste figé sur son état d'ouverture jusqu'au rechargement.
+watch(() => [currentId.value, current.value?.status] as const, async ([id]) => {
   validationHistory.value = undefined
   if (!id) return
   try {
@@ -144,6 +147,10 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Titre</label>
             <div :class="readBox">{{ current.title }}</div>
+          </div>
+          <div v-if="current.createdByName && current.createdByName !== current.employeeName" :class="cls.field">
+            <label :class="cls.fieldLabel">Créée par</label>
+            <div :class="readBox">{{ current.createdByName }}</div>
           </div>
         </div>
         </FormSection>

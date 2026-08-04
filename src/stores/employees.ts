@@ -107,6 +107,53 @@ function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
   }
 }
 
+// Reponse allegee de GET /employees/directory — accessible a tout compte
+// authentifie, sans EMPLOYE_VOIR_TOUT/EQUIPE (voir employee.service.ts
+// findDirectory) : juste ce qu'il faut pour peupler un selecteur de
+// beneficiaire/interimaire (n'importe qui peut soumettre pour n'importe
+// qui, decision du 01/08), sans exposer les champs sensibles de findAll().
+interface BackendDirectoryEmployee {
+  Id: string
+  FirstName: string
+  LastName: string
+  FullName: string
+  EmployeeNumber: string
+  OrganizationUnitId: string
+  EmployeeCategoryId: string | null
+}
+
+// Complete les champs absents de la reponse allegee par des valeurs neutres
+// — jamais lus par les ecrans qui consomment ce mapping (selecteurs), donc
+// sans consequence, contrairement a mapEmployee() qui alimente aussi les
+// fiches employe completes.
+function mapDirectoryEmployee(raw: BackendDirectoryEmployee, paletteIndex: number): Employee {
+  const entity = useEntityStore().getEntityById(raw.OrganizationUnitId)
+  const c = p(paletteIndex)
+  return {
+    id:           raw.Id,
+    code:         raw.EmployeeNumber,
+    firstName:    raw.FirstName,
+    lastName:     raw.LastName,
+    name:         raw.FullName,
+    initials:     (raw.FirstName.charAt(0) + raw.LastName.charAt(0)).toUpperCase(),
+    avatarBg:     c.bg,
+    avatarText:   c.text,
+    jobTitle:     '',
+    entityId:     raw.OrganizationUnitId,
+    entityName:   entity?.name,
+    hireDate:     '',
+    contractType: 'CDI',
+    status:       'active',
+    managerId:    entity?.managerId ?? undefined,
+    gender:        'M',
+    birthDate:     '',
+    maritalStatus: 'Single',
+    idType:        'NationalId',
+    employeeCategoryId: raw.EmployeeCategoryId ?? undefined,
+    hasAccount:   false,
+  }
+}
+
 function toBackendPayload(payload: Partial<Employee>): Record<string, unknown> {
   const body: Record<string, unknown> = {}
   if (payload.code !== undefined) body.EmployeeNumber = payload.code
@@ -131,6 +178,14 @@ function toBackendPayload(payload: Partial<Employee>): Record<string, unknown> {
 
 export const useEmployeeStore = defineStore('employees', () => {
   const employees = ref<Employee[]>([])
+  // Annuaire léger (fetchDirectory), tenu à part de `employees` : fetchAll/
+  // fetchTeam/fetchDirectory partageaient auparavant le même tableau, donc
+  // le dernier appelé écrasait les autres — un écran de liste chargé avec
+  // de vraies données pouvait se faire remplacer par les entrées à champs
+  // vides de la version allégée si un sélecteur (Nouvelle demande...) était
+  // interrogé après coup. `directory` ne sert plus qu'aux pickers
+  // bénéficiaire/intérimaire, jamais aux écrans de liste/fiche.
+  const directory = ref<Employee[]>([])
   const loading   = ref(false)
   const error     = ref<string | null>(null)
 
@@ -155,7 +210,7 @@ export const useEmployeeStore = defineStore('employees', () => {
   }
 
   function getById(id: string): Employee | undefined {
-    return employees.value.find(e => e.id === id)
+    return employees.value.find(e => e.id === id) ?? directory.value.find(e => e.id === id)
   }
 
   function getByEntityId(entityId: string): Employee[] {
@@ -183,6 +238,23 @@ export const useEmployeeStore = defineStore('employees', () => {
       employees.value = data.map(mapEmployee)
     } catch (err) {
       error.value = getApiErrorMessage(err, 'Impossible de charger les employés')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Annuaire minimal (voir mapDirectoryEmployee) — a utiliser pour peupler
+  // un selecteur de beneficiaire/interimaire quand l'appelant n'a pas
+  // EMPLOYE_VOIR_TOUT/EQUIPE (fetchAll/fetchTeam echoueraient en 403).
+  async function fetchDirectory() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendDirectoryEmployee[]>('/employees/directory')
+      directory.value = data.map(mapDirectoryEmployee)
+    } catch (err) {
+      error.value = getApiErrorMessage(err, "Impossible de charger l'annuaire des employés")
       throw err
     } finally {
       loading.value = false
@@ -285,8 +357,8 @@ export const useEmployeeStore = defineStore('employees', () => {
   }
 
   return {
-    employees, loading, error,
+    employees, directory, loading, error,
     activeEmployees, trialEmployees, validatorEmployees, fetchNextNumber,
-    getById, getByEntityId, fetchAll, fetchTeam, fetchOne, createEmployee, updateEmployee, deactivateEmployee, markHasAccount,
+    getById, getByEntityId, fetchAll, fetchTeam, fetchDirectory, fetchOne, createEmployee, updateEmployee, deactivateEmployee, markHasAccount,
   }
 })

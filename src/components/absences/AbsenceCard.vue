@@ -5,6 +5,7 @@
  * lecture par défaut ; édition possible pour les brouillons.
  */
 import { ref, computed, watch } from 'vue'
+import { TriangleAlert } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -33,6 +34,18 @@ if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 
 function leaveNo(l: LeaveRequest) { return l.referenceCode }
 
+// Le préavis minimum n'est plus bloquant à la soumission (decision du
+// 01/08) — avertissement visible sur la fiche pour le validateur.
+function noticeWarning(l: LeaveRequest): string | null {
+  const type = leaveTypesStore.leaveTypes.find(t => t.id === l.leaveTypeId)
+  if (!type || type.noticeDays <= 0) return null
+  const submitted = new Date(l.createdAt); submitted.setHours(0, 0, 0, 0)
+  const start = new Date(l.startDate)
+  const diffDays = Math.ceil((start.getTime() - submitted.getTime()) / 86400000)
+  if (diffDays >= type.noticeDays) return null
+  return `Préavis de ${type.noticeDays} jour(s) non respecté (soumis ${diffDays} jour(s) avant le début)`
+}
+
 const currentId = ref(props.requestId)
 watch(() => props.requestId, (v) => { currentId.value = v; isEditMode.value = false })
 
@@ -47,7 +60,10 @@ const currentNo = computed(() => (current.value ? leaveNo(current.value) : null)
 // La liste passée en prop (mine/team/all) ne porte pas l'historique de
 // validation — seul le détail (GET /leave-requests/:id) l'inclut.
 const validationHistory = ref<LeaveRequest['validationHistory']>(undefined)
-watch(currentId, async (id) => {
+// Re-fetch aussi quand le statut de l'enregistrement courant change (ex :
+// approbation depuis cette même fiche, currentId inchangé) — sinon
+// l'historique reste figé sur son état d'ouverture jusqu'au rechargement.
+watch(() => [currentId.value, current.value?.status] as const, async ([id]) => {
   validationHistory.value = undefined
   if (!id) return
   try {
@@ -187,6 +203,12 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <div :class="readBox">{{ current.referenceCode }}</div>
           </div>
 
+          <!-- Créée par -->
+          <div v-if="current.createdByName && current.createdByName !== current.employeeName" :class="cls.field">
+            <label :class="cls.fieldLabel">Créée par</label>
+            <div :class="readBox">{{ current.createdByName }}</div>
+          </div>
+
           <!-- Intérimaire -->
           <div v-if="current.interimEmployeeName" :class="cls.field">
             <label :class="cls.fieldLabel">Intérimaire</label>
@@ -198,6 +220,16 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <label :class="cls.fieldLabel">Motif</label>
             <textarea v-if="isEditMode" v-model="form.reason" :class="cls.fieldTextarea" rows="3" placeholder="Motif de la demande…"></textarea>
             <div v-else :class="[readBox, 'min-h-[38px] h-auto py-2']">{{ current.reason || '—' }}</div>
+          </div>
+
+          <!-- Préavis insuffisant : avertissement non bloquant -->
+          <div v-if="noticeWarning(current)" class="flex items-center gap-2 text-[13px] text-warning bg-warning-bg rounded-md px-2.5 py-2 col-span-full">
+            <TriangleAlert class="w-4 h-4 shrink-0" /> {{ noticeWarning(current) }}
+          </div>
+
+          <!-- Solde insuffisant : avertissement non bloquant, le validateur décide -->
+          <div v-if="current.insufficientBalance" class="flex items-center gap-2 text-[13px] text-danger bg-danger-bg rounded-md px-2.5 py-2 col-span-full">
+            <TriangleAlert class="w-4 h-4 shrink-0" /> Solde insuffisant pour ce type de congé — à valider en connaissance de cause.
           </div>
 
           <!-- Motif de refus / retour -->

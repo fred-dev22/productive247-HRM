@@ -24,9 +24,23 @@
 
     <!-- Cellules ABSENCES -->
     <template #cell-employeeName="{ item }">
-      <div class="flex items-center gap-2"><UserAvatar :name="item.employeeName" size="sm" /><span class="truncate">{{ item.employeeName }}</span></div>
+      <div class="flex items-center gap-2">
+        <UserAvatar :name="item.employeeName" size="sm" />
+        <div class="min-w-0">
+          <div class="truncate">{{ item.employeeName }}</div>
+          <div v-if="item.createdByName && item.createdByName !== item.employeeName" class="text-[10px] text-muted-foreground truncate">
+            Créé par {{ item.createdByName }}
+          </div>
+        </div>
+      </div>
     </template>
-    <template #cell-type="{ item }"><span class="whitespace-nowrap">{{ item.leaveTypeName }}</span></template>
+    <template #cell-type="{ item }">
+      <span class="inline-flex items-center gap-1 whitespace-nowrap">
+        {{ item.leaveTypeName }}
+        <TriangleAlert v-if="noticeWarning(item)" class="w-3.5 h-3.5 text-warning shrink-0" :title="noticeWarning(item) ?? ''" />
+        <TriangleAlert v-if="item.insufficientBalance" class="w-3.5 h-3.5 text-danger shrink-0" title="Solde insuffisant" />
+      </span>
+    </template>
     <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ formatDate(item.startDate) }} → {{ formatDate(item.endDate) }}</span></template>
     <template #cell-workingDays="{ item }"><span class="font-medium">{{ item.daysCount }}j</span></template>
     <template #cell-createdAt="{ item }"><span class="text-muted-foreground whitespace-nowrap text-[11px]">{{ formatDate(item.createdAt) }}</span></template>
@@ -54,6 +68,9 @@
             </div>
           </div>
         </div>
+        <div v-if="item.createdByName && item.createdByName !== item.employeeName" class="text-[12px]">
+          <div class="text-muted-foreground text-[11px]">Créé par</div>{{ item.createdByName }}
+        </div>
         <div><StatusPill :status="item.status" /></div>
 
         <template v-if="scope === 'absences'">
@@ -65,6 +82,12 @@
           </div>
           <div v-if="item.reason" class="text-[12px]">
             <div class="text-muted-foreground text-[11px]">Motif</div>{{ item.reason }}
+          </div>
+          <div v-if="noticeWarning(item)" class="flex items-center gap-2 text-[12px] text-warning bg-warning-bg rounded-md px-2.5 py-2">
+            <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> {{ noticeWarning(item) }}
+          </div>
+          <div v-if="item.insufficientBalance" class="flex items-center gap-2 text-[12px] text-danger bg-danger-bg rounded-md px-2.5 py-2">
+            <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant pour ce type de congé — à valider en connaissance de cause.
           </div>
         </template>
 
@@ -111,7 +134,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { ClipboardCheck } from 'lucide-vue-next'
+import { ClipboardCheck, TriangleAlert } from 'lucide-vue-next'
 import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import AbsenceCard from '../../components/absences/AbsenceCard.vue'
@@ -125,15 +148,31 @@ import * as L from '../../lib/listClasses'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useMissionStore } from '../../stores/missions'
 import { useExpenseStore } from '../../stores/expenses'
+import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { LeaveRequest, MissionOrder, ExpenseReport } from '../../types'
 
 const leaveStore = useLeaveRequestStore()
 const missionStore = useMissionStore()
 const expenseStore = useExpenseStore()
+const leaveTypesStore = useLeaveTypesStore()
 
 if (leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
 if (missionStore.pendingForMe.length === 0) missionStore.fetchPendingForMe()
 if (expenseStore.pendingForMe.length === 0) expenseStore.fetchPendingForMe()
+if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+
+// Le préavis minimum n'est plus bloquant à la soumission (decision du
+// 01/08) — c'est ici, côté validateur, que l'avertissement doit apparaître
+// pour qu'il approuve ou refuse en connaissance de cause.
+function noticeWarning(item: LeaveRequest): string | null {
+  const type = leaveTypesStore.leaveTypes.find(t => t.id === item.leaveTypeId)
+  if (!type || type.noticeDays <= 0) return null
+  const submitted = new Date(item.createdAt); submitted.setHours(0, 0, 0, 0)
+  const start = new Date(item.startDate)
+  const diffDays = Math.ceil((start.getTime() - submitted.getTime()) / 86400000)
+  if (diffDays >= type.noticeDays) return null
+  return `Préavis de ${type.noticeDays} jour(s) non respecté (soumis ${diffDays} jour(s) avant le début)`
+}
 
 const scope = ref<'absences' | 'missions' | 'expenses'>('absences')
 const scopeOptions = [

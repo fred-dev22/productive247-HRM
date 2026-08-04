@@ -34,11 +34,17 @@
             </div>
             <div v-for="r in myRequests" :key="r.id" class="flex items-center gap-2.5 py-[9px] border-b border-border last:border-b-0">
               <div class="flex-1">
-                <div class="text-sm font-medium">{{ r.leaveTypeName }}</div>
-                <div class="text-xs text-muted-foreground">{{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
+                <div class="text-sm font-medium">
+                  {{ r.leaveTypeName }}
+                  <span v-if="r.employeeId !== auth.user?.id" class="text-xs font-normal text-muted-foreground">· {{ r.employeeName }}</span>
+                </div>
+                <div class="text-xs text-muted-foreground">
+                  {{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}
+                  <span v-if="r.createdByName && r.createdByName !== r.employeeName"> · créé par {{ r.createdByName }}</span>
+                </div>
               </div>
               <StatusPill :status="r.status" />
-              <button v-if="CANCELLABLE.has(r.status)" class="px-2.5 py-[5px] rounded text-[10px] font-medium cursor-pointer bg-warning-bg text-warning" @click="cancelRequest(r.id)">
+              <button v-if="r.employeeId === auth.user?.id && CANCELLABLE.has(r.status)" class="px-2.5 py-[5px] rounded text-[10px] font-medium cursor-pointer bg-warning-bg text-warning" @click="cancelRequest(r.id)">
                 {{ t('absence.actions.cancel') }}
               </button>
               <router-link v-else :to="{ name: 'employee-absences' }" class="px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground no-underline">{{ t('absence.actions.view') }}</router-link>

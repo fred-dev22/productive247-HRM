@@ -44,6 +44,17 @@
     </template>
 
     <!-- Cellules -->
+    <template #cell-beneficiary="{ item }">
+      <div class="flex items-center gap-2">
+        <UserAvatar :name="item.employeeName" size="sm" />
+        <div class="min-w-0">
+          <div class="truncate">{{ item.employeeName }}</div>
+          <div v-if="item.createdByName && item.createdByName !== item.employeeName" class="text-[10px] text-muted-foreground truncate">
+            Créé par {{ item.createdByName }}
+          </div>
+        </div>
+      </div>
+    </template>
     <template #cell-type="{ item }"><span class="whitespace-nowrap">{{ item.leaveTypeName }}</span></template>
     <template #cell-dates="{ item }"><span class="whitespace-nowrap text-[11px]">{{ formatDate(item.startDate) }} → {{ formatDate(item.endDate) }}</span></template>
     <template #cell-days="{ item }"><span class="font-medium whitespace-nowrap">{{ item.daysCount }}j</span></template>
@@ -62,6 +73,9 @@
           <div><div class="text-muted-foreground text-[11px]">Soumis le</div>{{ formatDate(item.createdAt) }}</div>
         </div>
         <div v-if="item.reason" class="text-[12px]"><div class="text-muted-foreground text-[11px]">Motif</div>{{ item.reason }}</div>
+        <div v-if="item.createdByName && item.createdByName !== item.employeeName" class="text-[12px]">
+          <div class="text-muted-foreground text-[11px]">Créé par</div>{{ item.createdByName }}
+        </div>
         <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
         <AbsenceWorkflowActions :leave="item" />
       </div>
@@ -81,7 +95,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Plus, CalendarOff } from 'lucide-vue-next'
-import { StatusPill, ListPageLayout } from '../../components'
+import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import AbsenceCard from '../../components/absences/AbsenceCard.vue'
 import AbsenceCreate from '../../components/absences/AbsenceCreate.vue'
@@ -113,6 +127,7 @@ const openCardId = ref<string | null>(null)
 function openCard(item: LeaveRequest) { openCardId.value = item.id }
 
 const columns = computed<ListColumn[]>(() => [
+  { key: 'beneficiary', label: 'Bénéficiaire', sortable: true, width: 200 },
   { key: 'type', label: t('absence.fields.type'), sortable: true, hideable: false, width: 200 },
   { key: 'dates', label: t('absence.fields.dates'), width: 210 },
   { key: 'days', label: t('absence.fields.days'), align: 'center', width: 90 },
@@ -138,14 +153,14 @@ const page = ref(1)
 const pageSize = ref(10)
 watch([activeScope, searchQuery, pageSize], () => { page.value = 1 })
 
-const sortFieldMap: Record<string, keyof LeaveRequest> = { type: 'leaveTypeName', submitted: 'createdAt' }
+const sortFieldMap: Record<string, keyof LeaveRequest> = { beneficiary: 'employeeName', type: 'leaveTypeName', submitted: 'createdAt' }
 
 const filtered = computed(() => {
   let rows = store.mine.filter(l => {
     if (activeScope.value === 'pending' ? !PENDING_STATUSES.has(l.status) : (activeScope.value && l.status !== activeScope.value)) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
-      if (!l.leaveTypeName.toLowerCase().includes(q)) return false
+      if (!l.leaveTypeName.toLowerCase().includes(q) && !l.employeeName.toLowerCase().includes(q)) return false
     }
     return true
   })
