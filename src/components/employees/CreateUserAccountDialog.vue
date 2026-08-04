@@ -40,6 +40,7 @@ const form = reactive({
   username: props.employeeEmail ?? '',
   employeeCategoryId: employeeStore.getById(props.employeeId)?.employeeCategoryId ?? '',
   password: generatePassword(),
+  mustChangePassword: true,
 })
 
 function regenerate() {
@@ -63,6 +64,7 @@ async function submit() {
     const created = await store.createUserAccount({
       employeeId: props.employeeId, username: form.username,
       email: props.employeeEmail, password: form.password, employeeCategoryId: form.employeeCategoryId,
+      mustChangePassword: form.mustChangePassword,
     }) as { Id: string }
     createdUserId.value = created.Id
     step.value = 'reveal'
@@ -137,6 +139,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
                 </button>
               </div>
             </div>
+            <label class="flex items-center gap-2 text-[13px] text-foreground cursor-pointer">
+              <input type="checkbox" v-model="form.mustChangePassword" class="accent-primary" />
+              Changer le mot de passe à la première connexion
+            </label>
           </div>
 
           <div class="flex gap-2 justify-end mt-5 pt-4 border-t border-border">
@@ -153,7 +159,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
 
           <p class="text-xs text-muted-foreground mb-3">
             Ce mot de passe ne sera <strong>plus jamais affiché</strong>. Transmettez-le à {{ employeeName }} maintenant.
-            Il devra le changer à sa première connexion.
+            <template v-if="form.mustChangePassword">Il devra le changer à sa première connexion.</template>
           </p>
 
           <div class="flex items-center gap-2 bg-background border border-border rounded-md px-3 py-2.5">

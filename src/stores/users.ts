@@ -9,6 +9,7 @@ export interface CreateUserAccountPayload {
   email: string
   password: string
   employeeCategoryId: string
+  mustChangePassword: boolean
 }
 
 export interface UserPermissionGrant {
@@ -38,6 +39,7 @@ export const useUserStore = defineStore('users', () => {
           EmployeeId: payload.employeeId,
           EmployeeCategoryId: payload.employeeCategoryId,
           IsActive: true,
+          MustChangePassword: payload.mustChangePassword,
         })
         return data
       } catch (err) {
