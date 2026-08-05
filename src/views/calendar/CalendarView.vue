@@ -34,10 +34,67 @@
           <div :class="sectionCard">
             <div :class="sectionHeader">
               <h2 class="text-[15px] font-semibold text-foreground">Jours ouvrables</h2>
-              <button :class="[L.btnPrimary, '!px-3.5 !py-2 !text-xs']" class="disabled:opacity-50 disabled:cursor-not-allowed" :disabled="savingWorkingDays" @click="saveWorkingDays">
+              <button
+                :class="[L.btnPrimary, '!px-3.5 !py-2 !text-xs']"
+                class="disabled:opacity-40 disabled:cursor-not-allowed"
+                :disabled="savingWorkingDays || !calendarStore.isDirty"
+                :title="!calendarStore.isDirty && !savingWorkingDays ? 'Aucune modification à enregistrer' : ''"
+                @click="saveWorkingDays"
+              >
                 <Save class="w-3.5 h-3.5" /> {{ savingWorkingDays ? 'Enregistrement…' : 'Enregistrer les modifications' }}
               </button>
             </div>
+
+            <!-- ── Portée du calendrier ── -->
+            <div class="mb-4">
+              <span class="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.06em] block mb-1.5">Portée du calendrier</span>
+              <div class="flex gap-1.5 flex-wrap items-center">
+                <button :class="[scopeBtn, scope === 'global' && scopeActive]" @click="selectGlobalScope">
+                  <Globe class="w-3.5 h-3.5" /> Global (par défaut)
+                </button>
+                <button :class="[scopeBtn, scope === 'category' && scopeActive]" @click="selectCategoryScope">
+                  <Tag class="w-3.5 h-3.5" /> Par catégorie
+                </button>
+                <select
+                  v-if="scope === 'category'"
+                  v-model="selectedCategoryId"
+                  :class="cls.fieldSelect"
+                  class="!w-auto !h-9"
+                  :disabled="categoryStore.loading"
+                  @change="onCategoryChange"
+                >
+                  <option v-if="categoryStore.loading" value="" disabled>Chargement des catégories…</option>
+                  <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">
+                    {{ c.name }} {{ categoryHasDedicatedCalendar(c.id) ? '— calendrier dédié' : '— suit le calendrier global' }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Portée actuelle — mise en évidence explicite du choix actif -->
+              <div class="flex items-center gap-2 mt-2.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium"
+                   :class="scope === 'global' ? 'bg-success-bg text-success border border-success/30' : 'bg-primary/10 text-primary border border-primary/30'">
+                <component :is="scope === 'global' ? Globe : Tag" class="w-4 h-4 shrink-0" />
+                <span v-if="scope === 'global'">Portée actuelle : <strong>Calendrier global</strong> (s'applique à tous les employés sans calendrier dédié)</span>
+                <span v-else-if="selectedCategoryId">Portée actuelle : catégorie <strong>{{ selectedCategoryName }}</strong> — {{ currentCategoryDedicatedId ? 'calendrier dédié' : 'suit encore le calendrier global' }}</span>
+                <span v-else-if="categoryStore.loading">Chargement des catégories…</span>
+                <span v-else>Aucune catégorie configurée — créez-en une dans Classification pour lui définir un calendrier dédié.</span>
+              </div>
+
+              <div v-if="scope === 'category' && selectedCategoryId" class="flex items-center gap-2 mt-2 px-3.5 py-2.5 rounded-lg bg-background border border-border text-[12.5px] text-foreground">
+                <Info class="w-4 h-4 text-muted-foreground shrink-0" />
+                <template v-if="currentCategoryDedicatedId">
+                  <span class="flex-1">Ce calendrier s'applique uniquement aux employés de la catégorie <strong>{{ selectedCategoryName }}</strong>.</span>
+                  <button class="text-[12px] font-medium text-danger underline shrink-0 bg-transparent border-0 cursor-pointer" @click="deleteDedicatedCalendar">
+                    Supprimer ce calendrier dédié
+                  </button>
+                </template>
+                <span v-else class="flex-1">
+                  Aucun calendrier dédié pour <strong>{{ selectedCategoryName }}</strong> — ces employés suivent le calendrier global.
+                  Modifiez les jours ci-dessous puis enregistrez pour créer un calendrier spécifique à cette catégorie.
+                </span>
+              </div>
+            </div>
+
             <!-- Source unique : composant réutilisé dans l'onboarding -->
             <WorkingDaysConfig />
           </div>
@@ -307,7 +364,7 @@ import { ref, reactive, computed, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   ClockArrowDown, Clock, CalendarDays, ListChecks, Upload, Plus,
-  Pencil, Trash2, Lock, Info, RefreshCw, Save,
+  Pencil, Trash2, Lock, Info, RefreshCw, Save, Globe, Tag,
 } from 'lucide-vue-next'
 import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModal.vue'
 import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
@@ -322,6 +379,7 @@ import { useCalendarStore }   from '../../stores/calendar'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useCompanySettingsStore }  from '../../stores/companySettings'
+import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import type { Holiday } from '../../types'
 
 const auth            = useAuthStore()
@@ -329,12 +387,124 @@ const calendarStore   = useCalendarStore()
 const leaveTypesStore = useLeaveTypesStore()
 const leaveTransactionStore = useLeaveTransactionStore()
 const companySettingsStore  = useCompanySettingsStore()
+const categoryStore    = useEmployeeCategoryStore()
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
 
 const pageLoading = computed(() => calendarStore.loading || leaveTypesStore.loading)
 
-calendarStore.fetchCalendar()
-if (!companySettingsStore.settings) companySettingsStore.fetchSettings().catch(() => {})
+// ── Portée du calendrier : global (par défaut) ou par catégorie d'employés
+// (décision du 04/08 — catégorie uniquement, pas de surcharge par employé) ──
+// Le choix est persisté côté serveur (CompanySettings.CalendarConfigScope),
+// pas en localStorage — un réglage de config doit survivre au changement de
+// navigateur/poste, pas rester coincé sur le poste de l'admin qui l'a fait.
+const scope = ref<'global' | 'category'>('global')
+const selectedCategoryId = ref('')
+const configuredCategoryCalendars = ref<{ id: string; employeeCategoryId: string }[]>([])
+
+function persistScope() {
+  companySettingsStore.updateCalendarScope(
+    scope.value === 'category' ? 'Category' : 'Global',
+    scope.value === 'category' ? selectedCategoryId.value || null : null,
+  )
+}
+
+function refreshConfiguredCategoryCalendars() {
+  calendarStore.fetchConfiguredCategoryCalendars().then((list) => { configuredCategoryCalendars.value = list })
+}
+refreshConfiguredCategoryCalendars()
+
+// Restaure la portée choisie à la dernière visite (onglet Jours de travail)
+// — sans ça, la page revenait toujours sur "Global" au rechargement, même
+// si l'admin était en train de configurer une catégorie précise. Lue depuis
+// CompanySettings (pas localStorage) : ce réglage doit être le même pour
+// n'importe quel admin, sur n'importe quel poste. Attend que les catégories
+// soient chargées pour valider que celle stockée existe toujours (ex :
+// supprimée depuis) avant de basculer dessus.
+;(async () => {
+  const [, ] = await Promise.all([
+    categoryStore.categories.length === 0 ? categoryStore.fetchAll().catch(() => {}) : Promise.resolve(),
+    companySettingsStore.settings ? Promise.resolve() : companySettingsStore.fetchSettings().catch(() => {}),
+  ])
+  const storedScope = companySettingsStore.settings?.calendarConfigScope
+  const storedCategoryId = companySettingsStore.settings?.calendarConfigCategoryId
+  if (
+    storedScope === 'Category' &&
+    storedCategoryId &&
+    categoryStore.categories.some(c => c.id === storedCategoryId)
+  ) {
+    scope.value = 'category'
+    selectedCategoryId.value = storedCategoryId
+    lastConfirmedCategoryId = storedCategoryId
+    await calendarStore.fetchCalendarByCategory(storedCategoryId)
+  } else {
+    await calendarStore.fetchDefaultCalendar()
+  }
+})()
+
+function categoryHasDedicatedCalendar(categoryId: string): boolean {
+  return configuredCategoryCalendars.value.some(c => c.employeeCategoryId === categoryId)
+}
+const currentCategoryDedicatedId = computed(() =>
+  configuredCategoryCalendars.value.find(c => c.employeeCategoryId === selectedCategoryId.value)?.id ?? null,
+)
+const selectedCategoryName = computed(() =>
+  categoryStore.categories.find(c => c.id === selectedCategoryId.value)?.name ?? '',
+)
+
+// Change de portée sans confirmation efface les modifications non
+// enregistrées (WorkingDaysConfig n'a pas de brouillon séparé, voir
+// stores/calendar.ts) — on prévient avant d'écraser un travail en cours.
+async function confirmDiscardIfDirty(): Promise<boolean> {
+  if (!calendarStore.isDirty) return true
+  return confirmDialog('Des modifications non enregistrées seront perdues. Continuer ?')
+}
+
+// v-model a deja pousse la nouvelle valeur dans selectedCategoryId au
+// moment ou @change se declenche — si l'utilisateur annule (modifications
+// non enregistrees), il faut restaurer explicitement l'ancienne valeur,
+// sinon le select affiche la nouvelle categorie alors que les jours
+// affiches sont toujours ceux de l'ancienne.
+let lastConfirmedCategoryId = ''
+
+async function selectGlobalScope() {
+  if (scope.value === 'global') return
+  if (!(await confirmDiscardIfDirty())) return
+  scope.value = 'global'
+  persistScope()
+  await calendarStore.fetchDefaultCalendar()
+}
+async function selectCategoryScope() {
+  if (scope.value === 'category') return
+  if (!(await confirmDiscardIfDirty())) return
+  scope.value = 'category'
+  if (!selectedCategoryId.value && categoryStore.categories[0]) {
+    selectedCategoryId.value = categoryStore.categories[0].id
+  }
+  lastConfirmedCategoryId = selectedCategoryId.value
+  persistScope()
+  if (selectedCategoryId.value) await calendarStore.fetchCalendarByCategory(selectedCategoryId.value)
+}
+async function onCategoryChange() {
+  if (!(await confirmDiscardIfDirty())) {
+    selectedCategoryId.value = lastConfirmedCategoryId
+    return
+  }
+  lastConfirmedCategoryId = selectedCategoryId.value
+  persistScope()
+  if (selectedCategoryId.value) await calendarStore.fetchCalendarByCategory(selectedCategoryId.value)
+}
+
+async function deleteDedicatedCalendar() {
+  const id = currentCategoryDedicatedId.value
+  if (!id || !selectedCategoryId.value) return
+  if (!(await confirmDialog(`Supprimer le calendrier dédié à "${selectedCategoryName.value}" ? Ces employés suivront de nouveau le calendrier global.`))) return
+  try {
+    await calendarStore.deleteCategoryCalendar(id, selectedCategoryId.value)
+    refreshConfiguredCategoryCalendars()
+  } catch {
+    // calendarStore.error porte le message pour l'UI (toast)
+  }
+}
 
 // ── Génération des acquisitions (cron) ─────────────────────────
 // dayJustChanged : changer le jour d'exécution réactive le bouton manuel
@@ -395,7 +565,11 @@ const savingWorkingDays = ref(false)
 async function saveWorkingDays() {
   savingWorkingDays.value = true
   try {
-    await calendarStore.updateWorkingDays(calendarStore.calendar.workingDays)
+    const newName = scope.value === 'category' && !currentCategoryDedicatedId.value
+      ? `Calendrier — ${selectedCategoryName.value}`
+      : undefined
+    await calendarStore.updateWorkingDays(calendarStore.calendar.workingDays, newName)
+    if (scope.value === 'category') refreshConfiguredCategoryCalendars()
   } catch {
     // calendarStore.error porte le message pour l'UI (toast)
   } finally {
@@ -406,6 +580,8 @@ async function saveWorkingDays() {
 // ── Classes du design system ─────────────────────────────────
 const tabBtn = 'flex items-center gap-1.5 px-[18px] py-2.5 text-[13px] font-medium text-muted-foreground bg-transparent border-0 border-b-2 border-transparent cursor-pointer whitespace-nowrap transition-colors hover:text-foreground'
 const tabActive = '!text-primary !border-primary'
+const scopeBtn = 'inline-flex items-center gap-1.5 px-3.5 py-2 h-9 rounded-md text-[13px] font-medium border border-border bg-background text-muted-foreground cursor-pointer transition-colors hover:bg-card hover:text-foreground'
+const scopeActive = '!bg-primary/10 !text-primary !border-primary'
 const sectionCard = 'bg-card border border-border rounded-[10px] p-5 mb-4'
 const sectionHeader = 'flex items-center justify-between mb-4 gap-3 flex-wrap'
 const dataTable = 'w-full border-collapse text-[13px]'

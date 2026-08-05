@@ -41,7 +41,6 @@ const TRANSPORT_MODES: { value: TransportMode; label: string }[] = [
   { value: 'Other', label: 'Autre' },
 ]
 const MISSION_CATEGORIES: { value: MissionCategory; label: string }[] = [
-  { value: 'Local', label: 'Locale' },
   { value: 'National', label: 'Nationale' },
   { value: 'International', label: 'Internationale' },
 ]

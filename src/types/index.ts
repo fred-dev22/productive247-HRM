@@ -90,18 +90,10 @@ export type MissionStatus =
 export type TransportMode =
   | 'PersonalCar' | 'CompanyCar' | 'PublicTransport' | 'Plane' | 'Other'
 
-// MissionCategory (Local/National/International) determine, croisee avec la
+// MissionCategory (National/International) determine, croisee avec la
 // EmployeeCategory reelle de l'employe (voir stores/employeeCategories.ts),
 // quelle ligne de la matrice ExpenseConfig s'applique — voir missionConfig.ts.
-export type MissionCategory = 'Local' | 'National' | 'International'
-
-export interface PerdiemRate {
-  id:          string
-  category:    string
-  ratePerDay:  number
-  currency:    string
-  description: string
-}
+export type MissionCategory = 'National' | 'International'
 
 // Une ligne d'indemnite calculee cote backend a partir de la matrice
 // ExpenseConfig (EmployeeCategory x ExpenseType x MissionCategory) — voir
@@ -322,7 +314,6 @@ export interface CompanyCalendar {
   id:            string
   workingDays:   WorkingDays
   holidays:      Holiday[]
-  perdiemRates?: PerdiemRate[]
   updatedAt:     string
   updatedBy:     string
 }

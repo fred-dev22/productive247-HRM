@@ -49,7 +49,7 @@ function mapExpenseType(raw: BackendExpenseType): ExpenseType {
 
 // ── ExpenseConfig — matrice EmployeeCategory x ExpenseType x
 // MissionCategory → taux, reel, aligne sur le backend ────────────
-export type MissionCategory = 'Local' | 'National' | 'International'
+export type MissionCategory = 'National' | 'International'
 
 export interface ExpenseConfigRow {
   id:                 string

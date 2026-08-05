@@ -36,7 +36,7 @@ const TRANSPORT_LABELS: Record<TransportMode, string> = {
 }
 const TRANSPORT_OPTIONS = Object.entries(TRANSPORT_LABELS) as [TransportMode, string][]
 const MISSION_CATEGORY_LABELS: Record<MissionCategory, string> = {
-  Local: 'Locale', National: 'Nationale', International: 'Internationale',
+  National: 'Nationale', International: 'Internationale',
 }
 
 function fmtNum(n: number) { return n.toLocaleString('fr-FR') }

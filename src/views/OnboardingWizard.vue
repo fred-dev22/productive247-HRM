@@ -80,6 +80,9 @@
                   {{ calendarStore.daysPerWeek }} jour{{ calendarStore.daysPerWeek > 1 ? 's' : '' }} configuré{{ calendarStore.daysPerWeek > 1 ? 's' : '' }}
                   · {{ calendarStore.formatMinutes(calendarStore.weeklyMinutes) }} par semaine
                 </div>
+                <p class="text-[12px] text-muted-foreground -mt-1">
+                  Vous pourrez définir un calendrier différent par catégorie d'employés plus tard, dans Configuration &gt; Calendrier.
+                </p>
               </div>
               <p v-if="companyError" class="px-7 text-xs text-danger">{{ companyError }}</p>
               <div :class="[cardFoot, 'justify-end']">

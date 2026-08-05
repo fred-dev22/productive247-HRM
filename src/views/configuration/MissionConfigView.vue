@@ -7,25 +7,6 @@
             <h1 class="text-xl font-bold text-foreground">Configuration des missions</h1>
             <p class="text-[13px] text-muted-foreground mt-0.5">Définissez les types de frais et leurs règles par catégorie d'employé</p>
           </div>
-          <button :class="L.btnOutline" @click="showImportToast">
-            <Upload class="w-4 h-4" />
-            Importer
-          </button>
-        </div>
-
-        <!-- Banner avertissement -->
-        <div class="flex items-start gap-2.5 bg-warning-bg border-l-4 border-warning rounded-md px-4 py-3 text-[13px] text-foreground leading-relaxed">
-          <TriangleAlert class="w-4 h-4 text-warning shrink-0 mt-px" />
-          <span>
-            Les catégories et montants affichés sont <strong>provisoires</strong>.
-            Ils doivent être validés avec la direction avant la mise en production.
-          </span>
-        </div>
-
-        <!-- Toast (bouton Importer uniquement — les autres actions passent par le toast global) -->
-        <div v-if="showToast" class="fixed bottom-6 right-6 bg-success text-white px-5 py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 z-[2000] shadow-[0_4px_16px_rgba(0,0,0,0.16)]">
-          <Check class="w-4 h-4" />
-          {{ toastMsg }}
         </div>
 
         <SkeletonLoader v-if="initialLoading" type="table" :lines="6" />
@@ -71,72 +52,78 @@
           </div>
 
           <div class="overflow-x-auto pb-1">
-            <table class="w-full border-collapse text-[13px] min-w-[700px]">
+            <table class="w-full border-collapse text-[13px]">
               <thead>
                 <tr>
-                  <th :class="thUpper">Type de frais</th>
-                  <th v-for="cat in store.categories" :key="cat.id" :class="thUpper">{{ cat.code }}</th>
+                  <th :class="thUpper">Catégorie</th>
+                  <th :class="thUpper">Montant</th>
                   <th :class="thUpper">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="ft in store.expenseTypes" :key="ft.id" class="hover:bg-background">
-                  <td :class="tdCell">
-                    <div class="flex flex-col gap-0.5">
-                      <span class="font-medium text-foreground">{{ ft.name }}</span>
-                      <span class="text-[11px] text-muted-foreground">{{ unitLabel(ft.unit) }}</span>
-                    </div>
-                  </td>
-                  <td v-for="cat in store.categories" :key="cat.id" :class="tdCell">
-                    <div class="flex items-center gap-1.5">
-                      <template v-if="editing?.feeId === ft.id && editing?.catId === cat.id">
-                        <input
-                          type="number"
-                          min="0"
-                          class="w-[90px] h-7 px-1.5 border border-primary rounded text-[13px] bg-card outline-none"
-                          :value="getAmount(ft.id, cat.id)"
-                          @change="onAmountChange(ft.id, cat.id, $event)"
-                          @blur="editing = null"
-                          ref="amountInputRef"
-                        />
-                      </template>
-                      <template v-else>
-                        <span
-                          v-if="getAmount(ft.id, cat.id) === 0"
-                          class="text-[11px] font-semibold bg-info-bg text-info rounded px-[7px] py-0.5 cursor-pointer whitespace-nowrap hover:opacity-75"
-                          @click="startEdit(ft.id, cat.id)"
-                        >Au réel</span>
-                        <span
-                          v-else
-                          class="text-[13px] font-medium text-foreground cursor-pointer whitespace-nowrap hover:text-primary"
-                          @click="startEdit(ft.id, cat.id)"
-                        >{{ fmt(getAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">{{ getCurrency(ft.id, cat.id) }}</span></span>
-                      </template>
-                      <button
-                        :class="[
-                          'w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors',
-                          isDocRequired(ft.id, cat.id) ? 'text-primary bg-primary/10' : 'text-muted-foreground/30 hover:text-muted-foreground hover:bg-background',
-                        ]"
-                        :title="isDocRequired(ft.id, cat.id) ? 'Justificatif requis — cliquer pour désactiver' : 'Justificatif non requis — cliquer pour activer'"
-                        @click="toggleDocRequired(ft.id, cat.id)"
-                      >
-                        <Paperclip class="w-3 h-3" />
-                      </button>
-                    </div>
-                  </td>
-                  <td :class="tdCell">
-                    <div class="flex gap-1 justify-center">
-                      <button :class="iconBtn" @click="openEditFee(ft.id)">
-                        <Pencil class="w-3.5 h-3.5" />
-                      </button>
-                      <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteFee(ft.id, ft.name)">
-                        <Trash2 class="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <template v-for="ft in store.expenseTypes" :key="ft.id">
+                  <tr class="bg-background">
+                    <td :class="tdCell" colspan="2">
+                      <div class="flex items-baseline gap-1.5">
+                        <span class="font-medium text-foreground">{{ ft.name }}</span>
+                        <span class="text-[11px] text-muted-foreground">{{ unitLabel(ft.unit) }}</span>
+                      </div>
+                    </td>
+                    <td :class="tdCell">
+                      <div class="flex gap-1 justify-center">
+                        <button :class="iconBtn" @click="openEditFee(ft.id)">
+                          <Pencil class="w-3.5 h-3.5" />
+                        </button>
+                        <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteFee(ft.id, ft.name)">
+                          <Trash2 class="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-for="cat in store.categories" :key="cat.id" class="hover:bg-background">
+                    <td :class="tdCell">{{ cat.name }}</td>
+                    <td :class="tdCell">
+                      <div class="flex items-center gap-1.5">
+                        <template v-if="editing?.feeId === ft.id && editing?.catId === cat.id">
+                          <input
+                            type="number"
+                            min="0"
+                            class="w-[90px] h-7 px-1.5 border border-primary rounded text-[13px] bg-card outline-none"
+                            :value="getAmount(ft.id, cat.id)"
+                            @change="onAmountChange(ft.id, cat.id, $event)"
+                            @blur="editing = null"
+                            ref="amountInputRef"
+                          />
+                        </template>
+                        <template v-else>
+                          <span
+                            v-if="getAmount(ft.id, cat.id) === 0"
+                            class="text-[11px] font-semibold bg-info-bg text-info rounded px-[7px] py-0.5 cursor-pointer whitespace-nowrap hover:opacity-75"
+                            @click="startEdit(ft.id, cat.id)"
+                          >Au réel</span>
+                          <span
+                            v-else
+                            class="text-[13px] font-medium text-foreground cursor-pointer whitespace-nowrap hover:text-primary"
+                            @click="startEdit(ft.id, cat.id)"
+                          >{{ fmt(getAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">{{ getCurrency(ft.id, cat.id) }}</span></span>
+                        </template>
+                        <button
+                          :class="[
+                            'w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors',
+                            isDocRequired(ft.id, cat.id) ? 'text-primary bg-primary/10' : 'text-muted-foreground/30 hover:text-muted-foreground hover:bg-background',
+                          ]"
+                          :title="isDocRequired(ft.id, cat.id) ? 'Justificatif requis — cliquer pour désactiver' : 'Justificatif non requis — cliquer pour activer'"
+                          @click="toggleDocRequired(ft.id, cat.id)"
+                        >
+                          <Paperclip class="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                    <td :class="tdCell"></td>
+                  </tr>
+                </template>
                 <tr v-if="store.expenseTypes.length === 0">
-                  <td :colspan="store.categories.length + 2" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
+                  <td colspan="3" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
                 </tr>
               </tbody>
             </table>
@@ -195,7 +182,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, nextTick } from 'vue'
-import { Upload, TriangleAlert, Check, Plus, Pencil, Trash2, Paperclip } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Paperclip } from 'lucide-vue-next'
 import DataTable  from '../../components/ui/DataTable.vue'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
@@ -224,15 +211,7 @@ const thUpper = 'px-3 py-2.5 text-left text-[11px] font-bold text-muted-foregrou
 const tdCell = 'px-3 py-2.5 border-b border-border'
 const iconBtn = 'w-7 h-7 flex items-center justify-center border-0 rounded-md bg-background text-muted-foreground cursor-pointer transition-colors hover:bg-primary/10 hover:text-primary'
 
-const showToast = ref(false)
-const toastMsg  = ref('')
 const amountInputRef = ref<HTMLInputElement | null>(null)
-
-function showImportToast() {
-  toastMsg.value  = 'Import disponible prochainement'
-  showToast.value = true
-  setTimeout(() => { showToast.value = false }, 2500)
-}
 
 function fmt(n: number): string { return n.toLocaleString('fr-FR') }
 function unitLabel(unit: ExpenseUnit): string {
@@ -240,11 +219,11 @@ function unitLabel(unit: ExpenseUnit): string {
 }
 
 // ── Catégorie de mission (3e dimension de la matrice ExpenseConfig) ──
-const MISSION_CATEGORIES: MissionCategory[] = ['Local', 'National', 'International']
+const MISSION_CATEGORIES: MissionCategory[] = ['National', 'International']
 const MISSION_CATEGORY_LABELS: Record<MissionCategory, string> = {
-  Local: 'Locale', National: 'Nationale', International: 'Internationale',
+  National: 'Nationale', International: 'Internationale',
 }
-const selectedMissionCategory = ref<MissionCategory>('Local')
+const selectedMissionCategory = ref<MissionCategory>('National')
 
 // ── Table catégories (lecture seule — gestion dans Configuration > Catégories) ──
 const catColumns = [
