@@ -10,7 +10,7 @@
     >
       <div
         v-if="toast.visible"
-        class="fixed bottom-6 right-6 z-[300] flex items-center gap-2.5 rounded-lg px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.2)] text-[13px] font-medium max-w-[340px]"
+        class="fixed bottom-6 right-6 z-[1100] flex items-center gap-2.5 rounded-lg px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.2)] text-[13px] font-medium max-w-[340px]"
         :class="toast.status === 'error' ? 'bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground'"
         role="status"
         aria-live="polite"

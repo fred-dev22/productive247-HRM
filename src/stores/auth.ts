@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { AuthUser, UserRole } from '../types'
 import { api, getStoredToken, setStoredToken, clearStoredToken } from '../lib/api'
 import { decodeJwt, isTokenExpired } from '../lib/jwt'
+import { connectRealtime, disconnectRealtime } from '../lib/realtime'
 
 // Backend EmployeeCategory.Name (French, librement modifiable/ajoutable par
 // un Directeur RH — voir decision du 29/07, "role et categorie c'est la meme
@@ -151,6 +152,7 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchPermissions(payload.sub)
     user.value = await buildAuthUser(payload.employeeId, payload.categoryName)
     isLoggedIn.value = true
+    connectRealtime()
   }
 
   // PATCH /auth/change-password renvoie un nouveau token (mustChangePassword
@@ -183,6 +185,7 @@ export const useAuthStore = defineStore('auth', () => {
       await fetchPermissions(payload.sub)
       user.value = await buildAuthUser(payload.employeeId, payload.categoryName)
       isLoggedIn.value = true
+      connectRealtime()
     } catch {
       // Token valid but the employee/session/permissions data couldn't be
       // loaded (deleted employee, deactivated account, backend unreachable,
@@ -205,6 +208,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn.value = false
     mustChangePassword.value = false
     clearStoredToken()
+    disconnectRealtime()
     resetOtherStores()
   }
 

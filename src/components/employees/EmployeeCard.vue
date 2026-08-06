@@ -133,7 +133,13 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
 const showCreateAccount = ref(false)
 function onAccountCreated(userId: string) {
   if (current.value) store.markHasAccount(current.value.id, userId)
-  loadUserPermissions()
+  // userId passé explicitement plutôt que relu depuis current.value.userId :
+  // markHasAccount() vient de muter le store, mais props.employees (donc
+  // current) ne reflète la mise à jour qu'au prochain rendu du parent
+  // (asynchrone) — le lire ici renverrait encore l'ancienne valeur (undefined)
+  // et viderait silencieusement la liste des permissions jusqu'au prochain
+  // rechargement de la fiche.
+  loadUserPermissions(userId)
 }
 
 /* ── Permissions individuelles du compte — indépendantes de la
@@ -141,11 +147,12 @@ function onAccountCreated(userId: string) {
 const userPermissions = ref<{ permissionId: string; code: string; module: string; label: string }[]>([])
 const loadingPermissions = ref(false)
 
-async function loadUserPermissions() {
-  if (!current.value?.userId) { userPermissions.value = []; return }
+async function loadUserPermissions(overrideUserId?: string) {
+  const userId = overrideUserId ?? current.value?.userId
+  if (!userId) { userPermissions.value = []; return }
   loadingPermissions.value = true
   try {
-    const data = await userStore.fetchUserPermissions(current.value.userId)
+    const data = await userStore.fetchUserPermissions(userId)
     userPermissions.value = data.individualGrants
   } catch {
     userPermissions.value = []

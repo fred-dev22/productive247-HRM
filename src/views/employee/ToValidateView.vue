@@ -133,7 +133,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ClipboardCheck, TriangleAlert } from 'lucide-vue-next'
 import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -151,15 +152,14 @@ import { useExpenseStore } from '../../stores/expenses'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { LeaveRequest, MissionOrder, ExpenseReport } from '../../types'
 
+const route = useRoute()
+const router = useRouter()
 const leaveStore = useLeaveRequestStore()
 const missionStore = useMissionStore()
 const expenseStore = useExpenseStore()
 const leaveTypesStore = useLeaveTypesStore()
 
-if (leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
-if (missionStore.pendingForMe.length === 0) missionStore.fetchPendingForMe()
-if (expenseStore.pendingForMe.length === 0) expenseStore.fetchPendingForMe()
-if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+const VALID_SCOPES = ['absences', 'missions', 'expenses'] as const
 
 // Le préavis minimum n'est plus bloquant à la soumission (decision du
 // 01/08) — c'est ici, côté validateur, que l'avertissement doit apparaître
@@ -174,7 +174,10 @@ function noticeWarning(item: LeaveRequest): string | null {
   return `Préavis de ${type.noticeDays} jour(s) non respecté (soumis ${diffDays} jour(s) avant le début)`
 }
 
-const scope = ref<'absences' | 'missions' | 'expenses'>('absences')
+const initialScope = VALID_SCOPES.includes(route.query.scope as typeof VALID_SCOPES[number])
+  ? (route.query.scope as typeof VALID_SCOPES[number])
+  : 'absences'
+const scope = ref<'absences' | 'missions' | 'expenses'>(initialScope)
 const scopeOptions = [
   { value: 'absences', label: 'Absences' },
   { value: 'missions', label: 'Missions' },
@@ -189,6 +192,36 @@ function openCard(item: LeaveRequest | MissionOrder | ExpenseReport) {
   else if (scope.value === 'missions') openMissionId.value = (item as MissionOrder).id
   else openExpenseId.value = (item as ExpenseReport).id
 }
+
+// Deep-link depuis une notification/un email (`?scope=...&open=<id>`, voir
+// workflow-notifier.service.ts hrefToValidate) — ouvre directement la fiche
+// concernee. Un `watch` (pas seulement onMounted) est necessaire : cliquer
+// une notif alors qu'on est deja sur /employee/to-validate ne remonte pas le
+// composant, seule la query change.
+function applyDeepLink() {
+  const id = route.query.open
+  if (typeof id !== 'string' || !id) return
+  if (VALID_SCOPES.includes(route.query.scope as typeof VALID_SCOPES[number])) {
+    scope.value = route.query.scope as typeof VALID_SCOPES[number]
+  }
+  if (scope.value === 'absences') openAbsenceId.value = id
+  else if (scope.value === 'missions') openMissionId.value = id
+  else openExpenseId.value = id
+  const { open, scope: scopeQuery, ...rest } = route.query
+  void open; void scopeQuery
+  router.replace({ query: rest })
+}
+watch(() => route.query.open, (id) => { if (id) applyDeepLink() })
+
+onMounted(async () => {
+  await Promise.all([
+    leaveStore.pendingForMe.length === 0 ? leaveStore.fetchPendingForMe() : Promise.resolve(),
+    missionStore.pendingForMe.length === 0 ? missionStore.fetchPendingForMe() : Promise.resolve(),
+    expenseStore.pendingForMe.length === 0 ? expenseStore.fetchPendingForMe() : Promise.resolve(),
+  ])
+  if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+  applyDeepLink()
+})
 
 function shortDate(iso: string): string { return iso ? new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—' }
 function fmtNum(n: number) { return n.toLocaleString('fr-FR') }

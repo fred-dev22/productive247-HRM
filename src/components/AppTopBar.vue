@@ -42,13 +42,13 @@
               :key="n.id"
               class="flex gap-2.5 px-3.5 py-2.5 border-b border-border last:border-b-0 cursor-pointer transition-colors hover:bg-background"
               :class="{ 'bg-primary/10': !n.read }"
-              @click="notifStore.markAsRead(n.id)"
+              @click="handleNotifClick(n)"
             >
               <span class="w-2 h-2 rounded-full shrink-0 mt-1" :class="NOTIF_DOT[n.type] ?? NOTIF_DOT.system"></span>
               <div class="flex-1 min-w-0">
                 <div class="text-xs font-semibold text-foreground">{{ n.title }}</div>
                 <div class="text-[11px] text-muted-foreground mt-0.5 truncate">{{ n.message }}</div>
-                <div class="text-[10px] text-muted-foreground mt-[3px]">{{ n.date }}</div>
+                <div class="text-[10px] text-muted-foreground mt-[3px]">{{ formatDate(n.date) }}</div>
               </div>
             </div>
             <div v-if="notifStore.notifications.length === 0" class="p-5 text-center text-xs text-muted-foreground">
@@ -118,7 +118,8 @@ import { useI18n } from 'vue-i18n'
 import { Search, Bell, Settings, HelpCircle, CircleUser, LogOut, X } from 'lucide-vue-next'
 import UserAvatar from './ui/UserAvatar.vue'
 import { useAuthStore } from '../stores/auth'
-import { useNotificationStore } from '../stores/notifications'
+import { useNotificationStore, type AppNotification } from '../stores/notifications'
+import { formatDate } from '../lib/date'
 import type { AuthUser } from '../types'
 
 defineProps<{ user: AuthUser | null }>()
@@ -158,7 +159,17 @@ const searchQuery    = ref('')
 const searchInput    = ref<HTMLInputElement | null>(null)
 
 function toggleDropdown(name: 'user' | 'notif') {
-  activeDropdown.value = activeDropdown.value === name ? null : name
+  const opening = activeDropdown.value !== name
+  activeDropdown.value = opening ? name : null
+  if (opening && name === 'notif') notifStore.fetchAll()
+}
+
+function handleNotifClick(n: AppNotification) {
+  notifStore.markAsRead(n.id)
+  if (n.href) {
+    activeDropdown.value = null
+    router.push(n.href)
+  }
 }
 
 function goToProfile() {
@@ -181,6 +192,10 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape')         { closeSearch(); activeDropdown.value = null }
 }
 
-onMounted(() => { document.addEventListener('click', onDocClick); document.addEventListener('keydown', onKeydown) })
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onKeydown)
+  notifStore.fetchAll()
+})
 onUnmounted(() => { document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKeydown) })
 </script>

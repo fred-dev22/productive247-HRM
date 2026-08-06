@@ -105,17 +105,13 @@ import { formatDate } from '../../lib/date'
 import { useAuthStore } from '../../stores/auth'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
+import { useDeepLinkOpen } from '../../composables/useDeepLinkOpen'
 import type { LeaveRequest } from '../../types'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const store = useLeaveRequestStore()
 const balanceStore = useLeaveTransactionStore()
-
-onMounted(() => {
-  store.fetchMine()
-  if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
-})
 
 const kpiCard = 'bg-card border border-border rounded-lg px-3.5 py-3'
 const kpiLabel = 'text-[13px] text-muted-foreground mb-1'
@@ -125,6 +121,13 @@ const kpiSub = 'text-xs text-muted-foreground mt-[3px]'
 const showCreate = ref(false)
 const openCardId = ref<string | null>(null)
 function openCard(item: LeaveRequest) { openCardId.value = item.id }
+
+const { applyDeepLink } = useDeepLinkOpen(openCardId)
+onMounted(async () => {
+  await store.fetchMine()
+  if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
+  applyDeepLink()
+})
 
 const columns = computed<ListColumn[]>(() => [
   { key: 'beneficiary', label: 'Bénéficiaire', sortable: true, width: 200 },

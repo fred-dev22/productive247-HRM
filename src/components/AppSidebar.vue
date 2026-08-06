@@ -189,18 +189,27 @@ import {
 import { useAuthStore }       from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
 import { useLeaveRequestStore } from '../stores/leaveRequests'
+import { useMissionStore } from '../stores/missions'
+import { useExpenseStore } from '../stores/expenses'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
 
 const { t }        = useI18n()
 const auth         = useAuthStore()
 const navStore     = useNavigationStore()
 const leaveStore   = useLeaveRequestStore()
+const missionStore = useMissionStore()
+const expenseStore = useExpenseStore()
 
+// Le badge "A valider" doit refleter les 3 domaines, pas seulement les
+// congés (bug corrige le 06/08) — chacun reste garde par sa propre
+// permission *_VALIDER cote backend (voir leave/mission/expense controllers).
 if (auth.hasPermission('CONGE_VALIDER') && leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
+if (auth.hasPermission('MISSION_VALIDER') && missionStore.pendingForMe.length === 0) missionStore.fetchPendingForMe()
+if (auth.hasPermission('FRAIS_VALIDER') && expenseStore.pendingForMe.length === 0) expenseStore.fetchPendingForMe()
 if (leaveStore.mine.length === 0) leaveStore.fetchMine()
 
 const MINE_PENDING = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
-const pendingCount   = computed(() => leaveStore.pendingForMe.length)
+const pendingCount   = computed(() => leaveStore.pendingForMe.length + missionStore.pendingForMe.length + expenseStore.pendingForMe.length)
 const myPendingCount = computed(() => leaveStore.mine.filter(l => MINE_PENDING.has(l.status)).length)
 
 const canSeeManagementSection = computed(() => auth.hasAnyPermission([

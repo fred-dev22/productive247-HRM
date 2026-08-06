@@ -112,6 +112,7 @@ import MissionWorkflowActions from '../../components/missions/MissionWorkflowAct
 import * as L from '../../lib/listClasses'
 import { useAuthStore } from '../../stores/auth'
 import { useMissionStore } from '../../stores/missions'
+import { useDeepLinkOpen } from '../../composables/useDeepLinkOpen'
 import type { MissionOrder } from '../../types'
 
 const auth = useAuthStore()
@@ -126,16 +127,17 @@ const isRh = computed(() => canSeeAll.value || canSeeTeam.value)
 // endpoints reels du backend (findAll/findTeam/findMine).
 const sourceList = computed<MissionOrder[]>(() => canSeeAll.value ? missionStore.all : canSeeTeam.value ? missionStore.team : missionStore.mine)
 
-function reload() {
-  if (canSeeAll.value) missionStore.fetchAll()
-  else if (canSeeTeam.value) missionStore.fetchTeam()
-  else missionStore.fetchMine()
-}
-onMounted(reload)
-
 const showCreate = ref(false)
 const openCardId = ref<string | null>(null)
 function openCard(item: MissionOrder) { openCardId.value = item.id }
+
+const { applyDeepLink } = useDeepLinkOpen(openCardId)
+async function reload() {
+  if (canSeeAll.value) await missionStore.fetchAll()
+  else if (canSeeTeam.value) await missionStore.fetchTeam()
+  else await missionStore.fetchMine()
+}
+onMounted(async () => { await reload(); applyDeepLink() })
 
 function shortDate(iso: string): string {
   if (!iso) return '—'

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useAuthStore } from './auth'
+import { api } from '../lib/api'
 
 export interface AppNotification {
   id:      string
@@ -10,38 +10,80 @@ export interface AppNotification {
   href?:   string
   read:    boolean
   date:    string
-  forRoles: string[]
+}
+
+export interface BackendNotification {
+  Id:        string
+  Type:      string
+  Title:     string
+  Message:   string
+  Href:      string | null
+  IsRead:    boolean
+  CreatedAt: string
+}
+
+function mapNotification(n: BackendNotification): AppNotification {
+  return {
+    id: n.Id,
+    type: (['leave', 'mission', 'expense', 'system'] as const).includes(n.Type as AppNotification['type'])
+      ? (n.Type as AppNotification['type'])
+      : 'system',
+    title: n.Title,
+    message: n.Message,
+    href: n.Href ?? undefined,
+    read: n.IsRead,
+    date: n.CreatedAt,
+  }
 }
 
 export const useNotificationStore = defineStore('notifications', () => {
-  const auth = useAuthStore()
+  const notifications = ref<AppNotification[]>([])
+  const loading = ref(false)
 
-  const all = ref<AppNotification[]>([
-    { id: 'n1', type: 'leave',   title: 'Nouvelle demande',      message: 'Aminata Diallo a soumis un congé annuel',       href: '/hr/absences',        read: false, date: '2026-06-06', forRoles: ['hr_admin', 'hr_director', 'validator'] },
-    { id: 'n2', type: 'leave',   title: 'Nouvelle demande',      message: 'Jean-Pierre Mvondo a soumis un télétravail',    href: '/hr/absences',        read: false, date: '2026-06-05', forRoles: ['hr_admin', 'hr_director', 'validator'] },
-    { id: 'n3', type: 'mission', title: 'Ordre de mission',       message: 'Thierry Randriamanga — OM-2026-004 soumis',    href: '/hr/missions',        read: false, date: '2026-06-04', forRoles: ['hr_admin', 'hr_director'] },
-    { id: 'n4', type: 'system',  title: 'Rappel',                 message: '3 demandes en attente depuis plus de 48h',                                  read: true,  date: '2026-06-03', forRoles: ['hr_admin', 'hr_director'] },
-    { id: 'n5', type: 'leave',   title: 'Demande approuvée',      message: 'Votre congé du 10 juillet a été approuvé',                                  read: false, date: '2026-06-06', forRoles: ['employee', 'validator'] },
-    { id: 'n6', type: 'mission', title: 'OM validé',              message: 'Votre ordre de mission OM-2026-001 est approuvé',                           read: true,  date: '2026-06-04', forRoles: ['employee', 'validator'] },
-    { id: 'n7', type: 'expense', title: 'Note de frais',          message: 'Votre note de frais NF-2026-001 est en cours de traitement',                read: false, date: '2026-06-03', forRoles: ['employee', 'validator'] },
-  ])
+  const unreadCount = computed(() => notifications.value.filter((n) => !n.read).length)
 
-  const notifications = computed(() => {
-    const role = auth.user?.role ?? ''
-    return all.value.filter(n => n.forRoles.includes(role))
-  })
-
-  const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
-
-  function markAsRead(id: string) {
-    const n = all.value.find(n => n.id === id)
-    if (n) n.read = true
+  async function fetchAll() {
+    loading.value = true
+    try {
+      const { data } = await api.get<BackendNotification[]>('/notifications')
+      notifications.value = data.map(mapNotification)
+    } catch {
+      // Silencieux — la cloche reste vide plutot que de bloquer l'affichage
+      // du reste de la topbar sur un echec reseau.
+    } finally {
+      loading.value = false
+    }
   }
 
-  function markAllAsRead() {
-    const role = auth.user?.role ?? ''
-    all.value.filter(n => n.forRoles.includes(role)).forEach(n => { n.read = true })
+  // Optimiste (l'utilisateur vient de cliquer, pas de raison d'attendre le
+  // serveur pour retirer le point bleu) — revert si l'appel echoue.
+  async function markAsRead(id: string) {
+    const n = notifications.value.find((n) => n.id === id)
+    if (!n || n.read) return
+    n.read = true
+    try {
+      await api.patch(`/notifications/${id}/read`)
+    } catch {
+      n.read = false
+    }
   }
 
-  return { notifications, unreadCount, markAsRead, markAllAsRead }
+  async function markAllAsRead() {
+    const previouslyUnread = notifications.value.filter((n) => !n.read)
+    if (previouslyUnread.length === 0) return
+    previouslyUnread.forEach((n) => { n.read = true })
+    try {
+      await api.patch('/notifications/read-all')
+    } catch {
+      previouslyUnread.forEach((n) => { n.read = false })
+    }
+  }
+
+  // Pousse une notification recue en direct via WebSocket (voir
+  // lib/realtime.ts) — meme forme brute que l'API REST, donc meme mapper.
+  function receiveRealtime(raw: BackendNotification) {
+    notifications.value.unshift(mapNotification(raw))
+  }
+
+  return { notifications, unreadCount, loading, fetchAll, markAsRead, markAllAsRead, receiveRealtime }
 })
