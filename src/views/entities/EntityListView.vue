@@ -24,6 +24,9 @@
   >
     <!-- Bouton "Nouvelle entité" -->
     <template #header-actions>
+      <button v-if="auth.hasPermission('ENTITE_CREER')" :class="L.btnOutline" @click="showImport = true">
+        <Upload class="w-4 h-4" /> Importer
+      </button>
       <button v-if="auth.hasPermission('ENTITE_CREER')" :class="L.btnPrimary" @click="showCreate = true">
         <Plus class="w-4 h-4" /> Nouvelle entité
       </button>
@@ -122,13 +125,14 @@
     <!-- Fiche (modal) + création -->
     <EntityCard v-if="openCardId !== null" :entities="store.entities" :entity-id="openCardId" @close="openCardId = null" />
     <EntityCreate v-if="showCreate" @close="showCreate = false" />
+    <ImportWizardModal v-if="showImport" :open="showImport" :config="entityImportConfig" @close="showImport = false" @imported="store.fetchAll()" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, provide, type Component } from 'vue'
 import {
-  Plus, List, ListTree, Network, Building, Users, Check, Clock, Maximize2, Minimize2, Info,
+  Plus, Upload, List, ListTree, Network, Building, Users, Check, Clock, Maximize2, Minimize2, Info,
 } from 'lucide-vue-next'
 import { StatusPill, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -137,6 +141,8 @@ import EntityCreate from '../../components/entities/EntityCreate.vue'
 import EntityWorkflowActions from '../../components/entities/EntityWorkflowActions.vue'
 import OrgNode from './OrgNode.vue'
 import OrgChartView from '../../components/OrgChartView.vue'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildEntityImportConfig } from '../../components/shared/import/configs/entityImportConfig'
 import * as L from '../../lib/listClasses'
 import { useEntityStore } from '../../stores/entities'
 import { useAuthStore } from '../../stores/auth'
@@ -161,6 +167,8 @@ const viewMode = ref('list')
 
 /* ── Fiche & création ───────────────────────────────────────── */
 const showCreate = ref(false)
+const showImport = ref(false)
+const entityImportConfig = computed(() => buildEntityImportConfig())
 const openCardId = ref<string | null>(null)
 function openCard(id: string) { openCardId.value = id }
 

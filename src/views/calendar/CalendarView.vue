@@ -107,7 +107,7 @@
             <div :class="sectionHeader">
               <h2 class="text-[15px] font-semibold text-foreground">Fériés annuels</h2>
               <div class="flex gap-2 items-center">
-                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="importCSV">
+                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="showHolidayImport = true">
                   <Upload class="w-3.5 h-3.5" /> Importer CSV
                 </button>
                 <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="openAddModal('annual')">
@@ -137,9 +137,6 @@
             <div :class="sectionHeader">
               <h2 class="text-[15px] font-semibold text-foreground">Fériés ponctuels</h2>
               <div class="flex gap-2 items-center">
-                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="importCSV">
-                  <Upload class="w-3.5 h-3.5" /> Importer CSV
-                </button>
                 <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="openAddModal('ponctual')">
                   <Plus class="w-3.5 h-3.5" /> Ajouter
                 </button>
@@ -174,7 +171,7 @@
             <div :class="sectionHeader">
               <h2 class="text-[15px] font-semibold text-foreground">Types & Règles de congés</h2>
               <div class="flex gap-2 items-center">
-                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="importCSV">
+                <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="showLeaveTypeImport = true">
                   <Upload class="w-3.5 h-3.5" /> Importer CSV
                 </button>
                 <button :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']" @click="openAddLT">
@@ -283,13 +280,9 @@
   <!-- ── Modal types d'absence ── -->
   <LeaveTypeFormModal v-if="showLTModal" :edit-id="editLTId" @close="showLTModal = false" />
 
-  <!-- ── Import CSV toast ── -->
-  <Teleport to="body">
-    <div v-if="showImportToast" class="fixed bottom-6 right-6 bg-primary text-white px-5 py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 z-[2000] shadow-[0_4px_16px_rgba(0,0,0,0.16)] max-w-md">
-      <Info class="w-[15px] h-[15px] shrink-0" />
-      {{ importToastMsg }}
-    </div>
-  </Teleport>
+  <!-- ── Import CSV: fériés + types d'absence ── -->
+  <ImportWizardModal v-if="showHolidayImport" :open="showHolidayImport" :config="holidayImportConfig" @close="showHolidayImport = false" @imported="calendarStore.fetchHolidays(new Date().getFullYear())" />
+  <ImportWizardModal v-if="showLeaveTypeImport" :open="showLeaveTypeImport" :config="leaveTypeImportConfig" @close="showLeaveTypeImport = false" @imported="leaveTypesStore.fetchAll()" />
 
   <!-- ── Modal férié annuel ── -->
   <CreateModalShell
@@ -371,6 +364,9 @@ import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import { SkeletonLoader } from '../../components'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildHolidayImportConfig } from '../../components/shared/import/configs/holidayImportConfig'
+import { buildLeaveTypeImportConfig } from '../../components/shared/import/configs/leaveTypeImportConfig'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { confirmDialog } from '../../lib/confirm'
@@ -391,6 +387,11 @@ const categoryStore    = useEmployeeCategoryStore()
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
 
 const pageLoading = computed(() => calendarStore.loading || leaveTypesStore.loading)
+
+const showHolidayImport = ref(false)
+const showLeaveTypeImport = ref(false)
+const holidayImportConfig = computed(() => buildHolidayImportConfig())
+const leaveTypeImportConfig = computed(() => buildLeaveTypeImportConfig())
 
 // ── Portée du calendrier : global (par défaut) ou par catégorie d'employés
 // (décision du 04/08 — catégorie uniquement, pas de surcharge par employé) ──
@@ -707,15 +708,4 @@ async function deleteHoliday(id: string) {
   }
 }
 
-// ── Import CSV toast ──────────────────────────────────────────
-const showImportToast  = ref(false)
-const importToastMsg   = ref('')
-function triggerImportToast(msg: string) {
-  importToastMsg.value  = msg
-  showImportToast.value = true
-  setTimeout(() => { showImportToast.value = false }, 3500)
-}
-function importCSV() {
-  triggerImportToast('Import CSV disponible prochainement. Format attendu : Nom, Date (YYYY-MM-DD ou MM-DD pour annuels), Type (annual/ponctual)')
-}
 </script>

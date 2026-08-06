@@ -21,6 +21,9 @@
     @open-card="openCard"
   >
     <template #header-actions>
+      <button v-if="auth.hasPermission('EMPLOYE_CREER')" :class="L.btnOutline" @click="showImport = true">
+        <Upload class="w-4 h-4" /> Importer
+      </button>
       <button v-if="auth.hasPermission('EMPLOYE_CREER')" :class="L.btnPrimary" @click="showCreate = true">
         <UserPlus class="w-4 h-4" /> {{ t('employee.new') }}
       </button>
@@ -115,17 +118,20 @@
 
     <EmployeeCard v-if="openCardId !== null" :employees="filtered" :employee-id="openCardId" @close="openCardId = null" />
     <EmployeeCreate v-if="showCreate" @close="showCreate = false" />
+    <ImportWizardModal v-if="showImport" :open="showImport" :config="employeeImportConfig" @close="showImport = false" @imported="store.fetchAll()" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { UserPlus, Users, UserCheck, Clock, ShieldCheck } from 'lucide-vue-next'
+import { UserPlus, Upload, Users, UserCheck, Clock, ShieldCheck } from 'lucide-vue-next'
 import { StatusPill, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import EmployeeCard from '../../components/employees/EmployeeCard.vue'
 import EmployeeCreate from '../../components/employees/EmployeeCreate.vue'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildEmployeeImportConfig } from '../../components/shared/import/configs/employeeImportConfig'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { useEmployeeStore } from '../../stores/employees'
@@ -159,6 +165,8 @@ const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
 
 const showCreate = ref(false)
+const showImport = ref(false)
+const employeeImportConfig = computed(() => buildEmployeeImportConfig())
 const openCardId = ref<string | null>(null)
 function openCard(item: Employee) { openCardId.value = item.id }
 

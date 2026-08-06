@@ -46,8 +46,11 @@
             >
               <span class="w-2 h-2 rounded-full shrink-0 mt-1" :class="NOTIF_DOT[n.type] ?? NOTIF_DOT.system"></span>
               <div class="flex-1 min-w-0">
-                <div class="text-xs font-semibold text-foreground">{{ n.title }}</div>
-                <div class="text-[11px] text-muted-foreground mt-0.5 truncate">{{ n.message }}</div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs flex-1 truncate" :class="n.read ? 'font-medium text-muted-foreground' : 'font-bold text-foreground'">{{ n.title }}</span>
+                  <span v-if="!n.read" class="w-1.5 h-1.5 rounded-full bg-primary shrink-0" title="Non lue"></span>
+                </div>
+                <div class="text-[11px] mt-0.5 truncate" :class="n.read ? 'text-muted-foreground/70' : 'text-muted-foreground'">{{ n.message }}</div>
                 <div class="text-[10px] text-muted-foreground mt-[3px]">{{ formatDate(n.date) }}</div>
               </div>
             </div>
@@ -62,6 +65,9 @@
       </button>
       <button :class="iconBtnClass" :title="t('topbar.help')">
         <HelpCircle class="w-4 h-4" />
+      </button>
+      <button :class="iconBtnClass" title="À propos" @click="showAbout = true">
+        <Info class="w-4 h-4" />
       </button>
       <!-- Avatar + menu utilisateur -->
       <div :class="[iconBtnClass, 'w-auto px-1.5 gap-1']" @click.stop="toggleDropdown('user')">
@@ -109,14 +115,17 @@
       <button :class="iconBtnClass" @click="closeSearch"><X class="w-4 h-4" /></button>
     </div>
   </div>
+
+  <AboutModal :open="showAbout" @close="showAbout = false" />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Search, Bell, Settings, HelpCircle, CircleUser, LogOut, X } from 'lucide-vue-next'
+import { Search, Bell, Settings, HelpCircle, Info, CircleUser, LogOut, X } from 'lucide-vue-next'
 import UserAvatar from './ui/UserAvatar.vue'
+import AboutModal from './AboutModal.vue'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationStore, type AppNotification } from '../stores/notifications'
 import { formatDate } from '../lib/date'
@@ -157,6 +166,7 @@ const activeDropdown = ref<'user' | 'notif' | null>(null)
 const searchOpen     = ref(false)
 const searchQuery    = ref('')
 const searchInput    = ref<HTMLInputElement | null>(null)
+const showAbout      = ref(false)
 
 function toggleDropdown(name: 'user' | 'notif') {
   const opening = activeDropdown.value !== name

@@ -21,9 +21,14 @@
     <template v-if="activeTab === 'category'">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <p class="text-[13px] text-muted-foreground">Classent les employés — déterminent leur taux de frais/perdiem et le paquet de permissions de leur compte utilisateur</p>
-        <button :class="L.btnPrimary" @click="openAddCat">
-          <Plus class="w-4 h-4" /> Ajouter une catégorie
-        </button>
+        <div class="flex gap-2">
+          <button :class="L.btnOutline" @click="showCatImport = true">
+            <Upload class="w-4 h-4" /> Importer
+          </button>
+          <button :class="L.btnPrimary" @click="openAddCat">
+            <Plus class="w-4 h-4" /> Ajouter une catégorie
+          </button>
+        </div>
       </div>
 
       <SkeletonLoader v-if="catStore.loading" type="table" :lines="5" />
@@ -55,9 +60,14 @@
     <template v-else-if="activeTab === 'job'">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <p class="text-[13px] text-muted-foreground">Catalogue des métiers utilisés pour définir les postes</p>
-        <button :class="L.btnPrimary" @click="openAddJob">
-          <Plus class="w-4 h-4" /> Ajouter un métier
-        </button>
+        <div class="flex gap-2">
+          <button :class="L.btnOutline" @click="showJobImport = true">
+            <Upload class="w-4 h-4" /> Importer
+          </button>
+          <button :class="L.btnPrimary" @click="openAddJob">
+            <Plus class="w-4 h-4" /> Ajouter un métier
+          </button>
+        </div>
       </div>
 
       <SkeletonLoader v-if="jobStore.jobs.length === 0 && jobStore.loading" type="table" :lines="5" />
@@ -85,9 +95,14 @@
     <template v-else>
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <p class="text-[13px] text-muted-foreground">Postes rattachés à un métier et à une entité, utilisés pour affecter les employés</p>
-        <button :class="L.btnPrimary" @click="openAddPos">
-          <Plus class="w-4 h-4" /> Ajouter un poste
-        </button>
+        <div class="flex gap-2">
+          <button :class="L.btnOutline" @click="showPosImport = true">
+            <Upload class="w-4 h-4" /> Importer
+          </button>
+          <button :class="L.btnPrimary" @click="openAddPos">
+            <Plus class="w-4 h-4" /> Ajouter un poste
+          </button>
+        </div>
       </div>
 
       <SkeletonLoader v-if="posStore.positions.length === 0 && posStore.loading" type="table" :lines="5" />
@@ -292,17 +307,26 @@
       </div>
     </template>
   </CreateModalShell>
+
+  <!-- ── Import CSV: catégories, métiers, postes ── -->
+  <ImportWizardModal v-if="showCatImport" :open="showCatImport" :config="categoryImportConfig" @close="showCatImport = false" @imported="catStore.fetchAll()" />
+  <ImportWizardModal v-if="showJobImport" :open="showJobImport" :config="jobImportConfig" @close="showJobImport = false" @imported="jobStore.fetchAll()" />
+  <ImportWizardModal v-if="showPosImport" :open="showPosImport" :config="posImportConfig" @close="showPosImport = false" @imported="posStore.fetchAll()" />
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { Plus, Pencil, Trash2, ShieldCheck, TriangleAlert } from 'lucide-vue-next'
+import { Plus, Upload, Pencil, Trash2, ShieldCheck, TriangleAlert } from 'lucide-vue-next'
 import DataTable  from '../../components/ui/DataTable.vue'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import TableLookupField from '../../components/ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../../components/ui/table-lookup/TableLookupField.vue'
 import { SkeletonLoader } from '../../components'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildCategoryImportConfig } from '../../components/shared/import/configs/categoryImportConfig'
+import { buildJobImportConfig } from '../../components/shared/import/configs/jobImportConfig'
+import { buildPositionImportConfig } from '../../components/shared/import/configs/positionImportConfig'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { suggestCode } from '../../lib/codeGen'
@@ -325,6 +349,13 @@ const TABS = [
   { key: 'position' as const, label: 'Poste' },
 ]
 const activeTab = ref<'category' | 'job' | 'position'>('category')
+
+const showCatImport = ref(false)
+const showJobImport = ref(false)
+const showPosImport = ref(false)
+const categoryImportConfig = computed(() => buildCategoryImportConfig())
+const jobImportConfig = computed(() => buildJobImportConfig())
+const posImportConfig = computed(() => buildPositionImportConfig())
 
 // ═══════════════════════ Catégorie ═══════════════════════
 const catStore = useEmployeeCategoryStore()
