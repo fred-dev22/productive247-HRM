@@ -51,16 +51,77 @@ export function isWorkingDay(date: Date, calendar: CompanyCalendar): boolean {
   return !isHoliday(date, calendar).isHoliday
 }
 
+// Prochain jour ouvre suivant `dateStr` — utilise pour la date de reprise
+// affichee, aussi bien depuis calculateEndDate que depuis un choix explicite
+// de date de fin (voir AbsenceCreate.vue onEndDateChange).
+export function getResumeDate(dateStr: string, calendar: CompanyCalendar): string {
+  const resumeDay = parseLocal(dateStr)
+  resumeDay.setDate(resumeDay.getDate() + 1)
+  while (!isWorkingDay(resumeDay, calendar)) {
+    resumeDay.setDate(resumeDay.getDate() + 1)
+  }
+  return fmt(resumeDay)
+}
+
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+// Vrai si `date` est une absence complete au sens de la demande — seuls
+// startDate/endDate peuvent porter une demi-journee (period != 'full'),
+// tout jour strictement entre les deux est forcement une absence complete.
+function isFullyAbsentDay(
+  date: Date, startDate: Date, startPeriod: string, endDate: Date, endPeriod: string,
+): boolean {
+  if (sameDay(date, startDate) && startPeriod !== 'full') return false
+  if (sameDay(date, endDate) && endPeriod !== 'full') return false
+  return true
+}
+
+// Regime "local" (voir Employee.isExpatriate, reunion Dominique du 12/06) :
+// un vendredi PLEINEMENT absent avale le week-end qui suit dans le decompte
+// (meme si la demande continue au-dela — verifie pour CHAQUE vendredi de la
+// periode, pas seulement le dernier jour), une simple demi-journee de
+// presence le vendredi protege le week-end. Miroir exact de
+// computeWorkingDays cote backend (source de verite pour ce qui est
+// reellement debite) — ceci n'est qu'un apercu avant soumission.
+function chargedWorkingDays(
+  startDate: Date, endDate: Date,
+  startPeriod: 'full' | 'am' | 'pm', endPeriod: 'full' | 'am' | 'pm',
+  calendar: CompanyCalendar, isExpatriate: boolean,
+): number {
+  let count = 0
+  const cur = new Date(startDate)
+  while (cur <= endDate) {
+    if (isWorkingDay(cur, calendar)) {
+      const fullyAbsent = isFullyAbsentDay(cur, startDate, startPeriod, endDate, endPeriod)
+      count += fullyAbsent ? 1 : 0.5
+      if (!isExpatriate && cur.getDay() === 5 && fullyAbsent) {
+        const cursor = new Date(cur)
+        cursor.setDate(cursor.getDate() + 1)
+        while (!isWorkingDay(cursor, calendar)) {
+          count++
+          cursor.setDate(cursor.getDate() + 1)
+        }
+      }
+    }
+    cur.setDate(cur.getDate() + 1)
+  }
+  return count
+}
+
 export function calculateEndDate(
-  startDate:   string,
-  workingDays: number,
-  calendar:    CompanyCalendar,
-  startPeriod: 'full' | 'am' | 'pm' = 'full',
+  startDate:    string,
+  workingDays:  number,
+  calendar:     CompanyCalendar,
+  startPeriod:  'full' | 'am' | 'pm' = 'full',
+  isExpatriate = false,
 ): {
   endDate:           string
   endPeriod:         'full' | 'am' | 'pm'
   resumeDate:        string
   actualWorkingDays: number
+  chargedDays:       number
 } {
   let count          = startPeriod === 'full' ? 0 : 0.5
   const increment    = startPeriod === 'full' ? 1 : 0.5
@@ -87,33 +148,55 @@ export function calculateEndDate(
     }
   }
 
-  const resumeDay = new Date(lastWorkingDay)
-  resumeDay.setDate(resumeDay.getDate() + 1)
-  while (!isWorkingDay(resumeDay, calendar)) {
-    resumeDay.setDate(resumeDay.getDate() + 1)
-  }
+  const endPeriod = count % 1 === 0.5 ? 'am' : 'full'
+  const chargedDays = chargedWorkingDays(parseLocal(startDate), lastWorkingDay, startPeriod, endPeriod, calendar, isExpatriate)
 
   return {
     endDate:           fmt(lastWorkingDay),
-    endPeriod:         count % 1 === 0.5 ? 'am' : 'full',
-    resumeDate:        fmt(resumeDay),
+    endPeriod,
+    resumeDate:        getResumeDate(fmt(lastWorkingDay), calendar),
     actualWorkingDays: count,
+    chargedDays,
   }
 }
 
+// Nombre de jours ouvres demandes entre deux dates (demi-journees de bord
+// prises en compte, jamais le week-end "avale" — voir chargedWorkingDays
+// pour le total reellement decompte du solde).
 export function getWorkingDaysBetween(
-  startDate: string,
-  endDate:   string,
-  calendar:  CompanyCalendar,
+  startDate:   string,
+  endDate:     string,
+  calendar:    CompanyCalendar,
+  startPeriod: 'full' | 'am' | 'pm' = 'full',
+  endPeriod:   'full' | 'am' | 'pm' = 'full',
 ): number {
   let count = 0
   const current = parseLocal(startDate)
   const end     = parseLocal(endDate)
+  const sd      = parseLocal(startDate)
+  const ed      = parseLocal(endDate)
   while (current <= end) {
-    if (isWorkingDay(current, calendar)) count++
+    if (isWorkingDay(current, calendar)) {
+      count += isFullyAbsentDay(current, sd, startPeriod, ed, endPeriod) ? 1 : 0.5
+    }
     current.setDate(current.getDate() + 1)
   }
   return count
+}
+
+// Total reellement decompte du solde entre deux dates (inclut le week-end
+// "avale" pour un employe local, voir chargedWorkingDays) — utilise par
+// AbsenceCreate.vue pour l'apercu quand l'utilisateur choisit la date de fin
+// directement plutot que par nombre de jours.
+export function getChargedDaysBetween(
+  startDate:   string,
+  endDate:     string,
+  calendar:    CompanyCalendar,
+  startPeriod: 'full' | 'am' | 'pm' = 'full',
+  endPeriod:   'full' | 'am' | 'pm' = 'full',
+  isExpatriate = false,
+): number {
+  return chargedWorkingDays(parseLocal(startDate), parseLocal(endDate), startPeriod, endPeriod, calendar, isExpatriate)
 }
 
 export function generateWeekPlanning(

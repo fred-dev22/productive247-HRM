@@ -4,7 +4,7 @@
     <!-- En-tête -->
     <div>
       <h1 class="text-xl font-bold text-foreground">Classification</h1>
-      <p class="text-[13px] text-muted-foreground mt-0.5">Catégories, métiers et postes — la structure qui classe chaque employé et détermine ses permissions et son taux de frais</p>
+      <p class="text-[13px] text-muted-foreground mt-0.5">Catégories, métiers et postes : la structure qui classe chaque employé et détermine ses permissions et son taux de frais</p>
     </div>
 
     <!-- Onglets -->
@@ -20,7 +20,7 @@
     <!-- ═══════════ Onglet Catégorie ═══════════ -->
     <template v-if="activeTab === 'category'">
       <div class="flex items-start justify-between gap-4 flex-wrap">
-        <p class="text-[13px] text-muted-foreground">Classent les employés — déterminent leur taux de frais/perdiem et le paquet de permissions de leur compte utilisateur</p>
+        <p class="text-[13px] text-muted-foreground">Classent les employés, déterminent leur taux de frais/perdiem et le paquet de permissions de leur compte utilisateur</p>
         <div class="flex gap-2">
           <button :class="L.btnOutline" @click="showCatImport = true">
             <Upload class="w-4 h-4" /> Importer
@@ -155,6 +155,10 @@
                 <label :class="cls.fieldLabel">Code *</label>
                 <input v-model="catForm.code" :class="cls.fieldInput" placeholder="ex : CADR-SUP-001" @input="onCatCodeInput" />
               </div>
+              <div :class="cls.field">
+                <label :class="cls.fieldLabel">Description</label>
+                <textarea v-model="catForm.description" :class="cls.fieldTextarea" rows="3" placeholder="Description de la catégorie (optionnel)…"></textarea>
+              </div>
               <div class="flex items-center justify-between">
                 <span :class="cls.fieldLabel">Actif</span>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -172,8 +176,8 @@
   <!-- ── Modal Permissions de catégorie — même coquille que les autres formulaires ── -->
   <CreateModalShell
     v-if="showPermModal && permCategory"
-    :title="`Permissions — ${permCategory.name}`"
-    :banner-label="`Permissions — ${permCategory.name}`"
+    :title="`Permissions · ${permCategory.name}`"
+    :banner-label="`Permissions · ${permCategory.name}`"
     create-label="Fermer"
     @close="showPermModal = false"
     @create="showPermModal = false"
@@ -185,7 +189,7 @@
             <TriangleAlert class="w-4 h-4 text-warning shrink-0 mt-px" />
             <span>
               Ces modifications s'appliquent <strong>uniquement aux prochains comptes créés</strong> dans cette catégorie.
-              Les comptes déjà créés ne sont <strong>jamais</strong> modifiés automatiquement — retirez ou ajoutez un droit individuellement depuis la fiche de l'employé concerné.
+              Les comptes déjà créés ne sont <strong>jamais</strong> modifiés automatiquement. Retirez ou ajoutez un droit individuellement depuis la fiche de l'employé concerné.
             </span>
           </div>
 
@@ -283,7 +287,7 @@
                 <label :class="cls.fieldLabel">Métier *</label>
                 <select v-model="posForm.jobId" :class="cls.fieldSelect">
                   <option value="">-- Choisir --</option>
-                  <option v-for="j in jobStore.jobs" :key="j.id" :value="j.id">{{ j.code }} — {{ j.title }}</option>
+                  <option v-for="j in jobStore.jobs" :key="j.id" :value="j.id">{{ j.code }} · {{ j.title }}</option>
                 </select>
               </div>
               <div :class="cls.field">
@@ -374,7 +378,7 @@ const catColumns = [
 const showCatModal = ref(false)
 const editingCatId = ref<string | null>(null)
 const catError = ref('')
-const catForm = reactive({ code: '', name: '', isActive: true })
+const catForm = reactive({ code: '', name: '', description: '', isActive: true })
 
 const catCodeTouched = ref(false)
 function onCatNameInput() {
@@ -386,14 +390,14 @@ function openAddCat() {
   editingCatId.value = null
   catError.value = ''
   catCodeTouched.value = false
-  Object.assign(catForm, { code: '', name: '', isActive: true })
+  Object.assign(catForm, { code: '', name: '', description: '', isActive: true })
   showCatModal.value = true
 }
 function openEditCat(category: EmployeeCategory) {
   editingCatId.value = category.id
   catError.value = ''
   catCodeTouched.value = true
-  Object.assign(catForm, { code: category.code, name: category.name, isActive: category.isActive })
+  Object.assign(catForm, { code: category.code, name: category.name, description: category.description, isActive: category.isActive })
   showCatModal.value = true
 }
 async function saveCat() {

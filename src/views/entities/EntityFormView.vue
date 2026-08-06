@@ -53,9 +53,9 @@
                   <label :class="cls.fieldLabel">Entité parente</label>
                   <select v-if="!isRootEntity" v-model="form.parentId" :class="cls.fieldSelect">
                     <option value="">Aucune (entité racine)</option>
-                    <option v-for="e in parentOptions" :key="e.id" :value="e.id">{{ e.code }} — {{ e.name }}</option>
+                    <option v-for="e in parentOptions" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
                   </select>
-                  <div v-else :class="[cls.fieldInput, 'flex items-center bg-background']">— Racine —</div>
+                  <div v-else :class="[cls.fieldInput, 'flex items-center bg-background']">Racine</div>
                 </div>
 
                 <div :class="cls.field">
@@ -79,7 +79,7 @@
                   <select v-model="form.managerId" :class="cls.fieldSelect" @change="onResponsibleChange">
                     <option value="">-- Aucun --</option>
                     <option v-for="e in empStore.employees" :key="e.id" :value="e.id">
-                      {{ e.code }} — {{ e.name }} · {{ e.jobTitle }}
+                      {{ e.code }} · {{ e.name }} · {{ e.jobTitle }}
                     </option>
                   </select>
                 </div>

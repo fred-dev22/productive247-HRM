@@ -148,7 +148,7 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
               <label :class="cls.fieldLabel">Mission liée <span class="font-normal text-muted-foreground">(optionnel)</span></label>
               <select v-model="form.missionOrderId" :class="cls.fieldSelect">
                 <option value="">Aucune</option>
-                <option v-for="m in approvedMissions" :key="m.id" :value="m.id">{{ m.referenceCode }} — {{ m.destination }}</option>
+                <option v-for="m in approvedMissions" :key="m.id" :value="m.id">{{ m.referenceCode }} · {{ m.destination }}</option>
               </select>
             </div>
           </div>
@@ -185,7 +185,7 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
                 <td :class="[td, 'text-center']"><input type="checkbox" class="accent-primary" v-model="l.hasDocument" /></td>
                 <td :class="td"><button class="w-7 h-7 rounded-md bg-danger-bg text-danger flex items-center justify-center cursor-pointer hover:brightness-95" @click="removeLine(i)"><Trash2 class="w-3.5 h-3.5" /></button></td>
               </tr>
-              <tr v-if="lines.length === 0"><td colspan="6" class="px-2.5 py-5 text-center text-muted-foreground italic">Aucune ligne — cliquez « Ajouter »</td></tr>
+              <tr v-if="lines.length === 0"><td colspan="6" class="px-2.5 py-5 text-center text-muted-foreground italic">Aucune ligne, cliquez « Ajouter »</td></tr>
             </tbody>
             <tfoot v-if="lines.length > 0">
               <tr>
@@ -198,7 +198,7 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
           </FormSection>
 
           <div class="mt-6">
-            <button :class="cls.btnOutline" @click="build(false)">Enregistrer comme brouillon</button>
+            <button :class="cls.btnOutline" @click="build(false)">Enregistrer</button>
           </div>
         </div>
       </div>

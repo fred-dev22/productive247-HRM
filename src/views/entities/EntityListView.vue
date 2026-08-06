@@ -24,12 +24,14 @@
   >
     <!-- Bouton "Nouvelle entité" -->
     <template #header-actions>
-      <button v-if="auth.hasPermission('ENTITE_CREER')" :class="L.btnOutline" @click="showImport = true">
-        <Upload class="w-4 h-4" /> Importer
-      </button>
-      <button v-if="auth.hasPermission('ENTITE_CREER')" :class="L.btnPrimary" @click="showCreate = true">
-        <Plus class="w-4 h-4" /> Nouvelle entité
-      </button>
+      <div v-if="auth.hasPermission('ENTITE_CREER')" class="flex items-center gap-2">
+        <button :class="L.btnOutline" @click="showImport = true">
+          <Upload class="w-4 h-4" /> Importer
+        </button>
+        <button :class="L.btnPrimary" @click="showCreate = true">
+          <Plus class="w-4 h-4" /> Nouvelle entité
+        </button>
+      </div>
     </template>
 
     <!-- KPIs -->
@@ -228,7 +230,7 @@ function typeBadge(type: string): string {
   return m[type] ?? 'bg-neutral-bg text-neutral'
 }
 function parentName(parentId: string | null): string {
-  if (!parentId) return '— Racine —'
+  if (!parentId) return 'Racine'
   return store.getEntityById(parentId)?.name ?? '—'
 }
 
@@ -236,7 +238,14 @@ function parentName(parentId: string | null): string {
 const sortFieldMap: Record<string, keyof Entity> = { code: 'code', name: 'name', type: 'type', status: 'status' }
 const filtered = computed(() => {
   let rows = store.entities.filter(e => {
-    if (activeScope.value && e.status !== activeScope.value) return false
+    // Par défaut ("Toutes"), les entités désactivées restent masquées — il
+    // faut choisir explicitement le filtre "Inactif" pour les retrouver (ex:
+    // pour réactiver). Sinon une entité "supprimée" continuerait d'apparaître partout.
+    if (activeScope.value) {
+      if (e.status !== activeScope.value) return false
+    } else if (e.status === 'Inactive') {
+      return false
+    }
     if (filterType.value && e.type !== filterType.value) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()

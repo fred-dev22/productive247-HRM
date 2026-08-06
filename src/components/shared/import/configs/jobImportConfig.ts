@@ -3,7 +3,7 @@ import type { ImportConfig } from '../importTypes'
 export function buildJobImportConfig(): ImportConfig {
   return {
     title: 'Métiers',
-    intro: 'Importez plusieurs métiers en une fois — ils pourront ensuite être rattachés à des postes.',
+    intro: 'Importez plusieurs métiers en une fois. Ils pourront ensuite être rattachés à des postes.',
     createEndpoint: '/jobs',
     dependencies: [],
     columns: [

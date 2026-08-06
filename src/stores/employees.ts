@@ -67,6 +67,7 @@ interface BackendEmployee {
   EmployeeCategoryId: string | null
   UserId: string | null
   Status: string
+  IsExpatriate: boolean
 }
 
 function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
@@ -104,6 +105,7 @@ function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
     employeeCategoryId: raw.EmployeeCategoryId ?? undefined,
     hasAccount:   raw.UserId != null,
     userId:       raw.UserId ?? undefined,
+    isExpatriate: raw.IsExpatriate,
   }
 }
 
@@ -120,6 +122,7 @@ interface BackendDirectoryEmployee {
   EmployeeNumber: string
   OrganizationUnitId: string
   EmployeeCategoryId: string | null
+  IsExpatriate: boolean
 }
 
 // Complete les champs absents de la reponse allegee par des valeurs neutres
@@ -151,6 +154,7 @@ function mapDirectoryEmployee(raw: BackendDirectoryEmployee, paletteIndex: numbe
     idType:        'NationalId',
     employeeCategoryId: raw.EmployeeCategoryId ?? undefined,
     hasAccount:   false,
+    isExpatriate: raw.IsExpatriate,
   }
 }
 
@@ -173,6 +177,7 @@ function toBackendPayload(payload: Partial<Employee>): Record<string, unknown> {
   if (payload.entityId !== undefined) body.OrganizationUnitId = payload.entityId
   if (payload.employeeCategoryId !== undefined) body.EmployeeCategoryId = payload.employeeCategoryId || null
   if (payload.status !== undefined) body.Status = STATUS_TO_BACKEND[payload.status]
+  if (payload.isExpatriate !== undefined) body.IsExpatriate = payload.isExpatriate
   return body
 }
 

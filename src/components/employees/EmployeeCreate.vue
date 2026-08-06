@@ -77,6 +77,7 @@ const form = reactive({
   hireDate: '', status: 'active' as EmployeeStatus,
   gender: '' as Gender | '', birthDate: '', birthPlace: '',
   maritalStatus: '' as MaritalStatus | '', idType: '' as IdDocumentType | '', idNumber: '',
+  isExpatriate: false,
 })
 const error = ref('')
 
@@ -140,6 +141,7 @@ async function create() {
       maritalStatus: form.maritalStatus as MaritalStatus, idType: form.idType as IdDocumentType,
       idNumber: form.idNumber || undefined,
       employeeCategoryId: form.employeeCategoryId,
+      isExpatriate: form.isExpatriate,
       // Un employé fraîchement créé n'a jamais de compte — hasAccount ne
       // devient vrai que via l'action "Créer un compte utilisateur" (voir
       // CreateUserAccountDialog.vue), jamais choisi à la création.
@@ -222,6 +224,12 @@ async function create() {
               <input v-model="form.idNumber" :class="cls.fieldInput" placeholder="ex : 101123456789" />
             </div>
           </div>
+
+          <label class="flex items-center gap-2 mt-3.5 text-[13px] text-foreground cursor-pointer">
+            <input type="checkbox" v-model="form.isExpatriate" class="accent-primary" />
+            Employé expatrié
+            <span class="text-[11px] text-muted-foreground">(régime de congés différent : le week-end n'est jamais décompté)</span>
+          </label>
 
           </FormSection>
 

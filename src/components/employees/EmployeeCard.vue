@@ -91,7 +91,7 @@ const form = ref({
   positionId: '' as string | null, positionTitle: '',
   entityId: '' as string | null, entityName: '',
   employeeCategoryId: '' as string, contractType: 'CDI' as ContractType,
-  hireDate: '', status: 'active' as EmployeeStatus,
+  hireDate: '', status: 'active' as EmployeeStatus, isExpatriate: false,
 })
 
 function enterEdit() {
@@ -101,7 +101,7 @@ function enterEdit() {
     firstName: e.firstName, lastName: e.lastName, email: e.email ?? '', phone: e.phone ?? '',
     positionId: e.positionId ?? '', positionTitle: e.jobTitle,
     entityId: e.entityId, entityName: e.entityName ?? '', employeeCategoryId: e.employeeCategoryId ?? '', contractType: e.contractType,
-    hireDate: e.hireDate, status: e.status,
+    hireDate: e.hireDate, status: e.status, isExpatriate: e.isExpatriate,
   }
   const ent = e.entityId ? entityStore.getEntityById(e.entityId) : undefined
   entityCode.value = ent?.code ?? ''
@@ -307,6 +307,13 @@ async function deactivate() {
             <div v-else :class="readBox">{{ formatDate(current.hireDate) }}</div>
           </div>
           <div :class="cls.field">
+            <label :class="cls.fieldLabel">Régime de congés</label>
+            <label v-if="isEditMode" class="flex items-center gap-2 h-[34px] text-[13px] text-foreground cursor-pointer">
+              <input type="checkbox" v-model="form.isExpatriate" class="accent-primary" /> Employé expatrié
+            </label>
+            <div v-else :class="readBox">{{ current.isExpatriate ? 'Expatrié' : 'Local' }}</div>
+          </div>
+          <div :class="cls.field">
             <label :class="cls.fieldLabel">Statut</label>
             <select v-if="isEditMode" v-model="form.status" :class="cls.fieldSelect">
               <option v-for="(l, v) in STATUS_LABELS" :key="v" :value="v">{{ l }}</option>
@@ -336,7 +343,7 @@ async function deactivate() {
         <!-- Permissions individuelles du compte -->
         <FormSection v-if="current.hasAccount && auth.hasPermission('EMPLOYE_PERMISSION_GERER')" title="Permissions individuelles">
           <p class="text-[11px] text-muted-foreground -mt-1 mb-2">
-            Ajoutées/retirées indépendamment de la catégorie de l'employé — un changement ici n'affecte que ce compte.
+            Ajoutées/retirées indépendamment de la catégorie de l'employé. Un changement ici n'affecte que ce compte.
           </p>
           <div v-if="loadingPermissions" class="text-[13px] text-muted-foreground italic px-1 py-2">Chargement…</div>
           <div v-else class="flex flex-col gap-3 max-h-[280px] overflow-auto pr-1">

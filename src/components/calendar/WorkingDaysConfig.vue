@@ -19,10 +19,14 @@
 
         <!-- Horaires + Pause (une seule ligne) -->
         <template v-if="days[key].enabled">
-          <input type="time" :class="timeInput" v-model="days[key].start" />
+          <input type="time" :class="[timeInput, dayHoursError(key) && '!border-danger']" v-model="days[key].start" />
           <span :class="sep">→</span>
-          <input type="time" :class="timeInput" v-model="days[key].end" />
-          <span class="text-[11px] font-semibold text-primary bg-primary/10 rounded px-2 py-0.5 whitespace-nowrap shrink-0">{{ calcDayHours(days[key]) }} eff.</span>
+          <input type="time" :class="[timeInput, dayHoursError(key) && '!border-danger']" v-model="days[key].end" />
+          <span v-if="dayHoursError(key)" class="text-[10px] text-danger flex items-center gap-[3px] whitespace-nowrap shrink-0">
+            <CircleAlert class="w-3 h-3" />
+            {{ dayHoursError(key) }}
+          </span>
+          <span v-else class="text-[11px] font-semibold text-primary bg-primary/10 rounded px-2 py-0.5 whitespace-nowrap shrink-0">{{ calcDayHours(days[key]) }} eff.</span>
 
           <!-- Séparateur visuel -->
           <span class="text-border text-base select-none shrink-0 max-md:hidden" aria-hidden="true">|</span>
@@ -99,6 +103,13 @@ function calcDayHours(day: WorkingDayConfig): string {
     ? calendarStore.toMinutes(day.breakEnd) - calendarStore.toMinutes(day.breakStart)
     : 0
   return calendarStore.formatMinutes(Math.max(0, workMin - breakMin))
+}
+
+function dayHoursError(key: keyof WorkingDays): string | null {
+  const day = days.value[key]
+  if (!day.enabled) return null
+  if (calendarStore.toMinutes(day.end) <= calendarStore.toMinutes(day.start)) return 'Fin avant ou égale au début'
+  return null
 }
 
 function dayBreakError(key: keyof WorkingDays): string | null {

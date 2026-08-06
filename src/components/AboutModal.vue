@@ -70,7 +70,7 @@ const valueClass = 'text-[13px] font-medium text-foreground'
           <CheckCircle2 class="w-3.5 h-3.5 shrink-0" /> Version compatible avec le serveur.
         </div>
         <div v-else class="flex items-center gap-1.5 text-[12px] text-warning mt-2">
-          <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> Version différente du serveur — un redéploiement peut être en cours ou incomplet.
+          <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> Version différente du serveur. Un redéploiement peut être en cours ou incomplet.
         </div>
       </template>
       <div v-else class="flex items-center gap-1.5 text-[12px] text-danger py-2">

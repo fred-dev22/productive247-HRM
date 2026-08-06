@@ -96,7 +96,11 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
 export interface CreateLeaveRequestPayload {
   leaveTypeId: string
   startDate: string
+  // 'full' | 'am' | 'pm' — voir LeaveRequest.StartPeriod (backend) et la
+  // règle vendredi/week-end (reunion Dominique du 12/06, utils/calendar.ts).
+  startPeriod?: 'full' | 'am' | 'pm'
   endDate: string
+  endPeriod?: 'full' | 'am' | 'pm'
   reason?: string
   interimEmployeeId?: string
   employeeId?: string // uniquement si on soumet pour un autre employé (CONGE_VOIR_TOUT)
@@ -107,7 +111,9 @@ function toBackendCreatePayload(p: CreateLeaveRequestPayload) {
     EmployeeId: p.employeeId,
     LeaveTypeId: p.leaveTypeId,
     StartDate: p.startDate,
+    StartPeriod: p.startPeriod,
     EndDate: p.endDate,
+    EndPeriod: p.endPeriod,
     Reason: p.reason,
     InterimEmployeeId: p.interimEmployeeId,
   }
@@ -267,7 +273,9 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const body: Record<string, unknown> = {}
         if (patch.leaveTypeId !== undefined) body.LeaveTypeId = patch.leaveTypeId
         if (patch.startDate !== undefined) body.StartDate = patch.startDate
+        if (patch.startPeriod !== undefined) body.StartPeriod = patch.startPeriod
         if (patch.endDate !== undefined) body.EndDate = patch.endDate
+        if (patch.endPeriod !== undefined) body.EndPeriod = patch.endPeriod
         if (patch.reason !== undefined) body.Reason = patch.reason
         if (patch.interimEmployeeId !== undefined) body.InterimEmployeeId = patch.interimEmployeeId
         const { data } = await api.patch<BackendLeaveRequest>(`/leave-requests/${id}`, body)

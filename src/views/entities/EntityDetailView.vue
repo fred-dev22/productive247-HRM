@@ -103,7 +103,7 @@
                     <ArrowRight class="w-3 h-3 ml-auto text-muted-foreground" />
                   </router-link>
                 </div>
-                <div v-else :class="emptyInfo">Aucune — entité racine</div>
+                <div v-else :class="emptyInfo">Aucune (entité racine)</div>
               </div>
 
               <!-- Card Sous-entités -->

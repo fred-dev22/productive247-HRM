@@ -4,7 +4,7 @@
         <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
           <div>
             <div class="text-xl font-bold text-foreground">Statistiques RH</div>
-            <div class="text-[13px] text-muted-foreground mt-0.5">Vue d'ensemble — {{ currentYear }}</div>
+            <div class="text-[13px] text-muted-foreground mt-0.5">Vue d'ensemble · {{ currentYear }}</div>
           </div>
           <div class="flex gap-2 items-center">
             <select v-model="selectedYear" class="h-[34px] px-2.5 border border-border rounded-md bg-card text-[13px] text-foreground outline-none focus:border-primary">

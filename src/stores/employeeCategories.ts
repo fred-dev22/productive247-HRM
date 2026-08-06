@@ -18,6 +18,7 @@ export interface EmployeeCategory {
   id: string
   code: string
   name: string
+  description: string
   isActive: boolean
   permissions: CategoryPermission[]
 }
@@ -38,6 +39,7 @@ interface BackendEmployeeCategory {
   Id: string
   Code: string
   Name: string
+  Description: string | null
   IsActive: boolean
   categoryPermissions?: BackendCategoryPermission[]
 }
@@ -47,6 +49,7 @@ function mapCategory(raw: BackendEmployeeCategory): EmployeeCategory {
     id: raw.Id,
     code: raw.Code,
     name: raw.Name,
+    description: raw.Description ?? '',
     isActive: raw.IsActive,
     permissions: (raw.categoryPermissions ?? []).map((cp) => ({
       permissionId: cp.PermissionId,
@@ -76,12 +79,12 @@ export const useEmployeeCategoryStore = defineStore('employeeCategories', () => 
     }
   }
 
-  async function createCategory(payload: { code: string; name: string; isActive?: boolean }) {
+  async function createCategory(payload: { code: string; name: string; description?: string; isActive?: boolean }) {
     error.value = null
     return withToast('Création de la catégorie en cours…', async () => {
       try {
         const { data } = await api.post<BackendEmployeeCategory>('/employee-categories', {
-          Code: payload.code, Name: payload.name, IsActive: payload.isActive ?? true,
+          Code: payload.code, Name: payload.name, Description: payload.description || undefined, IsActive: payload.isActive ?? true,
         })
         const mapped = mapCategory(data)
         categories.value.push(mapped)
@@ -93,13 +96,14 @@ export const useEmployeeCategoryStore = defineStore('employeeCategories', () => 
     }, () => error.value ?? 'Impossible de créer la catégorie')
   }
 
-  async function updateCategory(id: string, payload: { code?: string; name?: string; isActive?: boolean }) {
+  async function updateCategory(id: string, payload: { code?: string; name?: string; description?: string; isActive?: boolean }) {
     error.value = null
     return withToast('Enregistrement en cours…', async () => {
       try {
         const body: Record<string, unknown> = {}
         if (payload.code !== undefined) body.Code = payload.code
         if (payload.name !== undefined) body.Name = payload.name
+        if (payload.description !== undefined) body.Description = payload.description || null
         if (payload.isActive !== undefined) body.IsActive = payload.isActive
         const { data } = await api.patch<BackendEmployeeCategory>(`/employee-categories/${id}`, body)
         const mapped = mapCategory(data)

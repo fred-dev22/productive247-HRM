@@ -4,12 +4,17 @@
  * apercu editable -> import + recapitulatif), utilise par les 7 domaines du
  * Lot D (voir configs/*.ts). Le wizard ne connait aucune logique metier —
  * tout est pilote par la config passee en prop.
+ *
+ * Coquille alignee sur CreateModalShell.vue (banniere + barre de titre,
+ * memes classes) pour rester visuellement identique aux autres modales de
+ * creation, avec en plus les etapes en ronds (meme pattern que
+ * OnboardingWizard.vue) puisque c'est un assistant a plusieurs etapes.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Papa from 'papaparse'
 import {
-  X, Upload, Download, FileWarning, CheckCircle2, AlertTriangle, Loader2, ArrowLeft, ArrowRight,
+  ArrowLeft, ArrowRight, Check, X, Upload, Download, FileWarning, CheckCircle2, AlertTriangle, Loader2,
 } from 'lucide-vue-next'
 import { api, getApiErrorMessage } from '../../../lib/api'
 import * as cls from '../../../lib/formClasses'
@@ -20,9 +25,12 @@ const emit = defineEmits<{ close: []; imported: [] }>()
 
 const router = useRouter()
 
+const STEP_LABELS = ['Fichier', 'Aperçu', 'Import'] as const
+
 const step = ref<1 | 2 | 3>(1)
 const fileError = ref('')
 const fileName = ref('')
+const fileReady = ref(false)
 const dragOver = ref(false)
 const rows = ref<ParsedRow[]>([])
 
@@ -71,8 +79,12 @@ function buildRows(parsed: Record<string, string>[]) {
   })
 }
 
+// Ne fait plus avancer a l'etape 2 automatiquement — l'utilisateur doit
+// confirmer via "Suivant" (voir goNext), pour pouvoir se rattraper si le
+// fichier deposé n'est pas le bon avant de passer a l'apercu.
 function handleFile(file: File | undefined) {
   fileError.value = ''
+  fileReady.value = false
   if (!file) return
   if (!file.name.toLowerCase().endsWith('.csv')) {
     fileError.value = 'Le fichier doit être au format CSV (.csv).'
@@ -94,7 +106,7 @@ function handleFile(file: File | undefined) {
         return
       }
       buildRows(results.data)
-      step.value = 2
+      fileReady.value = true
     },
     error: (err) => { fileError.value = err.message },
   })
@@ -109,8 +121,16 @@ function onDrop(e: DragEvent) {
 }
 
 /* ── Étape 2 : aperçu éditable ────────────────────────────────── */
+function missingRequiredMessage(row: ParsedRow): string | undefined {
+  const missing = props.config.columns.filter(c => c.required && !row.values[c.key])
+  if (missing.length === 0) return undefined
+  return `Champ(s) requis manquant(s) : ${missing.map(c => c.label).join(', ')}`
+}
+function rowIssueMessage(row: ParsedRow): string | undefined {
+  return missingRequiredMessage(row) ?? props.config.rowValidation?.(row)
+}
 function rowHasIssue(row: ParsedRow): boolean {
-  return props.config.columns.some(c => c.required && !row.values[c.key])
+  return !!rowIssueMessage(row)
 }
 const issueCount = computed(() => rows.value.filter(rowHasIssue).length)
 
@@ -133,7 +153,7 @@ function buildPayload(row: ParsedRow): Record<string, unknown> {
     else if (col.type === 'number') body[col.key] = Number(v)
     else body[col.key] = v
   }
-  return body
+  return props.config.transformPayload ? props.config.transformPayload(row, body) : body
 }
 
 async function startImport() {
@@ -168,48 +188,134 @@ async function startImport() {
 const succeededCount = computed(() => results.value.filter(r => r.success).length)
 const failedResults = computed(() => results.value.filter(r => !r.success))
 
-/* ── Navigation générale ──────────────────────────────────────── */
+/* ── Navigation générale (assistant à étapes) ────────────────────── */
 function goToDependency(dep: { routeTo: import('vue-router').RouteLocationRaw }) {
   emit('close')
   router.push(dep.routeTo)
 }
+function goNext() {
+  if (step.value === 1 && fileReady.value) step.value = 2
+}
+function goBack() {
+  if (step.value === 2) step.value = 1
+}
+
+// Bouton principal de la barre de titre : son libellé/action dépend de
+// l'étape courante, comme "Ajouter"/"Créer" sur CreateModalShell mais
+// variable ici puisqu'il y a plusieurs étapes.
+const primaryLabel = computed(() => {
+  if (step.value === 1) return 'Suivant'
+  if (step.value === 2) return `Importer ${rows.value.length} élément(s)`
+  return 'Fermer'
+})
+const primaryDisabled = computed(() => {
+  if (step.value === 1) return !fileReady.value || !!blockingDependency.value
+  if (step.value === 2) return rows.value.length === 0
+  return false
+})
+function onPrimaryClick() {
+  if (step.value === 1) goNext()
+  else if (step.value === 2) startImport()
+  else handleClose()
+}
+
+function stepCircleClass(s: number): string {
+  if (s > step.value) return 'bg-card text-muted-foreground border-2 border-border'
+  return 'bg-primary text-white' + (s === step.value ? ' shadow-[0_0_0_4px_var(--color-primary-light)]' : '')
+}
+
 function reset() {
   step.value = 1
   fileError.value = ''
   fileName.value = ''
+  fileReady.value = false
   rows.value = []
   results.value = []
   progress.value = { current: 0, total: 0 }
   done.value = false
 }
 function handleClose() {
+  if (importing.value) return
   reset()
   emit('close')
 }
+
+const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+onMounted(() => document.addEventListener('keydown', onKeydown))
+onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[1000] p-4">
-      <div class="relative bg-card text-card-foreground rounded-xl w-full max-w-[1000px] max-h-[92vh] shadow-[0_8px_32px_rgba(0,0,0,0.16)] flex flex-col overflow-hidden">
+  <Teleport to="#below-topbar" defer>
+    <div v-if="open" class="absolute inset-0 z-50 flex">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-md" @click="handleClose"></div>
 
-        <!-- En-tête -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-          <div>
-            <div class="text-[15px] font-semibold text-foreground">Importer — {{ config.title }}</div>
-            <div class="text-[11px] text-muted-foreground mt-0.5">
-              Étape {{ step }}/3 · {{ step === 1 ? 'Fichier' : step === 2 ? 'Aperçu' : 'Import' }}
-            </div>
+      <div class="relative z-10 flex flex-col w-full h-full bg-card overflow-hidden mx-4 lg:mx-auto lg:max-w-[1040px] shadow-[0_8px_32px_rgba(0,0,0,0.16)]">
+        <!-- Bannière -->
+        <div class="bg-primary text-primary-foreground px-6 py-2 flex items-center justify-between text-sm shrink-0">
+          <div class="flex items-center gap-2">
+            <button :disabled="importing" class="p-1 hover:bg-white/20 rounded transition disabled:opacity-50" title="Fermer" @click="handleClose">
+              <ArrowLeft class="w-5 h-5" />
+            </button>
+            <span>Importer · {{ config.title }}</span>
           </div>
-          <button
-            class="w-7 h-7 bg-background rounded-md cursor-pointer flex items-center justify-center text-muted-foreground shrink-0 transition-colors hover:bg-border hover:text-foreground"
-            :disabled="importing"
-            @click="handleClose"
-          >
-            <X class="w-4 h-4" />
-          </button>
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1 text-yellow-200">
+              <Upload class="w-4 h-4" /> Import
+            </span>
+          </div>
         </div>
 
+        <!-- Barre de titre -->
+        <div class="bg-card border-b border-border px-6 py-4 shrink-0">
+          <div class="flex items-center justify-between">
+            <h1 class="text-2xl font-semibold text-card-foreground">{{ config.title }}</h1>
+            <div class="flex items-center gap-2">
+              <button
+                v-if="step === 2"
+                :disabled="importing"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-card-foreground border border-border rounded hover:bg-background transition disabled:opacity-50 cursor-pointer"
+                @click="goBack"
+              >
+                <ArrowLeft class="w-4 h-4" /> Retour
+              </button>
+              <button
+                v-if="!importing"
+                :disabled="primaryDisabled"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                @click="onPrimaryClick"
+              >
+                <Check v-if="step === 3" class="w-4 h-4" />
+                {{ primaryLabel }}
+                <ArrowRight v-if="step < 3" class="w-4 h-4" />
+              </button>
+              <button
+                v-if="step < 3"
+                :disabled="importing"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-card-foreground border border-border rounded hover:bg-background transition disabled:opacity-50 cursor-pointer"
+                @click="handleClose"
+              >
+                <X class="w-4 h-4" /> Annuler
+              </button>
+            </div>
+          </div>
+
+          <!-- Étapes en ronds — même pattern que OnboardingWizard.vue -->
+          <div class="flex items-start max-w-[420px] w-full mx-auto mt-5">
+            <template v-for="(label, i) in STEP_LABELS" :key="label">
+              <div class="flex flex-col items-center shrink-0">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all shrink-0" :class="stepCircleClass(i + 1)">
+                  <Check v-if="i + 1 < step" class="w-3.5 h-3.5" />
+                  <span v-else>{{ i + 1 }}</span>
+                </div>
+                <span class="text-[11px] font-medium mt-1.5 text-center" :class="i + 1 === step ? 'text-primary' : 'text-muted-foreground'">{{ label }}</span>
+              </div>
+              <div v-if="i < STEP_LABELS.length - 1" class="flex-1 h-[2px] rounded-sm self-center mb-4 transition-colors" :class="i + 1 < step ? 'bg-primary' : 'bg-border'"></div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Contenu -->
         <div class="overflow-y-auto flex-1 px-6 py-5">
 
           <!-- ═══ ÉTAPE 1 ═══ -->
@@ -237,7 +343,7 @@ function handleClose() {
             </div>
 
             <template v-if="!blockingDependency">
-              <button type="button" :class="[cls.btnOutline, 'mb-4']" @click="downloadSample">
+              <button type="button" :class="[cls.btnPrimary, 'mb-4']" @click="downloadSample">
                 <Download class="w-3.5 h-3.5" /> Télécharger un exemple CSV
               </button>
 
@@ -250,12 +356,16 @@ function handleClose() {
               >
                 <Upload class="w-6 h-6 text-muted-foreground" />
                 <span class="text-[13px] text-foreground font-medium">Glissez un fichier CSV ici, ou cliquez pour parcourir</span>
-                <span v-if="fileName" class="text-[11px] text-primary">{{ fileName }}</span>
+                <span v-if="fileReady" class="text-[11px] text-success flex items-center gap-1"><CheckCircle2 class="w-3.5 h-3.5" /> {{ fileName }} — {{ rows.length }} ligne(s), prêt</span>
+                <span v-else-if="fileName" class="text-[11px] text-primary">{{ fileName }}</span>
                 <input type="file" accept=".csv" class="hidden" @change="onFileInput" />
               </label>
 
               <p v-if="fileError" :class="[cls.fieldErrorBlock, 'mt-3']">
                 <FileWarning class="w-3.5 h-3.5 shrink-0" /> {{ fileError }}
+              </p>
+              <p v-if="fileReady" class="text-[12px] text-muted-foreground mt-3">
+                Fichier différent ? Déposez-en un autre ci-dessus avant de cliquer sur « Suivant ».
               </p>
             </template>
           </template>
@@ -286,7 +396,7 @@ function handleClose() {
                 <tbody>
                   <tr v-for="(row, i) in rows" :key="i" class="border-t border-border" :class="rowHasIssue(row) ? 'bg-danger-bg/30' : ''">
                     <td class="px-2 py-1.5 text-center">
-                      <AlertTriangle v-if="rowHasIssue(row)" class="w-3.5 h-3.5 text-danger inline" />
+                      <AlertTriangle v-if="rowHasIssue(row)" class="w-3.5 h-3.5 text-danger inline" :title="rowIssueMessage(row)" />
                       <CheckCircle2 v-else class="w-3.5 h-3.5 text-success inline" />
                     </td>
                     <td v-for="col in config.columns" :key="col.key" class="px-2 py-1.5">
@@ -339,7 +449,7 @@ function handleClose() {
             <div v-if="!done" class="flex flex-col items-center justify-center gap-4 py-10">
               <Loader2 class="w-8 h-8 text-primary animate-spin" />
               <div class="text-[13px] text-foreground">
-                Import en cours — élément {{ progress.current }} sur {{ progress.total }}
+                Import en cours, élément {{ progress.current }} sur {{ progress.total }}
               </div>
               <div class="w-full max-w-md h-2 bg-background rounded-full overflow-hidden border border-border">
                 <div class="h-full bg-primary transition-all" :style="{ width: `${progress.total ? (progress.current / progress.total) * 100 : 0}%` }"></div>
@@ -370,23 +480,6 @@ function handleClose() {
             </div>
           </template>
 
-        </div>
-
-        <!-- Pied -->
-        <div class="flex items-center justify-between px-6 py-4 border-t border-border shrink-0">
-          <button v-if="step === 2" type="button" :class="cls.btnOutline" @click="step = 1">
-            <ArrowLeft class="w-3.5 h-3.5" /> Retour
-          </button>
-          <span v-else></span>
-
-          <div class="flex gap-2">
-            <button v-if="step < 3 || done" type="button" :class="cls.btnOutline" @click="handleClose">
-              {{ done ? 'Fermer' : 'Annuler' }}
-            </button>
-            <button v-if="step === 2" type="button" :class="cls.btnPrimary" :disabled="rows.length === 0" @click="startImport">
-              Importer {{ rows.length }} élément(s) <ArrowRight class="w-3.5 h-3.5" />
-            </button>
-          </div>
         </div>
 
       </div>

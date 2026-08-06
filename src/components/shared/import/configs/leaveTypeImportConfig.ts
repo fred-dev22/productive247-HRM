@@ -25,5 +25,10 @@ export function buildLeaveTypeImportConfig(): ImportConfig {
       { Code: 'ANNUAL', Nom: 'Congé annuel', Workflow: 'Standard (avec validation)', 'Jours par an': '30', 'Acquisition mensuelle': 'oui', 'Justificatif requis': 'non', 'Préavis minimum (jours)': '7', Couleur: '#006B3C' },
       { Code: 'SICK', Nom: 'Congé maladie', Workflow: 'Médical (déclaration a posteriori)', 'Jours par an': '15', 'Acquisition mensuelle': 'non', 'Justificatif requis': 'oui', 'Préavis minimum (jours)': '0', Couleur: '#C8102E' },
     ],
+    // Sans ça, un type de congé importé ne créditait aucun employé déjà en
+    // poste — ils ne recevaient ce type qu'à la prochaine génération
+    // automatique. Même comportement par défaut que la création manuelle
+    // (voir LeaveTypeFormModal.vue, case pré-cochée).
+    transformPayload: (row, payload) => ({ ...payload, CreditExistingEmployees: true }),
   }
 }

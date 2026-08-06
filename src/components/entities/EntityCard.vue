@@ -152,7 +152,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Entité parente</label>
             <TableLookupField v-if="isEditMode && !isRoot" :code="parentCode" :name="form.parentName" value-key="code" name-key="name" :columns="entityColumns" :fetch-fn="fetchParents" modal-title="Sélectionner l'entité parente" placeholder="Code entité" @update:code="parentCode = $event" @update:name="form.parentName = $event" @select="onParentSelect" />
-            <div v-else :class="readBox">{{ isRoot ? '— Racine —' : (parentEntity?.name ?? '— Racine —') }}</div>
+            <div v-else :class="readBox">{{ isRoot ? 'Racine' : (parentEntity?.name ?? 'Racine') }}</div>
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Identifiant légal</label>

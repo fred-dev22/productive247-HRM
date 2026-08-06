@@ -200,6 +200,25 @@ export const useCalendarStore = defineStore('calendar', () => {
     DAY_KEYS.filter(k => workingDays.value[k].enabled).length,
   )
 
+  // Bloque l'enregistrement quand un jour actif a des heures incohérentes
+  // (fin avant/à début, pause hors plage) — voir test #03 du plan de tests :
+  // le message d'erreur s'affichait sans jamais empêcher la sauvegarde.
+  const hasWorkingDaysError = computed(() =>
+    DAY_KEYS.some((key) => {
+      const day = workingDays.value[key]
+      if (!day.enabled) return false
+      if (toMinutes(day.end) <= toMinutes(day.start)) return true
+      if (day.breakEnabled) {
+        const bStart = toMinutes(day.breakStart)
+        const bEnd = toMinutes(day.breakEnd)
+        if (bEnd <= bStart) return true
+        if (bStart < toMinutes(day.start)) return true
+        if (bEnd > toMinutes(day.end)) return true
+      }
+      return false
+    }),
+  )
+
   const weeklyMinutes = computed(() =>
     DAY_KEYS.reduce((total, key) => {
       const day = workingDays.value[key]
@@ -478,6 +497,7 @@ export const useCalendarStore = defineStore('calendar', () => {
     ponctualHolidays,
     daysPerWeek,
     weeklyMinutes,
+    hasWorkingDaysError,
     toMinutes,
     formatMinutes,
     fetchCalendar,

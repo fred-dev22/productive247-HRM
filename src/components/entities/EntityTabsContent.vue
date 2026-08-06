@@ -319,7 +319,7 @@ function typeLabel(t: EntityType | string): string {
 }
 
 function parentName(parentId: string | null): string {
-  if (!parentId) return '— Racine —'
+  if (!parentId) return 'Racine'
   return store.getEntityById(parentId)?.name ?? '—'
 }
 </script>

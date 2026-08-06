@@ -87,7 +87,7 @@
             <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> {{ noticeWarning(item) }}
           </div>
           <div v-if="item.insufficientBalance" class="flex items-center gap-2 text-[12px] text-danger bg-danger-bg rounded-md px-2.5 py-2">
-            <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant pour ce type de congé — à valider en connaissance de cause.
+            <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant pour ce type de congé, à valider en connaissance de cause.
           </div>
         </template>
 

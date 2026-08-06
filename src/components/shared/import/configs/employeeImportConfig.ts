@@ -40,7 +40,7 @@ export function buildEmployeeImportConfig(): ImportConfig {
 
   return {
     title: 'Employés',
-    intro: 'Importez plusieurs employés en une fois. Chaque employé doit être rattaché à une entité déjà existante — le poste et la catégorie sont facultatifs mais doivent aussi déjà exister si vous les renseignez.',
+    intro: 'Importez plusieurs employés en une fois. Chaque employé doit être rattaché à une entité déjà existante. Le poste et la catégorie sont facultatifs mais doivent aussi déjà exister si vous les renseignez.',
     createEndpoint: '/employees',
     dependencies: [
       {
@@ -87,6 +87,7 @@ export function buildEmployeeImportConfig(): ImportConfig {
         options: () => categoryStore.categories.map(c => ({ value: c.id, label: c.name, code: c.code })),
       },
       { key: 'Status', csvHeader: 'Statut', label: 'Statut', required: true, type: 'select', sample: 'Actif', options: () => STATUS_OPTIONS },
+      { key: 'IsExpatriate', csvHeader: 'Expatrié', label: 'Expatrié', required: false, type: 'boolean', sample: '' },
     ],
     extraColumns: [
       { key: 'createAccount', csvHeader: 'Créer un compte', label: 'Créer un compte', required: false, type: 'boolean', sample: '' },
@@ -95,14 +96,24 @@ export function buildEmployeeImportConfig(): ImportConfig {
       {
         Prénom: 'Jean', Nom: 'Rakoto', Genre: 'Homme', 'Date de naissance': '1990-05-12', 'Situation matrimoniale': 'Célibataire',
         'Type de pièce': 'CIN', 'Numéro de pièce': '', Email: 'jean.rakoto@galana.com', 'Téléphone mobile': '',
-        'Type de contrat': 'CDI', "Date d'embauche": '2024-01-15', 'Code entité': '', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif',
+        'Type de contrat': 'CDI', "Date d'embauche": '2024-01-15', 'Code entité': '', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'non',
       },
       {
         Prénom: 'Marie', Nom: 'Andria', Genre: 'Femme', 'Date de naissance': '1988-11-03', 'Situation matrimoniale': "Marié(e)",
         'Type de pièce': 'CIN', 'Numéro de pièce': '', Email: 'marie.andria@galana.com', 'Téléphone mobile': '',
-        'Type de contrat': 'CDI', "Date d'embauche": '2023-06-01', 'Code entité': '', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif',
+        'Type de contrat': 'CDI', "Date d'embauche": '2023-06-01', 'Code entité': '', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'oui',
       },
     ],
+    // "Créer un compte" a besoin d'une catégorie (elle determine les
+    // permissions du compte, voir onRowCreated) — sans ça, le compte est
+    // silencieusement ignoré côté onRowCreated. Signalé ici pour que
+    // l'utilisateur le voie avant de lancer l'import plutôt qu'après coup.
+    rowValidation(row) {
+      if (row.extra.createAccount && !row.values.EmployeeCategoryId) {
+        return 'Catégorie requise pour créer un compte utilisateur'
+      }
+      return undefined
+    },
     // Ne cree un compte utilisateur que pour les lignes cochees "Créer un
     // compte" — mot de passe temporaire genere, meme flux que
     // CreateUserAccountDialog.vue (email de bienvenue envoye par le

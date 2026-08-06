@@ -20,7 +20,7 @@
       <!-- Titre principal -->
       <div class="text-center mb-8">
         <h1 class="text-[28px] font-extrabold text-foreground m-0 max-md:text-[22px]">Bienvenue sur Productive 247 HRM</h1>
-        <p class="text-[15px] text-muted-foreground mt-2">Configurez votre espace en 3 étapes — tout reste modifiable ensuite dans le menu Configuration</p>
+        <p class="text-[15px] text-muted-foreground mt-2">Configurez votre espace en 3 étapes. Tout reste modifiable ensuite dans le menu Configuration</p>
       </div>
 
       <!-- Barre de progression -->
@@ -98,7 +98,7 @@
                 <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><CalendarOff class="w-6 h-6 text-primary" /></div>
                 <div>
                   <div class="text-lg font-bold text-foreground">Jours fériés</div>
-                  <div class="text-[13px] text-muted-foreground mt-1">Les fériés annuels et ponctuels de l'entreprise — optionnel, vous pouvez les ajouter plus tard</div>
+                  <div class="text-[13px] text-muted-foreground mt-1">Les fériés annuels et ponctuels de l'entreprise (optionnel, vous pouvez les ajouter plus tard)</div>
                 </div>
               </div>
               <div :class="cardBody">
@@ -192,7 +192,7 @@
                   <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Fête du Travail" />
                 </label>
                 <div :class="cls.field">
-                  <span :class="cls.fieldLabel">Date (mois — jour)</span>
+                  <span :class="cls.fieldLabel">Date (mois/jour)</span>
                   <div class="flex gap-2">
                     <select :class="cls.fieldSelect" v-model="hForm.month">
                       <option v-for="m in MONTHS" :key="m.v" :value="m.v">{{ m.l }}</option>

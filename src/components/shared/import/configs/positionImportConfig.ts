@@ -17,6 +17,14 @@ export function buildPositionImportConfig(): ImportConfig {
         routeTo: { path: '/hr/config/classification', query: { tab: 'job' } },
         required: true,
       },
+      {
+        // Non bloquant : l'entité est facultative sur un poste (voir
+        // CreatePositionDto.OrganizationUnitId?), contrairement au métier.
+        label: 'Si vous voulez rattacher les postes à une entité, celle-ci doit déjà exister',
+        ok: () => entityStore.entities.length > 0,
+        routeTo: '/hr/entities',
+        required: false,
+      },
     ],
     columns: [
       { key: 'Code', csvHeader: 'Code', label: 'Code', required: true, type: 'text', sample: 'POS-DEV1' },

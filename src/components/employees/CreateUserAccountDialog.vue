@@ -128,7 +128,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
                 <option value="">-- Choisir --</option>
                 <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
-              <p class="text-[11px] text-muted-foreground mt-1">Détermine les permissions accordées à ce compte à sa création — modifiables individuellement ensuite.</p>
+              <p class="text-[11px] text-muted-foreground mt-1">Détermine les permissions accordées à ce compte à sa création, modifiables individuellement ensuite.</p>
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Mot de passe temporaire</label>
@@ -154,7 +154,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
         <template v-else>
           <div class="flex items-center gap-2 mb-4">
             <ShieldAlert class="w-5 h-5 text-warning shrink-0" />
-            <span class="text-[15px] font-semibold text-foreground">Compte créé — notez le mot de passe</span>
+            <span class="text-[15px] font-semibold text-foreground">Compte créé, notez le mot de passe</span>
           </div>
 
           <p class="text-xs text-muted-foreground mb-3">

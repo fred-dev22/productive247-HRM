@@ -21,12 +21,14 @@
     @open-card="openCard"
   >
     <template #header-actions>
-      <button v-if="auth.hasPermission('EMPLOYE_CREER')" :class="L.btnOutline" @click="showImport = true">
-        <Upload class="w-4 h-4" /> Importer
-      </button>
-      <button v-if="auth.hasPermission('EMPLOYE_CREER')" :class="L.btnPrimary" @click="showCreate = true">
-        <UserPlus class="w-4 h-4" /> {{ t('employee.new') }}
-      </button>
+      <div v-if="auth.hasPermission('EMPLOYE_CREER')" class="flex items-center gap-2">
+        <button :class="L.btnOutline" @click="showImport = true">
+          <Upload class="w-4 h-4" /> Importer
+        </button>
+        <button :class="L.btnPrimary" @click="showCreate = true">
+          <UserPlus class="w-4 h-4" /> {{ t('employee.new') }}
+        </button>
+      </div>
     </template>
 
     <!-- KPIs -->
@@ -50,7 +52,7 @@
         <label :class="L.fpFieldLabel">{{ t('employee.filter_entity') }}</label>
         <select v-model="fEntity" :class="L.fpSelect">
           <option value="">{{ t('employee.filter_entity') }}</option>
-          <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} — {{ e.name }}</option>
+          <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
         </select>
       </div>
       <div :class="L.fpField">
@@ -138,6 +140,7 @@ import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
 import { useAuthStore } from '../../stores/auth'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import { usePositionStore } from '../../stores/positions'
 import type { Employee, EmployeeStatus } from '../../types'
 
 const { t } = useI18n()
@@ -146,6 +149,11 @@ const entityStore = useEntityStore()
 const auth = useAuthStore()
 const categoryStore = useEmployeeCategoryStore()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+// Chargé ici (pas seulement depuis Classification > Poste) — sinon le menu
+// "Poste" de l'assistant d'import reste vide tant que l'utilisateur n'a pas
+// déjà visité cet écran dans la session.
+const positionStore = usePositionStore()
+if (positionStore.positions.length === 0) positionStore.fetchAll()
 // Séquencé (pas en parallèle) : mapEmployee lit entityStore de façon
 // synchrone pour entityName — sans cet ordre, une première visite avec les
 // deux stores vides peut résoudre le nom d'entité en blanc. Le fetch employés
@@ -214,7 +222,14 @@ const sortFieldMap: Record<string, keyof Employee> = { code: 'code', employee: '
 
 const filtered = computed(() => {
   let rows = store.employees.filter(e => {
-    if (activeScope.value && e.status !== (activeScope.value as EmployeeStatus)) return false
+    // Par défaut ("Tous"), les employés désactivés restent masqués — il faut
+    // choisir explicitement le filtre "Inactif" pour les retrouver. Sinon un
+    // employé "supprimé" continuerait d'apparaître partout dans l'app.
+    if (activeScope.value) {
+      if (e.status !== (activeScope.value as EmployeeStatus)) return false
+    } else if (e.status === 'inactive') {
+      return false
+    }
     if (fEntity.value && e.entityId !== fEntity.value) return false
     if (fCategory.value && e.employeeCategoryId !== fCategory.value) return false
     if (fContract.value && e.contractType !== fContract.value) return false

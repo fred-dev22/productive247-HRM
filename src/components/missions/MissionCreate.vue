@@ -248,7 +248,7 @@ async function saveDraft() {
 
           <!-- Frais supplémentaires -->
           <FormSection title="Frais supplémentaires">
-          <p class="text-xs text-muted-foreground -mt-2 mb-3">Optionnel — frais additionnels non couverts par le per diem.</p>
+          <p class="text-xs text-muted-foreground -mt-2 mb-3">Optionnel : frais additionnels non couverts par le per diem.</p>
           <div v-if="expenseLines.length > 0" class="flex flex-col gap-1.5 mb-3">
             <div class="grid grid-cols-[1fr_1fr_120px_36px] gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.05em] px-0.5">
               <span>Catégorie</span><span>Description</span><span>Montant (MGA)</span><span></span>
@@ -294,7 +294,7 @@ async function saveDraft() {
           </FormSection>
 
           <div class="mt-6 pt-4 border-t border-border flex justify-end">
-            <button :class="cls.btnOutline" @click="saveDraft">Enregistrer comme brouillon</button>
+            <button :class="cls.btnOutline" @click="saveDraft">Enregistrer</button>
           </div>
         </div>
       </div>

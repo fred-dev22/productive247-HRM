@@ -218,7 +218,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
     </div>
 
     <p class="text-xs text-muted-foreground -mt-1">
-      <template v-if="linked">Même configuration appliquée aux 3 types — modifier un niveau ici le modifie partout.</template>
+      <template v-if="linked">Même configuration appliquée aux 3 types. Modifier un niveau ici le modifie partout.</template>
       <template v-else>Définit qui approuve les demandes de ce type pour cette entité. Les niveaux non configurés sont ignorés dans le circuit de validation.</template>
     </p>
 
@@ -248,7 +248,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
                 <option
                   v-for="e in grp.employees" :key="e.id" :value="e.id"
                   :disabled="!e.hasAccount || !canValidate(e) || isAssignedAtOtherLevel(e.id, level)"
-                  :title="!e.hasAccount ? 'Cet employé n\'a pas de compte utilisateur — il ne peut pas se connecter pour approuver.' : !canValidate(e) ? 'La catégorie de cet employé n\'a pas la permission de validation pour ce type de demande — il ne pourra pas voir ni traiter la file « À valider ».' : isAssignedAtOtherLevel(e.id, level) ? 'Déjà validateur à un autre niveau de ce pool.' : ''"
+                  :title="!e.hasAccount ? 'Cet employé n\'a pas de compte utilisateur, il ne peut pas se connecter pour approuver.' : !canValidate(e) ? 'La catégorie de cet employé n\'a pas la permission de validation pour ce type de demande, il ne pourra pas voir ni traiter la file « À valider ».' : isAssignedAtOtherLevel(e.id, level) ? 'Déjà validateur à un autre niveau de ce pool.' : ''"
                 >{{ e.name }} · {{ e.jobTitle }}{{ !e.hasAccount ? ' (pas de compte)' : !canValidate(e) ? ' (permission manquante)' : isAssignedAtOtherLevel(e.id, level) ? ' (déjà à un autre niveau)' : '' }}</option>
               </optgroup>
             </select>
@@ -264,7 +264,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
               <option v-for="e in interimCandidates.filter(x => x.id !== memberAt(level)!.employeeId)" :key="e.id" :value="e.id">{{ e.name }}</option>
             </select>
             <p class="text-[11px] text-muted-foreground mt-1">
-              Utilisé automatiquement quand ce validateur a un congé approuvé couvrant le jour où une demande lui arrive — pas besoin de préciser de dates.
+              Utilisé automatiquement quand ce validateur a un congé approuvé couvrant le jour où une demande lui arrive, pas besoin de préciser de dates.
             </p>
           </div>
           <div class="flex gap-2 justify-end">

@@ -243,6 +243,11 @@ export interface Employee {
   // Employee.UserId — présent seulement si hasAccount, sert à interroger/
   // modifier les permissions individuelles du compte (voir EmployeeCard.vue).
   userId?:      string
+  // Régime de congés (réunion Dominique du 12/06) : un employé "local" qui
+  // est absent tout le vendredi précédant un week-end voit ce week-end aussi
+  // décompté de son solde — pas un "expatrié". Voir utils/calendar.ts et
+  // computeWorkingDays côté backend.
+  isExpatriate: boolean
 }
 
 export interface Entity {

@@ -16,8 +16,10 @@
   >
     <!-- Export + crédit manuel -->
     <template #header-actions>
-      <button :class="L.btnOutline" @click="openCredit"><PlusCircle class="w-4 h-4" /> Ajuster un solde</button>
-      <button :class="L.btnOutline" @click="() => {}"><FileDown class="w-4 h-4" /> Exporter</button>
+      <div class="flex items-center gap-2">
+        <button :class="L.btnOutline" @click="openCredit"><PlusCircle class="w-4 h-4" /> Ajuster un solde</button>
+        <button :class="L.btnOutline" @click="() => {}"><FileDown class="w-4 h-4" /> Exporter</button>
+      </div>
     </template>
 
     <!-- KPIs -->
@@ -185,7 +187,7 @@ async function submitCredit() {
   try {
     const result = await balanceStore.creditManual(creditForm.employeeId, creditForm.leaveTypeId, creditForm.amount, creditForm.reason || undefined)
     if (result.wasClamped) {
-      creditError.value = `Décrément limité au solde disponible — ramené à 0 (au lieu de ${creditForm.amount}j demandé).`
+      creditError.value = `Décrément limité au solde disponible, ramené à 0 (au lieu de ${creditForm.amount}j demandé).`
       return
     }
     showCreditModal.value = false

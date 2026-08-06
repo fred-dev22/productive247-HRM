@@ -37,8 +37,8 @@
               <button
                 :class="[L.btnPrimary, '!px-3.5 !py-2 !text-xs']"
                 class="disabled:opacity-40 disabled:cursor-not-allowed"
-                :disabled="savingWorkingDays || !calendarStore.isDirty"
-                :title="!calendarStore.isDirty && !savingWorkingDays ? 'Aucune modification à enregistrer' : ''"
+                :disabled="savingWorkingDays || !calendarStore.isDirty || calendarStore.hasWorkingDaysError"
+                :title="calendarStore.hasWorkingDaysError ? 'Corrigez les horaires en erreur avant d\'enregistrer' : (!calendarStore.isDirty && !savingWorkingDays ? 'Aucune modification à enregistrer' : '')"
                 @click="saveWorkingDays"
               >
                 <Save class="w-3.5 h-3.5" /> {{ savingWorkingDays ? 'Enregistrement…' : 'Enregistrer les modifications' }}
@@ -65,7 +65,7 @@
                 >
                   <option v-if="categoryStore.loading" value="" disabled>Chargement des catégories…</option>
                   <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">
-                    {{ c.name }} {{ categoryHasDedicatedCalendar(c.id) ? '— calendrier dédié' : '— suit le calendrier global' }}
+                    {{ c.name }} {{ categoryHasDedicatedCalendar(c.id) ? '(calendrier dédié)' : '(suit le calendrier global)' }}
                   </option>
                 </select>
               </div>
@@ -75,9 +75,9 @@
                    :class="scope === 'global' ? 'bg-success-bg text-success border border-success/30' : 'bg-primary/10 text-primary border border-primary/30'">
                 <component :is="scope === 'global' ? Globe : Tag" class="w-4 h-4 shrink-0" />
                 <span v-if="scope === 'global'">Portée actuelle : <strong>Calendrier global</strong> (s'applique à tous les employés sans calendrier dédié)</span>
-                <span v-else-if="selectedCategoryId">Portée actuelle : catégorie <strong>{{ selectedCategoryName }}</strong> — {{ currentCategoryDedicatedId ? 'calendrier dédié' : 'suit encore le calendrier global' }}</span>
+                <span v-else-if="selectedCategoryId">Portée actuelle : catégorie <strong>{{ selectedCategoryName }}</strong> ({{ currentCategoryDedicatedId ? 'calendrier dédié' : 'suit encore le calendrier global' }})</span>
                 <span v-else-if="categoryStore.loading">Chargement des catégories…</span>
-                <span v-else>Aucune catégorie configurée — créez-en une dans Classification pour lui définir un calendrier dédié.</span>
+                <span v-else>Aucune catégorie configurée. Créez-en une dans Classification pour lui définir un calendrier dédié.</span>
               </div>
 
               <div v-if="scope === 'category' && selectedCategoryId" class="flex items-center gap-2 mt-2 px-3.5 py-2.5 rounded-lg bg-background border border-border text-[12.5px] text-foreground">
@@ -89,7 +89,7 @@
                   </button>
                 </template>
                 <span v-else class="flex-1">
-                  Aucun calendrier dédié pour <strong>{{ selectedCategoryName }}</strong> — ces employés suivent le calendrier global.
+                  Aucun calendrier dédié pour <strong>{{ selectedCategoryName }}</strong>, ces employés suivent le calendrier global.
                   Modifiez les jours ci-dessous puis enregistrez pour créer un calendrier spécifique à cette catégorie.
                 </span>
               </div>
@@ -238,7 +238,7 @@
                         <button
                           :class="[iconBtn, 'disabled:opacity-40 disabled:cursor-not-allowed']"
                           :disabled="lt.isSystem"
-                          :title="lt.isSystem ? 'Type système — désactivez-le plutôt que de le supprimer' : 'Supprimer'"
+                          :title="lt.isSystem ? 'Type système : désactivez-le plutôt que de le supprimer' : 'Supprimer'"
                           @click="deleteLT(lt.id)"
                         >
                           <Trash2 class="w-3.5 h-3.5" />
@@ -304,7 +304,7 @@
                 <input type="text" :class="cls.fieldInput" v-model="hForm.name" placeholder="Ex : Fête du Travail" />
               </label>
               <div :class="cls.field">
-                <span :class="cls.fieldLabel">Date (mois — jour)</span>
+                <span :class="cls.fieldLabel">Date (mois/jour)</span>
                 <div class="flex gap-2">
                   <select :class="cls.fieldSelect" v-model="hForm.month">
                     <option v-for="m in MONTHS" :key="m.v" :value="m.v">{{ m.l }}</option>
@@ -539,7 +539,7 @@ const generateDisabled = computed(() =>
 )
 const accrualStatusMessage = computed(() => {
   if (dayJustChanged.value) {
-    return "Date modifiée — ça ne déclenche rien immédiatement : la prochaine génération automatique aura lieu au jour configuré, à 1h du matin."
+    return "Date modifiée : ça ne déclenche rien immédiatement, la prochaine génération automatique aura lieu au jour configuré, à 1h du matin."
   }
   if (accrualRunDay.value !== null && alreadyRanThisMonth.value) {
     return `Déjà généré ce mois-ci (${lastAccrualRun.value}). Prochaine génération automatique le ${accrualRunDay.value} du mois, à 1h.`
@@ -564,10 +564,11 @@ leaveTypesStore.fetchAll()
 // voir WorkingDaysConfig.vue) ───────────────────────────────────
 const savingWorkingDays = ref(false)
 async function saveWorkingDays() {
+  if (calendarStore.hasWorkingDaysError) return
   savingWorkingDays.value = true
   try {
     const newName = scope.value === 'category' && !currentCategoryDedicatedId.value
-      ? `Calendrier — ${selectedCategoryName.value}`
+      ? `Calendrier · ${selectedCategoryName.value}`
       : undefined
     await calendarStore.updateWorkingDays(calendarStore.calendar.workingDays, newName)
     if (scope.value === 'category') refreshConfiguredCategoryCalendars()

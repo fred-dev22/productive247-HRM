@@ -5,7 +5,7 @@
  * lecture par défaut ; édition possible pour les brouillons.
  */
 import { ref, computed, watch } from 'vue'
-import { TriangleAlert } from 'lucide-vue-next'
+import { TriangleAlert, Paperclip, Upload, Download, Trash2 } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -17,6 +17,8 @@ import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
+import { useAttachmentStore } from '../../stores/attachments'
+import { confirmDialog } from '../../lib/confirm'
 import type { LeaveRequest } from '../../types'
 
 const props = defineProps<{
@@ -30,6 +32,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const store = useLeaveRequestStore()
 const leaveTypesStore = useLeaveTypesStore()
+const attachmentStore = useAttachmentStore()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 
 function leaveNo(l: LeaveRequest) { return l.referenceCode }
@@ -73,6 +76,44 @@ watch(() => [currentId.value, current.value?.status] as const, async ([id]) => {
     // silencieux : l'historique est une amélioration, pas bloquant pour la fiche
   }
 }, { immediate: true })
+
+// Justificatif médical (congé maladie) — voir stores/attachments.ts (upload
+// vers SharePoint via /attachments). Réservé aux types de congé
+// WorkflowType='Medical' : c'est le seul cas où un document de preuve a du
+// sens (arrêt de travail), pas les congés annuels/RTT/etc.
+const isMedicalLeave = computed(() => {
+  if (!current.value) return false
+  const type = leaveTypesStore.leaveTypes.find(t => t.id === current.value!.leaveTypeId)
+  return type?.workflowType === 'Medical'
+})
+watch(currentId, (id) => { if (id) attachmentStore.fetchByEntity('LeaveRequest', id).catch(() => {}) }, { immediate: true })
+const attachments = computed(() => currentId.value ? attachmentStore.forEntity('LeaveRequest', currentId.value) : [])
+const attachmentInput = ref<HTMLInputElement | null>(null)
+function triggerAttachmentUpload() { attachmentInput.value?.click() }
+async function onAttachmentSelected(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  ;(e.target as HTMLInputElement).value = ''
+  if (!file || !currentId.value) return
+  try {
+    await attachmentStore.upload('LeaveRequest', currentId.value, file)
+  } catch {
+    // attachmentStore.error porte le message pour l'UI (toast)
+  }
+}
+async function removeAttachment(id: string) {
+  if (!currentId.value) return
+  if (!(await confirmDialog('Supprimer ce justificatif ?'))) return
+  try {
+    await attachmentStore.remove(id, 'LeaveRequest', currentId.value)
+  } catch {
+    // attachmentStore.error porte le message pour l'UI (toast)
+  }
+}
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
 
 function goPrev() { if (hasPrev.value) { currentId.value = props.leaves[currentIndex.value - 1]!.id; isEditMode.value = false } }
 function goNext() { if (hasNext.value) { currentId.value = props.leaves[currentIndex.value + 1]!.id; isEditMode.value = false } }
@@ -229,7 +270,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
 
           <!-- Solde insuffisant : avertissement non bloquant, le validateur décide -->
           <div v-if="current.insufficientBalance" class="flex items-center gap-2 text-[13px] text-danger bg-danger-bg rounded-md px-2.5 py-2 col-span-full">
-            <TriangleAlert class="w-4 h-4 shrink-0" /> Solde insuffisant pour ce type de congé — à valider en connaissance de cause.
+            <TriangleAlert class="w-4 h-4 shrink-0" /> Solde insuffisant pour ce type de congé, à valider en connaissance de cause.
           </div>
 
           <!-- Motif de refus / retour -->
@@ -239,6 +280,32 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           </div>
         </div>
         <div v-if="saveError" class="text-xs text-danger bg-danger-bg px-3 py-2 rounded-md mt-3">{{ saveError }}</div>
+        </FormSection>
+
+        <!-- Justificatif médical (congés maladie uniquement) -->
+        <FormSection v-if="isMedicalLeave" :title="`Justificatif médical (${attachments.length})`">
+          <input ref="attachmentInput" type="file" class="hidden" @change="onAttachmentSelected" />
+          <button
+            class="inline-flex items-center gap-1 px-3 py-[5px] rounded-md bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20 mb-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="attachmentStore.uploading"
+            @click="triggerAttachmentUpload"
+          >
+            <Upload class="w-3.5 h-3.5" /> {{ attachmentStore.uploading ? 'Envoi…' : 'Ajouter un justificatif' }}
+          </button>
+          <div v-if="attachments.length === 0" class="text-[12px] text-muted-foreground italic">Aucun justificatif fourni</div>
+          <ul v-else class="flex flex-col gap-1.5">
+            <li v-for="a in attachments" :key="a.id" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-background border border-border text-[13px]">
+              <Paperclip class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <a :href="a.fileUrl" target="_blank" rel="noopener" class="flex-1 truncate text-foreground hover:text-primary hover:underline" :title="a.fileName">{{ a.fileName }}</a>
+              <span class="text-[11px] text-muted-foreground shrink-0">{{ formatFileSize(a.fileSize) }}</span>
+              <a :href="a.fileUrl" target="_blank" rel="noopener" class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-primary shrink-0" title="Ouvrir">
+                <Download class="w-3.5 h-3.5" />
+              </a>
+              <button class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-danger shrink-0" title="Supprimer" @click="removeAttachment(a.id)">
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
+            </li>
+          </ul>
         </FormSection>
 
         <!-- Historique de validation -->
