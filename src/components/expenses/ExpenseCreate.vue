@@ -5,7 +5,7 @@
  * partagé avec le per diem des missions) + récapitulatif.
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { Plus, Trash2 } from 'lucide-vue-next'
+import { Plus, Trash2, Paperclip, Upload } from 'lucide-vue-next'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -19,6 +19,7 @@ import { useMissionStore } from '../../stores/missions'
 import { useMissionConfigStore } from '../../stores/missionConfig'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import { useAttachmentStore } from '../../stores/attachments'
 
 const props = withDefaults(defineProps<{ mode?: 'self' | 'for-employee' }>(), { mode: 'self' })
 const emit = defineEmits<{ close: []; created: [] }>()
@@ -29,6 +30,7 @@ const missionStore = useMissionStore()
 const missionConfigStore = useMissionConfigStore()
 const employeeStore = useEmployeeStore()
 const categoryStore = useEmployeeCategoryStore()
+const attachmentStore = useAttachmentStore()
 
 if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
 if (missionStore.mine.length === 0) missionStore.fetchMine()
@@ -84,6 +86,25 @@ function addLine() {
 function removeLine(i: number) { lines.value.splice(i, 1) }
 const total = computed(() => lines.value.reduce((s, l) => s + (l.amount || 0), 0))
 
+// Pièces jointes du rapport : le rapport n'a pas encore d'Id tant qu'il n'est
+// pas créé, donc on garde les fichiers en mémoire ici et on les envoie juste
+// après la création (voir build()).
+const pendingFiles = ref<File[]>([])
+const fileInput = ref<HTMLInputElement | null>(null)
+function triggerFileUpload() { fileInput.value?.click() }
+function onFileSelected(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  ;(e.target as HTMLInputElement).value = ''
+  if (!file) return
+  pendingFiles.value.push(file)
+}
+function removePendingFile(i: number) { pendingFiles.value.splice(i, 1) }
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
+
 function validate(): boolean {
   if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) { error.value = 'Sélectionnez un employé'; return false }
   if (!form.title.trim()) { error.value = 'Le titre est obligatoire'; return false }
@@ -104,8 +125,13 @@ function buildPayload() {
 async function build(submit: boolean) {
   if (!validate()) return
   try {
-    if (submit) await expenseStore.createAndSubmit(buildPayload())
-    else await expenseStore.saveDraft(buildPayload())
+    const created = submit ? await expenseStore.createAndSubmit(buildPayload()) : await expenseStore.saveDraft(buildPayload())
+    if (pendingFiles.value.length > 0) {
+      // allSettled : un justificatif qui échoue à l'envoi (toast d'erreur déjà
+      // affiché par attachmentStore) ne doit pas empêcher la fermeture — le
+      // rapport lui est déjà créé avec succès.
+      await Promise.allSettled(pendingFiles.value.map(f => attachmentStore.upload('ExpenseReport', created.id, f)))
+    }
     emit('created'); emit('close')
   } catch {
     error.value = expenseStore.error ?? "L'opération a échoué."
@@ -195,6 +221,28 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
               </tr>
             </tfoot>
           </table>
+          </FormSection>
+
+          <!-- Pièces jointes (justificatifs du rapport) -->
+          <FormSection :title="`Pièces jointes (${pendingFiles.length})`">
+            <input ref="fileInput" type="file" class="hidden" @change="onFileSelected" />
+            <button
+              class="inline-flex items-center gap-1 px-3 py-[5px] rounded-md bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20 mb-2"
+              @click="triggerFileUpload"
+            >
+              <Upload class="w-3.5 h-3.5" /> Ajouter un fichier
+            </button>
+            <div v-if="pendingFiles.length === 0" class="text-[12px] text-muted-foreground italic">Aucune pièce jointe</div>
+            <ul v-else class="flex flex-col gap-1.5">
+              <li v-for="(f, i) in pendingFiles" :key="i" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-background border border-border text-[13px]">
+                <Paperclip class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span class="flex-1 truncate text-foreground" :title="f.name">{{ f.name }}</span>
+                <span class="text-[11px] text-muted-foreground shrink-0">{{ formatFileSize(f.size) }}</span>
+                <button class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-danger shrink-0" title="Retirer" @click="removePendingFile(i)">
+                  <Trash2 class="w-3.5 h-3.5" />
+                </button>
+              </li>
+            </ul>
           </FormSection>
 
           <div class="mt-6">
