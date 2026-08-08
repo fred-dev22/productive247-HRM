@@ -46,7 +46,7 @@ export interface ImportConfig {
   sampleRows: Record<string, string>[]
   /** Colonnes UI uniquement (jamais envoyees a createEndpoint), ex: case "creer un compte" pour les employes. */
   extraColumns?: ImportColumn[]
-  /** Appele apres succes de la creation d'une ligne — effet de bord optionnel (ex: creer le compte utilisateur). */
+  /** Appele apres succes de la creation d'une ligne — effet de bord optionnel (ex: creer le compte utilisateur). Un rejet est capture et affiche comme avertissement a l'etape 3 (voir ImportRowResult.warning), pas silencieusement ignore. */
   onRowCreated?: (created: Record<string, unknown>, extra: Record<string, unknown>) => Promise<void>
   /** Ajuste le payload juste avant l'envoi — pour un champ backend requis mais derivable d'un autre champ deja saisi (ex: HolidayType derive de OrganizationUnitId), sans l'exposer a l'utilisateur. */
   transformPayload?: (row: ParsedRow, payload: Record<string, unknown>) => Record<string, unknown>
@@ -67,4 +67,6 @@ export interface ImportRowResult {
   index: number
   success: boolean
   error?: string
+  /** Effet de bord post-creation qui a echoue (ex: compte utilisateur non cree) — la ligne elle-meme est un succes, mais l'utilisateur doit le savoir plutot que le decouvrir plus tard. */
+  warning?: string
 }

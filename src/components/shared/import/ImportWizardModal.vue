@@ -167,13 +167,16 @@ async function startImport() {
     const row = rows.value[i]!
     try {
       const { data } = await api.post(props.config.createEndpoint, buildPayload(row))
+      let warning: string | undefined
       if (props.config.onRowCreated) {
-        await props.config.onRowCreated(data, row.extra).catch(() => {
-          // Effet de bord (ex: creation de compte) — ne fait pas echouer la
-          // ligne elle-meme, l'entite principale a bien ete creee.
+        // Effet de bord (ex: creation de compte) — un echec ne fait pas
+        // echouer la ligne elle-meme (l'entite principale a bien ete creee),
+        // mais doit rester visible plutot que d'etre avale silencieusement.
+        await props.config.onRowCreated(data, row.extra).catch((err) => {
+          warning = getApiErrorMessage(err, "Un effet secondaire de cette ligne a échoué.")
         })
       }
-      results.value.push({ index: i, success: true })
+      results.value.push({ index: i, success: true, warning })
     } catch (err) {
       results.value.push({ index: i, success: false, error: getApiErrorMessage(err, 'Échec de la création') })
     }
@@ -187,6 +190,7 @@ async function startImport() {
 
 const succeededCount = computed(() => results.value.filter(r => r.success).length)
 const failedResults = computed(() => results.value.filter(r => !r.success))
+const warnedResults = computed(() => results.value.filter(r => r.success && r.warning))
 
 /* ── Navigation générale (assistant à étapes) ────────────────────── */
 function goToDependency(dep: { routeTo: import('vue-router').RouteLocationRaw }) {
@@ -474,6 +478,18 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
                   <div v-for="r in failedResults" :key="r.index" class="px-3 py-2 text-[12px] border-t border-border flex items-start gap-2">
                     <span class="text-muted-foreground shrink-0">Ligne {{ r.index + 1 }}</span>
                     <span class="text-danger">{{ r.error }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="warnedResults.length > 0" class="border border-warning/30 rounded-lg overflow-hidden">
+                <div class="bg-warning-bg px-3 py-2 text-[11px] font-semibold text-warning flex items-center gap-1.5">
+                  <AlertTriangle class="w-3.5 h-3.5" /> Créé(s) avec un avertissement — à corriger manuellement
+                </div>
+                <div class="max-h-56 overflow-y-auto">
+                  <div v-for="r in warnedResults" :key="r.index" class="px-3 py-2 text-[12px] border-t border-border flex items-start gap-2">
+                    <span class="text-muted-foreground shrink-0">Ligne {{ r.index + 1 }}</span>
+                    <span class="text-warning">{{ r.warning }}</span>
                   </div>
                 </div>
               </div>

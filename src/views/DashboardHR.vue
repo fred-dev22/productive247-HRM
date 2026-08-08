@@ -9,7 +9,15 @@
         </div>
 
         <!-- KPIs -->
-        <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
+        <div v-if="kpiLoading" class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2 animate-pulse" role="status" aria-busy="true" aria-label="Chargement en cours">
+          <div v-for="i in 4" :key="i" :class="kpiCard">
+            <div :class="kpiAccent" class="bg-muted"></div>
+            <div class="h-2.5 bg-muted rounded mb-1.5" style="width: 65%"></div>
+            <div class="h-6 bg-muted rounded mb-1.5" style="width: 35%"></div>
+            <div class="h-2.5 bg-muted rounded" style="width: 50%"></div>
+          </div>
+        </div>
+        <div v-else class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
           <div :class="kpiCard">
             <div :class="kpiAccent" class="bg-success-bg"><Users class="w-[17px] h-[17px] text-success" /></div>
             <div :class="kpiLabel">{{ t('dashboard.active_employees') }}</div>
@@ -266,6 +274,13 @@ if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().
 // ── KPIs ─────────────────────────────────────────────────────
 const todayIso = new Date().toISOString().slice(0, 10)
 const thisMonthKey = todayIso.slice(0, 7)
+
+// Squelette tant que les deux sources des KPI n'ont pas fini leur premier
+// chargement — évite le flash "0" avant que les vraies valeurs arrivent
+// (le flag `loading` ne redevient true que sur un fetch reellement lance,
+// voir "if (x.length === 0) fetch()" plus haut : pas de flash sur un retour
+// a cet ecran avec des donnees deja en cache).
+const kpiLoading = computed(() => employeeStore.loading || leaves.loading)
 
 const activeEmployeesCount = computed(() => employeeStore.activeEmployees.length)
 const newHiresThisMonth = computed(() => employeeStore.employees.filter(e => e.hireDate?.slice(0, 7) === thisMonthKey).length)

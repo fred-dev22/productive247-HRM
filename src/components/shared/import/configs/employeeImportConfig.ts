@@ -123,7 +123,8 @@ export function buildEmployeeImportConfig(): ImportConfig {
       if (!extra.createAccount) return
       const email = created.Email as string | undefined
       const categoryId = created.EmployeeCategoryId as string | undefined
-      if (!email || !categoryId) return
+      if (!categoryId) throw new Error('Compte non créé : catégorie manquante')
+      if (!email) throw new Error('Compte non créé : email manquant')
       await api.post('/users', {
         Username: email,
         Email: email,
