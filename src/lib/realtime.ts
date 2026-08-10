@@ -42,6 +42,10 @@ function refreshDomain(domain: DataDomain) {
   if (domain === 'expense')  refreshWorkflowStore('expense', useExpenseStore())
   if (domain === 'employee') {
     const auth = useAuthStore()
+    // Meme raisonnement que refreshWorkflowStore pour team/all — sans ce
+    // branchement, TeamView.vue (EMPLOYE_VOIR_EQUIPE) ne recevait jamais de
+    // mise a jour en direct, seul EMPLOYE_VOIR_TOUT etait couvert (Lot H #10).
+    if (auth.hasPermission('EMPLOYE_VOIR_EQUIPE')) useEmployeeStore().fetchTeam()
     if (auth.hasPermission('EMPLOYE_VOIR_TOUT')) useEmployeeStore().fetchAll()
   }
 }

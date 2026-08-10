@@ -130,7 +130,7 @@
 
     <!-- Fiche (double-clic) + création -->
     <AbsenceCard v-if="openCardId !== null" :leaves="filtered" :request-id="openCardId" @close="openCardId = null" />
-    <AbsenceCreate v-if="showCreate" @close="showCreate = false" @created="store.fetchAll()" />
+    <AbsenceCreate v-if="showCreate" @close="showCreate = false" @created="reload" />
   </ListPageLayout>
 </template>
 
@@ -145,16 +145,33 @@ import AbsenceCreate from '../../components/absences/AbsenceCreate.vue'
 import AbsenceWorkflowActions from '../../components/absences/AbsenceWorkflowActions.vue'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
+import { useAuthStore } from '../../stores/auth'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { LeaveRequest } from '../../types'
 
+const auth            = useAuthStore()
 const store           = useLeaveRequestStore()
 const leaveTypesStore = useLeaveTypesStore()
 const { t }           = useI18n()
 
+// Portee la plus large a laquelle l'utilisateur a droit (CONGE_VOIR_TOUT >
+// CONGE_VOIR_EQUIPE > soi-meme), memes 3 endpoints reels que
+// MissionListView/ExpenseListView (findAll/findTeam/findMine) — sans ce
+// branchement, un manager n'ayant que CONGE_VOIR_EQUIPE se heurtait a un 403
+// sur fetchAll() et ne voyait jamais les demandes de son equipe (Lot H #8).
+const canSeeAll  = computed(() => auth.hasPermission('CONGE_VOIR_TOUT'))
+const canSeeTeam = computed(() => auth.hasPermission('CONGE_VOIR_EQUIPE'))
+const sourceList = computed<LeaveRequest[]>(() => canSeeAll.value ? store.all : canSeeTeam.value ? store.team : store.mine)
+
+async function reload() {
+  if (canSeeAll.value) await store.fetchAll()
+  else if (canSeeTeam.value) await store.fetchTeam()
+  else await store.fetchMine()
+}
+
 onMounted(() => {
-  store.fetchAll()
+  reload()
   if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 })
 
@@ -204,7 +221,7 @@ const PENDING_STATUSES = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'In
 
 /* ── Données ────────────────────────────────────────────────── */
 const filtered = computed(() => {
-  let list = store.all.filter(l => {
+  let list = sourceList.value.filter(l => {
     if (filterStatus.value === 'Pending' ? !PENDING_STATUSES.has(l.status) : (filterStatus.value && l.status !== filterStatus.value)) return false
     if (filterType.value   && l.leaveTypeId !== filterType.value) return false
     if (filterFrom.value   && l.startDate < filterFrom.value)  return false
