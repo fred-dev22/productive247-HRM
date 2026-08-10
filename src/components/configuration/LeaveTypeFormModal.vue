@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, computed, watch, ref } from 'vue'
-import { Check } from 'lucide-vue-next'
+import { Check, Pipette } from 'lucide-vue-next'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
@@ -153,19 +153,42 @@ async function handleSave() {
                   <option value="Medical">Médical (enregistrement)</option>
                 </select>
               </div>
-              <div :class="cls.field">
+              <div :class="[cls.field, 'col-span-2 max-sm:col-span-1']">
                 <label :class="cls.fieldLabel">Couleur dans le calendrier</label>
-                <div class="flex flex-wrap gap-2 mt-1">
-                  <button
-                    v-for="c in COLOR_OPTIONS" :key="c"
-                    type="button"
-                    class="w-8 h-8 rounded-md border-2 cursor-pointer flex items-center justify-center transition-transform"
-                    :class="form.color === c ? 'border-foreground scale-110' : 'border-transparent'"
-                    :style="{ background: c }"
-                    @click="form.color = c"
-                  >
-                    <Check v-if="form.color === c" class="w-3.5 h-3.5 text-white" />
-                  </button>
+                <p class="text-[11px] text-muted-foreground -mt-0.5 mb-1.5">
+                  Cette couleur identifie ce type de congé dans le planning d'équipe et les calendriers des employés.
+                </p>
+                <div class="flex items-start gap-3 flex-wrap">
+                  <div class="flex flex-col items-center gap-1">
+                    <label
+                      class="relative w-9 h-9 rounded-md border-2 border-border cursor-pointer overflow-hidden shrink-0 hover:border-primary transition-colors"
+                      :style="{ background: form.color }"
+                      title="Choisir une couleur personnalisée"
+                    >
+                      <input type="color" v-model="form.color" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-card border border-border flex items-center justify-center pointer-events-none">
+                        <Pipette class="w-2.5 h-2.5 text-foreground" />
+                      </span>
+                    </label>
+                    <span class="text-[10px] text-muted-foreground whitespace-nowrap">Personnalisée</span>
+                  </div>
+
+                  <div class="w-px self-stretch bg-border"></div>
+
+                  <div class="flex flex-wrap gap-2 self-center">
+                    <button
+                      v-for="c in COLOR_OPTIONS" :key="c"
+                      type="button"
+                      class="w-7 h-7 rounded-md border-2 cursor-pointer flex items-center justify-center transition-transform"
+                      :class="form.color === c ? 'border-foreground scale-110' : 'border-transparent'"
+                      :style="{ background: c }"
+                      @click="form.color = c"
+                    >
+                      <Check v-if="form.color === c" class="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+
+                  <span class="text-[11px] text-muted-foreground font-mono uppercase self-center">{{ form.color }}</span>
                 </div>
               </div>
             </div>

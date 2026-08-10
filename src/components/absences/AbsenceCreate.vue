@@ -283,9 +283,11 @@ async function saveDraft() {
     title="Nouvelle demande d'absence"
     banner-label="Nouvelle demande d'absence"
     :create-label="isMedicalType ? 'Enregistrer la déclaration' : 'Soumettre la demande'"
+    draft-label="Enregistrer le brouillon"
     :save-error="error"
     @close="emit('close')"
     @create="create"
+    @save-draft="saveDraft"
   >
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
@@ -401,10 +403,6 @@ async function saveDraft() {
             </div>
           </div>
           </FormSection>
-
-          <div class="mt-6 pt-4 border-t border-border flex justify-end gap-2">
-            <button :class="cls.btnOutline" @click="saveDraft">Enregistrer</button>
-          </div>
         </div>
       </div>
     </template>

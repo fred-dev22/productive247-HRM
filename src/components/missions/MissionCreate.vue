@@ -164,9 +164,11 @@ async function saveDraft() {
     title="Nouvelle mission"
     banner-label="Nouvel ordre de mission"
     create-label="Soumettre"
+    draft-label="Enregistrer le brouillon"
     :save-error="error"
     @close="emit('close')"
     @create="create"
+    @save-draft="saveDraft"
   >
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
@@ -292,10 +294,6 @@ async function saveDraft() {
             </div>
           </div>
           </FormSection>
-
-          <div class="mt-6 pt-4 border-t border-border flex justify-end">
-            <button :class="cls.btnOutline" @click="saveDraft">Enregistrer</button>
-          </div>
         </div>
       </div>
     </template>

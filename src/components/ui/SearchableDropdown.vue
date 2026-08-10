@@ -26,7 +26,11 @@
     </button>
 
     <!-- Dropdown -->
-    <div v-if="open" class="absolute top-[calc(100%+4px)] left-0 z-[200] min-w-[260px] w-full bg-popover border border-border rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] overflow-hidden">
+    <div
+      v-if="open"
+      class="absolute left-0 z-[200] min-w-[260px] w-full bg-popover border border-border rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] overflow-hidden"
+      :class="dropUp ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'"
+    >
       <div class="relative p-2 pb-1 border-b border-border">
         <Search class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-3.5 h-3.5 pointer-events-none" />
         <input
@@ -98,6 +102,11 @@ const rootEl   = ref<HTMLElement | null>(null)
 const searchEl = ref<HTMLInputElement | null>(null)
 const open     = ref(false)
 const query    = ref('')
+const dropUp   = ref(false)
+
+// Hauteur approximative du panneau (barre de recherche + liste) — sert
+// uniquement à decider du sens d'ouverture, pas besoin d'etre exacte.
+const PANEL_HEIGHT = 300
 
 const selected = computed(() =>
   props.modelValue ? props.items.find(i => i.id === props.modelValue) : undefined
@@ -131,6 +140,14 @@ function toggle() {
 }
 
 function openDrop() {
+  // Decide du sens d'ouverture selon la place disponible a l'ecran — sans
+  // ca, un champ situe en bas d'une longue fiche (ex: Intérimaire) ouvre son
+  // panneau hors-viewport, invisible ou coupe (Lot G #5).
+  if (rootEl.value) {
+    const rect = rootEl.value.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    dropUp.value = spaceBelow < PANEL_HEIGHT && rect.top > spaceBelow
+  }
   open.value  = true
   query.value = ''
   nextTick(() => searchEl.value?.focus())

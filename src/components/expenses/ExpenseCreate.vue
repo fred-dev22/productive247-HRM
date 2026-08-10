@@ -148,9 +148,11 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
     title="Nouvelle note de frais"
     banner-label="Nouvelle note de frais"
     create-label="Soumettre"
+    draft-label="Enregistrer le brouillon"
     :save-error="error"
     @close="emit('close')"
     @create="build(true)"
+    @save-draft="build(false)"
   >
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
@@ -244,10 +246,6 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
               </li>
             </ul>
           </FormSection>
-
-          <div class="mt-6">
-            <button :class="cls.btnOutline" @click="build(false)">Enregistrer</button>
-          </div>
         </div>
       </div>
     </template>
