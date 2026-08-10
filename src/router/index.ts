@@ -4,6 +4,7 @@ import { useCompanySettingsStore } from '../stores/companySettings'
 import LoginView          from '../views/LoginView.vue'
 import ForgotPasswordView from '../views/ForgotPasswordView.vue'
 import ResetPasswordView  from '../views/ResetPasswordView.vue'
+import PublicApprovalView from '../views/PublicApprovalView.vue'
 import DashboardHR       from '../views/DashboardHR.vue'
 import DashboardEmployee from '../views/DashboardEmployee.vue'
 import CalendarView      from '../views/calendar/CalendarView.vue'
@@ -43,6 +44,11 @@ const router = createRouter({
     { path: '/', name: 'login', component: LoginView },
     { path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordView },
     { path: '/reset-password', name: 'reset-password', component: ResetPasswordView },
+    // Validation par email (clic direct depuis la boite mail, sans connexion)
+    // — voir PublicApprovalView.vue / backend PublicApprovalModule. Route en
+    // anglais comme demande (toutes les routes frontend doivent l'etre a
+    // terme, voir Lot K).
+    { path: '/approval/:token', name: 'public-approval', component: PublicApprovalView },
 
     // ── Dashboards ──────────────────────────────────────────────
     { path: '/hr',       name: 'hr-dashboard',       component: DashboardHR,       meta: { requiresAuth: true, layout: 'dashboard' } },
