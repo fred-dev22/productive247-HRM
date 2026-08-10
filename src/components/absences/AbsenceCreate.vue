@@ -37,7 +37,6 @@ const categoryStore         = useEmployeeCategoryStore()
 const leaveTypesStore       = useLeaveTypesStore()
 const auth                  = useAuthStore()
 
-if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 if (leaveTransactionStore.myBalances.length === 0) leaveTransactionStore.fetchMyBalances()
@@ -76,6 +75,14 @@ const selectedEmployee = computed(() => {
 // restriction d'entité (decision du 01/08, revient sur celle du 30/07) : un
 // responsable en congé peut désigner un intérimaire dans une autre direction.
 const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : auth.user?.id)
+// Le calendrier qui pilote la validation "jour ouvrable" doit être celui DU
+// BÉNÉFICIAIRE (sa catégorie peut avoir un calendrier dédié différent de
+// celui du créateur) — fetchCalendar() sans argument résout pour
+// l'utilisateur courant, pas pour lui. Rejoué à chaque changement de
+// bénéficiaire (bug corrigé : avant, un calendrier déjà en mémoire depuis un
+// écran précédent n'était jamais rafraîchi, la validation utilisait alors le
+// mauvais calendrier).
+watch(beneficiaryId, (id) => { if (id) calendarStore.fetchCalendar(id) }, { immediate: true })
 // Seul le bénéficiaire est exclu : il ne peut pas être son propre
 // intérimaire. Quand on crée pour quelqu'un d'autre, le demandeur (soi-même)
 // reste un intérimaire valide ; quand on crée pour soi-même, ce filtre
