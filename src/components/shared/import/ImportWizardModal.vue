@@ -108,7 +108,9 @@ function handleFile(file: File | undefined) {
       buildRows(results.data)
       fileReady.value = true
     },
-    error: (err) => { fileError.value = err.message },
+    // err.message vient de PapaParse (toujours en anglais) — jamais affiché
+    // tel quel, voir Lot F #3.
+    error: () => { fileError.value = "Le fichier n'a pas pu être lu. Vérifiez qu'il s'agit bien d'un CSV valide." },
   })
 }
 

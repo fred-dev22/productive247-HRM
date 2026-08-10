@@ -42,16 +42,24 @@ api.interceptors.response.use(
   },
 )
 
-// Extrait le message d'erreur renvoyé par le backend (ValidationPipe de
-// Nest répond {message: string[] | string}) au lieu du message générique
-// codé en dur côté front — sans ça l'utilisateur ne voit jamais la vraie
-// cause (ex: "ManagerId must be a UUID").
+// Messages generiques que Nest renvoie lui-meme (jamais ecrits par nos
+// propres exceptions, toujours en anglais) — si le backend les laisse
+// passer malgre le filet de securite cote serveur (ValidationPipe
+// exceptionFactory, PrismaExceptionFilter, JwtAuthGuard, voir Lot F #3), on
+// prefere quand meme le fallback francais fourni par l'appelant plutot que
+// d'afficher ce texte brut.
+const GENERIC_NEST_MESSAGES = new Set(['Internal server error', 'Unauthorized', 'Forbidden resource', 'Not Found']);
+
+// Extrait le message d'erreur renvoyé par le backend (nos exceptions
+// métier sont toujours rédigées en français, voir Lot F #3) au lieu du
+// message générique codé en dur côté front — sans ça l'utilisateur ne voit
+// jamais la vraie cause (ex: "Cet email est déjà utilisé").
 export function getApiErrorMessage(err: unknown, fallback: string): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string | string[] } | undefined
     const message = data?.message
     if (Array.isArray(message) && message.length > 0) return message.join(' ')
-    if (typeof message === 'string' && message.trim()) return message
+    if (typeof message === 'string' && message.trim() && !GENERIC_NEST_MESSAGES.has(message.trim())) return message
   }
   return fallback
 }
