@@ -419,7 +419,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
                         v-else-if="col.type === 'boolean'"
                         type="checkbox"
                         class="accent-primary"
-                        :checked="isTruthy(row.values[col.key])"
+                        :checked="isTruthy(row.values[col.key] ?? '')"
                         @change="row.values[col.key] = ($event.target as HTMLInputElement).checked ? 'true' : 'false'"
                       />
                       <input

@@ -161,20 +161,6 @@
                       <div class="text-[13px] font-medium">{{ entity.createdAt }}</div>
                     </div>
                   </div>
-                  <div v-if="entity.submittedAt" class="flex items-start gap-2.5">
-                    <div :class="[histIcon, '!bg-warning-bg !text-warning']"><Send class="w-3.5 h-3.5" /></div>
-                    <div>
-                      <div class="text-[11px] text-muted-foreground">Soumise le</div>
-                      <div class="text-[13px] font-medium">{{ entity.submittedAt }}</div>
-                    </div>
-                  </div>
-                  <div v-if="entity.approvedAt" class="flex items-start gap-2.5">
-                    <div :class="[histIcon, '!bg-success-bg !text-success']"><Check class="w-3.5 h-3.5" /></div>
-                    <div>
-                      <div class="text-[11px] text-muted-foreground">Approuvée le</div>
-                      <div class="text-[13px] font-medium">{{ entity.approvedAt }}</div>
-                    </div>
-                  </div>
                 </div>
               </div>
 

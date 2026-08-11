@@ -122,7 +122,7 @@ function onPositionSelect(item: Record<string, unknown>) {
 async function save() {
   if (!current.value) return
   try {
-    await store.updateEmployee(current.value.id, { ...form.value, jobTitle: form.value.positionTitle })
+    await store.updateEmployee(current.value.id, { ...form.value, jobTitle: form.value.positionTitle, positionId: form.value.positionId || undefined })
     isEditMode.value = false
   } catch {
     saveError.value = store.error ?? "L'enregistrement a échoué. Veuillez réessayer."

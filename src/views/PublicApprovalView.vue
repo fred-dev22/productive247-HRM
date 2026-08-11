@@ -158,7 +158,7 @@ const actionError    = ref('')
 const done            = ref(false)
 const chosenDecision  = ref<'Approved' | 'Rejected' | 'Returned' | null>(null)
 
-function decisionLabel(decision?: string): string {
+function decisionLabel(decision?: string | null): string {
   if (decision === 'Approved') return 'approuvée'
   if (decision === 'Rejected') return 'refusée'
   if (decision === 'Returned') return 'retournée pour correction'

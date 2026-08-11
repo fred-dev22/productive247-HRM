@@ -12,6 +12,7 @@ export interface JwtPayload {
 // the payload to avoid an extra round-trip after login.
 export function decodeJwt(token: string): JwtPayload {
   const base64Url = token.split('.')[1]
+  if (!base64Url) throw new Error('Jeton invalide')
   const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
   const json = decodeURIComponent(
     atob(base64)

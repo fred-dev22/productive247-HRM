@@ -27,7 +27,7 @@
       <div class="grid grid-cols-4 gap-3 mb-4 max-[1100px]:grid-cols-2 max-md:grid-cols-2">
         <div :class="kpiCard"><div :class="kpiIcon" class="bg-success-bg"><Users class="w-[18px] h-[18px] text-success" /></div><div><div :class="kpiVal">{{ balanceStore.allBalances.length }}</div><div :class="kpiLabel">Employés suivis</div></div></div>
         <div v-for="(c, i) in kpiTypeCols" :key="c.leaveTypeId" :class="kpiCard">
-          <div :class="[kpiIcon, KPI_STYLES[i].bg]"><component :is="KPI_STYLES[i].icon" class="w-[18px] h-[18px]" :class="KPI_STYLES[i].text" /></div>
+          <div :class="[kpiIcon, KPI_STYLES[i]!.bg]"><component :is="KPI_STYLES[i]!.icon" class="w-[18px] h-[18px]" :class="KPI_STYLES[i]!.text" /></div>
           <div><div :class="kpiVal">{{ totalForType(c.leaveTypeId) }}j</div><div :class="kpiLabel">{{ c.leaveTypeName }} restants</div></div>
         </div>
       </div>

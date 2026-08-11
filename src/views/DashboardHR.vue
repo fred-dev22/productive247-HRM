@@ -386,7 +386,7 @@ const sortedBalances = computed(() => {
   const list = [...employeeBalances.value].sort((a, b) => {
     const va = balSortKey.value === 'name' ? a.name : (a.balances[balSortKey.value] ?? 0)
     const vb = balSortKey.value === 'name' ? b.name : (b.balances[balSortKey.value] ?? 0)
-    const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
+    const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb))
     return balSortDir.value === 'asc' ? cmp : -cmp
   })
   const start = (balPage.value - 1) * balPageSize.value

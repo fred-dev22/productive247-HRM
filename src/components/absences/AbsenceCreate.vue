@@ -175,7 +175,7 @@ const isNoticePeriodViolated = computed(() => {
 // sans ça, remplir le formulaire avant que la réponse arrive calculait la
 // reprise contre un calendrier vide, jamais recalculée ensuite).
 watch(
-  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.workingDays, beneficiaryIsExpatriate.value] as const,
+  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value] as const,
   ([start, days, period, , isExpat]) => {
     if (calculating || daysMode.value !== 'from-days') return
     if (!start || !days || days <= 0) { resumeDate.value = ''; chargedDaysCount.value = null; return }

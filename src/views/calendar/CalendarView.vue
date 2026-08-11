@@ -414,6 +414,15 @@ function refreshConfiguredCategoryCalendars() {
 }
 refreshConfiguredCategoryCalendars()
 
+// v-model a deja pousse la nouvelle valeur dans selectedCategoryId au
+// moment ou @change se declenche — si l'utilisateur annule (modifications
+// non enregistrees), il faut restaurer explicitement l'ancienne valeur,
+// sinon le select affiche la nouvelle categorie alors que les jours
+// affiches sont toujours ceux de l'ancienne. Déclaré avant l'IIFE
+// ci-dessous (qui l'assigne dès le chargement initial si une portée par
+// catégorie était persistée).
+let lastConfirmedCategoryId = ''
+
 // Restaure la portée choisie à la dernière visite (onglet Jours de travail)
 // — sans ça, la page revenait toujours sur "Global" au rechargement, même
 // si l'admin était en train de configurer une catégorie précise. Lue depuis
@@ -459,13 +468,6 @@ async function confirmDiscardIfDirty(): Promise<boolean> {
   if (!calendarStore.isDirty) return true
   return confirmDialog('Des modifications non enregistrées seront perdues. Continuer ?')
 }
-
-// v-model a deja pousse la nouvelle valeur dans selectedCategoryId au
-// moment ou @change se declenche — si l'utilisateur annule (modifications
-// non enregistrees), il faut restaurer explicitement l'ancienne valeur,
-// sinon le select affiche la nouvelle categorie alors que les jours
-// affiches sont toujours ceux de l'ancienne.
-let lastConfirmedCategoryId = ''
 
 async function selectGlobalScope() {
   if (scope.value === 'global') return
