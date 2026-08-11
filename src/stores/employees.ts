@@ -122,6 +122,7 @@ interface BackendDirectoryEmployee {
   EmployeeNumber: string
   OrganizationUnitId: string
   EmployeeCategoryId: string | null
+  Status: string
   IsExpatriate: boolean
 }
 
@@ -146,7 +147,7 @@ function mapDirectoryEmployee(raw: BackendDirectoryEmployee, paletteIndex: numbe
     entityName:   entity?.name,
     hireDate:     '',
     contractType: 'CDI',
-    status:       'active',
+    status:       STATUS_FROM_BACKEND[raw.Status] ?? 'active',
     managerId:    entity?.managerId ?? undefined,
     gender:        'M',
     birthDate:     '',
@@ -191,6 +192,18 @@ export const useEmployeeStore = defineStore('employees', () => {
   // interrogé après coup. `directory` ne sert plus qu'aux pickers
   // bénéficiaire/intérimaire, jamais aux écrans de liste/fiche.
   const directory = ref<Employee[]>([])
+  // "Mon équipe" (fetchTeam), tenu à part de `employees` pour la même raison
+  // que `directory` ci-dessus : fetchAll et fetchTeam écrivaient auparavant
+  // dans le même tableau, donc le dernier résolu écrasait l'autre — un souci
+  // silencieux la plupart du temps (une seule vue chargée à la fois), mais
+  // qui devenait un vrai bug via lib/realtime.ts : un événement `data:changed`
+  // (ex. déclenché par la désactivation d'un employé) déclenche fetchTeam()
+  // ET fetchAll() en parallèle pour tout utilisateur ayant les deux
+  // permissions (EMPLOYE_VOIR_EQUIPE + EMPLOYE_VOIR_TOUT) — sans cette
+  // séparation, la liste complète de EmployeeListView.vue pouvait se faire
+  // remplacer par la petite liste d'équipe (voire vide) selon l'ordre
+  // d'arrivée des deux réponses.
+  const team = ref<Employee[]>([])
   const loading   = ref(false)
   const error     = ref<string | null>(null)
 
@@ -275,7 +288,7 @@ export const useEmployeeStore = defineStore('employees', () => {
     try {
       await ensurePositionsLoaded()
       const { data } = await api.get<BackendEmployee[]>('/employees/team')
-      employees.value = data.map(mapEmployee)
+      team.value = data.map(mapEmployee)
     } catch (err) {
       error.value = getApiErrorMessage(err, 'Impossible de charger votre équipe')
       throw err
@@ -353,6 +366,42 @@ export const useEmployeeStore = defineStore('employees', () => {
     }, () => error.value ?? "Impossible de désactiver l'employé")
   }
 
+  // PATCH /employees/:id { Status: 'Active' } — réactivation d'un employé
+  // désactivé, symétrique de deactivateEmployee ci-dessus. Appel direct
+  // (pas via updateEmployee) pour garder un message de toast dédié plutôt
+  // que le générique "Enregistrement en cours…".
+  async function reactivateEmployee(id: string) {
+    error.value = null
+    return withToast('Réactivation en cours…', async () => {
+      try {
+        const { data } = await api.patch<BackendEmployee>(`/employees/${id}`, { Status: 'Active' })
+        const idx = employees.value.findIndex(e => e.id === id)
+        if (idx !== -1) employees.value[idx] = mapEmployee(data, idx)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de réactiver l'employé")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de réactiver l'employé")
+  }
+
+  // DELETE /employees/:id/permanent (Lot I) — suppression définitive,
+  // distincte de deactivateEmployee ci-dessus (Status=Inactive, réversible
+  // depuis l'app). Retiré du tableau local : contrairement à la
+  // désactivation, un employé supprimé ne doit plus jamais réapparaître
+  // dans l'app pour un utilisateur — seul un dev peut le restaurer en base.
+  async function deleteEmployeePermanently(id: string) {
+    error.value = null
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/employees/${id}/permanent`)
+        employees.value = employees.value.filter(e => e.id !== id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de supprimer l'employé")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de supprimer l'employé")
+  }
+
   // Mise à jour locale après la création réussie d'un compte utilisateur
   // (POST /users, voir stores/users.ts) — évite un re-fetch, la source de
   // vérité (Employee.UserId) vient d'être posée côté backend à l'instant.
@@ -362,8 +411,8 @@ export const useEmployeeStore = defineStore('employees', () => {
   }
 
   return {
-    employees, directory, loading, error,
+    employees, directory, team, loading, error,
     activeEmployees, trialEmployees, validatorEmployees, fetchNextNumber,
-    getById, getByEntityId, fetchAll, fetchTeam, fetchDirectory, fetchOne, createEmployee, updateEmployee, deactivateEmployee, markHasAccount,
+    getById, getByEntityId, fetchAll, fetchTeam, fetchDirectory, fetchOne, createEmployee, updateEmployee, deactivateEmployee, reactivateEmployee, deleteEmployeePermanently, markHasAccount,
   }
 })

@@ -5,7 +5,7 @@
  * mode lecture par défaut ; édition possible pour les brouillons.
  */
 import { ref, computed, watch } from 'vue'
-import { Printer } from 'lucide-vue-next'
+import { Printer, Trash2 } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -13,8 +13,10 @@ import ValidationTimeline from '../ui/ValidationTimeline.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import MissionWorkflowActions from './MissionWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
+import { confirmDialog } from '../../lib/confirm'
 import { useMissionStore } from '../../stores/missions'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import { useAuthStore } from '../../stores/auth'
 import type { MissionOrder, TransportMode, MissionCategory } from '../../types'
 
 const props = defineProps<{
@@ -28,6 +30,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const missionStore = useMissionStore()
 const categoryStore = useEmployeeCategoryStore()
+const auth = useAuthStore()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
 const TRANSPORT_LABELS: Record<TransportMode, string> = {
@@ -119,6 +122,27 @@ const pageTitle = computed(() => (current.value ? `${current.value.referenceCode
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
 const th = 'text-left px-2.5 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border'
 const td = 'px-2.5 py-2 border-b border-border'
+
+// Suppression definitive (Lot I) — jamais mise en avant, toujours en bas de
+// la fiche (decision du 11/08, meme pattern que EmployeeCard.vue). Disponible
+// quel que soit le statut courant de l'ordre de mission.
+const deleting = ref(false)
+async function deletePermanently() {
+  if (!current.value) return
+  if (!(await confirmDialog(
+    `Supprimer définitivement cet ordre de mission (${current.value.referenceCode}) ? Il disparaîtra de toute l'application. Cette action est irréversible.`,
+    { danger: true },
+  ))) return
+  deleting.value = true
+  try {
+    await missionStore.deletePermanently(current.value.id)
+    emit('close')
+  } catch {
+    // missionStore.error porte le message pour l'UI (toast)
+  } finally {
+    deleting.value = false
+  }
+}
 </script>
 
 <template>
@@ -266,6 +290,13 @@ const td = 'px-2.5 py-2 border-b border-border'
         <FormSection v-if="detail?.validationHistory?.length" title="Historique de validation">
           <ValidationTimeline :history="detail.validationHistory" />
         </FormSection>
+
+        <!-- Suppression définitive -->
+        <div v-if="auth.hasPermission('MISSION_SUPPRIMER')" class="flex justify-end mt-1">
+          <button :class="cls.btnDestructive" :disabled="deleting" @click="deletePermanently">
+            <Trash2 class="w-3.5 h-3.5" /> {{ deleting ? 'Suppression…' : 'Supprimer définitivement' }}
+          </button>
+        </div>
       </div>
     </template>
   </CardModalShell>

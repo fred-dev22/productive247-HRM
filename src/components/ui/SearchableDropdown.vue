@@ -47,15 +47,16 @@
           v-for="item in filtered"
           :key="item.id"
           type="button"
-          class="flex items-center gap-2 w-full px-2 py-[7px] border-0 rounded-md bg-transparent cursor-pointer text-left transition-colors hover:bg-primary/10"
-          :class="{ 'bg-primary/10': modelValue === item.id }"
-          @click="select(item.id)"
+          class="flex items-center gap-2 w-full px-2 py-[7px] border-0 rounded-md bg-transparent text-left transition-colors"
+          :class="item.itemDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-primary/10'"
+          :title="item.itemDisabled ? (item.disabledReason || 'Indisponible') : ''"
+          @click="select(item)"
         >
           <span v-if="showAvatar" :class="avatarClass" :style="avatarStyle(item)">
             {{ avatarText(item) }}
           </span>
           <span class="flex-1 flex flex-col gap-px min-w-0">
-            <span class="text-[13px] font-medium text-foreground truncate">{{ item.label }}</span>
+            <span class="text-[13px] font-medium text-foreground truncate">{{ item.label }}{{ item.itemDisabled ? ' (désactivé)' : '' }}</span>
             <span v-if="item.sublabel" class="text-[11px] text-muted-foreground truncate">{{ item.sublabel }}</span>
           </span>
           <Check v-if="modelValue === item.id" class="w-3.5 h-3.5 text-primary shrink-0" />
@@ -80,6 +81,11 @@ export interface DropdownItem {
   sublabel?:   string
   initials?:   string
   avatarColor?: string
+  // Marque l'item comme visible mais non sélectionnable (ex : employé
+  // désactivé) — même principe que TableLookupField.vue : montrer pourquoi
+  // une option est indisponible plutôt que la faire disparaître.
+  itemDisabled?: boolean
+  disabledReason?: string
 }
 
 const props = withDefaults(defineProps<{
@@ -158,8 +164,9 @@ function close() {
   query.value = ''
 }
 
-function select(id: string) {
-  emit('update:modelValue', id)
+function select(item: DropdownItem) {
+  if (item.itemDisabled) return
+  emit('update:modelValue', item.id)
   close()
 }
 

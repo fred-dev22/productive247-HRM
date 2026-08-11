@@ -195,7 +195,7 @@
     "status_active": "Actif",
     "status_trial": "En essai",
     "status_onleave": "En congé",
-    "status_inactive": "Inactif",
+    "status_inactive": "Désactivé",
     "field_first_name": "Prénom",
     "field_last_name": "Nom",
     "field_code": "Code employé",

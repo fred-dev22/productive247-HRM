@@ -302,6 +302,23 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
     }, () => error.value ?? 'Impossible de supprimer la demande')
   }
 
+  // DELETE /leave-requests/:id/permanent (Lot I) — suppression définitive,
+  // distincte de remove() ci-dessus (réservée aux brouillons). Ici, une
+  // demande dans n'importe quel statut peut être cachée de tout l'app —
+  // seul un dev peut la restaurer en base.
+  async function deletePermanently(id: string) {
+    error.value = null
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/leave-requests/${id}/permanent`)
+        removeEverywhere(id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de supprimer la demande')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de supprimer la demande')
+  }
+
   async function approve(id: string, comment?: string) {
     error.value = null
     return withToast('Validation en cours…', async () => {
@@ -394,7 +411,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
   return {
     mine, team, all, pendingForMe, loading, error,
     fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchOne,
-    create, submit, createAndSubmit, saveDraft, update, remove,
+    create, submit, createAndSubmit, saveDraft, update, remove, deletePermanently,
     approve, reject, returnLeave, cancel, markDone, regularize,
   }
 })

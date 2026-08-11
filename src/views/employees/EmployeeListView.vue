@@ -222,14 +222,12 @@ const sortFieldMap: Record<string, keyof Employee> = { code: 'code', employee: '
 
 const filtered = computed(() => {
   let rows = store.employees.filter(e => {
-    // Par défaut ("Tous"), les employés désactivés restent masqués — il faut
-    // choisir explicitement le filtre "Inactif" pour les retrouver. Sinon un
-    // employé "supprimé" continuerait d'apparaître partout dans l'app.
-    if (activeScope.value) {
-      if (e.status !== (activeScope.value as EmployeeStatus)) return false
-    } else if (e.status === 'inactive') {
-      return false
-    }
+    // "Tous" inclut désormais les employés désactivés — sinon impossible de
+    // les retrouver pour les réactiver sans déjà savoir filtrer sur
+    // "Inactif". La suppression définitive (Lot I, IsDeleted) est le
+    // véritable mécanisme qui fait disparaître un employé partout : elle est
+    // déjà appliquée côté API (findAll), pas besoin de la dupliquer ici.
+    if (activeScope.value && e.status !== (activeScope.value as EmployeeStatus)) return false
     if (fEntity.value && e.entityId !== fEntity.value) return false
     if (fCategory.value && e.employeeCategoryId !== fCategory.value) return false
     if (fContract.value && e.contractType !== fContract.value) return false

@@ -15,7 +15,7 @@ const STATUS_OPTIONS = [
   { value: 'Active', label: 'Actif', code: 'Active' },
   { value: 'Draft', label: 'Brouillon', code: 'Draft' },
   { value: 'PendingApproval', label: 'En attente d\'approbation', code: 'PendingApproval' },
-  { value: 'Inactive', label: 'Inactif', code: 'Inactive' },
+  { value: 'Inactive', label: 'Désactivée', code: 'Inactive' },
 ]
 
 export function buildEntityImportConfig(): ImportConfig {

@@ -51,7 +51,7 @@
                 <router-link v-if="auth.hasPermission('ENTITE_MODIFIER')" :to="{ name: 'hr-entity-edit', params: { id: entity.id } }" :class="L.btnOutline">
                   <Pencil class="w-4 h-4" /> Modifier
                 </router-link>
-                <button v-if="auth.hasPermission('ENTITE_DESACTIVER')" :class="btnDangerOutline" @click="store.deactivateEntity(entity.id)">
+                <button v-if="!isRoot && auth.hasPermission('ENTITE_DESACTIVER')" :class="btnDangerOutline" @click="store.deactivateEntity(entity.id)">
                   <Ban class="w-4 h-4" /> Désactiver
                 </button>
               </template>
@@ -235,6 +235,10 @@ if (store.entities.length === 0) store.fetchAll()
 
 const entityId = computed(() => route.params.id as string)
 const entity   = computed(() => store.getEntityById(entityId.value))
+// Entité racine (Direction Générale, créée au seed, sans parent) — ne doit
+// jamais pouvoir être désactivée ni supprimée (voir aussi
+// EntityWorkflowActions.vue, même règle).
+const isRoot   = computed(() => entity.value?.parentId == null)
 const parent   = computed(() => entity.value?.parentId)
 const parentEntity = computed(() => parent.value ? store.getEntityById(parent.value) : undefined)
 const children     = computed(() => store.getChildren(entityId.value))
@@ -252,7 +256,7 @@ function typeLabelOf(t: EntityType): string {
 
 const statusLabel = computed(() => {
   const map: Record<string, string> = {
-    Draft: 'Brouillon', PendingApproval: 'En attente', Active: 'Approuvé', Inactive: 'Inactif',
+    Draft: 'Brouillon', PendingApproval: 'En attente', Active: 'Approuvé', Inactive: 'Désactivée',
   }
   return map[entity.value?.status ?? ''] ?? ''
 })

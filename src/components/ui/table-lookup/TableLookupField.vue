@@ -46,6 +46,13 @@ const props = withDefaults(
     required?: boolean
     invalid?: boolean
     disabled?: boolean
+    // Marque certaines LIGNES de la liste comme non sélectionnables (ex :
+    // employé/entité désactivé) sans les retirer de la liste — l'utilisateur
+    // doit voir pourquoi l'option existe mais reste indisponible plutôt
+    // qu'elle disparaisse silencieusement (même principe que le picker de
+    // validateurs dans ApprovalPoolConfig.vue, decision du 30/07).
+    isItemDisabled?: (item: AnyItem) => boolean
+    itemDisabledReason?: (item: AnyItem) => string
   }>(),
   {
     valueKey: 'id',
@@ -149,7 +156,15 @@ function onInputInput(e: Event) {
   if (!dropdownOpen.value) { dropdownOpen.value = true; nextTick(updateDropdownPosition) }
 }
 
+function itemDisabled(item: AnyItem): boolean {
+  return props.isItemDisabled ? props.isItemDisabled(item) : false
+}
+function itemDisabledReason(item: AnyItem): string {
+  return props.itemDisabledReason ? props.itemDisabledReason(item) : ''
+}
+
 function selectItem(item: AnyItem) {
+  if (itemDisabled(item)) return
   emit('update:code', String(item[props.valueKey] ?? ''))
   emit('update:name', String(item[props.nameKey] ?? ''))
   emit('select', item)
@@ -195,6 +210,10 @@ function openFullList() {
   modalSearch.value = ''
   modalPage.value = 1
   loadModalItems()
+}
+function selectFromModalIfEnabled(item: AnyItem) {
+  if (itemDisabled(item)) return
+  selectFromModal(item)
 }
 watch(modalSearch, () => {
   if (modalDebounce) clearTimeout(modalDebounce)
@@ -301,15 +320,16 @@ onUnmounted(() => {
                 <tr
                   v-for="item in listItems"
                   :key="String(item[valueKey])"
-                  class="cursor-pointer transition-colors border-b border-border/50 last:border-0 hover:bg-primary/10 text-foreground"
-                  :class="String(item[valueKey]) === code ? 'bg-primary/10' : ''"
+                  class="transition-colors border-b border-border/50 last:border-0 text-foreground"
+                  :class="itemDisabled(item) ? 'opacity-50 cursor-not-allowed' : (String(item[valueKey]) === code ? 'bg-primary/10 cursor-pointer' : 'cursor-pointer hover:bg-primary/10')"
+                  :title="itemDisabled(item) ? itemDisabledReason(item) : ''"
                   @mousedown.stop.prevent="selectItem(item)"
                 >
                   <td class="w-8 px-2 py-1.5 text-center">
                     <Check v-if="String(item[valueKey]) === code" class="w-4 h-4 text-primary inline-block" />
                   </td>
                   <td v-for="col in columns" :key="col.key" class="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis" :class="col.key === valueKey ? 'font-medium text-primary' : ''">
-                    {{ item[col.key] ?? '' }}
+                    {{ item[col.key] ?? '' }}{{ col.key === nameKey && itemDisabled(item) ? ' (désactivé)' : '' }}
                   </td>
                 </tr>
                 <tr v-if="listItems.length === 0">
@@ -346,11 +366,14 @@ onUnmounted(() => {
               v-else
               v-for="item in modalItems"
               :key="String(item[valueKey])"
-              class="border-b border-border last:border-0 cursor-pointer hover:bg-primary/10"
-              :class="String(item[valueKey]) === code ? 'bg-primary/10' : ''"
-              @click="selectFromModal(item)"
+              class="border-b border-border last:border-0"
+              :class="itemDisabled(item) ? 'opacity-50 cursor-not-allowed' : (String(item[valueKey]) === code ? 'bg-primary/10 cursor-pointer' : 'cursor-pointer hover:bg-primary/10')"
+              :title="itemDisabled(item) ? itemDisabledReason(item) : ''"
+              @click="selectFromModalIfEnabled(item)"
             >
-              <td v-for="col in columns" :key="col.key" class="px-3 py-2 whitespace-nowrap" :class="col.key === valueKey ? 'font-medium text-primary' : 'text-foreground'">{{ item[col.key] ?? '' }}</td>
+              <td v-for="col in columns" :key="col.key" class="px-3 py-2 whitespace-nowrap" :class="col.key === valueKey ? 'font-medium text-primary' : 'text-foreground'">
+                {{ item[col.key] ?? '' }}{{ col.key === nameKey && itemDisabled(item) ? ' (désactivé)' : '' }}
+              </td>
             </tr>
             <tr v-if="!modalLoading && modalItems.length === 0"><td :colspan="columns.length" class="px-3 py-8 text-center text-muted-foreground">Aucun élément</td></tr>
           </tbody>

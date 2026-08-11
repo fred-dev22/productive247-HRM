@@ -22,7 +22,7 @@ const CONFIG: Record<string, PillConfig> = {
   approved:         { label: 'Approuvé',   class: 'bg-success-bg text-success' },
   rejected:         { label: 'Refusé',     class: 'bg-danger-bg text-danger'   },
   cancelled:        { label: 'Annulé',     class: 'bg-neutral-bg text-neutral' },
-  inactive:         { label: 'Inactif',    class: 'bg-neutral-bg text-neutral' },
+  inactive:         { label: 'Désactivé',  class: 'bg-danger-bg text-danger'   },
   active:           { label: 'Actif',      class: 'bg-success-bg text-success' },
   trial:            { label: 'En essai',   class: 'bg-warning-bg text-warning' },
   onleave:          { label: 'En congé',   class: 'bg-info-bg text-info'       },
@@ -34,7 +34,7 @@ const CONFIG: Record<string, PillConfig> = {
   Draft:            { label: 'Brouillon',  class: 'bg-neutral-bg text-neutral' },
   PendingApproval:  { label: 'En attente', class: 'bg-warning-bg text-warning' },
   Active:           { label: 'Approuvé',   class: 'bg-success-bg text-success' },
-  Inactive:         { label: 'Inactif',    class: 'bg-neutral-bg text-neutral' },
+  Inactive:         { label: 'Désactivée', class: 'bg-danger-bg text-danger'   },
 
   // LeaveRequest.Status (backend, PascalCase — voir schema.prisma) — Draft
   // est déjà couvert ci-dessus.

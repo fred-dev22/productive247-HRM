@@ -33,20 +33,23 @@ onMounted(() => {
   if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 })
 
-const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Inactif' }
+const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Désactivé' }
 const GENDER_LABELS: Record<Gender, string> = { M: 'Homme', F: 'Femme' }
 const MARITAL_LABELS: Record<MaritalStatus, string> = { Single: 'Célibataire', Married: 'Marié(e)', Divorced: 'Divorcé(e)', Widowed: 'Veuf / Veuve' }
 const ID_TYPE_LABELS: Record<IdDocumentType, string> = { NationalId: "Carte d'identité nationale", Passport: 'Passeport', ResidencePermit: 'Carte de séjour' }
 
 const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
+// Une entité désactivée reste visible (grisée, non sélectionnable) plutôt
+// que de disparaître — voir même pattern dans EntityCard.vue.
 function fetchEntities({ searchQuery }: LookupFetchParams) {
-  let items = entityStore.approvedEntities
+  let items = entityStore.entities.filter(e => e.status === 'Active' || e.status === 'Inactive')
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q))
   }
   return { items, total: items.length }
 }
+function isEntityDisabled(item: { status?: string }) { return item.status === 'Inactive' }
 
 const positionColumns = [
   { key: 'code', label: 'Code', width: '90px' },
@@ -242,6 +245,7 @@ async function create() {
                 :code="entityCode" :name="form.entityName"
                 value-key="code" name-key="name"
                 :columns="entityColumns" :fetch-fn="fetchEntities"
+                :is-item-disabled="isEntityDisabled" :item-disabled-reason="() => 'entité désactivée'"
                 modal-title="Sélectionner une entité" placeholder="Code entité"
                 @update:code="entityCode = $event" @update:name="form.entityName = $event" @select="onEntitySelect"
               />

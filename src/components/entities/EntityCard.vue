@@ -5,6 +5,7 @@
  * sous-entités, historique.
  */
 import { ref, computed, watch } from 'vue'
+import { Ban, RotateCcw, Trash2 } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
@@ -13,8 +14,10 @@ import EntityWorkflowActions from './EntityWorkflowActions.vue'
 import ApprovalPoolConfig from './ApprovalPoolConfig.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
+import { confirmDialog } from '../../lib/confirm'
 import { useEntityStore } from '../../stores/entities'
 import { useEmployeeStore } from '../../stores/employees'
+import { useAuthStore } from '../../stores/auth'
 import type { Entity, EntityType } from '../../types'
 
 const props = defineProps<{ entities: Entity[]; entityId: string }>()
@@ -22,17 +25,23 @@ const emit = defineEmits<{ close: [] }>()
 
 const store = useEntityStore()
 const empStore = useEmployeeStore()
+const auth = useAuthStore()
 if (empStore.employees.length === 0) empStore.fetchAll()
 
 const TYPE_LABELS: Record<string, string> = { Direction: 'Direction', Department: 'Département', Service: 'Service' }
 const TYPE_BADGE: Record<string, string> = { Direction: 'bg-danger-bg text-danger', Department: 'bg-success-bg text-success', Service: 'bg-primary/10 text-primary' }
 
 const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
+// Une entité désactivée reste visible (grisée, non sélectionnable côté
+// TableLookupField via isEntityDisabled) plutôt que de disparaître —
+// seules les entités jamais approuvées (Draft/PendingApproval) n'ont
+// toujours pas de sens comme parent.
 function fetchParents({ searchQuery }: LookupFetchParams) {
-  let items = store.approvedEntities.filter(e => e.id !== currentId.value)
+  let items = store.entities.filter(e => (e.status === 'Active' || e.status === 'Inactive') && e.id !== currentId.value)
   if (searchQuery) { const q = searchQuery.toLowerCase(); items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q)) }
   return { items, total: items.length }
 }
+function isEntityDisabled(item: { status?: string }) { return item.status === 'Inactive' }
 
 const employeeColumns = [{ key: 'code', label: 'Matricule', width: '90px' }, { key: 'name', label: 'Nom' }]
 function fetchManagers({ searchQuery }: LookupFetchParams) {
@@ -40,6 +49,7 @@ function fetchManagers({ searchQuery }: LookupFetchParams) {
   if (searchQuery) { const q = searchQuery.toLowerCase(); items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q)) }
   return { items, total: items.length }
 }
+function isEmployeeDisabled(item: { status?: string }) { return item.status !== 'active' }
 
 const currentId = ref(props.entityId)
 watch(() => props.entityId, (v) => { currentId.value = v; isEditMode.value = false })
@@ -98,6 +108,52 @@ async function save() {
 
 const pageTitle = computed(() => (current.value ? `${current.value.code} · ${current.value.name}` : ''))
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
+
+/* ── Désactivation / Réactivation / Suppression — jamais mises en avant,
+   toujours en bas de la fiche (decision du 11/08, meme pattern que
+   EmployeeCard.vue). L'entité racine reste protégée (isRoot ci-dessus). ── */
+const deactivating = ref(false)
+async function deactivate() {
+  if (!current.value) return
+  if (!(await confirmDialog(`Désactiver ${current.value.name} ? L'entité ne sera plus active mais reste consultable.`))) return
+  deactivating.value = true
+  try {
+    await store.deactivateEntity(current.value.id)
+  } catch {
+    // store.error porte le message pour l'UI (toast)
+  } finally {
+    deactivating.value = false
+  }
+}
+async function reactivate() {
+  if (!current.value) return
+  deactivating.value = true
+  try {
+    await store.reactivateEntity(current.value.id)
+  } catch {
+    // store.error porte le message pour l'UI (toast)
+  } finally {
+    deactivating.value = false
+  }
+}
+
+const deleting = ref(false)
+async function deletePermanently() {
+  if (!current.value) return
+  if (!(await confirmDialog(
+    `Supprimer définitivement "${current.value.name}" ? Cette entité disparaîtra de toute l'application. Cette action est irréversible.`,
+    { danger: true },
+  ))) return
+  deleting.value = true
+  try {
+    await store.deleteEntityPermanently(current.value.id)
+    emit('close')
+  } catch {
+    // store.error porte le message pour l'UI (toast)
+  } finally {
+    deleting.value = false
+  }
+}
 </script>
 
 <template>
@@ -151,7 +207,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Entité parente</label>
-            <TableLookupField v-if="isEditMode && !isRoot" :code="parentCode" :name="form.parentName" value-key="code" name-key="name" :columns="entityColumns" :fetch-fn="fetchParents" modal-title="Sélectionner l'entité parente" placeholder="Code entité" @update:code="parentCode = $event" @update:name="form.parentName = $event" @select="onParentSelect" />
+            <TableLookupField v-if="isEditMode && !isRoot" :code="parentCode" :name="form.parentName" value-key="code" name-key="name" :columns="entityColumns" :fetch-fn="fetchParents" :is-item-disabled="isEntityDisabled" :item-disabled-reason="() => 'entité désactivée'" modal-title="Sélectionner l'entité parente" placeholder="Code entité" @update:code="parentCode = $event" @update:name="form.parentName = $event" @select="onParentSelect" />
             <div v-else :class="readBox">{{ isRoot ? 'Racine' : (parentEntity?.name ?? 'Racine') }}</div>
           </div>
           <div :class="cls.field">
@@ -173,7 +229,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
         <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Responsable</label>
-            <TableLookupField v-if="isEditMode" :code="managerCode" :name="form.responsibleName" value-key="code" name-key="name" :columns="employeeColumns" :fetch-fn="fetchManagers" modal-title="Sélectionner le responsable" placeholder="Matricule" @update:code="managerCode = $event" @update:name="form.responsibleName = $event" @select="onManagerSelect" />
+            <TableLookupField v-if="isEditMode" :code="managerCode" :name="form.responsibleName" value-key="code" name-key="name" :columns="employeeColumns" :fetch-fn="fetchManagers" :is-item-disabled="isEmployeeDisabled" :item-disabled-reason="() => 'compte désactivé'" modal-title="Sélectionner le responsable" placeholder="Matricule" @update:code="managerCode = $event" @update:name="form.responsibleName = $event" @select="onManagerSelect" />
             <div v-else :class="readBox">{{ current.responsibleName || '—' }}</div>
           </div>
           <div :class="cls.field">
@@ -220,6 +276,34 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           </div>
           <p v-else class="text-xs text-muted-foreground">Aucun employé rattaché à cette entité.</p>
         </FormSection>
+
+        <!-- Désactivation / Réactivation / Suppression -->
+        <div v-if="!isRoot" class="flex justify-end gap-2 mt-1">
+          <button
+            v-if="current.status === 'Active' && auth.hasPermission('ENTITE_DESACTIVER')"
+            :class="[cls.btnOutline, '!text-danger !border-danger/30 hover:!bg-danger-bg']"
+            :disabled="deactivating"
+            @click="deactivate"
+          >
+            <Ban class="w-3.5 h-3.5" /> {{ deactivating ? 'Désactivation…' : 'Désactiver cette entité' }}
+          </button>
+          <button
+            v-if="current.status === 'Inactive' && auth.hasPermission('ENTITE_DESACTIVER')"
+            :class="[cls.btnOutline, '!text-success !border-success/30 hover:!bg-success-bg']"
+            :disabled="deactivating"
+            @click="reactivate"
+          >
+            <RotateCcw class="w-3.5 h-3.5" /> {{ deactivating ? 'Réactivation…' : 'Réactiver cette entité' }}
+          </button>
+          <button
+            v-if="auth.hasPermission('ENTITE_SUPPRIMER')"
+            :class="cls.btnDestructive"
+            :disabled="deleting"
+            @click="deletePermanently"
+          >
+            <Trash2 class="w-3.5 h-3.5" /> {{ deleting ? 'Suppression…' : 'Supprimer définitivement' }}
+          </button>
+        </div>
       </div>
     </template>
   </CardModalShell>

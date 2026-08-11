@@ -17,6 +17,7 @@ import { useExpenseStore } from '../../stores/expenses'
 import type { ExpenseLinePayload } from '../../stores/expenses'
 import { useMissionConfigStore } from '../../stores/missionConfig'
 import { useAttachmentStore } from '../../stores/attachments'
+import { useAuthStore } from '../../stores/auth'
 import { confirmDialog } from '../../lib/confirm'
 import type { ExpenseReport } from '../../types'
 
@@ -26,6 +27,7 @@ const emit = defineEmits<{ close: [] }>()
 const expenseStore = useExpenseStore()
 const missionConfigStore = useMissionConfigStore()
 const attachmentStore = useAttachmentStore()
+const auth = useAuthStore()
 if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
 
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
@@ -177,6 +179,27 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
 const th = 'text-left px-2.5 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border'
 const td = 'px-2.5 py-2 border-b border-border'
 const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs text-foreground outline-none focus:border-primary'
+
+// Suppression definitive (Lot I) — jamais mise en avant, toujours en bas de
+// la fiche (decision du 11/08, meme pattern que EmployeeCard.vue). Disponible
+// quel que soit le statut courant de la note de frais.
+const deleting = ref(false)
+async function deletePermanently() {
+  if (!current.value) return
+  if (!(await confirmDialog(
+    `Supprimer définitivement cette note de frais (${current.value.referenceCode}) ? Elle disparaîtra de toute l'application. Cette action est irréversible.`,
+    { danger: true },
+  ))) return
+  deleting.value = true
+  try {
+    await expenseStore.deletePermanently(current.value.id)
+    emit('close')
+  } catch {
+    // expenseStore.error porte le message pour l'UI (toast)
+  } finally {
+    deleting.value = false
+  }
+}
 </script>
 
 <template>
@@ -367,6 +390,13 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
         <FormSection v-if="validationHistory?.length" title="Historique de validation">
           <ValidationTimeline :history="validationHistory" />
         </FormSection>
+
+        <!-- Suppression définitive -->
+        <div v-if="auth.hasPermission('FRAIS_SUPPRIMER')" class="flex justify-end mt-1">
+          <button :class="cls.btnDestructive" :disabled="deleting" @click="deletePermanently">
+            <Trash2 class="w-3.5 h-3.5" /> {{ deleting ? 'Suppression…' : 'Supprimer définitivement' }}
+          </button>
+        </div>
       </div>
     </template>
   </CardModalShell>

@@ -30,7 +30,7 @@ const STATUS_OPTIONS = [
   { value: 'Active', label: 'Actif' },
   { value: 'OnTrial', label: "Période d'essai" },
   { value: 'OnLeave', label: 'En congé' },
-  { value: 'Inactive', label: 'Inactif' },
+  { value: 'Inactive', label: 'Désactivé' },
 ]
 
 export function buildEmployeeImportConfig(): ImportConfig {

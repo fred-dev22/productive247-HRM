@@ -53,7 +53,7 @@ const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
 const employeeItems = computed(() =>
   employeeStore.directory
     .filter(e => e.id !== auth.user?.id)
-    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg, status: e.status })),
 )
 
 // Carte "bénéficiaire" en lecture seule quand ForWhomSelector n'affiche pas
@@ -90,7 +90,11 @@ watch(beneficiaryId, (id) => { if (id) calendarStore.fetchCalendar(id) }, { imme
 const interimItems = computed(() =>
   employeeStore.directory
     .filter(e => e.id !== beneficiaryId.value)
-    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+    .map(e => ({
+      id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg,
+      itemDisabled: e.status !== 'active',
+      disabledReason: e.status !== 'active' ? 'compte désactivé' : undefined,
+    })),
 )
 
 const leaveTypeItems = computed(() =>

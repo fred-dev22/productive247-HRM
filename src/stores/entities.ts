@@ -224,5 +224,23 @@ export const useEntityStore = defineStore('entities', {
     async reactivateEntity(id: string) {
       await this.updateEntity(id, { status: 'Active' })
     },
+
+    // DELETE /organization-units/:id/permanent (Lot I) — suppression
+    // définitive, distincte de deactivateEntity ci-dessus (Status=Inactive,
+    // réversible depuis l'app). Retirée du tableau local : contrairement à
+    // la désactivation, une entité supprimée ne doit plus jamais réapparaître
+    // dans l'app — seul un dev peut la restaurer en base.
+    async deleteEntityPermanently(id: string) {
+      this.error = null
+      return withToast('Suppression en cours…', async () => {
+        try {
+          await api.delete(`/organization-units/${id}/permanent`)
+          this.entities = this.entities.filter(e => e.id !== id)
+        } catch (err) {
+          this.error = getApiErrorMessage(err, "Impossible de supprimer cette unité")
+          throw err
+        }
+      }, () => this.error ?? "Impossible de supprimer cette unité")
+    },
   },
 })

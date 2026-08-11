@@ -352,6 +352,23 @@ export const useMissionStore = defineStore('missions', () => {
     }, () => error.value ?? "Impossible de supprimer l'ordre de mission")
   }
 
+  // DELETE /mission-orders/:id/permanent (Lot I) — suppression définitive,
+  // distincte de remove() ci-dessus (réservée aux brouillons). Ici, un ordre
+  // dans n'importe quel statut peut être caché de tout l'app — seul un dev
+  // peut le restaurer en base.
+  async function deletePermanently(id: string) {
+    error.value = null
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/mission-orders/${id}/permanent`)
+        removeEverywhere(id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de supprimer l'ordre de mission")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de supprimer l'ordre de mission")
+  }
+
   async function approve(id: string, comment?: string) {
     error.value = null
     return withToast('Validation en cours…', async () => {
@@ -418,7 +435,7 @@ export const useMissionStore = defineStore('missions', () => {
   return {
     mine, team, all, pendingForMe, loading, error,
     fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchOne, estimate,
-    create, submit, createAndSubmit, saveDraft, update, remove,
+    create, submit, createAndSubmit, saveDraft, update, remove, deletePermanently,
     approve, reject, returnMission, cancel,
   }
 })

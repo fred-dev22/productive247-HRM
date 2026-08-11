@@ -104,7 +104,7 @@ const myEntityId = computed(() => auth.user?.entityId ?? '')
 const entityName = computed(() => myEntityId.value ? (entityStore.getEntityById(myEntityId.value)?.name ?? '') : '')
 
 const teamMembers = computed(() =>
-  myEntityId.value ? employeeStore.employees.filter(e => e.entityId === myEntityId.value && e.id !== auth.user?.id) : [],
+  myEntityId.value ? employeeStore.team.filter(e => e.entityId === myEntityId.value && e.id !== auth.user?.id) : [],
 )
 
 const sortFieldMap: Record<string, keyof Employee> = { name: 'name', jobTitle: 'jobTitle', entityName: 'entityName' }

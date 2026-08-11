@@ -4,7 +4,7 @@
  * frontdesk. Sélection de l'entité via TableLookupField (vraie entité).
  */
 import { ref, computed, watch } from 'vue'
-import { ShieldCheck, KeyRound, UserX } from 'lucide-vue-next'
+import { ShieldCheck, KeyRound, UserX, RotateCcw, Trash2 } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -38,21 +38,24 @@ if (positionStore.positions.length === 0) positionStore.fetchAll()
 if (permissionStore.permissions.length === 0) permissionStore.fetchAll()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
-const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Inactif' }
+const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Désactivé' }
 function categoryName(id?: string): string {
   if (!id) return '—'
   return categoryStore.categories.find(c => c.id === id)?.name ?? '—'
 }
 
 const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
+// Une entité désactivée reste visible (grisée, non sélectionnable) plutôt
+// que de disparaître — voir même pattern dans EntityCard.vue.
 function fetchEntities({ searchQuery }: LookupFetchParams) {
-  let items = entityStore.approvedEntities
+  let items = entityStore.entities.filter(e => e.status === 'Active' || e.status === 'Inactive')
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q))
   }
   return { items, total: items.length }
 }
+function isEntityDisabled(item: { status?: string }) { return item.status === 'Inactive' }
 
 const positionColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'title', label: 'Poste' }]
 function fetchPositions({ searchQuery }: LookupFetchParams) {
@@ -188,6 +191,12 @@ async function toggleUserPermission(permissionId: string, checked: boolean) {
 }
 
 /* ── Désactivation ──────────────────────────────────────────────── */
+// Personne ne peut désactiver/supprimer son propre compte — sinon on se
+// coupe soi-même l'accès sans possibilité de revenir en arrière depuis
+// l'app (le backend refuse déjà la requête, ceci évite juste l'aller-retour
+// pour rien). Voir mêmes gardes côté employee.service.ts (remove/update/
+// softDelete).
+const isSelf = computed(() => !!current.value && current.value.id === auth.user?.id)
 const deactivating = ref(false)
 async function deactivate() {
   if (!current.value) return
@@ -199,6 +208,39 @@ async function deactivate() {
     // store.error porte le message pour l'UI (toast)
   } finally {
     deactivating.value = false
+  }
+}
+
+/* ── Réactivation ───────────────────────────────────────────────── */
+const reactivating = ref(false)
+async function reactivate() {
+  if (!current.value) return
+  reactivating.value = true
+  try {
+    await store.reactivateEmployee(current.value.id)
+  } catch {
+    // store.error porte le message pour l'UI (toast)
+  } finally {
+    reactivating.value = false
+  }
+}
+
+/* ── Suppression définitive (Lot I) ──────────────────────────────── */
+const deleting = ref(false)
+async function deletePermanently() {
+  if (!current.value) return
+  if (!(await confirmDialog(
+    `Supprimer définitivement ${current.value.name} ? Cet employé disparaîtra de toute l'application. Cette action est irréversible.`,
+    { danger: true },
+  ))) return
+  deleting.value = true
+  try {
+    await store.deleteEmployeePermanently(current.value.id)
+    emit('close')
+  } catch {
+    // store.error porte le message pour l'UI (toast)
+  } finally {
+    deleting.value = false
   }
 }
 </script>
@@ -281,6 +323,7 @@ async function deactivate() {
               :code="entityCode" :name="form.entityName"
               value-key="code" name-key="name"
               :columns="entityColumns" :fetch-fn="fetchEntities"
+              :is-item-disabled="isEntityDisabled" :item-disabled-reason="() => 'entité désactivée'"
               modal-title="Sélectionner une entité" placeholder="Code entité"
               @update:code="entityCode = $event" @update:name="form.entityName = $event" @select="onEntitySelect"
             />
@@ -327,11 +370,22 @@ async function deactivate() {
         <FormSection title="Accès système">
         <div class="flex items-center justify-between gap-3 bg-background border border-border rounded-lg px-4 py-3">
           <div class="flex items-center gap-2.5">
-            <ShieldCheck v-if="current.hasAccount" class="w-4 h-4 text-success shrink-0" />
+            <ShieldCheck v-if="current.hasAccount && current.status !== 'inactive'" class="w-4 h-4 text-success shrink-0" />
+            <UserX v-else-if="current.hasAccount" class="w-4 h-4 text-danger shrink-0" />
             <KeyRound v-else class="w-4 h-4 text-muted-foreground shrink-0" />
             <div>
-              <div class="text-[13px] font-medium text-foreground">{{ current.hasAccount ? 'Compte actif' : 'Aucun compte' }}</div>
-              <div class="text-[11px] text-muted-foreground">{{ current.hasAccount ? 'Cet employé peut se connecter à l\'application' : 'Cet employé n\'a pas encore accès à l\'application' }}</div>
+              <div class="text-[13px] font-medium text-foreground">
+                {{ !current.hasAccount ? 'Aucun compte' : current.status === 'inactive' ? 'Compte bloqué' : 'Compte actif' }}
+              </div>
+              <div class="text-[11px] text-muted-foreground">
+                {{
+                  !current.hasAccount
+                    ? 'Cet employé n\'a pas encore accès à l\'application'
+                    : current.status === 'inactive'
+                      ? 'Employé désactivé — il ne peut plus se connecter à l\'application'
+                      : 'Cet employé peut se connecter à l\'application'
+                }}
+              </div>
             </div>
           </div>
           <button v-if="!current.hasAccount && auth.hasPermission('EMPLOYE_COMPTE_CREER')" :class="[cls.btnOutline, '!px-3 !py-1.5 !text-xs shrink-0']" @click="showCreateAccount = true">
@@ -368,10 +422,34 @@ async function deactivate() {
           </div>
         </FormSection>
 
-        <!-- Désactivation -->
-        <div v-if="current.status !== 'inactive' && auth.hasPermission('EMPLOYE_DESACTIVER')" class="flex justify-end mt-1">
-          <button :class="[cls.btnOutline, '!text-danger !border-danger/30 hover:!bg-danger-bg']" :disabled="deactivating" @click="deactivate">
+        <!-- Désactivation / Réactivation / Suppression -->
+        <div v-if="isSelf" class="text-[11px] text-muted-foreground text-right mt-1">
+          Vous ne pouvez pas désactiver ou supprimer votre propre compte.
+        </div>
+        <div v-else class="flex justify-end gap-2 mt-1">
+          <button
+            v-if="current.status !== 'inactive' && auth.hasPermission('EMPLOYE_DESACTIVER')"
+            :class="[cls.btnOutline, '!text-danger !border-danger/30 hover:!bg-danger-bg']"
+            :disabled="deactivating"
+            @click="deactivate"
+          >
             <UserX class="w-3.5 h-3.5" /> {{ deactivating ? 'Désactivation…' : 'Désactiver cet employé' }}
+          </button>
+          <button
+            v-if="current.status === 'inactive' && auth.hasPermission('EMPLOYE_DESACTIVER')"
+            :class="[cls.btnOutline, '!text-success !border-success/30 hover:!bg-success-bg']"
+            :disabled="reactivating"
+            @click="reactivate"
+          >
+            <RotateCcw class="w-3.5 h-3.5" /> {{ reactivating ? 'Réactivation…' : 'Réactiver cet employé' }}
+          </button>
+          <button
+            v-if="auth.hasPermission('EMPLOYE_SUPPRIMER')"
+            :class="cls.btnDestructive"
+            :disabled="deleting"
+            @click="deletePermanently"
+          >
+            <Trash2 class="w-3.5 h-3.5" /> {{ deleting ? 'Suppression…' : 'Supprimer définitivement' }}
           </button>
         </div>
       </div>

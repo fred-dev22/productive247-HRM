@@ -29,6 +29,8 @@
         modal-title="Sélectionner un employé"
         placeholder="Code employé"
         :invalid="!!errorEmployee"
+        :is-item-disabled="(item) => item.status && item.status !== 'active'"
+        :item-disabled-reason="() => 'compte désactivé'"
         @select="onSelect"
       />
       <div v-if="errorEmployee" class="text-[11px] text-danger">{{ errorEmployee }}</div>
@@ -54,6 +56,7 @@ interface EmployeeItem {
   code?: string
   initials?: string
   avatarColor?: string
+  status?: string
 }
 
 const props = defineProps<{

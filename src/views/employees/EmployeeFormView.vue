@@ -117,8 +117,12 @@
                   <label :class="cls.fieldLabel">{{ t('employee.field_entity') }} *</label>
                   <select v-model="form.entityId" :class="[cls.fieldSelect, err.entityId && cls.inputError]" @change="onEntityChange">
                     <option value="">{{ t('employee.placeholder_entity') }}</option>
-                    <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">
-                      {{ e.code }} · {{ e.name }}
+                    <option
+                      v-for="e in entityStore.entities.filter(x => x.status === 'Active' || x.status === 'Inactive')" :key="e.id" :value="e.id"
+                      :disabled="e.status === 'Inactive'"
+                      :title="e.status === 'Inactive' ? 'Entité désactivée' : ''"
+                    >
+                      {{ e.code }} · {{ e.name }}{{ e.status === 'Inactive' ? ' (désactivée)' : '' }}
                     </option>
                   </select>
                   <div v-if="err.entityId" :class="cls.fieldError">{{ err.entityId }}</div>

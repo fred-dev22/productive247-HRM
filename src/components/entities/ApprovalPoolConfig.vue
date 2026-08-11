@@ -247,9 +247,9 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
               <optgroup v-for="grp in validatorsByCategory" :key="grp.label" :label="grp.label">
                 <option
                   v-for="e in grp.employees" :key="e.id" :value="e.id"
-                  :disabled="!e.hasAccount || !canValidate(e) || isAssignedAtOtherLevel(e.id, level)"
-                  :title="!e.hasAccount ? 'Cet employé n\'a pas de compte utilisateur, il ne peut pas se connecter pour approuver.' : !canValidate(e) ? 'La catégorie de cet employé n\'a pas la permission de validation pour ce type de demande, il ne pourra pas voir ni traiter la file « À valider ».' : isAssignedAtOtherLevel(e.id, level) ? 'Déjà validateur à un autre niveau de ce pool.' : ''"
-                >{{ e.name }} · {{ e.jobTitle }}{{ !e.hasAccount ? ' (pas de compte)' : !canValidate(e) ? ' (permission manquante)' : isAssignedAtOtherLevel(e.id, level) ? ' (déjà à un autre niveau)' : '' }}</option>
+                  :disabled="e.status !== 'active' || !e.hasAccount || !canValidate(e) || isAssignedAtOtherLevel(e.id, level)"
+                  :title="e.status !== 'active' ? 'Ce compte est désactivé.' : !e.hasAccount ? 'Cet employé n\'a pas de compte utilisateur, il ne peut pas se connecter pour approuver.' : !canValidate(e) ? 'La catégorie de cet employé n\'a pas la permission de validation pour ce type de demande, il ne pourra pas voir ni traiter la file « À valider ».' : isAssignedAtOtherLevel(e.id, level) ? 'Déjà validateur à un autre niveau de ce pool.' : ''"
+                >{{ e.name }} · {{ e.jobTitle }}{{ e.status !== 'active' ? ' (compte désactivé)' : !e.hasAccount ? ' (pas de compte)' : !canValidate(e) ? ' (permission manquante)' : isAssignedAtOtherLevel(e.id, level) ? ' (déjà à un autre niveau)' : '' }}</option>
               </optgroup>
             </select>
           </template>
@@ -261,7 +261,11 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
             <label :class="cls.fieldLabel">Intérimaire</label>
             <select v-model="interimForm.interimEmployeeId" :class="cls.fieldSelect">
               <option value="">-- Aucun --</option>
-              <option v-for="e in interimCandidates.filter(x => x.id !== memberAt(level)!.employeeId)" :key="e.id" :value="e.id">{{ e.name }}</option>
+              <option
+                v-for="e in interimCandidates.filter(x => x.id !== memberAt(level)!.employeeId)" :key="e.id" :value="e.id"
+                :disabled="e.status !== 'active'"
+                :title="e.status !== 'active' ? 'Ce compte est désactivé.' : ''"
+              >{{ e.name }}{{ e.status !== 'active' ? ' (compte désactivé)' : '' }}</option>
             </select>
             <p class="text-[11px] text-muted-foreground mt-1">
               Utilisé automatiquement quand ce validateur a un congé approuvé couvrant le jour où une demande lui arrive, pas besoin de préciser de dates.

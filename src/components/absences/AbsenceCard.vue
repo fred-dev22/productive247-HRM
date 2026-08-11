@@ -18,6 +18,7 @@ import { formatDate } from '../../lib/date'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useAttachmentStore } from '../../stores/attachments'
+import { useAuthStore } from '../../stores/auth'
 import { confirmDialog } from '../../lib/confirm'
 import type { LeaveRequest } from '../../types'
 
@@ -33,9 +34,15 @@ const emit = defineEmits<{ close: [] }>()
 const store = useLeaveRequestStore()
 const leaveTypesStore = useLeaveTypesStore()
 const attachmentStore = useAttachmentStore()
+const auth = useAuthStore()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 
 function leaveNo(l: LeaveRequest) { return l.referenceCode }
+
+// Une fois approuvee (ou tout statut derive), une demande ne doit plus
+// pouvoir etre supprimee definitivement — meme regle cote backend
+// (leave-request.service.ts softDelete).
+const APPROVED_LINEAGE: LeaveRequest['status'][] = ['Approved', 'Registered', 'Done', 'Regularized']
 
 // Le préavis minimum n'est plus bloquant à la soumission (decision du
 // 01/08) — avertissement visible sur la fiche pour le validateur.
@@ -158,6 +165,27 @@ async function save() {
 
 const pageTitle = computed(() => (current.value ? `${leaveNo(current.value)} · ${current.value.employeeName}` : ''))
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
+
+// Suppression definitive (Lot I) — jamais mise en avant, toujours en bas de
+// la fiche (decision du 11/08, meme pattern que EmployeeCard.vue). Disponible
+// quel que soit le statut courant de la demande.
+const deleting = ref(false)
+async function deletePermanently() {
+  if (!current.value) return
+  if (!(await confirmDialog(
+    `Supprimer définitivement cette demande (${leaveNo(current.value)}) ? Elle disparaîtra de toute l'application. Cette action est irréversible.`,
+    { danger: true },
+  ))) return
+  deleting.value = true
+  try {
+    await store.deletePermanently(current.value.id)
+    emit('close')
+  } catch {
+    // store.error porte le message pour l'UI (toast)
+  } finally {
+    deleting.value = false
+  }
+}
 </script>
 
 <template>
@@ -312,6 +340,15 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
         <FormSection v-if="validationHistory?.length" title="Historique de validation">
           <ValidationTimeline :history="validationHistory" />
         </FormSection>
+
+        <!-- Suppression définitive — jamais possible une fois approuvée
+             (Approved/Registered/Done/Regularized) : c'est la trace qui
+             justifie le solde de congés consommé. -->
+        <div v-if="auth.hasPermission('CONGE_SUPPRIMER') && !APPROVED_LINEAGE.includes(current.status)" class="flex justify-end mt-1">
+          <button :class="cls.btnDestructive" :disabled="deleting" @click="deletePermanently">
+            <Trash2 class="w-3.5 h-3.5" /> {{ deleting ? 'Suppression…' : 'Supprimer définitivement' }}
+          </button>
+        </div>
       </div>
     </template>
   </CardModalShell>
