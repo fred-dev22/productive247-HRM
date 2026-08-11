@@ -15,6 +15,7 @@ export interface LeaveTypeConfig {
   daysPerYear:       number
   daysPerMonth?:     number
   documentRequired:  boolean
+  documentDeadlineHours?: number
   carryOverAllowed?: boolean
   carryOverCap?:     number
   noticeDays:        number
@@ -33,6 +34,7 @@ interface BackendLeaveType {
   DaysPerYear: number
   DaysPerMonth: number | null
   DocumentRequired: boolean
+  DocumentDeadlineHours: number | null
   CarryOverAllowed: boolean
   CarryOverCap: number
   MinNoticeDays: number
@@ -62,6 +64,7 @@ function mapLeaveType(raw: BackendLeaveType): LeaveTypeConfig {
     daysPerYear: Number(raw.DaysPerYear),
     daysPerMonth: raw.DaysPerMonth != null ? Number(raw.DaysPerMonth) : undefined,
     documentRequired: raw.DocumentRequired,
+    documentDeadlineHours: raw.DocumentDeadlineHours ?? undefined,
     carryOverAllowed: raw.CarryOverAllowed,
     carryOverCap: raw.CarryOverCap,
     noticeDays: raw.MinNoticeDays,
@@ -81,6 +84,7 @@ function toBackendPayload(payload: Partial<LeaveTypeConfig>) {
   if (payload.daysPerYear !== undefined) body.DaysPerYear = payload.daysPerYear
   if (payload.daysPerMonth !== undefined) body.DaysPerMonth = payload.daysPerMonth
   if (payload.documentRequired !== undefined) body.DocumentRequired = payload.documentRequired
+  if (payload.documentDeadlineHours !== undefined) body.DocumentDeadlineHours = payload.documentDeadlineHours
   if (payload.carryOverAllowed !== undefined) body.CarryOverAllowed = payload.carryOverAllowed
   if (payload.carryOverCap !== undefined) body.CarryOverCap = payload.carryOverCap
   if (payload.noticeDays !== undefined) body.MinNoticeDays = payload.noticeDays

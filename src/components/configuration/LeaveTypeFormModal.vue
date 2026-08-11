@@ -32,6 +32,7 @@ const form = reactive({
   daysPerMonth:     undefined as number | undefined,
   noticeDays:       0,
   documentRequired: false,
+  documentDeadlineHours: undefined as number | undefined,
   workflowType:     'Standard' as 'Standard' | 'Medical',
   isActive:         true,
   isSystem:         false,
@@ -65,6 +66,7 @@ function populate() {
       form.daysPerMonth     = lt.daysPerMonth
       form.noticeDays       = lt.noticeDays
       form.documentRequired = lt.documentRequired
+      form.documentDeadlineHours = lt.documentDeadlineHours
       form.workflowType     = lt.workflowType
       form.isActive         = lt.isActive
       form.isSystem         = lt.isSystem
@@ -73,7 +75,7 @@ function populate() {
   } else {
     Object.assign(form, {
       name:'', code:'', daysPerYear:0, daysPerMonth:undefined,
-      noticeDays:0, documentRequired:false, workflowType:'Standard',
+      noticeDays:0, documentRequired:false, documentDeadlineHours:undefined, workflowType:'Standard',
       isActive:true, isSystem:false, color:'#006B3C',
     })
   }
@@ -102,6 +104,7 @@ async function handleSave() {
     daysPerMonth:     form.daysPerMonth,
     noticeDays:       form.noticeDays,
     documentRequired: form.documentRequired,
+    documentDeadlineHours: form.documentRequired ? form.documentDeadlineHours : undefined,
     workflowType:     form.workflowType,
     isActive:         form.isActive,
     isSystem:         form.isSystem,
@@ -214,6 +217,10 @@ async function handleSave() {
                   <input type="checkbox" class="sr-only peer" v-model="form.documentRequired" />
                   <span class="w-9 h-5 rounded-full bg-foreground/20 transition-colors peer-checked:bg-primary relative after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:w-3.5 after:h-3.5 after:bg-white after:rounded-full after:shadow after:transition-all peer-checked:after:left-[19px]"></span>
                 </label>
+              </div>
+              <div v-if="form.documentRequired" :class="cls.field">
+                <label :class="cls.fieldLabel">Délai de soumission du justificatif (heures)</label>
+                <input type="number" min="1" v-model.number="form.documentDeadlineHours" :class="cls.fieldInput" placeholder="ex: 48" />
               </div>
               <div v-if="!isEdit" class="col-span-2 flex items-start gap-2.5 bg-info-bg rounded-md px-3 py-2.5">
                 <input id="credit-existing" type="checkbox" class="accent-primary mt-0.5" v-model="creditExisting" />

@@ -134,6 +134,68 @@
           </p>
         </div>
 
+        <!-- Section 3 : Plafonds des notes de frais (independant d'une mission) -->
+        <div :class="L.tableCard">
+          <div class="px-5 pt-4">
+            <h2 class="text-[15px] font-semibold text-foreground">Plafonds des notes de frais</h2>
+            <p class="text-[11px] text-muted-foreground mt-0.5">Montant maximum remboursable par catégorie d'employé, indépendamment d'une mission — laissez vide pour aucun plafond.</p>
+          </div>
+
+          <div class="overflow-x-auto pb-1 mt-2">
+            <table class="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <th :class="thUpper">Catégorie</th>
+                  <th :class="thUpper">Plafond</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-for="ft in store.expenseTypes" :key="'ceiling-' + ft.id">
+                  <tr class="bg-background">
+                    <td :class="tdCell" colspan="2">
+                      <span class="font-medium text-foreground">{{ ft.name }}</span>
+                    </td>
+                  </tr>
+                  <tr v-for="cat in store.categories" :key="cat.id" class="hover:bg-background">
+                    <td :class="tdCell">{{ cat.name }}</td>
+                    <td :class="tdCell">
+                      <template v-if="editingCeiling?.feeId === ft.id && editingCeiling?.catId === cat.id">
+                        <input
+                          type="number"
+                          min="0"
+                          class="w-[90px] h-7 px-1.5 border border-primary rounded text-[13px] bg-card outline-none"
+                          :value="getCeilingAmount(ft.id, cat.id)"
+                          @change="onCeilingAmountChange(ft.id, cat.id, $event)"
+                          @blur="editingCeiling = null"
+                          ref="ceilingInputRef"
+                        />
+                      </template>
+                      <template v-else>
+                        <span
+                          v-if="getCeilingAmount(ft.id, cat.id) === 0"
+                          class="text-[11px] font-semibold bg-info-bg text-info rounded px-[7px] py-0.5 cursor-pointer whitespace-nowrap hover:opacity-75"
+                          @click="startEditCeiling(ft.id, cat.id)"
+                        >Aucun plafond</span>
+                        <span
+                          v-else
+                          class="text-[13px] font-medium text-foreground cursor-pointer whitespace-nowrap hover:text-primary"
+                          @click="startEditCeiling(ft.id, cat.id)"
+                        >{{ fmt(getCeilingAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">{{ getCeilingCurrency(ft.id, cat.id) }}</span></span>
+                      </template>
+                    </td>
+                  </tr>
+                </template>
+                <tr v-if="store.expenseTypes.length === 0">
+                  <td colspan="2" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-[11px] text-muted-foreground px-4 pt-2 pb-3">
+            Cliquez sur un montant pour le modifier. La soumission d'une note de frais dont une ligne dépasse ce plafond est bloquée.
+          </p>
+        </div>
+
         </template>
 
   </div>
@@ -202,6 +264,7 @@ const initialLoading = ref(true)
     store.categories.length === 0 ? store.fetchCategories() : Promise.resolve(),
     store.expenseTypes.length === 0 ? store.fetchExpenseTypes() : Promise.resolve(),
     store.configs.length === 0 ? store.fetchConfigs() : Promise.resolve(),
+    store.ceilings.length === 0 ? store.fetchCeilings() : Promise.resolve(),
   ])
   initialLoading.value = false
 })()
@@ -256,6 +319,25 @@ function onAmountChange(feeId: string, catId: string, event: Event) {
 
 function toggleDocRequired(feeId: string, catId: string) {
   store.upsertConfig(feeId, catId, selectedMissionCategory.value, { documentRequired: !isDocRequired(feeId, catId) })
+}
+
+// ── Plafonds des notes de frais (Categorie x Type, sans dimension mission) ──
+const editingCeiling = ref<{ feeId: string; catId: string } | null>(null)
+const ceilingInputRef = ref<HTMLInputElement | null>(null)
+
+function getCeilingAmount(feeId: string, catId: string): number {
+  return store.getCeiling(feeId, catId)?.maxAmount ?? 0
+}
+function getCeilingCurrency(feeId: string, catId: string): string {
+  return store.getCeiling(feeId, catId)?.currency ?? 'MGA'
+}
+function startEditCeiling(feeId: string, catId: string) {
+  editingCeiling.value = { feeId, catId }
+  nextTick(() => ceilingInputRef.value?.focus())
+}
+function onCeilingAmountChange(feeId: string, catId: string, event: Event) {
+  const val = Number((event.target as HTMLInputElement).value)
+  store.upsertCeiling(feeId, catId, { maxAmount: val })
 }
 
 // ── Modal type de frais ──
