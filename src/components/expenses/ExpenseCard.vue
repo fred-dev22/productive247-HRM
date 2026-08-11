@@ -180,6 +180,10 @@ const th = 'text-left px-2.5 py-2 text-[11px] font-bold text-muted-foreground up
 const td = 'px-2.5 py-2 border-b border-border'
 const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs text-foreground outline-none focus:border-primary'
 
+// Une note approuvee (ou remboursee) ne doit plus pouvoir etre supprimee —
+// meme regle cote backend (expense-report.service.ts softDelete).
+const APPROVED_LINEAGE: ExpenseReport['status'][] = ['Approved', 'Reimbursed']
+
 // Suppression definitive (Lot I) — jamais mise en avant, toujours en bas de
 // la fiche (decision du 11/08, meme pattern que EmployeeCard.vue). Disponible
 // quel que soit le statut courant de la note de frais.
@@ -392,7 +396,7 @@ async function deletePermanently() {
         </FormSection>
 
         <!-- Suppression définitive -->
-        <div v-if="auth.hasPermission('FRAIS_SUPPRIMER')" class="flex justify-end mt-1">
+        <div v-if="auth.hasPermission('FRAIS_SUPPRIMER') && !APPROVED_LINEAGE.includes(current.status)" class="flex justify-end mt-1">
           <button :class="cls.btnDestructive" :disabled="deleting" @click="deletePermanently">
             <Trash2 class="w-3.5 h-3.5" /> {{ deleting ? 'Suppression…' : 'Supprimer définitivement' }}
           </button>

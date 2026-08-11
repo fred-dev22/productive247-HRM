@@ -123,6 +123,10 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
 const th = 'text-left px-2.5 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.05em] bg-background border-b border-border'
 const td = 'px-2.5 py-2 border-b border-border'
 
+// Un ordre approuve ne doit plus pouvoir etre supprime — meme regle cote
+// backend (mission-order.service.ts softDelete).
+const APPROVED_LINEAGE: MissionOrder['status'][] = ['Approved']
+
 // Suppression definitive (Lot I) — jamais mise en avant, toujours en bas de
 // la fiche (decision du 11/08, meme pattern que EmployeeCard.vue). Disponible
 // quel que soit le statut courant de l'ordre de mission.
@@ -292,7 +296,7 @@ async function deletePermanently() {
         </FormSection>
 
         <!-- Suppression définitive -->
-        <div v-if="auth.hasPermission('MISSION_SUPPRIMER')" class="flex justify-end mt-1">
+        <div v-if="auth.hasPermission('MISSION_SUPPRIMER') && !APPROVED_LINEAGE.includes(current.status)" class="flex justify-end mt-1">
           <button :class="cls.btnDestructive" :disabled="deleting" @click="deletePermanently">
             <Trash2 class="w-3.5 h-3.5" /> {{ deleting ? 'Suppression…' : 'Supprimer définitivement' }}
           </button>
