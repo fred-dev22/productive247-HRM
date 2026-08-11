@@ -21,6 +21,7 @@ export interface EmployeeCategory {
   description: string
   isActive: boolean
   permissions: CategoryPermission[]
+  employeeCount: number
 }
 
 interface BackendPermission {
@@ -42,6 +43,7 @@ interface BackendEmployeeCategory {
   Description: string | null
   IsActive: boolean
   categoryPermissions?: BackendCategoryPermission[]
+  _count?: { employees: number }
 }
 
 function mapCategory(raw: BackendEmployeeCategory): EmployeeCategory {
@@ -57,6 +59,7 @@ function mapCategory(raw: BackendEmployeeCategory): EmployeeCategory {
       label: cp.permission.Label,
       module: cp.permission.Module,
     })),
+    employeeCount: raw._count?.employees ?? 0,
   }
 }
 

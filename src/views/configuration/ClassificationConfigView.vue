@@ -35,6 +35,7 @@
       <div v-else :class="L.tableCard">
         <DataTable :columns="catColumns" :rows="catStore.categories" row-key="id">
           <template #cell-permissions="{ row }">{{ row.permissions.length }} permission(s)</template>
+          <template #cell-employeeCount="{ row }">{{ row.employeeCount }} employé(s)</template>
           <template #cell-isActive="{ row }">
             <span :class="row.isActive ? 'text-success' : 'text-muted-foreground'">{{ row.isActive ? 'Actif' : 'Inactif' }}</span>
           </template>
@@ -368,11 +369,12 @@ if (catStore.categories.length === 0) catStore.fetchAll()
 if (permStore.permissions.length === 0) permStore.fetchAll()
 
 const catColumns = [
-  { key: 'code',        label: 'Code',         width: '100px' },
-  { key: 'name',        label: 'Libellé' },
-  { key: 'permissions', label: 'Permissions',  width: '130px' },
-  { key: 'isActive',    label: 'Statut',       width: '90px', align: 'center' as const },
-  { key: 'actions',     label: 'Actions',      width: '110px', align: 'center' as const },
+  { key: 'code',          label: 'Code',         width: '100px' },
+  { key: 'name',          label: 'Libellé' },
+  { key: 'permissions',   label: 'Permissions',  width: '130px' },
+  { key: 'employeeCount', label: 'Employés',     width: '100px' },
+  { key: 'isActive',      label: 'Statut',       width: '90px', align: 'center' as const },
+  { key: 'actions',       label: 'Actions',      width: '110px', align: 'center' as const },
 ]
 
 const showCatModal = ref(false)
