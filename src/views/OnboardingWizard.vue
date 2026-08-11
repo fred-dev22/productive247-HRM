@@ -378,7 +378,7 @@ async function finish() {
   setTimeout(() => {
     // Lance le tour guidé au premier chargement du tableau de bord (voir
     // DashboardHR.vue) — evite d'ouvrir directement sur Employés/Entités.
-    router.push({ path: '/hr', query: { tour: '1' } })
+    router.push({ name: 'hr-dashboard', query: { tour: '1' } })
   }, 250)
 }
 </script>

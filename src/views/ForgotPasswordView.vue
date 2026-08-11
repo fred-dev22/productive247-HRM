@@ -50,7 +50,7 @@
       </template>
 
       <div class="text-center mt-5">
-        <router-link to="/" class="text-[12px] text-primary hover:underline">← Retour à la connexion</router-link>
+        <router-link :to="{ name: 'login' }" class="text-[12px] text-primary hover:underline">← Retour à la connexion</router-link>
       </div>
     </div>
   </div>

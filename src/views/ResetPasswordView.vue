@@ -57,13 +57,13 @@
         </div>
         <h1 class="text-[20px] font-bold text-foreground text-center mb-2">Mot de passe réinitialisé</h1>
         <p class="text-[13px] text-muted-foreground text-center mb-6">Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
-        <router-link to="/" class="block w-full h-12 bg-primary text-primary-foreground rounded-lg text-sm font-semibold flex items-center justify-center no-underline hover:bg-primary/90">
+        <router-link :to="{ name: 'login' }" class="block w-full h-12 bg-primary text-primary-foreground rounded-lg text-sm font-semibold flex items-center justify-center no-underline hover:bg-primary/90">
           Aller à la connexion
         </router-link>
       </template>
 
       <div v-if="!done" class="text-center mt-5">
-        <router-link to="/" class="text-[12px] text-primary hover:underline">← Retour à la connexion</router-link>
+        <router-link :to="{ name: 'login' }" class="text-[12px] text-primary hover:underline">← Retour à la connexion</router-link>
       </div>
     </div>
   </div>

@@ -9,13 +9,15 @@ import './assets/main.css'
 
 const app = createApp(App)
 app.use(createPinia())
-app.use(router)
 app.use(i18n)
 app.use(Vue3OrgChartPlugin)
 
-// Restore the session (if a valid JWT is in localStorage) before mounting —
-// otherwise the router's first navigation guard would see isLoggedIn=false
-// and bounce an already-authenticated user back to /login.
+// Restore the session (if a valid JWT is in localStorage) before installing
+// the router — router install triggers its first navigation immediately,
+// and that navigation's guard needs isLoggedIn already resolved or it
+// bounces an already-authenticated user back to /login (and nothing
+// re-triggers navigation once restoreSession resolves afterwards).
 await useAuthStore().restoreSession()
 
+app.use(router)
 app.mount('#app')

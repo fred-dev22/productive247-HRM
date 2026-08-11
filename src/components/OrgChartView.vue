@@ -76,7 +76,7 @@ const router   = useRouter()
 const navigateToDetail = inject<((id: string) => void) | null>('navigate-to-detail', null)
 function onNodeClick(id: string) {
   if (navigateToDetail) { navigateToDetail(id); return }
-  navStore.setPreviousRoute('/hr/entities?tab=orgchart')
+  navStore.setPreviousRoute({ name: 'hr-entities', query: { tab: 'orgchart' } })
   router.push({ name: 'hr-entity-detail', params: { id } })
 }
 </script>

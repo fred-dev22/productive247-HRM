@@ -52,13 +52,13 @@ export function buildEmployeeImportConfig(): ImportConfig {
       {
         label: 'Des postes existent (facultatif, mais nécessaire si vous voulez affecter un poste)',
         ok: () => positionStore.positions.length > 0,
-        routeTo: { path: '/hr/config/classification', query: { tab: 'position' } },
+        routeTo: { name: 'hr-config-classification', query: { tab: 'position' } },
         required: false,
       },
       {
         label: 'Des catégories existent (facultatif, mais nécessaire si vous voulez affecter une catégorie)',
         ok: () => categoryStore.categories.length > 0,
-        routeTo: { path: '/hr/config/classification', query: { tab: 'category' } },
+        routeTo: { name: 'hr-config-classification', query: { tab: 'category' } },
         required: false,
       },
     ],

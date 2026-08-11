@@ -63,7 +63,7 @@ async function submit() {
   submitting.value = true
   try {
     await auth.changePassword(form.currentPassword, form.newPassword)
-    router.push(auth.isHRSpace ? '/hr' : '/employee')
+    router.push({ name: auth.isHRSpace ? 'hr-dashboard' : 'employee-dashboard' })
   } catch (err) {
     error.value = getApiErrorMessage(err, 'Le changement de mot de passe a échoué. Veuillez réessayer.')
   } finally {

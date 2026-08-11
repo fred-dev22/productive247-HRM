@@ -14,7 +14,7 @@ export function buildPositionImportConfig(): ImportConfig {
       {
         label: 'Au moins un métier doit déjà exister',
         ok: () => jobStore.jobs.length > 0,
-        routeTo: { path: '/hr/config/classification', query: { tab: 'job' } },
+        routeTo: { name: 'hr-config-classification', query: { tab: 'job' } },
         required: true,
       },
       {
@@ -22,7 +22,7 @@ export function buildPositionImportConfig(): ImportConfig {
         // CreatePositionDto.OrganizationUnitId?), contrairement au métier.
         label: 'Si vous voulez rattacher les postes à une entité, celle-ci doit déjà exister',
         ok: () => entityStore.entities.length > 0,
-        routeTo: '/hr/entities',
+        routeTo: { name: 'hr-entities' },
         required: false,
       },
     ],
