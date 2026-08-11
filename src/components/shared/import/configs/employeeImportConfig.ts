@@ -96,12 +96,12 @@ export function buildEmployeeImportConfig(): ImportConfig {
       {
         Prénom: 'Jean', Nom: 'Rakoto', Genre: 'Homme', 'Date de naissance': '1990-05-12', 'Situation matrimoniale': 'Célibataire',
         'Type de pièce': 'CIN', 'Numéro de pièce': '', Email: 'jean.rakoto@galana.com', 'Téléphone mobile': '',
-        'Type de contrat': 'CDI', "Date d'embauche": '2024-01-15', 'Code entité': '', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'non',
+        'Type de contrat': 'CDI', "Date d'embauche": '2024-01-15', 'Code entité': 'DG', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'non',
       },
       {
         Prénom: 'Marie', Nom: 'Andria', Genre: 'Femme', 'Date de naissance': '1988-11-03', 'Situation matrimoniale': "Marié(e)",
         'Type de pièce': 'CIN', 'Numéro de pièce': '', Email: 'marie.andria@galana.com', 'Téléphone mobile': '',
-        'Type de contrat': 'CDI', "Date d'embauche": '2023-06-01', 'Code entité': '', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'oui',
+        'Type de contrat': 'CDI', "Date d'embauche": '2023-06-01', 'Code entité': 'DG', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'oui',
       },
     ],
     // "Créer un compte" a besoin d'une catégorie (elle determine les
