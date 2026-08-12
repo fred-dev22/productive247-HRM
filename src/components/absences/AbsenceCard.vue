@@ -17,10 +17,13 @@ import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
+import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
+import { useCalendarStore } from '../../stores/calendar'
 import { useAttachmentStore } from '../../stores/attachments'
 import { useAuthStore } from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
 import { confirmDialog } from '../../lib/confirm'
+import { getWorkingDaysBetween } from '../../utils/calendar'
 import type { LeaveRequest } from '../../types'
 
 const props = defineProps<{
@@ -34,11 +37,14 @@ const emit = defineEmits<{ close: [] }>()
 
 const store = useLeaveRequestStore()
 const leaveTypesStore = useLeaveTypesStore()
+const leaveTransactionStore = useLeaveTransactionStore()
+const calendarStore = useCalendarStore()
 const attachmentStore = useAttachmentStore()
 const auth = useAuthStore()
 const employeeStore = useEmployeeStore()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
+if (leaveTransactionStore.myBalances.length === 0) leaveTransactionStore.fetchMyBalances()
 
 function leaveNo(l: LeaveRequest) { return l.referenceCode }
 
@@ -166,9 +172,61 @@ function enterEdit() {
     interimEmployeeId: current.value.interimEmployeeId ?? '',
     reason: current.value.reason ?? '',
   }
+  // Le calendrier qui pilote isNotWorkingDay/formWorkingDaysCount doit etre
+  // celui DU BENEFICIAIRE (meme regle qu'AbsenceCreate.vue) — jamais
+  // refetch si deja en memoire pour la bonne personne, mais on ne le sait
+  // pas d'avance donc on le rejoue a chaque entree en edition.
+  calendarStore.fetchCalendar(current.value.employeeId)
   isEditMode.value = true
 }
 function cancelEdit() { isEditMode.value = false }
+
+// ── Avertissements en direct pendant l'edition (meme regle qu'AbsenceCreate.vue,
+// decision du 04/08 : solde/préavis/date passée restent non bloquants, le
+// validateur decide) — recalcules depuis `form`, pas depuis `current` figé,
+// pour ne pas perdre ces controles quand on modifie un brouillon. ──
+const currentType = computed(() => leaveTypesStore.leaveTypes.find(t => t.id === form.value.leaveTypeId) ?? null)
+const isMedicalType = computed(() => currentType.value?.workflowType === 'Medical')
+
+const formIsPastDate = computed(() => {
+  if (!form.value.startDate) return false
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const p = form.value.startDate.split('-').map(Number)
+  return new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1) < today
+})
+
+const formWorkingDaysCount = computed(() => {
+  if (!form.value.startDate || !form.value.endDate) return 0
+  return getWorkingDaysBetween(form.value.startDate, form.value.endDate, calendarStore.calendar, form.value.startPeriod, form.value.endPeriod)
+})
+
+// Meme restriction qu'a la creation : le solde "myBalances" n'est connu que
+// pour l'utilisateur connecte, l'avertissement en direct ne peut donc
+// s'afficher que si le beneficiaire de la demande, c'est lui-meme.
+const isOwnRequest = computed(() => !!current.value && current.value.employeeId === auth.user?.id)
+const myBalance = computed(() => {
+  if (!form.value.leaveTypeId) return null
+  return leaveTransactionStore.myBalances.find(b => b.leaveTypeId === form.value.leaveTypeId) ?? null
+})
+const formIsBalanceInsufficient = computed(() => {
+  if (!formWorkingDaysCount.value || !currentType.value) return false
+  if (currentType.value.daysPerYear <= 0) return false
+  if (!isOwnRequest.value || !myBalance.value) return false
+  return formWorkingDaysCount.value > myBalance.value.balance
+})
+
+// Préavis : recalculé depuis form.startDate — current.createdAt (date de
+// soumission initiale) ne change pas en édition, seule la date de début
+// bouge, voir noticeWarning() ci-dessus pour l'équivalent lecture seule.
+const formNoticeWarning = computed(() => {
+  if (!current.value || !form.value.startDate || !currentType.value || currentType.value.noticeDays <= 0) return null
+  const submitted = new Date(current.value.createdAt); submitted.setHours(0, 0, 0, 0)
+  const p = form.value.startDate.split('-').map(Number)
+  const start = new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1)
+  const diffDays = Math.ceil((start.getTime() - submitted.getTime()) / 86400000)
+  if (diffDays >= currentType.value.noticeDays) return null
+  return `Préavis de ${currentType.value.noticeDays} jour(s) non respecté (soumis ${diffDays} jour(s) avant le début)`
+})
 async function save() {
   if (!current.value || !form.value.leaveTypeId) return
   try {
@@ -275,6 +333,7 @@ async function deletePermanently() {
             <label :class="cls.fieldLabel">Date de début</label>
             <input v-if="isEditMode" type="date" v-model="form.startDate" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ formatDate(current.startDate) }}</div>
+            <div v-if="isEditMode && formIsPastDate && !isMedicalType" :class="cls.fieldWarning"><TriangleAlert class="w-3.5 h-3.5 shrink-0" /> La date est dans le passé, confirmez-vous ?</div>
           </div>
 
           <!-- Période de début -->
@@ -344,13 +403,17 @@ async function deletePermanently() {
             <div v-else :class="[readBox, 'min-h-[38px] h-auto py-2']">{{ current.reason || '—' }}</div>
           </div>
 
-          <!-- Préavis insuffisant : avertissement non bloquant -->
-          <div v-if="noticeWarning(current)" class="flex items-center gap-2 text-[13px] text-warning bg-warning-bg rounded-md px-2.5 py-2 col-span-full">
-            <TriangleAlert class="w-4 h-4 shrink-0" /> {{ noticeWarning(current) }}
+          <!-- Préavis insuffisant : avertissement non bloquant. En édition,
+               recalculé en direct depuis form.startDate (voir formNoticeWarning). -->
+          <div v-if="isEditMode ? formNoticeWarning : noticeWarning(current)" class="flex items-center gap-2 text-[13px] text-warning bg-warning-bg rounded-md px-2.5 py-2 col-span-full">
+            <TriangleAlert class="w-4 h-4 shrink-0" /> {{ isEditMode ? formNoticeWarning : noticeWarning(current) }}
           </div>
 
-          <!-- Solde insuffisant : avertissement non bloquant, le validateur décide -->
-          <div v-if="current.insufficientBalance" class="flex items-center gap-2 text-[13px] text-danger bg-danger-bg rounded-md px-2.5 py-2 col-span-full">
+          <!-- Solde insuffisant : avertissement non bloquant, le validateur décide.
+               En édition, recalculé en direct depuis le formulaire (form*) plutôt
+               que depuis le flag figé du serveur (current.insufficientBalance),
+               sinon changer de type/dates ne met plus à jour l'avertissement. -->
+          <div v-if="isEditMode ? formIsBalanceInsufficient : current.insufficientBalance" class="flex items-center gap-2 text-[13px] text-danger bg-danger-bg rounded-md px-2.5 py-2 col-span-full">
             <TriangleAlert class="w-4 h-4 shrink-0" /> Solde insuffisant pour ce type de congé, à valider en connaissance de cause.
           </div>
 

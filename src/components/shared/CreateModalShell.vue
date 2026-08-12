@@ -63,7 +63,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
                 v-if="draftLabel"
                 @click="emit('saveDraft')"
                 :disabled="isSaving"
-                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-card-foreground border border-border rounded hover:bg-background transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 <Save class="w-4 h-4" />
                 {{ draftLabel }}
@@ -71,7 +71,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               <button
                 @click="emit('create')"
                 :disabled="isSaving"
-                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                :class="draftLabel
+                  ? 'inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-card-foreground border border-border rounded hover:bg-background transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+                  : 'inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'"
               >
                 <Loader2 v-if="isSaving" class="animate-spin w-4 h-4" />
                 <Check v-else class="w-4 h-4" />
