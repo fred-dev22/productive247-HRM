@@ -91,7 +91,7 @@ function selectSidebar(no: string) {
 /* ── Mode édition (brouillons / retournés) ──────────────────── */
 const isEditMode = ref(false)
 const canEdit = computed(() => current.value?.status === 'Draft' || current.value?.status === 'Returned')
-const form = ref({ destination: '', purpose: '', missionCategory: 'National' as MissionCategory, departureDate: '', returnDate: '', transportModeGo: 'Plane' as TransportMode, transportModeReturn: 'Plane' as TransportMode })
+const form = ref({ destination: '', purpose: '', missionCategory: 'National' as MissionCategory, departureDate: '', returnDate: '', transportModeGo: 'Plane' as TransportMode, transportModeReturn: 'Plane' as TransportMode, advanceRequested: 0 })
 const saveError = ref('')
 
 function enterEdit() {
@@ -101,6 +101,7 @@ function enterEdit() {
     destination: m.destination, purpose: m.purpose, missionCategory: m.missionCategory,
     departureDate: m.departureDate, returnDate: m.returnDate,
     transportModeGo: m.transportModeGo, transportModeReturn: m.transportModeReturn,
+    advanceRequested: m.advanceRequested,
   }
   isEditMode.value = true
 }
@@ -251,6 +252,11 @@ async function deletePermanently() {
               <option v-for="[v, l] in TRANSPORT_OPTIONS" :key="v" :value="v">{{ l }}</option>
             </select>
             <div v-else :class="readBox">{{ TRANSPORT_LABELS[current.transportModeReturn] }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Acompte demandé</label>
+            <input v-if="isEditMode" type="number" min="0" v-model.number="form.advanceRequested" :class="cls.fieldInput" />
+            <div v-else :class="readBox">{{ fmtNum(current.advanceRequested) }} MGA</div>
           </div>
         </div>
         <div v-if="saveError" class="text-xs text-danger bg-danger-bg px-3 py-2 rounded-md mt-3">{{ saveError }}</div>

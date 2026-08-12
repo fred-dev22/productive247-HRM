@@ -22,7 +22,9 @@ interface BackendLeaveRequest {
   EmployeeId: string
   LeaveTypeId: string
   StartDate: string
+  StartPeriod: 'full' | 'am' | 'pm'
   EndDate: string
+  EndPeriod: 'full' | 'am' | 'pm'
   DaysCount: string | number
   Reason: string | null
   InterimEmployeeId: string | null
@@ -77,7 +79,9 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
     leaveTypeColor: raw.leaveType?.Color ?? '#94A3B8',
     workflowType: raw.leaveType?.WorkflowType ?? 'Standard',
     startDate: raw.StartDate.slice(0, 10),
+    startPeriod: raw.StartPeriod ?? 'full',
     endDate: raw.EndDate.slice(0, 10),
+    endPeriod: raw.EndPeriod ?? 'full',
     daysCount: Number(raw.DaysCount),
     reason: raw.Reason ?? undefined,
     interimEmployeeId: raw.InterimEmployeeId ?? undefined,

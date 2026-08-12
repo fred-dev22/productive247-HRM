@@ -16,6 +16,7 @@ import { formatDate } from '../../lib/date'
 import { useExpenseStore } from '../../stores/expenses'
 import type { ExpenseLinePayload } from '../../stores/expenses'
 import { useMissionConfigStore } from '../../stores/missionConfig'
+import { useMissionStore } from '../../stores/missions'
 import { useAttachmentStore } from '../../stores/attachments'
 import { useAuthStore } from '../../stores/auth'
 import { confirmDialog } from '../../lib/confirm'
@@ -26,6 +27,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const expenseStore = useExpenseStore()
 const missionConfigStore = useMissionConfigStore()
+const missionStore = useMissionStore()
 const attachmentStore = useAttachmentStore()
 const auth = useAuthStore()
 if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
@@ -59,6 +61,22 @@ watch(() => [currentId.value, current.value?.status] as const, async ([id]) => {
     // silencieux : l'historique est une amélioration, pas bloquant pour la fiche
   }
 }, { immediate: true })
+
+// Mission liée (optionnelle) — affichage lecture seule + options du
+// sélecteur en édition (missions Approved du même bénéficiaire, même règle
+// que ExpenseCreate.vue).
+const linkedMissionLabel = ref('')
+watch(() => current.value?.missionOrderId, async (id) => {
+  linkedMissionLabel.value = ''
+  if (!id) return
+  try {
+    const m = await missionStore.fetchOne(id)
+    linkedMissionLabel.value = `${m.referenceCode} · ${m.destination}`
+  } catch {
+    // silencieux : simple affichage d'appoint, pas bloquant pour la fiche
+  }
+}, { immediate: true })
+const approvedMissions = computed(() => missionStore.mine.filter(m => m.status === 'Approved'))
 
 // Pièces jointes de la note de frais (reçus/justificatifs) — voir
 // stores/attachments.ts (upload vers SharePoint via /attachments).
@@ -147,6 +165,7 @@ const lines = ref<ExpenseLinePayload[]>([])
 // pour retrouver la bonne pièce jointe même après un ajout/retrait de ligne
 // en cours d'édition (un simple current.lines[i] se désynchroniserait).
 const lineIds = ref<(string | null)[]>([])
+const form = ref({ title: '', missionOrderId: '' })
 const saveError = ref('')
 
 function enterEdit() {
@@ -155,6 +174,8 @@ function enterEdit() {
   lines.value = current.value.lines.map(l => ({
     date: l.date, expenseTypeId: l.expenseTypeId, description: l.description, amount: l.amount, hasDocument: l.hasDocument,
   }))
+  form.value = { title: current.value.title, missionOrderId: current.value.missionOrderId ?? '' }
+  missionStore.fetchMine(current.value.employeeId)
   isEditMode.value = true
 }
 function cancelEdit() { isEditMode.value = false }
@@ -167,7 +188,9 @@ const editTotal = computed(() => lines.value.reduce((s, l) => s + (l.amount || 0
 async function save() {
   if (!current.value) return
   try {
-    await expenseStore.update(current.value.id, { lines: lines.value })
+    await expenseStore.update(current.value.id, {
+      title: form.value.title, missionOrderId: form.value.missionOrderId || undefined, lines: lines.value,
+    })
     isEditMode.value = false
   } catch {
     saveError.value = expenseStore.error ?? "La mise à jour a échoué."
@@ -254,7 +277,16 @@ async function deletePermanently() {
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Titre</label>
-            <div :class="readBox">{{ current.title }}</div>
+            <input v-if="isEditMode" v-model="form.title" :class="cls.fieldInput" />
+            <div v-else :class="readBox">{{ current.title }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Mission liée</label>
+            <select v-if="isEditMode" v-model="form.missionOrderId" :class="cls.fieldSelect">
+              <option value="">Aucune</option>
+              <option v-for="m in approvedMissions" :key="m.id" :value="m.id">{{ m.referenceCode }} · {{ m.destination }}</option>
+            </select>
+            <div v-else :class="readBox">{{ linkedMissionLabel || '—' }}</div>
           </div>
           <div v-if="current.createdByName && current.createdByName !== current.employeeName" :class="cls.field">
             <label :class="cls.fieldLabel">Créée par</label>

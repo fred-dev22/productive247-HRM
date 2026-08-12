@@ -19,6 +19,7 @@ import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useAttachmentStore } from '../../stores/attachments'
 import { useAuthStore } from '../../stores/auth'
+import { useEmployeeStore } from '../../stores/employees'
 import { confirmDialog } from '../../lib/confirm'
 import type { LeaveRequest } from '../../types'
 
@@ -35,7 +36,9 @@ const store = useLeaveRequestStore()
 const leaveTypesStore = useLeaveTypesStore()
 const attachmentStore = useAttachmentStore()
 const auth = useAuthStore()
+const employeeStore = useEmployeeStore()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
 function leaveNo(l: LeaveRequest) { return l.referenceCode }
 
@@ -132,17 +135,35 @@ function selectSidebar(no: string) {
 /* ── Mode édition (brouillons uniquement) ───────────────────── */
 const isEditMode = ref(false)
 const canEdit = computed(() => current.value?.status === 'Draft' || current.value?.status === 'Returned')
-const form = ref({ leaveTypeId: '', startDate: '', endDate: '', reason: '' })
+const form = ref({
+  leaveTypeId: '', startDate: '', startPeriod: 'full' as 'full' | 'am' | 'pm',
+  endDate: '', endPeriod: 'full' as 'full' | 'am' | 'pm',
+  interimEmployeeId: '', reason: '',
+})
 const saveError = ref('')
 
 const leaveTypeItems = computed(() => leaveTypesStore.activeTypes.map(lt => ({ id: lt.id, label: lt.name })))
+// Meme regle qu'AbsenceCreate.vue (decision du 01/08) : pas de restriction
+// d'entite sur l'interimaire, seul le beneficiaire est exclu.
+const interimItems = computed(() =>
+  employeeStore.directory
+    .filter(e => e.id !== current.value?.employeeId)
+    .map(e => ({
+      id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg,
+      itemDisabled: e.status !== 'active',
+      disabledReason: e.status !== 'active' ? 'compte désactivé' : undefined,
+    })),
+)
 
 function enterEdit() {
   if (!current.value) return
   form.value = {
     leaveTypeId: current.value.leaveTypeId,
     startDate: current.value.startDate,
+    startPeriod: current.value.startPeriod,
     endDate: current.value.endDate,
+    endPeriod: current.value.endPeriod,
+    interimEmployeeId: current.value.interimEmployeeId ?? '',
     reason: current.value.reason ?? '',
   }
   isEditMode.value = true
@@ -154,7 +175,10 @@ async function save() {
     await store.update(current.value.id, {
       leaveTypeId: form.value.leaveTypeId,
       startDate: form.value.startDate,
+      startPeriod: form.value.startPeriod,
       endDate: form.value.endDate,
+      endPeriod: form.value.endPeriod,
+      interimEmployeeId: form.value.interimEmployeeId || undefined,
       reason: form.value.reason,
     })
     isEditMode.value = false
@@ -253,11 +277,33 @@ async function deletePermanently() {
             <div v-else :class="readBox">{{ formatDate(current.startDate) }}</div>
           </div>
 
+          <!-- Période de début -->
+          <div :class="cls.field">
+            <span :class="cls.fieldLabel">Période de début</span>
+            <div v-if="isEditMode" :class="cls.radioGroup">
+              <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="full" /><span>Journée entière</span></label>
+              <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="am" /><span>Matin</span></label>
+              <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="pm" /><span>Après-midi</span></label>
+            </div>
+            <div v-else :class="readBox">{{ { full: 'Journée entière', am: 'Matin', pm: 'Après-midi' }[current.startPeriod] }}</div>
+          </div>
+
           <!-- Date fin -->
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Date de fin</label>
             <input v-if="isEditMode" type="date" v-model="form.endDate" :min="form.startDate" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ formatDate(current.endDate) }}</div>
+          </div>
+
+          <!-- Période de fin -->
+          <div :class="cls.field">
+            <span :class="cls.fieldLabel">Période de fin</span>
+            <div v-if="isEditMode" :class="cls.radioGroup">
+              <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="full" /><span>Journée entière</span></label>
+              <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="am" /><span>Matin</span></label>
+              <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="pm" /><span>Après-midi</span></label>
+            </div>
+            <div v-else :class="readBox">{{ { full: 'Journée entière', am: 'Matin', pm: 'Après-midi' }[current.endPeriod] }}</div>
           </div>
 
           <!-- Jours ouvrés -->
@@ -279,9 +325,16 @@ async function deletePermanently() {
           </div>
 
           <!-- Intérimaire -->
-          <div v-if="current.interimEmployeeName" :class="cls.field">
+          <div v-if="isEditMode || current.interimEmployeeName" :class="cls.field">
             <label :class="cls.fieldLabel">Intérimaire</label>
-            <div :class="readBox">{{ current.interimEmployeeName }}</div>
+            <SearchableDropdown
+              v-if="isEditMode"
+              :items="interimItems"
+              :model-value="form.interimEmployeeId"
+              placeholder="Qui assure l'intérim ?"
+              @update:model-value="form.interimEmployeeId = String($event)"
+            />
+            <div v-else :class="readBox">{{ current.interimEmployeeName }}</div>
           </div>
 
           <!-- Motif -->

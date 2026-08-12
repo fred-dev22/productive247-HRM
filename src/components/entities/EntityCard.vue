@@ -98,7 +98,7 @@ function onManagerSelect(item: Record<string, unknown>) { form.value.managerId =
 async function save() {
   if (!current.value) return
   await store.updateEntity(current.value.id, {
-    name: form.value.name, type: form.value.type, parentId: form.value.parentId || null,
+    name: form.value.name, code: form.value.code, type: form.value.type, parentId: form.value.parentId || null,
     legalIdentifier: form.value.legalIdentifier || undefined,
     address: form.value.address, managerId: form.value.managerId || null,
     phone: form.value.phone, email: form.value.email,
@@ -198,7 +198,8 @@ async function deletePermanently() {
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Code</label>
-            <div :class="readBox">{{ current.code }}</div>
+            <input v-if="isEditMode" v-model="form.code" :class="cls.fieldInput" @input="form.code = (form.code as string).toUpperCase()" />
+            <div v-else :class="readBox">{{ current.code }}</div>
           </div>
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Type</label>

@@ -52,7 +52,9 @@ export interface LeaveRequest {
   leaveTypeColor:       string
   workflowType:         'Standard' | 'Medical'
   startDate:            string
+  startPeriod:          'full' | 'am' | 'pm'
   endDate:              string
+  endPeriod:            'full' | 'am' | 'pm'
   daysCount:            number
   reason?:              string
   interimEmployeeId?:   string
