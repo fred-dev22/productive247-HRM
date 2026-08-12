@@ -50,8 +50,11 @@ function leaveNo(l: LeaveRequest) { return l.referenceCode }
 
 // Une fois approuvee (ou tout statut derive), une demande ne doit plus
 // pouvoir etre supprimee definitivement — meme regle cote backend
-// (leave-request.service.ts softDelete).
-const APPROVED_LINEAGE: LeaveRequest['status'][] = ['Approved', 'Registered', 'Done', 'Regularized']
+// (leave-request.service.ts softDelete). InApprovalN2+ inclus : y arriver
+// implique qu'un validateur a deja approuve une etape (decision du 12/08).
+const APPROVED_LINEAGE: LeaveRequest['status'][] = [
+  'Approved', 'Registered', 'Done', 'Regularized', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4',
+]
 
 // Le préavis minimum n'est plus bloquant à la soumission (decision du
 // 01/08) — avertissement visible sur la fiche pour le validateur.

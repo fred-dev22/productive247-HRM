@@ -204,8 +204,12 @@ const td = 'px-2.5 py-2 border-b border-border'
 const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs text-foreground outline-none focus:border-primary'
 
 // Une note approuvee (ou remboursee) ne doit plus pouvoir etre supprimee —
-// meme regle cote backend (expense-report.service.ts softDelete).
-const APPROVED_LINEAGE: ExpenseReport['status'][] = ['Approved', 'Reimbursed']
+// meme regle cote backend (expense-report.service.ts softDelete). InApprovalN2+
+// inclus : y arriver implique qu'un validateur a deja approuve une etape
+// (decision du 12/08).
+const APPROVED_LINEAGE: ExpenseReport['status'][] = [
+  'Approved', 'Reimbursed', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4',
+]
 
 // Suppression definitive (Lot I) — jamais mise en avant, toujours en bas de
 // la fiche (decision du 11/08, meme pattern que EmployeeCard.vue). Disponible

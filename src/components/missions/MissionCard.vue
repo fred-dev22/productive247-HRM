@@ -125,8 +125,10 @@ const th = 'text-left px-2.5 py-2 text-[11px] font-bold text-muted-foreground up
 const td = 'px-2.5 py-2 border-b border-border'
 
 // Un ordre approuve ne doit plus pouvoir etre supprime — meme regle cote
-// backend (mission-order.service.ts softDelete).
-const APPROVED_LINEAGE: MissionOrder['status'][] = ['Approved']
+// backend (mission-order.service.ts softDelete). InApprovalN2+ inclus : y
+// arriver implique qu'un validateur a deja approuve une etape (decision du
+// 12/08).
+const APPROVED_LINEAGE: MissionOrder['status'][] = ['Approved', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
 
 // Suppression definitive (Lot I) — jamais mise en avant, toujours en bas de
 // la fiche (decision du 11/08, meme pattern que EmployeeCard.vue). Disponible
