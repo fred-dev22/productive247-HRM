@@ -93,16 +93,6 @@
                             @click="startEdit(ft.id, cat.id)"
                           >{{ fmt(getAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">{{ getCurrency(ft.id, cat.id) }}</span></span>
                         </template>
-                        <button
-                          :class="[
-                            'w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors',
-                            isDocRequired(ft.id, cat.id) ? 'text-primary bg-primary/10' : 'text-muted-foreground/30 hover:text-muted-foreground hover:bg-background',
-                          ]"
-                          :title="isDocRequired(ft.id, cat.id) ? 'Justificatif requis, cliquer pour désactiver' : 'Justificatif non requis, cliquer pour activer'"
-                          @click="toggleDocRequired(ft.id, cat.id)"
-                        >
-                          <Paperclip class="w-3 h-3" />
-                        </button>
                       </div>
                     </td>
                     <td :class="tdCell">
@@ -141,7 +131,7 @@
           </div>
           <p class="text-[11px] text-muted-foreground px-4 pt-2 pb-3">
             Cliquez sur un montant ou un plafond pour le modifier. "Au réel" signifie remboursement sur justificatif ;
-            "Aucun plafond" signifie pas de limite. <Paperclip class="w-3 h-3 inline-block text-primary" /> indique un justificatif obligatoire pour cette case.
+            "Aucun plafond" signifie pas de limite.
           </p>
         </div>
 
@@ -193,7 +183,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick } from 'vue'
-import { Plus, Pencil, Trash2, Paperclip } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2 } from 'lucide-vue-next'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import { SkeletonLoader } from '../../components'
@@ -250,10 +240,6 @@ function getAmount(feeId: string, catId: string): number {
 function getCurrency(feeId: string, catId: string): string {
   return store.getConfig(feeId, catId, selectedMissionCategory.value)?.currency ?? 'MGA'
 }
-function isDocRequired(feeId: string, catId: string): boolean {
-  return store.getConfig(feeId, catId, selectedMissionCategory.value)?.documentRequired ?? false
-}
-
 function startEdit(feeId: string, catId: string) {
   editing.value = { feeId, catId }
   nextTick(() => amountInputRef.value?.focus())
@@ -262,10 +248,6 @@ function startEdit(feeId: string, catId: string) {
 function onAmountChange(feeId: string, catId: string, event: Event) {
   const val = Number((event.target as HTMLInputElement).value)
   store.upsertConfig(feeId, catId, selectedMissionCategory.value, { dailyRate: val })
-}
-
-function toggleDocRequired(feeId: string, catId: string) {
-  store.upsertConfig(feeId, catId, selectedMissionCategory.value, { documentRequired: !isDocRequired(feeId, catId) })
 }
 
 // ── Plafonds des notes de frais (Categorie x Type, sans dimension mission) ──
