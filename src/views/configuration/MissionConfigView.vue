@@ -9,8 +9,18 @@
           </div>
         </div>
 
+        <!-- Onglets -->
+        <div class="flex gap-1.5 border-b border-border">
+          <button
+            v-for="tb in TABS" :key="tb.key"
+            class="px-3.5 py-2 text-[13px] font-medium border-b-2 -mb-px transition-colors"
+            :class="activeTab === tb.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
+            @click="activeTab = tb.key"
+          >{{ tb.label }}</button>
+        </div>
+
         <SkeletonLoader v-if="initialLoading" type="table" :lines="6" />
-        <template v-else>
+        <template v-else-if="activeTab === 'config'">
 
         <!-- Section 1 : Catégories d'employés (rappel — gestion complète, y compris les permissions, dans Configuration > Catégories) -->
         <div :class="L.tableCard">
@@ -67,6 +77,7 @@
                       <div class="flex items-baseline gap-1.5">
                         <span class="font-medium text-foreground">{{ ft.name }}</span>
                         <span class="text-[11px] text-muted-foreground">{{ unitLabel(ft.unit) }}</span>
+                        <Lock v-if="ft.isSystem" class="w-3 h-3 text-muted-foreground" title="Type système" />
                       </div>
                     </td>
                     <td :class="tdCell">
@@ -74,7 +85,12 @@
                         <button :class="iconBtn" @click="openEditFee(ft.id)">
                           <Pencil class="w-3.5 h-3.5" />
                         </button>
-                        <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteFee(ft.id, ft.name)">
+                        <button
+                          :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger', 'disabled:opacity-40 disabled:cursor-not-allowed']"
+                          :disabled="ft.isSystem"
+                          :title="ft.isSystem ? 'Type système : secours par défaut, ne peut pas être désactivé' : 'Supprimer'"
+                          @click="deleteFee(ft.id, ft.name)"
+                        >
                           <Trash2 class="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -133,6 +149,9 @@
             <Paperclip class="w-3 h-3 inline-block text-primary" /> indique un justificatif obligatoire pour cette case.
           </p>
         </div>
+
+        </template>
+        <template v-else-if="activeTab === 'ceilings'">
 
         <!-- Section 3 : Plafonds des notes de frais (independant d'une mission) -->
         <div :class="L.tableCard">
@@ -244,7 +263,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, nextTick } from 'vue'
-import { Plus, Pencil, Trash2, Paperclip } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Paperclip, Lock } from 'lucide-vue-next'
 import DataTable  from '../../components/ui/DataTable.vue'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
@@ -257,6 +276,12 @@ import { useMissionConfigStore } from '../../stores/missionConfig'
 import type { ExpenseUnit, MissionCategory } from '../../stores/missionConfig'
 
 const store = useMissionConfigStore()
+
+const TABS = [
+  { key: 'config' as const, label: 'Types & tarifs' },
+  { key: 'ceilings' as const, label: 'Plafonds' },
+]
+const activeTab = ref<'config' | 'ceilings'>('config')
 
 const initialLoading = ref(true)
 ;(async () => {

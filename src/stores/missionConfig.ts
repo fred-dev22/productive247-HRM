@@ -33,6 +33,7 @@ export interface ExpenseType {
   name:     string
   unit:     ExpenseUnit
   isActive: boolean
+  isSystem: boolean
 }
 
 interface BackendExpenseType {
@@ -41,10 +42,11 @@ interface BackendExpenseType {
   Name: string
   Unit: ExpenseUnit
   IsActive: boolean
+  IsSystem: boolean
 }
 
 function mapExpenseType(raw: BackendExpenseType): ExpenseType {
-  return { id: raw.Id, code: raw.Code, name: raw.Name, unit: raw.Unit, isActive: raw.IsActive }
+  return { id: raw.Id, code: raw.Code, name: raw.Name, unit: raw.Unit, isActive: raw.IsActive, isSystem: raw.IsSystem }
 }
 
 // ── ExpenseConfig — matrice EmployeeCategory x ExpenseType x
@@ -204,7 +206,7 @@ export const useMissionConfigStore = defineStore('missionConfig', () => {
     }
   }
 
-  async function addExpenseType(payload: Omit<ExpenseType, 'id' | 'isActive'> & { isActive?: boolean }) {
+  async function addExpenseType(payload: Omit<ExpenseType, 'id' | 'isActive' | 'isSystem'> & { isActive?: boolean }) {
     error.value = null
     return withToast('Création du type de frais en cours…', async () => {
       try {

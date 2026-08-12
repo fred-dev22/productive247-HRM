@@ -121,9 +121,8 @@
     "reject_modal": {
       "title": "Refuser la demande de {name}",
       "label": "Raison du refus *",
-      "placeholder": "Expliquez la raison du refus (minimum 10 caractères)...",
-      "error_empty": "La raison du refus est obligatoire",
-      "error_short": "La raison doit contenir au moins 10 caractères"
+      "placeholder": "Expliquez la raison du refus...",
+      "error_empty": "La raison du refus est obligatoire"
     },
     "empty": "Aucune demande trouvée",
     "my_empty": "Vous n'avez aucune demande",

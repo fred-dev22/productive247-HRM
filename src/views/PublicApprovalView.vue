@@ -94,7 +94,6 @@
           <template v-else>
             <label class="text-[13px] font-medium text-foreground">
               Motif {{ pendingAction === 'Rejected' ? 'du refus' : 'du retour' }} <span class="text-danger">*</span>
-              <span class="font-normal text-muted-foreground">(10 caractères minimum)</span>
             </label>
             <textarea
               v-model="comment"
@@ -187,8 +186,8 @@ onMounted(async () => {
 
 async function confirmDecision() {
   if (!pendingAction.value) return
-  if (pendingAction.value !== 'Approved' && comment.value.trim().length < 10) {
-    actionError.value = 'Le motif doit comporter au moins 10 caractères'
+  if (pendingAction.value !== 'Approved' && comment.value.trim().length === 0) {
+    actionError.value = 'Le motif est requis'
     return
   }
   submitting.value = true
