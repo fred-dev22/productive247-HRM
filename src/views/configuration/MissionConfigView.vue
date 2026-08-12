@@ -9,35 +9,10 @@
           </div>
         </div>
 
-        <!-- Onglets -->
-        <div class="flex gap-1.5 border-b border-border">
-          <button
-            v-for="tb in TABS" :key="tb.key"
-            class="px-3.5 py-2 text-[13px] font-medium border-b-2 -mb-px transition-colors"
-            :class="activeTab === tb.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
-            @click="activeTab = tb.key"
-          >{{ tb.label }}</button>
-        </div>
-
         <SkeletonLoader v-if="initialLoading" type="table" :lines="6" />
-        <template v-else-if="activeTab === 'config'">
+        <template v-else>
 
-        <!-- Section 1 : Catégories d'employés (rappel — gestion complète, y compris les permissions, dans Configuration > Catégories) -->
-        <div :class="L.tableCard">
-          <div class="flex items-start justify-between px-5 pt-4 gap-3">
-            <div>
-              <h2 class="text-[15px] font-semibold text-foreground">Catégories d'employés</h2>
-              <p class="text-[11px] text-muted-foreground mt-0.5">Gérées dans Configuration &gt; Catégories (code, libellé, permissions)</p>
-            </div>
-            <RouterLink :to="{ name: 'hr-config-classification' }" :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']">
-              Gérer les catégories →
-            </RouterLink>
-          </div>
-
-          <DataTable :columns="catColumns" :rows="store.categories" row-key="id" />
-        </div>
-
-        <!-- Section 2 : Types de frais -->
+        <!-- Types de frais (taux + plafond dans la meme grille) -->
         <div :class="L.tableCard">
           <div class="flex items-start justify-between px-5 pt-4 gap-3 flex-wrap">
             <h2 class="text-[15px] font-semibold text-foreground">Types de frais</h2>
@@ -67,17 +42,17 @@
                 <tr>
                   <th :class="thUpper">Catégorie</th>
                   <th :class="thUpper">Montant</th>
+                  <th :class="thUpper">Plafond</th>
                   <th :class="thUpper">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <template v-for="ft in store.expenseTypes" :key="ft.id">
+                <template v-for="ft in visibleExpenseTypes" :key="ft.id">
                   <tr class="bg-background">
-                    <td :class="tdCell" colspan="2">
+                    <td :class="tdCell" colspan="3">
                       <div class="flex items-baseline gap-1.5">
                         <span class="font-medium text-foreground">{{ ft.name }}</span>
                         <span class="text-[11px] text-muted-foreground">{{ unitLabel(ft.unit) }}</span>
-                        <Lock v-if="ft.isSystem" class="w-3 h-3 text-muted-foreground" title="Type système" />
                       </div>
                     </td>
                     <td :class="tdCell">
@@ -85,12 +60,7 @@
                         <button :class="iconBtn" @click="openEditFee(ft.id)">
                           <Pencil class="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger', 'disabled:opacity-40 disabled:cursor-not-allowed']"
-                          :disabled="ft.isSystem"
-                          :title="ft.isSystem ? 'Type système : secours par défaut, ne peut pas être désactivé' : 'Supprimer'"
-                          @click="deleteFee(ft.id, ft.name)"
-                        >
+                        <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteFee(ft.id, ft.name)">
                           <Trash2 class="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -135,48 +105,6 @@
                         </button>
                       </div>
                     </td>
-                    <td :class="tdCell"></td>
-                  </tr>
-                </template>
-                <tr v-if="store.expenseTypes.length === 0">
-                  <td colspan="3" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="text-[11px] text-muted-foreground px-4 pt-2 pb-3">
-            Cliquez sur un montant pour le modifier. "Au réel" signifie remboursement sur justificatif.
-            <Paperclip class="w-3 h-3 inline-block text-primary" /> indique un justificatif obligatoire pour cette case.
-          </p>
-        </div>
-
-        </template>
-        <template v-else-if="activeTab === 'ceilings'">
-
-        <!-- Section 3 : Plafonds des notes de frais (independant d'une mission) -->
-        <div :class="L.tableCard">
-          <div class="px-5 pt-4">
-            <h2 class="text-[15px] font-semibold text-foreground">Plafonds des notes de frais</h2>
-            <p class="text-[11px] text-muted-foreground mt-0.5">Montant maximum remboursable par catégorie d'employé, indépendamment d'une mission — laissez vide pour aucun plafond.</p>
-          </div>
-
-          <div class="overflow-x-auto pb-1 mt-2">
-            <table class="w-full border-collapse text-[13px]">
-              <thead>
-                <tr>
-                  <th :class="thUpper">Catégorie</th>
-                  <th :class="thUpper">Plafond</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="ft in store.expenseTypes" :key="'ceiling-' + ft.id">
-                  <tr class="bg-background">
-                    <td :class="tdCell" colspan="2">
-                      <span class="font-medium text-foreground">{{ ft.name }}</span>
-                    </td>
-                  </tr>
-                  <tr v-for="cat in store.categories" :key="cat.id" class="hover:bg-background">
-                    <td :class="tdCell">{{ cat.name }}</td>
                     <td :class="tdCell">
                       <template v-if="editingCeiling?.feeId === ft.id && editingCeiling?.catId === cat.id">
                         <input
@@ -202,16 +130,18 @@
                         >{{ fmt(getCeilingAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">{{ getCeilingCurrency(ft.id, cat.id) }}</span></span>
                       </template>
                     </td>
+                    <td :class="tdCell"></td>
                   </tr>
                 </template>
-                <tr v-if="store.expenseTypes.length === 0">
-                  <td colspan="2" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
+                <tr v-if="visibleExpenseTypes.length === 0">
+                  <td colspan="4" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p class="text-[11px] text-muted-foreground px-4 pt-2 pb-3">
-            Cliquez sur un montant pour le modifier. La soumission d'une note de frais dont une ligne dépasse ce plafond est bloquée.
+            Cliquez sur un montant ou un plafond pour le modifier. "Au réel" signifie remboursement sur justificatif ;
+            "Aucun plafond" signifie pas de limite. <Paperclip class="w-3 h-3 inline-block text-primary" /> indique un justificatif obligatoire pour cette case.
           </p>
         </div>
 
@@ -262,9 +192,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick } from 'vue'
-import { Plus, Pencil, Trash2, Paperclip, Lock } from 'lucide-vue-next'
-import DataTable  from '../../components/ui/DataTable.vue'
+import { ref, reactive, computed, nextTick } from 'vue'
+import { Plus, Pencil, Trash2, Paperclip } from 'lucide-vue-next'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import { SkeletonLoader } from '../../components'
@@ -277,11 +206,10 @@ import type { ExpenseUnit, MissionCategory } from '../../stores/missionConfig'
 
 const store = useMissionConfigStore()
 
-const TABS = [
-  { key: 'config' as const, label: 'Types & tarifs' },
-  { key: 'ceilings' as const, label: 'Plafonds' },
-]
-const activeTab = ref<'config' | 'ceilings'>('config')
+// Le type systeme "Autre" (secours toujours dispo dans la fiche de note de
+// frais) n'a pas sa place dans cette grille de config — il n'a ni taux ni
+// plafond a definir, voir decision du 12/08.
+const visibleExpenseTypes = computed(() => store.expenseTypes.filter(t => !t.isSystem))
 
 const initialLoading = ref(true)
 ;(async () => {
@@ -312,12 +240,6 @@ const MISSION_CATEGORY_LABELS: Record<MissionCategory, string> = {
   National: 'Nationale', International: 'Internationale',
 }
 const selectedMissionCategory = ref<MissionCategory>('National')
-
-// ── Table catégories (lecture seule — gestion dans Configuration > Catégories) ──
-const catColumns = [
-  { key: 'code',        label: 'Code',        width: '100px' },
-  { key: 'name',        label: 'Libellé',     width: '180px' },
-]
 
 // ── Montants + justificatif inline (grille 3D) ──
 const editing = ref<{ feeId: string; catId: string } | null>(null)
