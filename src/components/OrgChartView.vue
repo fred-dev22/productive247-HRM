@@ -8,7 +8,7 @@
     </div>
 
     <div class="orgchart-body">
-      <Vue3OrgChart v-if="store.entities.length" :data="store.entities">
+      <Vue3OrgChart v-if="store.orgChartEntities.length" :data="store.orgChartEntities">
         <template #node="{ item, children, open, toggleChildren }">
           <div
             class="org-node"

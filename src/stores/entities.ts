@@ -83,6 +83,15 @@ export const useEntityStore = defineStore('entities', {
 
   getters: {
     rootEntities:     (state): Entity[] => state.entities.filter(e => e.parentId === null),
+
+    // Racine unique de l'organigramme : toujours la Direction Générale
+    // (Code 'DG', voir prisma/seed.ts) — jamais une entité orpheline, même
+    // si elle a aussi parentId === null. Fallback sur rootEntities[0] si le
+    // seed 'DG' est absent (ne devrait pas arriver en usage normal).
+    directionGenerale(): Entity | undefined {
+      return (this.entities as Entity[]).find(e => e.code === 'DG') ?? (this.rootEntities as Entity[])[0]
+    },
+
     getChildren:      (state) => (parentId: string): Entity[] =>
                         state.entities.filter(e => e.parentId === parentId),
     getEntityById:    (state) => (id: string): Entity | undefined =>
@@ -101,7 +110,26 @@ export const useEntityStore = defineStore('entities', {
           .map(child => buildNode(child))
         return { ...entity, children: children.length > 0 ? children : undefined }
       }
-      return (this.rootEntities as Entity[]).map(e => buildNode(e))
+      const root = this.directionGenerale as Entity | undefined
+      return root ? [buildNode(root)] : []
+    },
+
+    // Sous-ensemble (Direction Générale + tous ses descendants) à donner tel
+    // quel à Vue3OrgChart, qui pioche sa propre racine via un .find() sur le
+    // premier parentId falsy des données reçues — sans ce filtre, une entité
+    // orpheline présente dans `entities` pourrait être choisie à la place de
+    // la Direction Générale.
+    orgChartEntities(): Entity[] {
+      const root = this.directionGenerale as Entity | undefined
+      if (!root) return []
+      const result: Entity[] = [root]
+      const collect = (parentId: string) => {
+        for (const e of this.entities as Entity[]) {
+          if (e.parentId === parentId) { result.push(e); collect(e.id) }
+        }
+      }
+      collect(root.id)
+      return result
     },
   },
 
