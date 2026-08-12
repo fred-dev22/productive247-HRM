@@ -4,7 +4,7 @@
  * frontdesk. Lignes de dépense éditables pour les brouillons/retournées.
  */
 import { ref, computed, watch } from 'vue'
-import { Plus, Trash2, Paperclip, Upload, Download } from 'lucide-vue-next'
+import { Plus, Trash2, Paperclip, Upload, Download, CircleAlert } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -31,8 +31,27 @@ const missionStore = useMissionStore()
 const attachmentStore = useAttachmentStore()
 const auth = useAuthStore()
 if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
+if (missionConfigStore.ceilings.length === 0) missionConfigStore.fetchCeilings()
 
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
+
+// Plafond (ExpenseCeiling) applicable a la categorie du beneficiaire — non
+// bloquant (decision du 12/08), visible au createur ET au validateur (lecture
+// comme edition, contrairement au form de creation ou seul le createur voit).
+function lineCeiling(l: { expenseTypeId: string }) {
+  const catId = current.value?.employeeCategoryId
+  if (!catId) return null
+  return missionConfigStore.getCeiling(l.expenseTypeId, catId) ?? null
+}
+function isOverCeiling(l: { expenseTypeId: string; amount: number }): boolean {
+  const ceiling = lineCeiling(l)
+  return !!ceiling && ceiling.maxAmount > 0 && l.amount > ceiling.maxAmount
+}
+function expenseTypeName(expenseTypeId: string): string {
+  return missionConfigStore.expenseTypes.find(t => t.id === expenseTypeId)?.name ?? ''
+}
+const readOverCeilingLines = computed(() => (current.value?.lines ?? []).filter(isOverCeiling))
+const editOverCeilingLines = computed(() => lines.value.filter(isOverCeiling))
 
 const currentId = ref(props.reportId)
 watch(() => props.reportId, (v) => { currentId.value = v; isEditMode.value = false })
@@ -172,7 +191,7 @@ function enterEdit() {
   if (!current.value) return
   lineIds.value = current.value.lines.map(l => l.id)
   lines.value = current.value.lines.map(l => ({
-    date: l.date, expenseTypeId: l.expenseTypeId, description: l.description, amount: l.amount, hasDocument: l.hasDocument,
+    date: l.date, expenseTypeId: l.expenseTypeId, description: l.description, amount: l.amount,
   }))
   form.value = { title: current.value.title, missionOrderId: current.value.missionOrderId ?? '' }
   missionStore.fetchMine(current.value.employeeId)
@@ -180,13 +199,18 @@ function enterEdit() {
 }
 function cancelEdit() { isEditMode.value = false }
 function addLine() {
-  lines.value.push({ date: new Date().toISOString().slice(0, 10), expenseTypeId: missionConfigStore.expenseTypes[0]?.id ?? '', description: '', amount: 0, hasDocument: false })
+  lines.value.push({ date: new Date().toISOString().slice(0, 10), expenseTypeId: missionConfigStore.expenseTypes[0]?.id ?? '', description: '', amount: 0 })
   lineIds.value.push(null)
 }
 function removeLine(i: number) { lines.value.splice(i, 1); lineIds.value.splice(i, 1) }
 const editTotal = computed(() => lines.value.reduce((s, l) => s + (l.amount || 0), 0))
 async function save() {
   if (!current.value) return
+  if (lines.value.some(l => !l.amount || l.amount <= 0)) {
+    saveError.value = 'Le montant de chaque ligne de dépense doit être supérieur à 0'
+    return
+  }
+  saveError.value = ''
   try {
     await expenseStore.update(current.value.id, {
       title: form.value.title, missionOrderId: form.value.missionOrderId || undefined, lines: lines.value,
@@ -314,7 +338,6 @@ async function deletePermanently() {
               <th :class="th">Catégorie</th>
               <th :class="th">Description</th>
               <th :class="[th, 'text-right']">Montant</th>
-              <th :class="[th, 'text-center']">Justif.</th>
               <th :class="[th, 'text-center']">Pièce jointe</th>
               <th v-if="isEditMode" :class="th"></th>
             </tr>
@@ -326,8 +349,7 @@ async function deletePermanently() {
                 <td :class="td">{{ formatDate(l.date) }}</td>
                 <td :class="td">{{ l.expenseTypeName }}</td>
                 <td :class="td">{{ l.description }}</td>
-                <td :class="[td, 'text-right tabular-nums']">{{ fmt(l.amount) }} {{ l.currency }}</td>
-                <td :class="[td, 'text-center']">{{ l.hasDocument ? '✓' : '—' }}</td>
+                <td :class="[td, 'text-right tabular-nums', isOverCeiling(l) ? 'text-danger font-semibold' : '']">{{ fmt(l.amount) }} {{ l.currency }}</td>
                 <td :class="[td, 'text-center']">
                   <div class="flex flex-col items-center gap-1">
                     <button
@@ -357,8 +379,12 @@ async function deletePermanently() {
                   </select>
                 </td>
                 <td :class="td"><input v-model="l.description" :class="cellInput" placeholder="Description…" /></td>
-                <td :class="td"><input type="number" min="0" v-model.number="l.amount" :class="[cellInput, 'text-right']" /></td>
-                <td :class="[td, 'text-center']"><input type="checkbox" class="accent-primary" v-model="l.hasDocument" /></td>
+                <td :class="td">
+                  <input
+                    type="number" min="0" v-model.number="l.amount"
+                    :class="[cellInput, 'text-right', isOverCeiling(l) ? '!border-danger !text-danger' : '']"
+                  />
+                </td>
                 <td :class="[td, 'text-center']">
                   <div v-if="lineIds[i]" class="flex flex-col items-center gap-1">
                     <button
@@ -387,10 +413,17 @@ async function deletePermanently() {
             <tr>
               <td colspan="3" class="px-2.5 py-2 bg-background font-bold">TOTAL</td>
               <td class="px-2.5 py-2 bg-background font-bold text-right text-primary tabular-nums">{{ fmt(isEditMode ? editTotal : current.totalAmount) }} MGA</td>
-              <td class="bg-background" :colspan="isEditMode ? 3 : 2"></td>
+              <td class="bg-background" :colspan="isEditMode ? 2 : 1"></td>
             </tr>
           </tfoot>
         </table>
+        <div v-if="(isEditMode ? editOverCeilingLines : readOverCeilingLines).length > 0" :class="cls.fieldErrorBlock" class="mt-3">
+          <CircleAlert class="w-3.5 h-3.5 shrink-0" />
+          <span>
+            Plafond dépassé pour la catégorie du bénéficiaire —
+            <template v-for="(l, i) in (isEditMode ? editOverCeilingLines : readOverCeilingLines)" :key="i">{{ i > 0 ? ', ' : '' }}{{ expenseTypeName(l.expenseTypeId) }} ({{ fmt(l.amount) }} MGA, plafond {{ fmt(lineCeiling(l)?.maxAmount ?? 0) }} MGA)</template>.
+          </span>
+        </div>
         <div v-if="saveError" class="text-xs text-danger bg-danger-bg px-3 py-2 rounded-md mt-3">{{ saveError }}</div>
         </FormSection>
 

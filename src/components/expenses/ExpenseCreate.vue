@@ -5,7 +5,7 @@
  * partagé avec le per diem des missions) + récapitulatif.
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { Plus, Trash2, Paperclip, Upload } from 'lucide-vue-next'
+import { Plus, Trash2, Paperclip, Upload, CircleAlert } from 'lucide-vue-next'
 import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -33,6 +33,7 @@ const categoryStore = useEmployeeCategoryStore()
 const attachmentStore = useAttachmentStore()
 
 if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
+if (missionConfigStore.ceilings.length === 0) missionConfigStore.fetchCeilings()
 if (missionStore.mine.length === 0) missionStore.fetchMine()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 // N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — voir
@@ -65,6 +66,25 @@ const selectedEmployee = computed(() => {
   return { id: emp.id, name: emp.name, initials: emp.initials, categoryName }
 })
 
+// Categorie du beneficiaire — necessaire pour resoudre le plafond
+// (ExpenseCeiling) applicable a chaque ligne (voir warning non bloquant
+// plus bas, decision du 12/08).
+const beneficiaryCategoryId = computed(() => {
+  if (forWhom.value.mode === 'self') {
+    return categoryStore.categories.find(c => c.name === auth.categoryName)?.id
+  }
+  return employeeStore.getById(forWhom.value.employeeId)?.employeeCategoryId
+})
+function lineCeiling(l: ExpenseLinePayload) {
+  if (!beneficiaryCategoryId.value) return null
+  return missionConfigStore.getCeiling(l.expenseTypeId, beneficiaryCategoryId.value) ?? null
+}
+function isOverCeiling(l: ExpenseLinePayload): boolean {
+  const ceiling = lineCeiling(l)
+  return !!ceiling && ceiling.maxAmount > 0 && l.amount > ceiling.maxAmount
+}
+const overCeilingLines = computed(() => lines.value.filter(isOverCeiling))
+
 // Quand on crée pour un autre employé, la mission liée peut être une des
 // miennes ou une des siennes — le backend étend "mine" avec forEmployeeId.
 watch(
@@ -81,7 +101,7 @@ let lineSeq = 0
 function firstExpenseTypeId() { return missionConfigStore.expenseTypes[0]?.id ?? '' }
 function addLine() {
   lineSeq++
-  lines.value.push({ date: new Date().toISOString().slice(0, 10), expenseTypeId: firstExpenseTypeId(), description: '', amount: 0, hasDocument: false })
+  lines.value.push({ date: new Date().toISOString().slice(0, 10), expenseTypeId: firstExpenseTypeId(), description: '', amount: 0 })
 }
 function removeLine(i: number) { lines.value.splice(i, 1) }
 const total = computed(() => lines.value.reduce((s, l) => s + (l.amount || 0), 0))
@@ -109,6 +129,10 @@ function validate(): boolean {
   if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) { error.value = 'Sélectionnez un employé'; return false }
   if (!form.title.trim()) { error.value = 'Le titre est obligatoire'; return false }
   if (lines.value.length === 0) { error.value = 'Ajoutez au moins une ligne de dépense'; return false }
+  if (lines.value.some(l => !l.amount || l.amount <= 0)) {
+    error.value = 'Le montant de chaque ligne de dépense doit être supérieur à 0'
+    return false
+  }
   error.value = ''
   return true
 }
@@ -196,7 +220,6 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
                 <th :class="th">Catégorie</th>
                 <th :class="th">Description</th>
                 <th :class="[th, 'text-right']">Montant</th>
-                <th :class="[th, 'text-center']">Justif.</th>
                 <th :class="th"></th>
               </tr>
             </thead>
@@ -209,20 +232,32 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
                   </select>
                 </td>
                 <td :class="td"><input v-model="l.description" :class="cellInput" placeholder="Description…" /></td>
-                <td :class="td"><input type="number" min="0" v-model.number="l.amount" :class="[cellInput, 'text-right']" /></td>
-                <td :class="[td, 'text-center']"><input type="checkbox" class="accent-primary" v-model="l.hasDocument" /></td>
+                <td :class="td">
+                  <input
+                    type="number" min="0" v-model.number="l.amount"
+                    :class="[cellInput, 'text-right', isOverCeiling(l) ? '!border-danger !text-danger' : '']"
+                  />
+                </td>
                 <td :class="td"><button class="w-7 h-7 rounded-md bg-danger-bg text-danger flex items-center justify-center cursor-pointer hover:brightness-95" @click="removeLine(i)"><Trash2 class="w-3.5 h-3.5" /></button></td>
               </tr>
-              <tr v-if="lines.length === 0"><td colspan="6" class="px-2.5 py-5 text-center text-muted-foreground italic">Aucune ligne, cliquez « Ajouter »</td></tr>
+              <tr v-if="lines.length === 0"><td colspan="5" class="px-2.5 py-5 text-center text-muted-foreground italic">Aucune ligne, cliquez « Ajouter »</td></tr>
             </tbody>
             <tfoot v-if="lines.length > 0">
               <tr>
                 <td colspan="3" class="px-2.5 py-2 bg-background font-bold">TOTAL</td>
                 <td class="px-2.5 py-2 bg-background font-bold text-right text-primary tabular-nums">{{ fmt(total) }} MGA</td>
-                <td class="bg-background" colspan="2"></td>
+                <td class="bg-background"></td>
               </tr>
             </tfoot>
           </table>
+          <div v-if="overCeilingLines.length > 0" :class="cls.fieldErrorBlock">
+            <CircleAlert class="w-3.5 h-3.5 shrink-0" />
+            <span>
+              Plafond dépassé pour la catégorie du bénéficiaire —
+              <template v-for="(l, i) in overCeilingLines" :key="i">{{ i > 0 ? ', ' : '' }}{{ missionConfigStore.expenseTypes.find(t => t.id === l.expenseTypeId)?.name }} ({{ fmt(l.amount) }} MGA, plafond {{ fmt(lineCeiling(l)?.maxAmount ?? 0) }} MGA)</template>.
+              La soumission reste possible, le validateur en sera informé.
+            </span>
+          </div>
           </FormSection>
 
           <!-- Pièces jointes (justificatifs du rapport) -->
