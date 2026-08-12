@@ -112,6 +112,28 @@ export interface MissionAllowanceLine {
   documentRequired:  boolean
 }
 
+// Ligne de frais complementaire saisie a la creation pour justifier
+// l'acompte demande (AdvanceRequested = per diem + somme de ces lignes) —
+// meme catalogue ExpenseType que les notes de frais (plan de test #18).
+export interface MissionExpenseLine {
+  id:              string
+  expenseTypeId:   string
+  expenseTypeName: string
+  description?:    string
+  amount:          number
+}
+
+// Mission associee (plan de test #22, ex: le chauffeur d'un directeur) —
+// resume minimal de l'autre ordre de mission liee (voir MissionOrder.
+// linkedMissionOrder), pour un lien de navigation depuis la fiche.
+export interface LinkedMissionSummary {
+  id:            string
+  referenceCode: string
+  destination:   string
+  status:        MissionStatus
+  employeeName:  string
+}
+
 export interface MissionOrder {
   id:                   string
   referenceCode:        string
@@ -140,6 +162,8 @@ export interface MissionOrder {
   estimatedTotal?:      number
   // Present uniquement sur le detail (GET /mission-orders/:id).
   allowance?:           { lines: MissionAllowanceLine[]; total: number }
+  expenseLines:         MissionExpenseLine[]
+  linkedMission?:       LinkedMissionSummary
   createdAt:            string
   modifiedAt?:          string | null
   validationHistory?:   ValidationStep[]
@@ -173,6 +197,10 @@ export interface ExpenseReport {
   employeeId:           string
   employeeName:         string
   employeeInitials:     string
+  // Categorie du beneficiaire — necessaire pour resoudre le plafond
+  // (ExpenseCeiling) applicable a chaque ligne, cote createur ET validateur
+  // (plafond non bloquant, voir decision du 12/08).
+  employeeCategoryId?:  string
   createdById?:         string
   createdByName?:       string
   title:                string

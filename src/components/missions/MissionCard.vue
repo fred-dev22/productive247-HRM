@@ -5,7 +5,7 @@
  * mode lecture par défaut ; édition possible pour les brouillons.
  */
 import { ref, computed, watch } from 'vue'
-import { Printer, Trash2 } from 'lucide-vue-next'
+import { Plus, Printer, Trash2 } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -15,6 +15,8 @@ import MissionWorkflowActions from './MissionWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
 import { useMissionStore } from '../../stores/missions'
+import type { MissionExpenseLinePayload } from '../../stores/missions'
+import { useMissionConfigStore } from '../../stores/missionConfig'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useAuthStore } from '../../stores/auth'
 import type { MissionOrder, TransportMode, MissionCategory } from '../../types'
@@ -29,9 +31,11 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const missionStore = useMissionStore()
+const missionConfigStore = useMissionConfigStore()
 const categoryStore = useEmployeeCategoryStore()
 const auth = useAuthStore()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
 
 const TRANSPORT_LABELS: Record<TransportMode, string> = {
   PersonalCar: 'Voiture personnelle', CompanyCar: 'Voiture société',
@@ -92,7 +96,12 @@ function selectSidebar(no: string) {
 const isEditMode = ref(false)
 const canEdit = computed(() => current.value?.status === 'Draft' || current.value?.status === 'Returned')
 const form = ref({ destination: '', purpose: '', missionCategory: 'National' as MissionCategory, departureDate: '', returnDate: '', transportModeGo: 'Plane' as TransportMode, transportModeReturn: 'Plane' as TransportMode, advanceRequested: 0 })
+const editExpenseLines = ref<MissionExpenseLinePayload[]>([])
 const saveError = ref('')
+
+function firstExpenseTypeId() { return missionConfigStore.expenseTypes[0]?.id ?? '' }
+function addExpenseLine() { editExpenseLines.value.push({ expenseTypeId: firstExpenseTypeId(), description: '', amount: 0 }) }
+function removeExpenseLine(i: number) { editExpenseLines.value.splice(i, 1) }
 
 function enterEdit() {
   if (!current.value) return
@@ -103,13 +112,14 @@ function enterEdit() {
     transportModeGo: m.transportModeGo, transportModeReturn: m.transportModeReturn,
     advanceRequested: m.advanceRequested,
   }
+  editExpenseLines.value = m.expenseLines.map(l => ({ expenseTypeId: l.expenseTypeId, description: l.description, amount: l.amount }))
   isEditMode.value = true
 }
 function cancelEdit() { isEditMode.value = false }
 async function save() {
   if (!current.value) return
   try {
-    await missionStore.update(current.value.id, { ...form.value })
+    await missionStore.update(current.value.id, { ...form.value, expenseLines: editExpenseLines.value.filter(l => l.amount > 0) })
     detail.value = await missionStore.fetchOne(current.value.id)
     isEditMode.value = false
   } catch {
@@ -204,6 +214,10 @@ async function deletePermanently() {
             <label :class="cls.fieldLabel">Créée par</label>
             <div :class="readBox">{{ current.createdByName }}</div>
           </div>
+          <div v-if="current.linkedMission" :class="cls.field">
+            <label :class="cls.fieldLabel">Mission associée</label>
+            <div :class="readBox">{{ current.linkedMission.employeeName }} · {{ current.linkedMission.referenceCode }} <StatusPill :status="current.linkedMission.status" class="ml-1" /></div>
+          </div>
         </div>
         </FormSection>
 
@@ -296,6 +310,55 @@ async function deletePermanently() {
           </tfoot>
         </table>
         <div v-else class="text-xs text-muted-foreground italic px-1 py-2">Aucun taux configuré pour cette catégorie d'employé et cette portée de mission.</div>
+        </FormSection>
+
+        <!-- Frais complémentaires -->
+        <FormSection v-if="isEditMode || (detail?.expenseLines?.length ?? 0) > 0" title="Frais complémentaires">
+        <template v-if="isEditMode">
+          <div v-if="editExpenseLines.length > 0" class="flex flex-col gap-1.5 mb-3">
+            <div class="grid grid-cols-[1fr_1fr_120px_36px] gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.05em] px-0.5">
+              <span>Catégorie</span><span>Description</span><span>Montant (MGA)</span><span></span>
+            </div>
+            <div v-for="(line, i) in editExpenseLines" :key="i" class="grid grid-cols-[1fr_1fr_120px_36px] gap-1.5 items-center">
+              <select v-model="line.expenseTypeId" :class="cls.fieldInput" class="!h-8 !text-xs">
+                <option v-for="t in missionConfigStore.expenseTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+              <input v-model="line.description" :class="cls.fieldInput" class="!h-8 !text-xs" placeholder="Description…" />
+              <input v-model.number="line.amount" type="number" min="0" :class="cls.fieldInput" class="!h-8 !text-xs" placeholder="0" />
+              <button class="w-8 h-8 rounded-md cursor-pointer flex items-center justify-center bg-danger-bg text-danger shrink-0 transition-opacity hover:opacity-75" @click="removeExpenseLine(i)" title="Supprimer">
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <button
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer border border-dashed border-border bg-transparent text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/10"
+            @click="addExpenseLine"
+          >
+            <Plus class="w-3.5 h-3.5" /> Ajouter un frais
+          </button>
+        </template>
+        <table v-else-if="detail?.expenseLines?.length" class="w-full border-collapse text-[13px]">
+          <thead>
+            <tr>
+              <th :class="th">Catégorie</th>
+              <th :class="th">Description</th>
+              <th :class="[th, 'text-right']">Montant</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="l in detail.expenseLines" :key="l.id">
+              <td :class="td">{{ l.expenseTypeName }}</td>
+              <td :class="td">{{ l.description || '—' }}</td>
+              <td :class="[td, 'text-right']">{{ fmtNum(l.amount) }} MGA</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" class="px-2.5 py-2 bg-background font-bold">TOTAL</td>
+              <td class="px-2.5 py-2 bg-background font-bold text-right text-primary">{{ fmtNum(detail.expenseLines.reduce((s, l) => s + l.amount, 0)) }} MGA</td>
+            </tr>
+          </tfoot>
+        </table>
         </FormSection>
 
         <!-- Historique de validation -->
