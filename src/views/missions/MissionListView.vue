@@ -4,6 +4,7 @@
     :subtitle="isRh ? 'Tous les ordres de mission' : 'Vos ordres de mission'"
     :columns="columns"
     :items="pageItems"
+    :loading="missionStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} mission(s)`"
     search-placeholder="Rechercher une mission…"

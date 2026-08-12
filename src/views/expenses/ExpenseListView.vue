@@ -4,6 +4,7 @@
     :subtitle="isRh ? 'Toutes les notes de frais' : 'Vos notes de frais'"
     :columns="columns"
     :items="pageItems"
+    :loading="expenseStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} note(s)`"
     search-placeholder="Rechercher une note…"
