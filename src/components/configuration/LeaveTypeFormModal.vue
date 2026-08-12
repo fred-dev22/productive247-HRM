@@ -32,7 +32,7 @@ const form = reactive({
   daysPerMonth:     undefined as number | undefined,
   noticeDays:       0,
   documentRequired: false,
-  documentDeadlineHours: undefined as number | undefined,
+  documentDeadlineDays: undefined as number | undefined,
   workflowType:     'Standard' as 'Standard' | 'Medical',
   isActive:         true,
   isSystem:         false,
@@ -66,7 +66,7 @@ function populate() {
       form.daysPerMonth     = lt.daysPerMonth
       form.noticeDays       = lt.noticeDays
       form.documentRequired = lt.documentRequired
-      form.documentDeadlineHours = lt.documentDeadlineHours
+      form.documentDeadlineDays = lt.documentDeadlineDays
       form.workflowType     = lt.workflowType
       form.isActive         = lt.isActive
       form.isSystem         = lt.isSystem
@@ -75,7 +75,7 @@ function populate() {
   } else {
     Object.assign(form, {
       name:'', code:'', daysPerYear:0, daysPerMonth:undefined,
-      noticeDays:0, documentRequired:false, documentDeadlineHours:undefined, workflowType:'Standard',
+      noticeDays:0, documentRequired:false, documentDeadlineDays:undefined, workflowType:'Standard',
       isActive:true, isSystem:false, color:'#006B3C',
     })
   }
@@ -104,7 +104,7 @@ async function handleSave() {
     daysPerMonth:     form.daysPerMonth,
     noticeDays:       form.noticeDays,
     documentRequired: form.documentRequired,
-    documentDeadlineHours: form.documentRequired ? form.documentDeadlineHours : undefined,
+    documentDeadlineDays: form.documentRequired ? form.documentDeadlineDays : undefined,
     workflowType:     form.workflowType,
     isActive:         form.isActive,
     isSystem:         form.isSystem,
@@ -219,8 +219,8 @@ async function handleSave() {
                 </label>
               </div>
               <div v-if="form.documentRequired" :class="cls.field">
-                <label :class="cls.fieldLabel">Délai de soumission du justificatif (heures)</label>
-                <input type="number" min="1" v-model.number="form.documentDeadlineHours" :class="cls.fieldInput" placeholder="ex: 48" />
+                <label :class="cls.fieldLabel">Délai de soumission du justificatif (jours)</label>
+                <input type="number" min="1" v-model.number="form.documentDeadlineDays" :class="cls.fieldInput" placeholder="ex: 2" />
               </div>
               <div v-if="!isEdit" class="col-span-2 flex items-start gap-2.5 bg-info-bg rounded-md px-3 py-2.5">
                 <input id="credit-existing" type="checkbox" class="accent-primary mt-0.5" v-model="creditExisting" />
