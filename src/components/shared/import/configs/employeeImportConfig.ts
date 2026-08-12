@@ -80,7 +80,14 @@ export function buildEmployeeImportConfig(): ImportConfig {
       },
       {
         key: 'PositionId', csvHeader: 'Code poste', label: 'Poste', required: false, type: 'select', sample: '',
-        options: () => positionStore.positions.map(p => ({ value: p.id, label: p.title, code: p.code })),
+        // Un poste dont tous les sieges sont occupes ne doit pas etre
+        // propose a l'import, meme regle que EmployeeCreate.vue (voir
+        // decision du 30/07 / Position.Capacity). Le nombre de places
+        // restantes est affiche mais n'entre pas dans la resolution CSV
+        // (qui matche sur le code, jamais sur ce libelle).
+        options: () => positionStore.positions
+          .filter(p => p.occupiedCount < p.capacity)
+          .map(p => ({ value: p.id, label: `${p.title} (${p.capacity - p.occupiedCount}/${p.capacity} places)`, code: p.code })),
       },
       {
         key: 'EmployeeCategoryId', csvHeader: 'Code catégorie', label: 'Catégorie', required: false, type: 'select', sample: '',
