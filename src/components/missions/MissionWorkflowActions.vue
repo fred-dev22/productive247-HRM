@@ -34,7 +34,9 @@ const deleteCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 const IN_APPROVAL: MissionOrder['status'][] = ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
 const CANCELLABLE: MissionOrder['status'][] = ['Draft', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved']
 
-const isOwner   = () => props.mission.employeeId === auth.user?.id
+// Beneficiaire OU createur (Lot A #172) — voir AbsenceWorkflowActions.vue
+// pour le detail, meme raisonnement.
+const isOwner   = () => props.mission.employeeId === auth.user?.id || props.mission.createdById === auth.user?.id
 const canValidate = () => auth.hasPermission('MISSION_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.mission.status)
 
 function submit()  { missionStore.submit(props.mission.id) }

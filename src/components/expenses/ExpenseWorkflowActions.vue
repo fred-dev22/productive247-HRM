@@ -34,7 +34,9 @@ const deleteCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 const IN_APPROVAL: ExpenseReport['status'][] = ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
 const CANCELLABLE: ExpenseReport['status'][] = ['Draft', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved']
 
-const isOwner   = () => props.report.employeeId === auth.user?.id
+// Beneficiaire OU createur (Lot A #172) — voir AbsenceWorkflowActions.vue
+// pour le detail, meme raisonnement.
+const isOwner   = () => props.report.employeeId === auth.user?.id || props.report.createdById === auth.user?.id
 const canValidate = () => auth.hasPermission('FRAIS_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.report.status)
 
 function submit()  { expenseStore.submit(props.report.id) }

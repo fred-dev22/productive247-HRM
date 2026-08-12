@@ -228,11 +228,24 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
     }
   }
 
+  // Pas de try/catch avant (Lot corrections 12/08) : un echec (ex: aucun
+  // pool de validation configure) passait inapercu — le bouton "Soumettre"
+  // de la fiche/liste ne fait qu'appeler cette fonction sans l'attendre, il
+  // faut donc que l'erreur soit visible d'elle-meme (toast), pas seulement
+  // propagee a un appelant qui ne l'observe pas toujours.
   async function submit(id: string): Promise<LeaveRequest> {
-    const { data } = await api.post<BackendLeaveRequest>(`/leave-requests/${id}/submit`)
-    const mapped = mapLeaveRequest(data)
-    replaceEverywhere(mapped)
-    return mapped
+    error.value = null
+    return withToast('Soumission en cours…', async () => {
+      try {
+        const { data } = await api.post<BackendLeaveRequest>(`/leave-requests/${id}/submit`)
+        const mapped = mapLeaveRequest(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de soumettre cette demande')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de soumettre cette demande')
   }
 
   /** Crée puis soumet immédiatement — équivalent de l'ancien submitLeave() du mock. */

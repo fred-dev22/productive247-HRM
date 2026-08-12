@@ -37,7 +37,12 @@ const IN_APPROVAL: LeaveRequest['status'][] = ['Pending', 'InApprovalN1', 'InApp
 // même ne peut plus revenir en arrière depuis ce bouton self-service.
 const CANCELLABLE: LeaveRequest['status'][] = ['Draft', 'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
 
-const isOwner   = () => props.leave.employeeId === auth.user?.id
+// Beneficiaire OU createur (Lot A #172 : n'importe qui peut creer une
+// demande pour n'importe qui) — le createur doit garder la main sur les
+// actions de son propre brouillon meme s'il n'en est pas le beneficiaire,
+// exactement comme le backend l'autorise deja (voir
+// LeaveRequestService.submit/cancel/remove).
+const isOwner   = () => props.leave.employeeId === auth.user?.id || props.leave.createdById === auth.user?.id
 const canValidate = () => auth.hasPermission('CONGE_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.leave.status)
 
 function submit()  { store.submit(props.leave.id) }
