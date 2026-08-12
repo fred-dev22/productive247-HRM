@@ -22,7 +22,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useUserStore } from '../../stores/users'
 import { usePermissionStore } from '../../stores/permissions'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
-import type { Employee, ContractType, EmployeeStatus } from '../../types'
+import type { Employee, ContractType, EmployeeStatus, Gender, MaritalStatus, IdDocumentType } from '../../types'
 
 const props = defineProps<{ employees: Employee[]; employeeId: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -39,6 +39,9 @@ if (permissionStore.permissions.length === 0) permissionStore.fetchAll()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
 const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Désactivé' }
+const GENDER_LABELS: Record<Gender, string> = { M: 'Homme', F: 'Femme' }
+const MARITAL_LABELS: Record<MaritalStatus, string> = { Single: 'Célibataire', Married: 'Marié(e)', Divorced: 'Divorcé(e)', Widowed: 'Veuf / Veuve' }
+const ID_TYPE_LABELS: Record<IdDocumentType, string> = { NationalId: "Carte d'identité nationale", Passport: 'Passeport', ResidencePermit: 'Carte de séjour' }
 function categoryName(id?: string): string {
   if (!id) return '—'
   return categoryStore.categories.find(c => c.id === id)?.name ?? '—'
@@ -57,14 +60,23 @@ function fetchEntities({ searchQuery }: LookupFetchParams) {
 }
 function isEntityDisabled(item: { status?: string }) { return item.status === 'Inactive' }
 
-const positionColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'title', label: 'Poste' }]
+const positionColumns = [
+  { key: 'code', label: 'Code', width: '90px' },
+  { key: 'title', label: 'Poste' },
+  { key: 'remaining', label: 'Places dispo.', width: '100px' },
+]
 function fetchPositions({ searchQuery }: LookupFetchParams) {
-  let items = positionStore.positions
+  // Un poste dont tous les sieges sont occupes ne doit plus etre propose —
+  // sauf celui deja affecte a cet employe (sinon on ne pourrait plus
+  // voir/reselectionner le sien) (voir Position.Capacity / decision du 30/07,
+  // meme regle que EmployeeCreate.vue / EmployeeFormView.vue).
+  let items = positionStore.positions.filter(p => p.occupiedCount < p.capacity || p.id === form.value.positionId)
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(p => p.title.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
   }
-  return { items, total: items.length }
+  const withRemaining = items.map(p => ({ ...p, remaining: `${p.capacity - p.occupiedCount}/${p.capacity}` }))
+  return { items: withRemaining, total: withRemaining.length }
 }
 
 const currentId = ref(props.employeeId)
@@ -95,6 +107,8 @@ const form = ref({
   entityId: '' as string | null, entityName: '',
   employeeCategoryId: '' as string, contractType: 'CDI' as ContractType,
   hireDate: '', status: 'active' as EmployeeStatus, isExpatriate: false,
+  gender: 'M' as Gender, birthDate: '', birthPlace: '',
+  maritalStatus: 'Single' as MaritalStatus, idType: 'NationalId' as IdDocumentType, idNumber: '',
 })
 
 function enterEdit() {
@@ -105,6 +119,8 @@ function enterEdit() {
     positionId: e.positionId ?? '', positionTitle: e.jobTitle,
     entityId: e.entityId, entityName: e.entityName ?? '', employeeCategoryId: e.employeeCategoryId ?? '', contractType: e.contractType,
     hireDate: e.hireDate, status: e.status, isExpatriate: e.isExpatriate,
+    gender: e.gender, birthDate: e.birthDate, birthPlace: e.birthPlace ?? '',
+    maritalStatus: e.maritalStatus, idType: e.idType, idNumber: e.idNumber ?? '',
   }
   const ent = e.entityId ? entityStore.getEntityById(e.entityId) : undefined
   entityCode.value = ent?.code ?? ''
@@ -309,6 +325,42 @@ async function deletePermanently() {
             <label :class="cls.fieldLabel">Téléphone</label>
             <input v-if="isEditMode" type="tel" v-model="form.phone" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ current.phone || '—' }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Genre</label>
+            <select v-if="isEditMode" v-model="form.gender" :class="cls.fieldSelect">
+              <option v-for="(l, v) in GENDER_LABELS" :key="v" :value="v">{{ l }}</option>
+            </select>
+            <div v-else :class="readBox">{{ GENDER_LABELS[current.gender] }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Date de naissance</label>
+            <input v-if="isEditMode" type="date" v-model="form.birthDate" :max="todayIso()" :class="cls.fieldInput" />
+            <div v-else :class="readBox">{{ formatDate(current.birthDate) }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Lieu de naissance</label>
+            <input v-if="isEditMode" v-model="form.birthPlace" :class="cls.fieldInput" />
+            <div v-else :class="readBox">{{ current.birthPlace || '—' }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Situation familiale</label>
+            <select v-if="isEditMode" v-model="form.maritalStatus" :class="cls.fieldSelect">
+              <option v-for="(l, v) in MARITAL_LABELS" :key="v" :value="v">{{ l }}</option>
+            </select>
+            <div v-else :class="readBox">{{ MARITAL_LABELS[current.maritalStatus] }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Type de pièce d'identité</label>
+            <select v-if="isEditMode" v-model="form.idType" :class="cls.fieldSelect">
+              <option v-for="(l, v) in ID_TYPE_LABELS" :key="v" :value="v">{{ l }}</option>
+            </select>
+            <div v-else :class="readBox">{{ ID_TYPE_LABELS[current.idType] }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Numéro de pièce</label>
+            <input v-if="isEditMode" v-model="form.idNumber" :class="cls.fieldInput" />
+            <div v-else :class="readBox">{{ current.idNumber || '—' }}</div>
           </div>
         </div>
         </FormSection>
