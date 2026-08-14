@@ -261,8 +261,8 @@ function closeTour() {
   router.replace({ query: {} })
 }
 const TOUR_STEPS: TourStep[] = [
-  { target: '[data-tour="config"]', title: 'Configuration', description: "Gérez ici le calendrier et les jours fériés, la Classification (catégories, métiers et postes de l'entreprise) et les taux de frais/perdiems de mission." },
-  { target: '[data-tour="management"]', title: 'Employés et entités', description: 'Créez et gérez vos employés, entités, ordres de mission et notes de frais depuis cette section.' },
+  { target: '[data-tour="config"]', title: 'Configuration', description: "Gérez ici le calendrier et les jours fériés, ainsi que la Classification (catégories, métiers et postes de l'entreprise)." },
+  { target: '[data-tour="management"]', title: 'Employés et entités', description: 'Créez et gérez vos employés et entités depuis cette section.' },
   { target: '[data-tour="absences"]', title: "Demandes d'absence", description: "Suivez et validez les demandes de congé de votre équipe, et consultez les soldes." },
 ]
 if (entityStore.entities.length === 0) entityStore.fetchAll()

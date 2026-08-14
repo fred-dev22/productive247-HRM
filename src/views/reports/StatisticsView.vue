@@ -16,7 +16,7 @@
         </div>
 
         <!-- ── KPIs globaux ── -->
-        <div class="grid grid-cols-4 gap-3 mb-5 max-[1100px]:grid-cols-2 max-md:grid-cols-1">
+        <div :class="['grid gap-3 mb-5 max-[1100px]:grid-cols-2 max-md:grid-cols-1', MISSIONS_EXPENSES_ENABLED ? 'grid-cols-4' : 'grid-cols-3']">
           <div :class="kpiCard">
             <div :class="kpiIcon" class="bg-success-bg"><Users class="w-5 h-5 text-success" /></div>
             <div>
@@ -33,7 +33,7 @@
               <div :class="kpiSub">Cumul {{ selectedYear }}</div>
             </div>
           </div>
-          <div :class="kpiCard">
+          <div v-if="MISSIONS_EXPENSES_ENABLED" :class="kpiCard">
             <div :class="kpiIcon" class="bg-primary/10"><Plane class="w-5 h-5 text-primary" /></div>
             <div>
               <div :class="kpiVal">{{ totalMissions }}</div>
@@ -88,6 +88,7 @@
         </div>
 
         <!-- ── Missions ── -->
+        <template v-if="MISSIONS_EXPENSES_ENABLED">
         <div :class="sectionTitle"><Plane class="w-4 h-4 text-primary" /> Missions</div>
         <div :class="twoCol">
           <div :class="card">
@@ -118,6 +119,7 @@
             </div>
           </div>
         </div>
+        </template>
 
   </div>
 </template>
@@ -131,6 +133,7 @@ import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useMissionStore } from '../../stores/missions'
 import { useEmployeeStore } from '../../stores/employees'
+import { MISSIONS_EXPENSES_ENABLED } from '../../config/features'
 
 const auth          = useAuthStore()
 const leaveStore    = useLeaveRequestStore()
@@ -140,7 +143,7 @@ const employeeStore = useEmployeeStore()
 if (employeeStore.employees.length === 0) employeeStore.fetchAll()
 if (leaveStore.all.length === 0) leaveStore.fetchAll()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
-if (missionStore.all.length === 0) missionStore.fetchAll()
+if (MISSIONS_EXPENSES_ENABLED && missionStore.all.length === 0) missionStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────
 const kpiCard = 'bg-card border border-border rounded-[10px] p-4 flex items-center gap-3.5'

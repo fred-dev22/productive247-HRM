@@ -8,8 +8,17 @@ import PublicApprovalView from '../views/PublicApprovalView.vue'
 import DashboardHR       from '../views/DashboardHR.vue'
 import DashboardEmployee from '../views/DashboardEmployee.vue'
 import CalendarView      from '../views/calendar/CalendarView.vue'
+import { MISSIONS_EXPENSES_ENABLED } from '../config/features'
 
 const PH = () => import('../views/placeholders/PlaceholderView.vue')
+
+// Routes des modules Mission / Note de frais — bloquées tant que
+// MISSIONS_EXPENSES_ENABLED est à false (voir src/config/features.ts), même
+// pour un accès direct par URL, en plus du masquage dans AppSidebar.vue.
+const MISSIONS_EXPENSES_ROUTES = new Set([
+  'hr-missions', 'hr-expenses', 'hr-config-mission-fees',
+  'employee-missions', 'employee-expenses',
+])
 
 // Route (par nom) -> permission(s) requise(s) en plus de l'espace hr/employee
 // (voir auth.isHRSpace/isEmployeeSpace). Un tableau = n'importe laquelle des
@@ -294,6 +303,10 @@ router.beforeEach(async (to) => {
       if (!companySettings.isOnboarded) {
         return { path: '/onboarding' }
       }
+    }
+
+    if (!MISSIONS_EXPENSES_ENABLED && to.name && MISSIONS_EXPENSES_ROUTES.has(to.name as string)) {
+      return { path: auth.isHRSpace ? '/hr' : '/employee' }
     }
 
     // Route couverte par une permission précise (voir ROUTE_PERMISSIONS) —

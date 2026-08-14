@@ -150,6 +150,7 @@ import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useMissionStore } from '../../stores/missions'
 import { useExpenseStore } from '../../stores/expenses'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
+import { MISSIONS_EXPENSES_ENABLED } from '../../config/features'
 import type { LeaveRequest, MissionOrder, ExpenseReport } from '../../types'
 
 const route = useRoute()
@@ -159,7 +160,9 @@ const missionStore = useMissionStore()
 const expenseStore = useExpenseStore()
 const leaveTypesStore = useLeaveTypesStore()
 
-const VALID_SCOPES = ['absences', 'missions', 'expenses'] as const
+const ALL_SCOPES = ['absences', 'missions', 'expenses'] as const
+type Scope = typeof ALL_SCOPES[number]
+const VALID_SCOPES: readonly Scope[] = MISSIONS_EXPENSES_ENABLED ? ALL_SCOPES : ['absences']
 
 // Le préavis minimum n'est plus bloquant à la soumission (decision du
 // 01/08) — c'est ici, côté validateur, que l'avertissement doit apparaître
@@ -174,15 +177,17 @@ function noticeWarning(item: LeaveRequest): string | null {
   return `Préavis de ${type.noticeDays} jour(s) non respecté (soumis ${diffDays} jour(s) avant le début)`
 }
 
-const initialScope = VALID_SCOPES.includes(route.query.scope as typeof VALID_SCOPES[number])
-  ? (route.query.scope as typeof VALID_SCOPES[number])
+const initialScope = VALID_SCOPES.includes(route.query.scope as Scope)
+  ? (route.query.scope as Scope)
   : 'absences'
 const scope = ref<'absences' | 'missions' | 'expenses'>(initialScope)
-const scopeOptions = [
-  { value: 'absences', label: 'Absences' },
-  { value: 'missions', label: 'Missions' },
-  { value: 'expenses', label: 'Notes de frais' },
-]
+const scopeOptions = MISSIONS_EXPENSES_ENABLED
+  ? [
+      { value: 'absences', label: 'Absences' },
+      { value: 'missions', label: 'Missions' },
+      { value: 'expenses', label: 'Notes de frais' },
+    ]
+  : [{ value: 'absences', label: 'Absences' }]
 
 const openAbsenceId = ref<string | null>(null)
 const openMissionId = ref<string | null>(null)
@@ -201,8 +206,8 @@ function openCard(item: LeaveRequest | MissionOrder | ExpenseReport) {
 function applyDeepLink() {
   const id = route.query.open
   if (typeof id !== 'string' || !id) return
-  if (VALID_SCOPES.includes(route.query.scope as typeof VALID_SCOPES[number])) {
-    scope.value = route.query.scope as typeof VALID_SCOPES[number]
+  if (VALID_SCOPES.includes(route.query.scope as Scope)) {
+    scope.value = route.query.scope as Scope
   }
   if (scope.value === 'absences') openAbsenceId.value = id
   else if (scope.value === 'missions') openMissionId.value = id
@@ -216,8 +221,8 @@ watch(() => route.query.open, (id) => { if (id) applyDeepLink() })
 onMounted(async () => {
   await Promise.all([
     leaveStore.pendingForMe.length === 0 ? leaveStore.fetchPendingForMe() : Promise.resolve(),
-    missionStore.pendingForMe.length === 0 ? missionStore.fetchPendingForMe() : Promise.resolve(),
-    expenseStore.pendingForMe.length === 0 ? expenseStore.fetchPendingForMe() : Promise.resolve(),
+    MISSIONS_EXPENSES_ENABLED && missionStore.pendingForMe.length === 0 ? missionStore.fetchPendingForMe() : Promise.resolve(),
+    MISSIONS_EXPENSES_ENABLED && expenseStore.pendingForMe.length === 0 ? expenseStore.fetchPendingForMe() : Promise.resolve(),
   ])
   if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
   applyDeepLink()
