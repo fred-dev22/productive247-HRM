@@ -44,7 +44,10 @@ const auth = useAuthStore()
 const employeeStore = useEmployeeStore()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
 if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
-if (leaveTransactionStore.myBalances.length === 0) leaveTransactionStore.fetchMyBalances()
+// Toujours rafraîchi (pas de garde "si vide") : le solde utilisé pour
+// l'avertissement "solde insuffisant" ci-dessous doit refléter les
+// approbations décidées entre-temps, voir DashboardEmployee.vue.
+leaveTransactionStore.fetchMyBalances()
 
 function leaveNo(l: LeaveRequest) { return l.referenceCode }
 

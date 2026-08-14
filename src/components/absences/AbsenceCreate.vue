@@ -39,7 +39,8 @@ const auth                  = useAuthStore()
 
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
-if (leaveTransactionStore.myBalances.length === 0) leaveTransactionStore.fetchMyBalances()
+// Toujours rafraîchi (pas de garde "si vide") : voir DashboardEmployee.vue.
+leaveTransactionStore.fetchMyBalances()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 // N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — un
 // simple employé n'a pas EMPLOYE_VOIR_TOUT/EQUIPE, fetchAll() échouerait en

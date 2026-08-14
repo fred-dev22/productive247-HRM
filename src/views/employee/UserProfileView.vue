@@ -59,7 +59,7 @@
                 <router-link :to="{ name: isHR ? 'hr-absences' : 'employee-absences' }" :class="quickBtn">
                   <CalendarPlus class="w-4 h-4" /> Demande de congé
                 </router-link>
-                <router-link :to="{ name: isHR ? 'hr-missions' : 'employee-missions' }" :class="quickBtn">
+                <router-link v-if="MISSIONS_EXPENSES_ENABLED" :to="{ name: isHR ? 'hr-missions' : 'employee-missions' }" :class="quickBtn">
                   <Plane class="w-4 h-4" /> Ordre de mission
                 </router-link>
                 <router-link :to="{ name: 'employee-planning' }" :class="quickBtn">
@@ -173,6 +173,7 @@ import { useEmployeeStore } from '../../stores/employees'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useRoute } from 'vue-router'
+import { MISSIONS_EXPENSES_ENABLED } from '../../config/features'
 
 const auth         = useAuthStore()
 const employeeStore = useEmployeeStore()
@@ -180,7 +181,9 @@ const categoryStore = useEmployeeCategoryStore()
 const balanceStore  = useLeaveTransactionStore()
 const route         = useRoute()
 
-if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
+// Toujours rafraîchi (pas de garde "si vide") : le solde peut changer suite
+// à une approbation décidée par un tiers, voir DashboardEmployee.vue.
+balanceStore.fetchMyBalances()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
 // ── Classes du design system ─────────────────────────────────

@@ -53,7 +53,7 @@
               <button :class="[btnOutline, 'text-[11px]']" @click="openModal()">
                 <Plus class="w-4 h-4" /> {{ t('absence.new') }}
               </button>
-              <button :class="[btnOutline, 'text-[11px]']" @click="router.push({ name: 'employee-missions' })">
+              <button v-if="MISSIONS_EXPENSES_ENABLED" :class="[btnOutline, 'text-[11px]']" @click="router.push({ name: 'employee-missions' })">
                 <Plane class="w-4 h-4" /> {{ t('nav.my_missions') }}
               </button>
             </div>
@@ -119,6 +119,7 @@ import { useLeaveRequestStore }     from '../stores/leaveRequests'
 import { useLeaveTypesStore }       from '../stores/leaveTypes'
 import { useLeaveTransactionStore } from '../stores/leaveTransactions'
 import { useCalendarStore }         from '../stores/calendar'
+import { MISSIONS_EXPENSES_ENABLED } from '../config/features'
 
 const auth   = useAuthStore()
 const leaves = useLeaveRequestStore()
@@ -130,7 +131,11 @@ const router = useRouter()
 
 if (leaves.mine.length === 0) leaves.fetchMine()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
-if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
+// Toujours rafraîchi (pas de garde "si vide") : le solde peut changer suite
+// à une approbation décidée par un tiers pendant que ce tableau de bord
+// reste ouvert en arrière-plan — un solde figé sur son état d'avant
+// approbation induirait l'employé en erreur sur ses jours réellement pris.
+balanceStore.fetchMyBalances()
 if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 
