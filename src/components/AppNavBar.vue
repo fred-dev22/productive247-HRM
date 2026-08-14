@@ -74,6 +74,7 @@ import { X, Menu } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
 import { useLeaveRequestStore } from '../stores/leaveRequests'
+import { PLACEHOLDER_MODULES_ENABLED } from '../config/features'
 
 const router       = useRouter()
 const route        = useRoute()
@@ -109,10 +110,11 @@ const navItemActiveClass = 'text-primary border-primary font-semibold'
 const mobileItemClass =
   'flex items-center px-5 py-3 text-sm font-medium text-foreground/80 cursor-pointer border-b border-border last:border-0 no-underline hover:bg-background hover:text-primary'
 
-// 'administration' et 'reports' contiennent des fonctionnalités réelles
-// couvertes par des permissions — masqués si l'utilisateur n'en a aucune.
-// 'recruitment'/'training'/'payroll' restent des modules placeholder sans
-// permission dédiée, donc toujours visibles côté RH comme aujourd'hui.
+// 'administration' contient des fonctionnalités réelles couvertes par des
+// permissions — masqué si l'utilisateur n'en a aucune. 'recruitment'/
+// 'training'/'payroll'/'reports' restent des modules placeholder (voir
+// PLACEHOLDER_MODULES_ENABLED, src/config/features.ts) — masqués tant
+// qu'ils ne sont pas construits.
 const hrNavItems = computed(() => [
   { key: 'administration', label: t('nav.admin'), visible: auth.hasAnyPermission([
     'EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE', 'ENTITE_VOIR',
@@ -120,10 +122,10 @@ const hrNavItems = computed(() => [
     'CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE',
     'CONFIG_CALENDRIER', 'CONFIG_FRAIS_MISSION',
   ]) },
-  { key: 'recruitment', label: t('nav.recruitment'), visible: true },
-  { key: 'training',    label: t('nav.training'),    visible: true },
-  { key: 'payroll',     label: t('nav.payroll'),      visible: true },
-  { key: 'reports', label: t('nav.reports'), visible: auth.hasAnyPermission(['RAPPORT_VOIR', 'ENTITE_VOIR']) },
+  { key: 'recruitment', label: t('nav.recruitment'), visible: PLACEHOLDER_MODULES_ENABLED },
+  { key: 'training',    label: t('nav.training'),    visible: PLACEHOLDER_MODULES_ENABLED },
+  { key: 'payroll',     label: t('nav.payroll'),      visible: PLACEHOLDER_MODULES_ENABLED },
+  { key: 'reports', label: t('nav.reports'), visible: PLACEHOLDER_MODULES_ENABLED && auth.hasAnyPermission(['RAPPORT_VOIR', 'ENTITE_VOIR']) },
 ].filter((item) => item.visible))
 
 function handleHRNav(key: string) {

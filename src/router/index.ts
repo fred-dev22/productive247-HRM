@@ -8,7 +8,7 @@ import PublicApprovalView from '../views/PublicApprovalView.vue'
 import DashboardHR       from '../views/DashboardHR.vue'
 import DashboardEmployee from '../views/DashboardEmployee.vue'
 import CalendarView      from '../views/calendar/CalendarView.vue'
-import { MISSIONS_EXPENSES_ENABLED } from '../config/features'
+import { MISSIONS_EXPENSES_ENABLED, PLACEHOLDER_MODULES_ENABLED } from '../config/features'
 
 const PH = () => import('../views/placeholders/PlaceholderView.vue')
 
@@ -19,6 +19,12 @@ const MISSIONS_EXPENSES_ROUTES = new Set([
   'hr-missions', 'hr-expenses', 'hr-config-mission-fees',
   'employee-missions', 'employee-expenses',
 ])
+
+// Préfixes des modules encore à l'état de placeholder (Recrutement,
+// Formation, Paie, Rapports — voir PLACEHOLDER_MODULES_ENABLED) — bloque
+// aussi toutes leurs sous-routes (ex. /hr/recruitment/positions) même par
+// accès direct à l'URL, en plus du masquage dans AppNavBar.vue.
+const PLACEHOLDER_MODULE_PATH_PREFIXES = ['/hr/recruitment', '/hr/training', '/hr/payroll', '/hr/reports']
 
 // Route (par nom) -> permission(s) requise(s) en plus de l'espace hr/employee
 // (voir auth.isHRSpace/isEmployeeSpace). Un tableau = n'importe laquelle des
@@ -306,6 +312,10 @@ router.beforeEach(async (to) => {
     }
 
     if (!MISSIONS_EXPENSES_ENABLED && to.name && MISSIONS_EXPENSES_ROUTES.has(to.name as string)) {
+      return { path: auth.isHRSpace ? '/hr' : '/employee' }
+    }
+
+    if (!PLACEHOLDER_MODULES_ENABLED && PLACEHOLDER_MODULE_PATH_PREFIXES.some((p) => to.path.startsWith(p))) {
       return { path: auth.isHRSpace ? '/hr' : '/employee' }
     }
 
