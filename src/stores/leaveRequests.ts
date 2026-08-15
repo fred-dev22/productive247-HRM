@@ -124,12 +124,13 @@ function toBackendCreatePayload(p: CreateLeaveRequestPayload) {
 }
 
 export const useLeaveRequestStore = defineStore('leaveRequests', () => {
-  const mine         = ref<LeaveRequest[]>([])
-  const team         = ref<LeaveRequest[]>([])
-  const all          = ref<LeaveRequest[]>([])
-  const pendingForMe = ref<LeaveRequest[]>([])
-  const loading      = ref(false)
-  const error        = ref<string | null>(null)
+  const mine          = ref<LeaveRequest[]>([])
+  const team          = ref<LeaveRequest[]>([])
+  const all           = ref<LeaveRequest[]>([])
+  const pendingForMe  = ref<LeaveRequest[]>([])
+  const validatedByMe = ref<LeaveRequest[]>([])
+  const loading       = ref(false)
+  const error         = ref<string | null>(null)
 
   async function fetchMine() {
     loading.value = true
@@ -187,6 +188,25 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
     }
   }
 
+  // Demandes deja decidees par l'utilisateur courant (approuve/refuse/
+  // retourne), peu importe leur statut actuel — permet a "à valider" de
+  // garder ces lignes visibles apres validation, au lieu de les faire
+  // disparaitre comme le fait pendingForMe (qui lui reste une file d'attente
+  // exacte, utilisee pour le badge de notification).
+  async function fetchValidatedByMe() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendLeaveRequest[]>('/leave-requests/validated-by-me')
+      validatedByMe.value = data.map(mapLeaveRequest)
+    } catch (err) {
+      error.value = getApiErrorMessage(err, 'Impossible de charger les demandes déjà traitées')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function fetchOne(id: string): Promise<LeaveRequest> {
     const { data } = await api.get<BackendLeaveRequest>(`/leave-requests/${id}`)
     return mapLeaveRequest(data)
@@ -196,15 +216,24 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
   // chargées (mine/team/all/pendingForMe) — évite un refetch complet après
   // chaque action de workflow.
   function replaceEverywhere(updated: LeaveRequest) {
-    for (const list of [mine, team, all, pendingForMe]) {
+    for (const list of [mine, team, all, pendingForMe, validatedByMe]) {
       const idx = list.value.findIndex(l => l.id === updated.id)
       if (idx !== -1) list.value[idx] = updated
     }
   }
   function removeEverywhere(id: string) {
-    for (const list of [mine, team, all, pendingForMe]) {
+    for (const list of [mine, team, all, pendingForMe, validatedByMe]) {
       list.value = list.value.filter(l => l.id !== id)
     }
+  }
+  // Ajoute (ou met a jour) la demande dans "deja traitees par moi" juste
+  // apres une decision — sans ça il faut un fetchValidatedByMe() complet
+  // pour la voir apparaitre dans "à valider" (voir removeFromPending
+  // ci-dessous, qui la retire du cote "en attente" au meme moment).
+  function upsertValidatedByMe(item: LeaveRequest) {
+    const idx = validatedByMe.value.findIndex(l => l.id === item.id)
+    if (idx !== -1) validatedByMe.value[idx] = item
+    else validatedByMe.value.unshift(item)
   }
   // Une decision (approuver/refuser/retourner) retire la demande de "à
   // valider" pour l'acteur courant tout de suite — meme si elle escalade au
@@ -344,6 +373,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
         removeFromPending(mapped.id)
+        upsertValidatedByMe(mapped)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de valider cette demande')
@@ -360,6 +390,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
         removeFromPending(mapped.id)
+        upsertValidatedByMe(mapped)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de refuser cette demande')
@@ -376,6 +407,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
         removeFromPending(mapped.id)
+        upsertValidatedByMe(mapped)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de retourner cette demande')
@@ -426,8 +458,8 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
   }
 
   return {
-    mine, team, all, pendingForMe, loading, error,
-    fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchOne,
+    mine, team, all, pendingForMe, validatedByMe, loading, error,
+    fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchValidatedByMe, fetchOne,
     create, submit, createAndSubmit, saveDraft, update, remove, deletePermanently,
     approve, reject, returnLeave, cancel, markDone, regularize,
   }

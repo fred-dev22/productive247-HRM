@@ -207,6 +207,7 @@ export function generateWeekPlanning(
     endDate:   string
     type:      string
     status:    LeaveRequestStatus
+    color?:    string
   }>,
 ): DayPlanning[] {
   const days  : DayPlanning[] = []
@@ -237,6 +238,7 @@ export function generateWeekPlanning(
       isAbsence:     !!absence,
       absenceType:   absence?.type,
       absenceStatus: absence?.status,
+      absenceColor:  absence?.color,
       hours: working ? {
         start:      dayConfig.start,
         end:        dayConfig.end,

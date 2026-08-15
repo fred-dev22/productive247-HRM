@@ -1,7 +1,7 @@
 <template>
   <ListPageLayout
     title="Demandes à valider"
-    :subtitle="`${pendingAbsences.length + pendingMissions.length + pendingExpenses.length} en attente de validation`"
+    :subtitle="`${leaveStore.pendingForMe.length + pendingMissions.length + pendingExpenses.length} en attente de validation`"
     :columns="columns"
     :items="pageItems"
     :total="totalCount"
@@ -221,6 +221,7 @@ watch(() => route.query.open, (id) => { if (id) applyDeepLink() })
 onMounted(async () => {
   await Promise.all([
     leaveStore.pendingForMe.length === 0 ? leaveStore.fetchPendingForMe() : Promise.resolve(),
+    leaveStore.validatedByMe.length === 0 ? leaveStore.fetchValidatedByMe() : Promise.resolve(),
     MISSIONS_EXPENSES_ENABLED && missionStore.pendingForMe.length === 0 ? missionStore.fetchPendingForMe() : Promise.resolve(),
     MISSIONS_EXPENSES_ENABLED && expenseStore.pendingForMe.length === 0 ? expenseStore.fetchPendingForMe() : Promise.resolve(),
   ])
@@ -261,7 +262,15 @@ const page = ref(1)
 const pageSize = ref(10)
 watch([scope, searchQuery, pageSize], () => { page.value = 1 })
 
-const pendingAbsences = computed(() => leaveStore.pendingForMe)
+// "à valider" reste une file d'attente (pendingForMe) au sommet, mais un
+// validateur doit aussi garder une trace permanente des demandes de son
+// equipe qu'il a deja traitees (validatedByMe) — sinon elles disparaissent
+// de son ecran des qu'il valide, ce qui n'est pas ce qu'on veut.
+const pendingAbsences = computed(() => {
+  const decidedIds = new Set(leaveStore.pendingForMe.map(l => l.id))
+  const decided = leaveStore.validatedByMe.filter(l => !decidedIds.has(l.id))
+  return [...leaveStore.pendingForMe, ...decided]
+})
 const pendingMissions = computed(() => missionStore.pendingForMe)
 const pendingExpenses = computed(() => expenseStore.pendingForMe)
 

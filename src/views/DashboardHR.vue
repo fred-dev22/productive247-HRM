@@ -188,6 +188,7 @@
                 :key="i"
                 class="text-xs text-center py-[5px] px-0.5 rounded cursor-pointer text-foreground relative hover:bg-background"
                 :class="dayClass(day)"
+                :style="dayStyle(day)"
                 @mouseenter="day.dateStr ? showTooltip($event, day) : undefined"
                 @mouseleave="hideTooltip"
               >
@@ -195,7 +196,7 @@
               </div>
             </div>
             <div class="flex gap-3 mt-2.5 flex-wrap">
-              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Absence approuvée</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Absence approuvée (couleur du type)</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-info"></span>Jour férié</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-primary"></span>Aujourd'hui</span>
             </div>
@@ -321,8 +322,13 @@ function dayClass(day: CalDay): string {
   if (day.cls === 'empty') return 'text-transparent pointer-events-none'
   if (day.cls === 'today') return 'bg-primary text-primary-foreground font-semibold'
   if (day.hasHoliday) return 'bg-info-bg text-info font-medium'
-  if (day.hasLeave) return 'bg-success-bg text-success font-medium'
+  if (day.hasLeave) return 'font-medium'
   return ''
+}
+
+function dayStyle(day: CalDay): Record<string, string> {
+  if (day.cls === 'empty' || day.cls === 'today' || day.hasHoliday || !day.hasLeave || !day.leaveColor) return {}
+  return { backgroundColor: `${day.leaveColor}1A`, color: day.leaveColor }
 }
 
 const today = new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US', {
@@ -415,7 +421,7 @@ function nextMonth() {
   else calMonth.value++
 }
 
-interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean; hasHoliday: boolean; holidayName?: string }
+interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean; leaveColor?: string; hasHoliday: boolean; holidayName?: string }
 
 const calDays = computed((): CalDay[] => {
   const y = calYear.value
@@ -433,11 +439,15 @@ const calDays = computed((): CalDay[] => {
     const mm      = String(m + 1).padStart(2, '0')
     const dd      = String(d).padStart(2, '0')
     const dateStr = `${y}-${mm}-${dd}`
-    const hasLeave = leaves.all.some(
+    // Couleur du type de congé (definie a sa creation) plutot qu'une couleur
+    // generique unique pour toute absence — voir showTooltip() plus bas qui
+    // liste deja chaque demande avec sa propre couleur, cette cellule ne
+    // montre qu'un aperçu (premiere demande trouvee ce jour-la).
+    const dayLeave = leaves.all.find(
       l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
     )
     const holiday = isHoliday(new Date(y, m, d), calendarStore.calendar)
-    result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
+    result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave: !!dayLeave, leaveColor: dayLeave?.leaveTypeColor, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
   }
   return result
 })

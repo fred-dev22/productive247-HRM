@@ -369,5 +369,9 @@ export interface DayPlanning {
   isAbsence:      boolean
   absenceType?:   string
   absenceStatus?: LeaveRequestStatus
+  // Couleur propre au type de congé (LeaveType.Color, définie à la création
+  // du type) — chaque type s'affiche avec sa propre couleur sur le
+  // planning, pas une couleur générique unique pour tous.
+  absenceColor?:  string
   hours?:         WorkingHours
 }
