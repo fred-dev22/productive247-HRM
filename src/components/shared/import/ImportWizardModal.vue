@@ -57,6 +57,23 @@ function resolveSelect(col: ImportColumn, rawValue: string): string {
   return match ? match.value : ''
 }
 
+// Le champ date de l'aperçu est un <input type="date"> natif : il n'accepte
+// QUE le format ISO (AAAA-MM-JJ) et affiche silencieusement vide sinon, même
+// si la cellule du fichier a bien une valeur — sans ça, un fichier ouvert/
+// resauvegardé dans Excel en local FR (format JJ/MM/AAAA par défaut)
+// paraissait avoir des dates manquantes alors qu'elles étaient bien
+// présentes, juste dans un format que le champ ne sait pas afficher.
+function resolveDate(rawValue: string): string {
+  const v = rawValue.trim()
+  if (!v || /^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+  const eu = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+  if (eu) {
+    const [, d, m, y] = eu
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  return v
+}
+
 function isTruthy(v: string): boolean {
   return ['1', 'true', 'oui', 'yes', 'x'].includes(v.trim().toLowerCase())
 }
@@ -68,7 +85,7 @@ function buildRows(parsed: Record<string, string>[]) {
     for (const col of props.config.columns) {
       const cell = (raw[col.csvHeader] ?? '').trim()
       rawValues[col.key] = cell
-      values[col.key] = col.type === 'select' ? resolveSelect(col, cell) : cell
+      values[col.key] = col.type === 'select' ? resolveSelect(col, cell) : col.type === 'date' ? resolveDate(cell) : cell
     }
     const extra: Record<string, unknown> = {}
     for (const col of props.config.extraColumns ?? []) {
