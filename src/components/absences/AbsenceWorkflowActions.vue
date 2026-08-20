@@ -43,7 +43,18 @@ const CANCELLABLE: LeaveRequest['status'][] = ['Draft', 'Pending', 'InApprovalN1
 // exactement comme le backend l'autorise deja (voir
 // LeaveRequestService.submit/cancel/remove).
 const isOwner   = () => props.leave.employeeId === auth.user?.id || props.leave.createdById === auth.user?.id
-const canValidate = () => auth.hasPermission('CONGE_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.leave.status)
+// Avoir la permission CONGE_VALIDER (large, quelqu'un qui valide QUELQUE
+// PART dans l'entreprise) ne veut pas dire que CETTE demande attend une
+// decision de MOI precisement — un Directeur RH avec CONGE_VOIR_TOUT peut
+// voir une demande encore a l'etape N+1 alors que lui n'intervient qu'en
+// N+2 : sans ce filtre supplementaire, les boutons Approuver/Retourner/
+// Refuser s'affichaient quand meme et echouaient cote serveur au clic
+// (assertIsCurrentApprover). pendingForMe est deja calcule cote serveur
+// avec la bonne logique d'etape courante (voir findPendingForMe) — on s'en
+// sert ici comme unique source de verite plutot que de la dupliquer.
+const canValidate = () =>
+  auth.hasPermission('CONGE_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.leave.status) &&
+  store.pendingForMe.some(l => l.id === props.leave.id)
 
 function submit()  { store.submit(props.leave.id) }
 function markDone() { store.markDone(props.leave.id) }

@@ -269,6 +269,13 @@ const TOUR_STEPS: TourStep[] = [
 if (entityStore.entities.length === 0) entityStore.fetchAll()
 if (leaves.all.length === 0) leaves.fetchAll()
 if (employeeStore.employees.length === 0) employeeStore.fetchAll()
+// AbsenceWorkflowActions (ligne 104) n'affiche Approuver/Retourner/Refuser
+// que pour les demandes reellement a l'etape courante du validateur — voir
+// pendingForMe.some(...) dans ce composant. Sans ce fetch, un validateur
+// avec CONGE_VOIR_TOUT (ex: Directeur RH) qui voit ici une demande pas
+// encore a son niveau ne voyait quand meme les boutons (ils s'affichaient
+// a tort avant ce correctif, et echouaient au clic cote serveur).
+if (auth.hasPermission('CONGE_VALIDER')) leaves.fetchPendingForMe()
 if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 

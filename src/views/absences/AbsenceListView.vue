@@ -173,6 +173,12 @@ async function reload() {
 onMounted(() => {
   reload()
   if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+  // AbsenceWorkflowActions n'affiche Approuver/Retourner/Refuser que pour
+  // les demandes presentes dans pendingForMe (etape courante = moi) — sans
+  // ce fetch, un validateur arrivant directement sur cet ecran (sans passer
+  // par "à valider") voyait ces boutons masques a tort sur ses propres
+  // demandes actionnables.
+  if (auth.hasPermission('CONGE_VALIDER')) store.fetchPendingForMe()
 })
 
 const showCreate = ref(false)
