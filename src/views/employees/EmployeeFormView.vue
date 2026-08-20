@@ -91,6 +91,11 @@
                   <label :class="cls.fieldLabel">{{ t('employee.field_id_number') }}</label>
                   <input v-model="form.idNumber" :class="cls.fieldInput" :placeholder="t('employee.placeholder_id_number')" />
                 </div>
+                <label class="flex items-center gap-2 col-span-full text-[13px] text-foreground cursor-pointer">
+                  <input type="checkbox" v-model="form.isExpatriate" class="accent-primary" />
+                  Employé expatrié
+                  <span class="text-[11px] text-muted-foreground">(régime de congés différent : le week-end n'est jamais décompté)</span>
+                </label>
               </div>
             </div>
 
@@ -112,8 +117,12 @@
                   <label :class="cls.fieldLabel">{{ t('employee.field_entity') }} *</label>
                   <select v-model="form.entityId" :class="[cls.fieldSelect, err.entityId && cls.inputError]" @change="onEntityChange">
                     <option value="">{{ t('employee.placeholder_entity') }}</option>
-                    <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">
-                      {{ e.code }} — {{ e.name }}
+                    <option
+                      v-for="e in entityStore.entities.filter(x => x.status === 'Active' || x.status === 'Inactive')" :key="e.id" :value="e.id"
+                      :disabled="e.status === 'Inactive'"
+                      :title="e.status === 'Inactive' ? 'Entité désactivée' : ''"
+                    >
+                      {{ e.code }} · {{ e.name }}{{ e.status === 'Inactive' ? ' (désactivée)' : '' }}
                     </option>
                   </select>
                   <div v-if="err.entityId" :class="cls.fieldError">{{ err.entityId }}</div>
@@ -286,6 +295,7 @@ const form = reactive({
   maritalStatus: '' as MaritalStatus | '',
   idType:        '' as IdDocumentType | '',
   idNumber:      '',
+  isExpatriate:  false,
 })
 
 const err = reactive({
@@ -329,6 +339,7 @@ function populateForm(e: NonNullable<typeof editEmp.value>) {
   form.maritalStatus = e.maritalStatus
   form.idType        = e.idType
   form.idNumber      = e.idNumber ?? ''
+  form.isExpatriate  = e.isExpatriate
 }
 
 const formLoading = ref(false)
@@ -399,6 +410,7 @@ async function handleSave() {
     maritalStatus: form.maritalStatus as MaritalStatus,
     idType:        form.idType as IdDocumentType,
     idNumber:      form.idNumber || undefined,
+    isExpatriate:  form.isExpatriate,
   }
 
   try {

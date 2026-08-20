@@ -14,6 +14,11 @@ export interface CompanySettings {
   leaveAccrualRunDay: number | null
   lastLeaveAccrualRunAt: string | null
   isOnboarded: boolean
+  // Derniere portee consultee dans Configuration > Calendrier — persistee
+  // ici (et non en localStorage) pour que n'importe quel admin, sur
+  // n'importe quel poste, retrouve l'etat laisse (voir CalendarView.vue).
+  calendarConfigScope: 'Global' | 'Category' | null
+  calendarConfigCategoryId: string | null
 }
 
 interface BackendCompanySettings {
@@ -27,6 +32,8 @@ interface BackendCompanySettings {
   LeaveAccrualRunDay: number | null
   LastLeaveAccrualRunAt: string | null
   IsOnboarded: boolean
+  CalendarConfigScope: 'Global' | 'Category' | null
+  CalendarConfigCategoryId: string | null
 }
 
 function mapSettings(raw: BackendCompanySettings): CompanySettings {
@@ -41,6 +48,8 @@ function mapSettings(raw: BackendCompanySettings): CompanySettings {
     leaveAccrualRunDay: raw.LeaveAccrualRunDay,
     lastLeaveAccrualRunAt: raw.LastLeaveAccrualRunAt,
     isOnboarded: raw.IsOnboarded,
+    calendarConfigScope: raw.CalendarConfigScope,
+    calendarConfigCategoryId: raw.CalendarConfigCategoryId,
   }
 }
 
@@ -115,5 +124,24 @@ export const useCompanySettingsStore = defineStore('companySettings', () => {
     }, () => error.value ?? "Impossible de mettre à jour les paramètres de l'entreprise")
   }
 
-  return { settings, isOnboarded, loading, error, fetchSettings, completeOnboarding, update }
+  // Persiste la portee du calendrier consultee (Global ou Categorie) —
+  // action silencieuse (pas de withToast) : c'est une preference de
+  // navigation, pas une modification de parametre que l'admin doit voir
+  // confirmee par un toast a chaque bascule.
+  async function updateCalendarScope(scope: 'Global' | 'Category', employeeCategoryId: string | null) {
+    try {
+      const { data } = await api.patch<BackendCompanySettings>('/company-settings', {
+        CalendarConfigScope: scope,
+        CalendarConfigCategoryId: scope === 'Category' ? employeeCategoryId : null,
+      })
+      settings.value = mapSettings(data)
+      return settings.value
+    } catch {
+      // Non bloquant : la portee ne sera simplement pas restauree au
+      // prochain chargement, pas d'impact sur l'edition en cours.
+      return null
+    }
+  }
+
+  return { settings, isOnboarded, loading, error, fetchSettings, completeOnboarding, update, updateCalendarScope }
 })

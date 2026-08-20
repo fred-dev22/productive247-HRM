@@ -121,9 +121,8 @@
     "reject_modal": {
       "title": "Reject {name}'s request",
       "label": "Rejection reason *",
-      "placeholder": "Explain the reason for rejection (minimum 10 characters)...",
-      "error_empty": "Rejection reason is required",
-      "error_short": "Reason must be at least 10 characters"
+      "placeholder": "Explain the reason for rejection...",
+      "error_empty": "Rejection reason is required"
     },
     "empty": "No requests found",
     "my_empty": "You have no requests",

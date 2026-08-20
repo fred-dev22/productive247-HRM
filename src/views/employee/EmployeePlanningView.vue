@@ -28,6 +28,7 @@
                 :key="day.date"
                 class="rounded-[10px] border overflow-hidden min-h-[130px] flex flex-col"
                 :class="dayCardClass(day)"
+                :style="dayCardStyle(day)"
               >
                 <!-- En-tête du jour -->
                 <div class="flex items-center justify-between px-2.5 py-2 border-b border-border">
@@ -54,7 +55,10 @@
                 <!-- Jour absent (congé approuvé ou déclaré) -->
                 <template v-else-if="day.isAbsence && ['Approved', 'Registered', 'Done', 'Regularized'].includes(day.absenceStatus ?? '')">
                   <div :class="bodyCentered">
-                    <span class="inline-block text-[11px] font-semibold text-primary bg-primary/10 rounded-md px-2 py-[3px] text-center break-words">{{ day.absenceType }}</span>
+                    <span
+                      class="inline-block text-[11px] font-semibold rounded-md px-2 py-[3px] text-center break-words"
+                      :style="day.absenceColor ? { color: day.absenceColor, backgroundColor: `${day.absenceColor}1A` } : undefined"
+                    >{{ day.absenceType }}</span>
                     <span :class="[statusPill, 'bg-success-bg text-success']">Approuvé</span>
                   </div>
                 </template>
@@ -62,7 +66,10 @@
                 <!-- Jour absent (congé en attente) -->
                 <template v-else-if="day.isAbsence && ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'].includes(day.absenceStatus ?? '')">
                   <div :class="bodyCentered">
-                    <span class="inline-block text-[11px] font-semibold text-warning bg-warning-bg rounded-md px-2 py-[3px] text-center break-words">{{ day.absenceType }}</span>
+                    <span
+                      class="inline-block text-[11px] font-semibold rounded-md px-2 py-[3px] text-center break-words"
+                      :style="day.absenceColor ? { color: day.absenceColor, backgroundColor: `${day.absenceColor}1A` } : undefined"
+                    >{{ day.absenceType }}</span>
                     <span :class="[statusPill, 'bg-warning-bg text-warning']">En attente de validation</span>
                   </div>
                 </template>
@@ -167,10 +174,22 @@ const PENDING_LIKE_STATUSES  = ['Pending', 'InApprovalN1', 'InApprovalN2', 'InAp
 function dayCardClass(day: DayPlanning): string {
   if (day.date === today) return '!bg-primary/10 !border-2 !border-primary'
   if (day.isWorkingDay && !day.isAbsence && !day.isHoliday) return 'bg-card border-border'
-  if (day.isAbsence && APPROVED_LIKE_STATUSES.includes(day.absenceStatus ?? '')) return 'bg-primary/10 border-primary'
-  if (day.isAbsence && PENDING_LIKE_STATUSES.includes(day.absenceStatus ?? '')) return 'bg-warning-bg border-warning'
+  // Absence (approuvée ou en attente) : couleur portée par dayCardStyle()
+  // (celle du type de congé, définie à sa création) — pas de classe fixe ici.
+  if (day.isAbsence && (APPROVED_LIKE_STATUSES.includes(day.absenceStatus ?? '') || PENDING_LIKE_STATUSES.includes(day.absenceStatus ?? ''))) return ''
   if (day.isHoliday) return 'bg-info-bg border-info'
   return 'bg-background border-border opacity-60'
+}
+
+// Chaque type de congé s'affiche avec sa propre couleur (LeaveType.Color,
+// choisie à la création du type) plutôt qu'une couleur générique unique —
+// Tailwind ne pouvant pas exprimer une couleur arbitraire venant de la
+// donnée, on passe par un style inline calculé depuis le hex.
+function dayCardStyle(day: DayPlanning): Record<string, string> {
+  if (day.date === today) return {}
+  const isVisibleAbsence = day.isAbsence && (APPROVED_LIKE_STATUSES.includes(day.absenceStatus ?? '') || PENDING_LIKE_STATUSES.includes(day.absenceStatus ?? ''))
+  if (!isVisibleAbsence || !day.absenceColor) return {}
+  return { backgroundColor: `${day.absenceColor}1A`, borderColor: day.absenceColor }
 }
 
 // ── Week navigation ───────────────────────────────────────────
@@ -251,6 +270,7 @@ const weekDays = computed<DayPlanning[]>(() =>
       endDate:   l.endDate,
       type:      l.leaveTypeName,
       status:    l.status,
+      color:     l.leaveTypeColor,
     })),
   ),
 )

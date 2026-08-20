@@ -45,18 +45,13 @@
       </div>
 
       <div class="flex justify-end -mt-1 mb-3.5">
-        <button
-          type="button"
-          class="bg-transparent border-0 p-0 text-[12px] text-primary cursor-pointer hover:underline"
-          @click="showForgotPassword = !showForgotPassword"
+        <router-link
+          to="/forgot-password"
+          class="text-[12px] text-primary cursor-pointer hover:underline no-underline"
         >
           {{ t('login.forgot_password') }}
-        </button>
+        </router-link>
       </div>
-
-      <p v-if="showForgotPassword" class="text-xs text-muted-foreground bg-background px-3 py-2 rounded-md mb-3.5">
-        {{ t('login.forgot_password_message') }}
-      </p>
 
       <p v-if="error" class="text-xs text-danger bg-danger-bg px-3 py-2 rounded-md mb-3.5">{{ error }}</p>
 
@@ -87,7 +82,6 @@ const { t }  = useI18n()
 const email        = ref('')
 const password     = ref('')
 const showPassword = ref(false)
-const showForgotPassword = ref(false)
 const loading      = ref(false)
 const error        = ref('')
 

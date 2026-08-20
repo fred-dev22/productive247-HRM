@@ -26,7 +26,11 @@
     </button>
 
     <!-- Dropdown -->
-    <div v-if="open" class="absolute top-[calc(100%+4px)] left-0 z-[200] min-w-[260px] w-full bg-popover border border-border rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] overflow-hidden">
+    <div
+      v-if="open"
+      class="absolute left-0 z-[200] min-w-[260px] w-full bg-popover border border-border rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] overflow-hidden"
+      :class="dropUp ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'"
+    >
       <div class="relative p-2 pb-1 border-b border-border">
         <Search class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-3.5 h-3.5 pointer-events-none" />
         <input
@@ -43,15 +47,16 @@
           v-for="item in filtered"
           :key="item.id"
           type="button"
-          class="flex items-center gap-2 w-full px-2 py-[7px] border-0 rounded-md bg-transparent cursor-pointer text-left transition-colors hover:bg-primary/10"
-          :class="{ 'bg-primary/10': modelValue === item.id }"
-          @click="select(item.id)"
+          class="flex items-center gap-2 w-full px-2 py-[7px] border-0 rounded-md bg-transparent text-left transition-colors"
+          :class="item.itemDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-primary/10'"
+          :title="item.itemDisabled ? (item.disabledReason || 'Indisponible') : ''"
+          @click="select(item)"
         >
           <span v-if="showAvatar" :class="avatarClass" :style="avatarStyle(item)">
             {{ avatarText(item) }}
           </span>
           <span class="flex-1 flex flex-col gap-px min-w-0">
-            <span class="text-[13px] font-medium text-foreground truncate">{{ item.label }}</span>
+            <span class="text-[13px] font-medium text-foreground truncate">{{ item.label }}{{ item.itemDisabled ? ' (désactivé)' : '' }}</span>
             <span v-if="item.sublabel" class="text-[11px] text-muted-foreground truncate">{{ item.sublabel }}</span>
           </span>
           <Check v-if="modelValue === item.id" class="w-3.5 h-3.5 text-primary shrink-0" />
@@ -76,6 +81,11 @@ export interface DropdownItem {
   sublabel?:   string
   initials?:   string
   avatarColor?: string
+  // Marque l'item comme visible mais non sélectionnable (ex : employé
+  // désactivé) — même principe que TableLookupField.vue : montrer pourquoi
+  // une option est indisponible plutôt que la faire disparaître.
+  itemDisabled?: boolean
+  disabledReason?: string
 }
 
 const props = withDefaults(defineProps<{
@@ -98,6 +108,11 @@ const rootEl   = ref<HTMLElement | null>(null)
 const searchEl = ref<HTMLInputElement | null>(null)
 const open     = ref(false)
 const query    = ref('')
+const dropUp   = ref(false)
+
+// Hauteur approximative du panneau (barre de recherche + liste) — sert
+// uniquement à decider du sens d'ouverture, pas besoin d'etre exacte.
+const PANEL_HEIGHT = 300
 
 const selected = computed(() =>
   props.modelValue ? props.items.find(i => i.id === props.modelValue) : undefined
@@ -131,6 +146,14 @@ function toggle() {
 }
 
 function openDrop() {
+  // Decide du sens d'ouverture selon la place disponible a l'ecran — sans
+  // ca, un champ situe en bas d'une longue fiche (ex: Intérimaire) ouvre son
+  // panneau hors-viewport, invisible ou coupe (Lot G #5).
+  if (rootEl.value) {
+    const rect = rootEl.value.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    dropUp.value = spaceBelow < PANEL_HEIGHT && rect.top > spaceBelow
+  }
   open.value  = true
   query.value = ''
   nextTick(() => searchEl.value?.focus())
@@ -141,8 +164,9 @@ function close() {
   query.value = ''
 }
 
-function select(id: string) {
-  emit('update:modelValue', id)
+function select(item: DropdownItem) {
+  if (item.itemDisabled) return
+  emit('update:modelValue', item.id)
   close()
 }
 

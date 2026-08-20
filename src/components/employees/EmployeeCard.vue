@@ -4,7 +4,7 @@
  * frontdesk. Sélection de l'entité via TableLookupField (vraie entité).
  */
 import { ref, computed, watch } from 'vue'
-import { ShieldCheck, KeyRound, UserX } from 'lucide-vue-next'
+import { ShieldCheck, KeyRound, UserX, RotateCcw, Trash2 } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import UserAvatar from '../ui/UserAvatar.vue'
@@ -22,7 +22,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useUserStore } from '../../stores/users'
 import { usePermissionStore } from '../../stores/permissions'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
-import type { Employee, ContractType, EmployeeStatus } from '../../types'
+import type { Employee, ContractType, EmployeeStatus, Gender, MaritalStatus, IdDocumentType } from '../../types'
 
 const props = defineProps<{ employees: Employee[]; employeeId: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -38,30 +38,45 @@ if (positionStore.positions.length === 0) positionStore.fetchAll()
 if (permissionStore.permissions.length === 0) permissionStore.fetchAll()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
-const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Inactif' }
+const STATUS_LABELS: Record<string, string> = { active: 'Actif', trial: 'Période d\'essai', onleave: 'En congé', inactive: 'Désactivé' }
+const GENDER_LABELS: Record<Gender, string> = { M: 'Homme', F: 'Femme' }
+const MARITAL_LABELS: Record<MaritalStatus, string> = { Single: 'Célibataire', Married: 'Marié(e)', Divorced: 'Divorcé(e)', Widowed: 'Veuf / Veuve' }
+const ID_TYPE_LABELS: Record<IdDocumentType, string> = { NationalId: "Carte d'identité nationale", Passport: 'Passeport', ResidencePermit: 'Carte de séjour' }
 function categoryName(id?: string): string {
   if (!id) return '—'
   return categoryStore.categories.find(c => c.id === id)?.name ?? '—'
 }
 
 const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
+// Une entité désactivée reste visible (grisée, non sélectionnable) plutôt
+// que de disparaître — voir même pattern dans EntityCard.vue.
 function fetchEntities({ searchQuery }: LookupFetchParams) {
-  let items = entityStore.approvedEntities
+  let items = entityStore.entities.filter(e => e.status === 'Active' || e.status === 'Inactive')
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q))
   }
   return { items, total: items.length }
 }
+function isEntityDisabled(item: { status?: string }) { return item.status === 'Inactive' }
 
-const positionColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'title', label: 'Poste' }]
+const positionColumns = [
+  { key: 'code', label: 'Code', width: '90px' },
+  { key: 'title', label: 'Poste' },
+  { key: 'remaining', label: 'Places dispo.', width: '100px' },
+]
 function fetchPositions({ searchQuery }: LookupFetchParams) {
-  let items = positionStore.positions
+  // Un poste dont tous les sieges sont occupes ne doit plus etre propose —
+  // sauf celui deja affecte a cet employe (sinon on ne pourrait plus
+  // voir/reselectionner le sien) (voir Position.Capacity / decision du 30/07,
+  // meme regle que EmployeeCreate.vue / EmployeeFormView.vue).
+  let items = positionStore.positions.filter(p => p.occupiedCount < p.capacity || p.id === form.value.positionId)
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
     items = items.filter(p => p.title.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
   }
-  return { items, total: items.length }
+  const withRemaining = items.map(p => ({ ...p, remaining: `${p.capacity - p.occupiedCount}/${p.capacity}` }))
+  return { items: withRemaining, total: withRemaining.length }
 }
 
 const currentId = ref(props.employeeId)
@@ -91,7 +106,9 @@ const form = ref({
   positionId: '' as string | null, positionTitle: '',
   entityId: '' as string | null, entityName: '',
   employeeCategoryId: '' as string, contractType: 'CDI' as ContractType,
-  hireDate: '', status: 'active' as EmployeeStatus,
+  hireDate: '', status: 'active' as EmployeeStatus, isExpatriate: false,
+  gender: 'M' as Gender, birthDate: '', birthPlace: '',
+  maritalStatus: 'Single' as MaritalStatus, idType: 'NationalId' as IdDocumentType, idNumber: '',
 })
 
 function enterEdit() {
@@ -101,7 +118,9 @@ function enterEdit() {
     firstName: e.firstName, lastName: e.lastName, email: e.email ?? '', phone: e.phone ?? '',
     positionId: e.positionId ?? '', positionTitle: e.jobTitle,
     entityId: e.entityId, entityName: e.entityName ?? '', employeeCategoryId: e.employeeCategoryId ?? '', contractType: e.contractType,
-    hireDate: e.hireDate, status: e.status,
+    hireDate: e.hireDate, status: e.status, isExpatriate: e.isExpatriate,
+    gender: e.gender, birthDate: e.birthDate, birthPlace: e.birthPlace ?? '',
+    maritalStatus: e.maritalStatus, idType: e.idType, idNumber: e.idNumber ?? '',
   }
   const ent = e.entityId ? entityStore.getEntityById(e.entityId) : undefined
   entityCode.value = ent?.code ?? ''
@@ -119,7 +138,7 @@ function onPositionSelect(item: Record<string, unknown>) {
 async function save() {
   if (!current.value) return
   try {
-    await store.updateEmployee(current.value.id, { ...form.value, jobTitle: form.value.positionTitle })
+    await store.updateEmployee(current.value.id, { ...form.value, jobTitle: form.value.positionTitle, positionId: form.value.positionId || undefined })
     isEditMode.value = false
   } catch {
     saveError.value = store.error ?? "L'enregistrement a échoué. Veuillez réessayer."
@@ -133,7 +152,13 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
 const showCreateAccount = ref(false)
 function onAccountCreated(userId: string) {
   if (current.value) store.markHasAccount(current.value.id, userId)
-  loadUserPermissions()
+  // userId passé explicitement plutôt que relu depuis current.value.userId :
+  // markHasAccount() vient de muter le store, mais props.employees (donc
+  // current) ne reflète la mise à jour qu'au prochain rendu du parent
+  // (asynchrone) — le lire ici renverrait encore l'ancienne valeur (undefined)
+  // et viderait silencieusement la liste des permissions jusqu'au prochain
+  // rechargement de la fiche.
+  loadUserPermissions(userId)
 }
 
 /* ── Permissions individuelles du compte — indépendantes de la
@@ -141,11 +166,12 @@ function onAccountCreated(userId: string) {
 const userPermissions = ref<{ permissionId: string; code: string; module: string; label: string }[]>([])
 const loadingPermissions = ref(false)
 
-async function loadUserPermissions() {
-  if (!current.value?.userId) { userPermissions.value = []; return }
+async function loadUserPermissions(overrideUserId?: string) {
+  const userId = overrideUserId ?? current.value?.userId
+  if (!userId) { userPermissions.value = []; return }
   loadingPermissions.value = true
   try {
-    const data = await userStore.fetchUserPermissions(current.value.userId)
+    const data = await userStore.fetchUserPermissions(userId)
     userPermissions.value = data.individualGrants
   } catch {
     userPermissions.value = []
@@ -181,6 +207,12 @@ async function toggleUserPermission(permissionId: string, checked: boolean) {
 }
 
 /* ── Désactivation ──────────────────────────────────────────────── */
+// Personne ne peut désactiver/supprimer son propre compte — sinon on se
+// coupe soi-même l'accès sans possibilité de revenir en arrière depuis
+// l'app (le backend refuse déjà la requête, ceci évite juste l'aller-retour
+// pour rien). Voir mêmes gardes côté employee.service.ts (remove/update/
+// softDelete).
+const isSelf = computed(() => !!current.value && current.value.id === auth.user?.id)
 const deactivating = ref(false)
 async function deactivate() {
   if (!current.value) return
@@ -192,6 +224,39 @@ async function deactivate() {
     // store.error porte le message pour l'UI (toast)
   } finally {
     deactivating.value = false
+  }
+}
+
+/* ── Réactivation ───────────────────────────────────────────────── */
+const reactivating = ref(false)
+async function reactivate() {
+  if (!current.value) return
+  reactivating.value = true
+  try {
+    await store.reactivateEmployee(current.value.id)
+  } catch {
+    // store.error porte le message pour l'UI (toast)
+  } finally {
+    reactivating.value = false
+  }
+}
+
+/* ── Suppression définitive (Lot I) ──────────────────────────────── */
+const deleting = ref(false)
+async function deletePermanently() {
+  if (!current.value) return
+  if (!(await confirmDialog(
+    `Supprimer définitivement ${current.value.name} ? Cet employé disparaîtra de toute l'application. Cette action est irréversible.`,
+    { danger: true },
+  ))) return
+  deleting.value = true
+  try {
+    await store.deleteEmployeePermanently(current.value.id)
+    emit('close')
+  } catch {
+    // store.error porte le message pour l'UI (toast)
+  } finally {
+    deleting.value = false
   }
 }
 </script>
@@ -261,6 +326,42 @@ async function deactivate() {
             <input v-if="isEditMode" type="tel" v-model="form.phone" :class="cls.fieldInput" />
             <div v-else :class="readBox">{{ current.phone || '—' }}</div>
           </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Genre</label>
+            <select v-if="isEditMode" v-model="form.gender" :class="cls.fieldSelect">
+              <option v-for="(l, v) in GENDER_LABELS" :key="v" :value="v">{{ l }}</option>
+            </select>
+            <div v-else :class="readBox">{{ GENDER_LABELS[current.gender] }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Date de naissance</label>
+            <input v-if="isEditMode" type="date" v-model="form.birthDate" :max="todayIso()" :class="cls.fieldInput" />
+            <div v-else :class="readBox">{{ formatDate(current.birthDate) }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Lieu de naissance</label>
+            <input v-if="isEditMode" v-model="form.birthPlace" :class="cls.fieldInput" />
+            <div v-else :class="readBox">{{ current.birthPlace || '—' }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Situation familiale</label>
+            <select v-if="isEditMode" v-model="form.maritalStatus" :class="cls.fieldSelect">
+              <option v-for="(l, v) in MARITAL_LABELS" :key="v" :value="v">{{ l }}</option>
+            </select>
+            <div v-else :class="readBox">{{ MARITAL_LABELS[current.maritalStatus] }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Type de pièce d'identité</label>
+            <select v-if="isEditMode" v-model="form.idType" :class="cls.fieldSelect">
+              <option v-for="(l, v) in ID_TYPE_LABELS" :key="v" :value="v">{{ l }}</option>
+            </select>
+            <div v-else :class="readBox">{{ ID_TYPE_LABELS[current.idType] }}</div>
+          </div>
+          <div :class="cls.field">
+            <label :class="cls.fieldLabel">Numéro de pièce</label>
+            <input v-if="isEditMode" v-model="form.idNumber" :class="cls.fieldInput" />
+            <div v-else :class="readBox">{{ current.idNumber || '—' }}</div>
+          </div>
         </div>
         </FormSection>
 
@@ -274,6 +375,7 @@ async function deactivate() {
               :code="entityCode" :name="form.entityName"
               value-key="code" name-key="name"
               :columns="entityColumns" :fetch-fn="fetchEntities"
+              :is-item-disabled="isEntityDisabled" :item-disabled-reason="() => 'entité désactivée'"
               modal-title="Sélectionner une entité" placeholder="Code entité"
               @update:code="entityCode = $event" @update:name="form.entityName = $event" @select="onEntitySelect"
             />
@@ -300,6 +402,13 @@ async function deactivate() {
             <div v-else :class="readBox">{{ formatDate(current.hireDate) }}</div>
           </div>
           <div :class="cls.field">
+            <label :class="cls.fieldLabel">Régime de congés</label>
+            <label v-if="isEditMode" class="flex items-center gap-2 h-[34px] text-[13px] text-foreground cursor-pointer">
+              <input type="checkbox" v-model="form.isExpatriate" class="accent-primary" /> Employé expatrié
+            </label>
+            <div v-else :class="readBox">{{ current.isExpatriate ? 'Expatrié' : 'Local' }}</div>
+          </div>
+          <div :class="cls.field">
             <label :class="cls.fieldLabel">Statut</label>
             <select v-if="isEditMode" v-model="form.status" :class="cls.fieldSelect">
               <option v-for="(l, v) in STATUS_LABELS" :key="v" :value="v">{{ l }}</option>
@@ -313,11 +422,22 @@ async function deactivate() {
         <FormSection title="Accès système">
         <div class="flex items-center justify-between gap-3 bg-background border border-border rounded-lg px-4 py-3">
           <div class="flex items-center gap-2.5">
-            <ShieldCheck v-if="current.hasAccount" class="w-4 h-4 text-success shrink-0" />
+            <ShieldCheck v-if="current.hasAccount && current.status !== 'inactive'" class="w-4 h-4 text-success shrink-0" />
+            <UserX v-else-if="current.hasAccount" class="w-4 h-4 text-danger shrink-0" />
             <KeyRound v-else class="w-4 h-4 text-muted-foreground shrink-0" />
             <div>
-              <div class="text-[13px] font-medium text-foreground">{{ current.hasAccount ? 'Compte actif' : 'Aucun compte' }}</div>
-              <div class="text-[11px] text-muted-foreground">{{ current.hasAccount ? 'Cet employé peut se connecter à l\'application' : 'Cet employé n\'a pas encore accès à l\'application' }}</div>
+              <div class="text-[13px] font-medium text-foreground">
+                {{ !current.hasAccount ? 'Aucun compte' : current.status === 'inactive' ? 'Compte bloqué' : 'Compte actif' }}
+              </div>
+              <div class="text-[11px] text-muted-foreground">
+                {{
+                  !current.hasAccount
+                    ? 'Cet employé n\'a pas encore accès à l\'application'
+                    : current.status === 'inactive'
+                      ? 'Employé désactivé — il ne peut plus se connecter à l\'application'
+                      : 'Cet employé peut se connecter à l\'application'
+                }}
+              </div>
             </div>
           </div>
           <button v-if="!current.hasAccount && auth.hasPermission('EMPLOYE_COMPTE_CREER')" :class="[cls.btnOutline, '!px-3 !py-1.5 !text-xs shrink-0']" @click="showCreateAccount = true">
@@ -329,7 +449,7 @@ async function deactivate() {
         <!-- Permissions individuelles du compte -->
         <FormSection v-if="current.hasAccount && auth.hasPermission('EMPLOYE_PERMISSION_GERER')" title="Permissions individuelles">
           <p class="text-[11px] text-muted-foreground -mt-1 mb-2">
-            Ajoutées/retirées indépendamment de la catégorie de l'employé — un changement ici n'affecte que ce compte.
+            Ajoutées/retirées indépendamment de la catégorie de l'employé. Un changement ici n'affecte que ce compte.
           </p>
           <div v-if="loadingPermissions" class="text-[13px] text-muted-foreground italic px-1 py-2">Chargement…</div>
           <div v-else class="flex flex-col gap-3 max-h-[280px] overflow-auto pr-1">
@@ -354,10 +474,34 @@ async function deactivate() {
           </div>
         </FormSection>
 
-        <!-- Désactivation -->
-        <div v-if="current.status !== 'inactive' && auth.hasPermission('EMPLOYE_DESACTIVER')" class="flex justify-end mt-1">
-          <button :class="[cls.btnOutline, '!text-danger !border-danger/30 hover:!bg-danger-bg']" :disabled="deactivating" @click="deactivate">
+        <!-- Désactivation / Réactivation / Suppression -->
+        <div v-if="isSelf" class="text-[11px] text-muted-foreground text-right mt-1">
+          Vous ne pouvez pas désactiver ou supprimer votre propre compte.
+        </div>
+        <div v-else class="flex justify-end gap-2 mt-1">
+          <button
+            v-if="current.status !== 'inactive' && auth.hasPermission('EMPLOYE_DESACTIVER')"
+            :class="[cls.btnOutline, '!text-danger !border-danger/30 hover:!bg-danger-bg']"
+            :disabled="deactivating"
+            @click="deactivate"
+          >
             <UserX class="w-3.5 h-3.5" /> {{ deactivating ? 'Désactivation…' : 'Désactiver cet employé' }}
+          </button>
+          <button
+            v-if="current.status === 'inactive' && auth.hasPermission('EMPLOYE_DESACTIVER')"
+            :class="[cls.btnOutline, '!text-success !border-success/30 hover:!bg-success-bg']"
+            :disabled="reactivating"
+            @click="reactivate"
+          >
+            <RotateCcw class="w-3.5 h-3.5" /> {{ reactivating ? 'Réactivation…' : 'Réactiver cet employé' }}
+          </button>
+          <button
+            v-if="auth.hasPermission('EMPLOYE_SUPPRIMER')"
+            :class="cls.btnDestructive"
+            :disabled="deleting"
+            @click="deletePermanently"
+          >
+            <Trash2 class="w-3.5 h-3.5" /> {{ deleting ? 'Suppression…' : 'Supprimer définitivement' }}
           </button>
         </div>
       </div>

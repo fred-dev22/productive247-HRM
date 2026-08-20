@@ -140,7 +140,7 @@ const statusText = computed(() => {
     Draft:           'Brouillon',
     PendingApproval: 'En attente',
     Active:          'Approuvé',
-    Inactive:        'Inactif',
+    Inactive:        'Désactivée',
   }
   return map[props.entity.status] ?? props.entity.status
 })
@@ -149,7 +149,7 @@ const statusClass = computed(() => {
     Active:          'bg-success-bg text-success',
     PendingApproval: 'bg-warning-bg text-warning',
     Draft:           'bg-transparent text-foreground/60 border border-border',
-    Inactive:        'bg-background text-muted-foreground',
+    Inactive:        'bg-danger-bg text-danger',
   }
   return map[props.entity.status] ?? 'bg-neutral-bg text-neutral'
 })

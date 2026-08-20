@@ -4,11 +4,19 @@ import { api, getApiErrorMessage } from '../lib/api'
 import { withToast } from '../lib/withToast'
 import type {
   MissionOrder, MissionStatus, MissionCategory, TransportMode,
-  MissionAllowanceLine, ValidationStep,
+  MissionAllowanceLine, MissionExpenseLine, LinkedMissionSummary, ValidationStep,
 } from '../types'
 
 // ── Backend <-> frontend mapping ────────────────────────────────
 interface BackendEmployeeRef { Id: string; FullName: string; EmployeeNumber?: string; EmployeeCategoryId?: string | null }
+interface BackendExpenseTypeRef { Id: string; Name: string }
+interface BackendMissionExpenseLine {
+  Id: string
+  ExpenseTypeId: string
+  Description: string | null
+  Amount: string | number
+  expenseType?: BackendExpenseTypeRef
+}
 interface BackendDecision {
   Id: string
   StepOrder: number
@@ -53,6 +61,8 @@ interface BackendMissionOrder {
   EstimatedTotal?: number
   decisions?: BackendDecision[]
   allowance?: { lines: BackendAllowanceLine[]; total: number }
+  missionExpenseLines?: BackendMissionExpenseLine[]
+  linkedMissionOrder?: { Id: string; ReferenceCode: string; Destination: string; Status: string; employee?: BackendEmployeeRef } | null
 }
 
 function initialsFromFullName(name: string): string {
@@ -90,6 +100,26 @@ function mapAllowanceLine(l: BackendAllowanceLine): MissionAllowanceLine {
   }
 }
 
+function mapMissionExpenseLine(l: BackendMissionExpenseLine): MissionExpenseLine {
+  return {
+    id: l.Id,
+    expenseTypeId: l.ExpenseTypeId,
+    expenseTypeName: l.expenseType?.Name ?? '',
+    description: l.Description ?? undefined,
+    amount: Number(l.Amount),
+  }
+}
+
+function mapLinkedMission(l: NonNullable<BackendMissionOrder['linkedMissionOrder']>): LinkedMissionSummary {
+  return {
+    id: l.Id,
+    referenceCode: l.ReferenceCode,
+    destination: l.Destination,
+    status: l.Status as MissionStatus,
+    employeeName: l.employee?.FullName ?? '',
+  }
+}
+
 function mapMissionOrder(raw: BackendMissionOrder): MissionOrder {
   const employeeName = raw.employee?.FullName ?? ''
   return {
@@ -117,10 +147,18 @@ function mapMissionOrder(raw: BackendMissionOrder): MissionOrder {
     rejectionReason: raw.RejectionReason ?? undefined,
     estimatedTotal: raw.EstimatedTotal,
     allowance: raw.allowance ? { lines: raw.allowance.lines.map(mapAllowanceLine), total: raw.allowance.total } : undefined,
+    expenseLines: (raw.missionExpenseLines ?? []).map(mapMissionExpenseLine),
+    linkedMission: raw.linkedMissionOrder ? mapLinkedMission(raw.linkedMissionOrder) : undefined,
     createdAt: raw.CreatedAt,
     modifiedAt: raw.ModifiedAt ?? undefined,
     validationHistory: raw.decisions ? raw.decisions.map(mapDecision) : undefined,
   }
+}
+
+export interface MissionExpenseLinePayload {
+  expenseTypeId: string
+  description?: string
+  amount: number
 }
 
 export interface CreateMissionPayload {
@@ -133,7 +171,15 @@ export interface CreateMissionPayload {
   transportModeReturn: TransportMode
   advanceRequested?: number
   currency?: string
+  expenseLines?: MissionExpenseLinePayload[]
   employeeId?: string // uniquement si on soumet pour un autre employé (MISSION_VOIR_TOUT)
+  // Mission accompagnant (plan de test #22) — cree automatiquement un second
+  // ordre de mission, memes dates/destination/categorie, pour cet employe.
+  associatedEmployeeId?: string
+}
+
+function toBackendExpenseLine(l: MissionExpenseLinePayload) {
+  return { ExpenseTypeId: l.expenseTypeId, Description: l.description, Amount: l.amount }
 }
 
 function toBackendCreatePayload(p: CreateMissionPayload) {
@@ -148,6 +194,8 @@ function toBackendCreatePayload(p: CreateMissionPayload) {
     TransportModeReturn: p.transportModeReturn,
     AdvanceRequested: p.advanceRequested,
     Currency: p.currency,
+    ExpenseLines: p.expenseLines?.map(toBackendExpenseLine),
+    AssociatedEmployeeId: p.associatedEmployeeId,
   }
 }
 
@@ -273,11 +321,24 @@ export const useMissionStore = defineStore('missions', () => {
     }
   }
 
+  // Pas de try/catch avant (Lot corrections 12/08) : un echec (ex: aucun
+  // pool de validation configure) passait inapercu — le bouton "Soumettre"
+  // de la fiche/liste ne fait qu'appeler cette fonction sans l'attendre, il
+  // faut donc que l'erreur soit visible d'elle-meme (toast), pas seulement
+  // propagee a un appelant qui ne l'observe pas toujours.
   async function submit(id: string): Promise<MissionOrder> {
-    const { data } = await api.post<BackendMissionOrder>(`/mission-orders/${id}/submit`)
-    const mapped = mapMissionOrder(data)
-    replaceEverywhere(mapped)
-    return mapped
+    error.value = null
+    return withToast('Soumission en cours…', async () => {
+      try {
+        const { data } = await api.post<BackendMissionOrder>(`/mission-orders/${id}/submit`)
+        const mapped = mapMissionOrder(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de soumettre l'ordre de mission")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de soumettre l'ordre de mission")
   }
 
   /** Crée puis soumet immédiatement. */
@@ -328,6 +389,7 @@ export const useMissionStore = defineStore('missions', () => {
         if (patch.transportModeReturn !== undefined) body.TransportModeReturn = patch.transportModeReturn
         if (patch.advanceRequested !== undefined) body.AdvanceRequested = patch.advanceRequested
         if (patch.currency !== undefined) body.Currency = patch.currency
+        if (patch.expenseLines !== undefined) body.ExpenseLines = patch.expenseLines.map(toBackendExpenseLine)
         const { data } = await api.patch<BackendMissionOrder>(`/mission-orders/${id}`, body)
         const mapped = mapMissionOrder(data)
         replaceEverywhere(mapped)
@@ -344,6 +406,23 @@ export const useMissionStore = defineStore('missions', () => {
     return withToast('Suppression en cours…', async () => {
       try {
         await api.delete(`/mission-orders/${id}`)
+        removeEverywhere(id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, "Impossible de supprimer l'ordre de mission")
+        throw err
+      }
+    }, () => error.value ?? "Impossible de supprimer l'ordre de mission")
+  }
+
+  // DELETE /mission-orders/:id/permanent (Lot I) — suppression définitive,
+  // distincte de remove() ci-dessus (réservée aux brouillons). Ici, un ordre
+  // dans n'importe quel statut peut être caché de tout l'app — seul un dev
+  // peut le restaurer en base.
+  async function deletePermanently(id: string) {
+    error.value = null
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/mission-orders/${id}/permanent`)
         removeEverywhere(id)
       } catch (err) {
         error.value = getApiErrorMessage(err, "Impossible de supprimer l'ordre de mission")
@@ -418,7 +497,7 @@ export const useMissionStore = defineStore('missions', () => {
   return {
     mine, team, all, pendingForMe, loading, error,
     fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchOne, estimate,
-    create, submit, createAndSubmit, saveDraft, update, remove,
+    create, submit, createAndSubmit, saveDraft, update, remove, deletePermanently,
     approve, reject, returnMission, cancel,
   }
 })

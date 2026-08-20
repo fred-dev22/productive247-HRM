@@ -4,7 +4,7 @@ import { api, getApiErrorMessage } from '../lib/api'
 import { withToast } from '../lib/withToast'
 import type {
   CompanyCalendar, WorkingDays, WorkingHours,
-  Holiday, HolidayScope, PerdiemRate,
+  Holiday, HolidayScope,
 } from '../types'
 
 // ── Backend <-> frontend mapping ────────────────────────────────
@@ -26,6 +26,7 @@ interface BackendCalendar {
   Id: string
   Name: string
   IsDefault: boolean
+  EmployeeCategoryId: string | null
   CreatedBy: string
   CreatedAt: string
   ModifiedBy: string | null
@@ -145,20 +146,24 @@ export const useCalendarStore = defineStore('calendar', () => {
   const updatedAt    = ref('')
   const updatedBy    = ref('')
 
+  // Dernier etat confirme par le serveur (ou point de depart d'un brouillon
+  // pas encore sauvegarde) — compare a `workingDays` pour savoir si des
+  // modifications non enregistrees existent (voir isDirty). WorkingDaysConfig
+  // ecrit directement dans `workingDays`, donc c'est le seul moyen de
+  // distinguer "affiche" de "sauvegarde".
+  const savedWorkingDays = ref<WorkingDays>(emptyWorkingDays())
+  const isDirty = computed(() => JSON.stringify(workingDays.value) !== JSON.stringify(savedWorkingDays.value))
+
+  // Renseigne uniquement quand l'etat courant est un brouillon "categorie
+  // sans calendrier dedie" (voir fetchCalendarByCategory) — indique a
+  // updateWorkingDays() de creer un nouveau calendrier scope a cette
+  // categorie au lieu de mettre a jour le calendrier global par defaut.
+  const pendingCategoryId = ref<string | null>(null)
+
   const holidays = ref<Holiday[]>([])
 
   const loading = ref(false)
   const error   = ref<string | null>(null)
-
-  // ExpenseConfig couvrira les perdiems reels (Domaine 4+). Conserve ici,
-  // mock, pour ne pas casser les vues qui le consomment encore. Les regles
-  // de conge, elles, viennent desormais de stores/leaveTypes.ts (reel).
-  const perdiemRates = ref<PerdiemRate[]>([
-    { id: 'pd1', category: 'Cadre supérieur',   ratePerDay: 150000, currency: 'MGA', description: 'Direction / Cadres A — valeur provisoire' },
-    { id: 'pd2', category: 'Cadre',              ratePerDay: 100000, currency: 'MGA', description: 'Cadres B — valeur provisoire' },
-    { id: 'pd3', category: 'Agent de maîtrise',  ratePerDay:  75000, currency: 'MGA', description: 'Agents de maîtrise — valeur provisoire' },
-    { id: 'pd4', category: 'Employé',             ratePerDay:  50000, currency: 'MGA', description: 'Employés de base — valeur provisoire' },
-  ])
 
   // Vue agregee retro-compatible avec l'ancien CompanyCalendar mocke —
   // utils/calendar.ts et plusieurs composants (AbsenceCreate,
@@ -167,7 +172,6 @@ export const useCalendarStore = defineStore('calendar', () => {
     id: calendarId.value,
     workingDays: workingDays.value,
     holidays: holidays.value,
-    perdiemRates: perdiemRates.value,
     updatedAt: updatedAt.value,
     updatedBy: updatedBy.value,
   }))
@@ -196,6 +200,25 @@ export const useCalendarStore = defineStore('calendar', () => {
     DAY_KEYS.filter(k => workingDays.value[k].enabled).length,
   )
 
+  // Bloque l'enregistrement quand un jour actif a des heures incohérentes
+  // (fin avant/à début, pause hors plage) — voir test #03 du plan de tests :
+  // le message d'erreur s'affichait sans jamais empêcher la sauvegarde.
+  const hasWorkingDaysError = computed(() =>
+    DAY_KEYS.some((key) => {
+      const day = workingDays.value[key]
+      if (!day.enabled) return false
+      if (toMinutes(day.end) <= toMinutes(day.start)) return true
+      if (day.breakEnabled) {
+        const bStart = toMinutes(day.breakStart)
+        const bEnd = toMinutes(day.breakEnd)
+        if (bEnd <= bStart) return true
+        if (bStart < toMinutes(day.start)) return true
+        if (bEnd > toMinutes(day.end)) return true
+      }
+      return false
+    }),
+  )
+
   const weeklyMinutes = computed(() =>
     DAY_KEYS.reduce((total, key) => {
       const day = workingDays.value[key]
@@ -207,55 +230,151 @@ export const useCalendarStore = defineStore('calendar', () => {
   )
 
   // ── Actions — Calendar / WorkingDays ────────────────────────────
-  async function fetchCalendar() {
+  // Copie profonde (pas juste le niveau racine) — WorkingDaysConfig mute les
+  // objets de jour en place via v-model, un spread superficiel partagerait
+  // les memes references et isDirty resterait toujours faux.
+  function cloneWorkingDays(wd: WorkingDays): WorkingDays {
+    const result = {} as WorkingDays
+    for (const key of Object.keys(wd) as (keyof WorkingDays)[]) {
+      result[key] = { ...wd[key] }
+    }
+    return result
+  }
+
+  function applyCalendarResponse(data: BackendCalendar) {
+    calendarId.value   = data.Id
+    calendarName.value = data.Name
+    isDefault.value    = data.IsDefault
+    workingDays.value  = mapWorkingDaysFromBackend(data.workDays)
+    updatedAt.value    = formatUpdatedAt(data.ModifiedAt ?? data.CreatedAt)
+    updatedBy.value    = resolveUpdatedBy(data)
+    pendingCategoryId.value = null
+    savedWorkingDays.value = cloneWorkingDays(workingDays.value)
+  }
+
+  // Pas encore de calendrier par defaut (ex: toute nouvelle instance, avant
+  // que l'onboarding n'en cree un) — pas bloquant : on propose un point de
+  // depart lundi-vendredi plutot qu'une semaine vide, et updateWorkingDays()
+  // cree le calendrier des la premiere sauvegarde.
+  function resetToNoCalendarDraft() {
+    calendarId.value = ''
+    pendingCategoryId.value = null
+    workingDays.value = defaultWorkingDays()
+    savedWorkingDays.value = cloneWorkingDays(workingDays.value)
+    error.value = "Aucun calendrier n'est encore configuré"
+  }
+
+  // employeeId optionnel : resout le calendrier applicable a cet employe
+  // (celui de sa categorie s'il en a un de dedie, sinon le global) — omis,
+  // resout pour l'utilisateur courant. Voir GET /calendars/resolve. Utilise
+  // par les ecrans "cote employe" (dashboard, planning, demande d'absence)
+  // qui veulent savoir quel calendrier S'APPLIQUE A QUELQU'UN — PAS par
+  // Configuration > Calendrier, qui doit voir/editer le calendrier par
+  // defaut lui-meme quelle que soit la categorie de l'admin connecte (voir
+  // fetchDefaultCalendar).
+  async function fetchCalendar(employeeId?: string) {
     loading.value = true
     error.value = null
     try {
-      const { data } = await api.get<BackendCalendar>('/calendars/default')
-      calendarId.value   = data.Id
-      calendarName.value = data.Name
-      isDefault.value    = data.IsDefault
-      workingDays.value  = mapWorkingDaysFromBackend(data.workDays)
-      updatedAt.value    = formatUpdatedAt(data.ModifiedAt ?? data.CreatedAt)
-      updatedBy.value    = resolveUpdatedBy(data)
+      const { data } = await api.get<BackendCalendar>('/calendars/resolve', {
+        params: employeeId ? { employeeId } : undefined,
+      })
+      applyCalendarResponse(data)
     } catch (err) {
-      // Pas encore de calendrier par defaut (ex: toute nouvelle instance,
-      // avant que l'onboarding n'en cree un) — pas bloquant : on propose un
-      // point de depart lundi-vendredi plutot qu'une semaine vide, et
-      // updateWorkingDays() cree le calendrier des la premiere sauvegarde.
-      workingDays.value = defaultWorkingDays()
-      error.value = "Aucun calendrier n'est encore configuré"
+      resetToNoCalendarDraft()
     } finally {
       loading.value = false
     }
   }
 
-  async function updateWorkingDays(days: WorkingDays) {
+  // Charge le calendrier par defaut (IsDefault=true) lui-meme, independamment
+  // de la categorie de l'admin connecte — c'est ce que "Global (par défaut)"
+  // doit afficher/editer dans Configuration > Calendrier. fetchCalendar()
+  // (resolve) ne convient pas ici : un admin dont la propre categorie a un
+  // calendrier dedie verrait CE calendrier au lieu du vrai calendrier global.
+  async function fetchDefaultCalendar() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendCalendar>('/calendars/default')
+      applyCalendarResponse(data)
+    } catch (err) {
+      resetToNoCalendarDraft()
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Charge le calendrier dedie d'une categorie s'il existe (retourne true),
+  // sinon affiche en lecture les horaires ACTUELS du calendrier global (pas
+  // un brouillon generique lundi-vendredi figE) — une categorie sans
+  // calendrier dedie suit le global, donc sa vue doit refleter tout
+  // changement fait sur celui-ci (voir decision du 05/08). Retourne false
+  // dans ce cas ; updateWorkingDays() cree le calendrier de categorie
+  // (decouple du global) a la premiere sauvegarde. Utilise par l'ecran
+  // Configuration > Calendrier (bascule "Par catégorie").
+  async function fetchCalendarByCategory(employeeCategoryId: string): Promise<boolean> {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendCalendar[]>('/calendars')
+      const existing = data.find((c) => c.EmployeeCategoryId === employeeCategoryId)
+      if (existing) {
+        applyCalendarResponse(existing)
+        return true
+      }
+      const globalCalendar = data.find((c) => c.IsDefault)
+      calendarId.value = ''
+      calendarName.value = ''
+      isDefault.value = false
+      workingDays.value = globalCalendar ? mapWorkingDaysFromBackend(globalCalendar.workDays) : defaultWorkingDays()
+      savedWorkingDays.value = cloneWorkingDays(workingDays.value)
+      updatedAt.value = globalCalendar ? formatUpdatedAt(globalCalendar.ModifiedAt ?? globalCalendar.CreatedAt) : ''
+      updatedBy.value = globalCalendar ? resolveUpdatedBy(globalCalendar) : ''
+      pendingCategoryId.value = employeeCategoryId
+      return false
+    } catch (err) {
+      error.value = getApiErrorMessage(err, 'Impossible de charger le calendrier de cette catégorie')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Calendriers de categorie actuellement configures (EmployeeCategoryId
+  // non nul) — alimente les annotations "calendrier dédié" du selecteur de
+  // categorie dans CalendarView.vue.
+  async function fetchConfiguredCategoryCalendars(): Promise<{ id: string; employeeCategoryId: string }[]> {
+    const { data } = await api.get<BackendCalendar[]>('/calendars')
+    return data
+      .filter((c): c is BackendCalendar & { EmployeeCategoryId: string } => c.EmployeeCategoryId != null)
+      .map((c) => ({ id: c.Id, employeeCategoryId: c.EmployeeCategoryId }))
+  }
+
+  async function updateWorkingDays(days: WorkingDays, newCalendarName?: string) {
     workingDays.value = { ...days }
     error.value = null
     return withToast('Enregistrement du calendrier en cours…', async () => {
       try {
-        // Premiere sauvegarde d'une instance neuve : aucun calendrier n'existe
-        // encore en base (voir fetchCalendar) — on le cree au lieu de PATCHer
-        // un Id inexistant.
+        // Aucun calendrier charge : soit une instance neuve sans calendrier
+        // par defaut (voir fetchCalendar), soit une categorie sans
+        // calendrier dedie (voir fetchCalendarByCategory) — on cree au lieu
+        // de PATCHer un Id inexistant, scope a la categorie le cas echeant.
         if (!calendarId.value) {
           const { data } = await api.post<BackendCalendar>('/calendars', {
-            Name: calendarName.value || 'Calendrier standard',
-            IsDefault: true,
+            Name: newCalendarName || calendarName.value || 'Calendrier standard',
+            IsDefault: !pendingCategoryId.value,
+            EmployeeCategoryId: pendingCategoryId.value ?? undefined,
             WorkDays: mapWorkingDaysToBackend(days),
           })
-          calendarId.value   = data.Id
-          calendarName.value = data.Name
-          isDefault.value    = data.IsDefault
-          workingDays.value  = mapWorkingDaysFromBackend(data.workDays)
-          updatedAt.value    = formatUpdatedAt(data.ModifiedAt ?? data.CreatedAt)
-          updatedBy.value    = resolveUpdatedBy(data)
+          applyCalendarResponse(data)
           return
         }
         const { data } = await api.patch<BackendCalendar>(`/calendars/${calendarId.value}`, {
           WorkDays: mapWorkingDaysToBackend(days),
         })
         workingDays.value = mapWorkingDaysFromBackend(data.workDays)
+        savedWorkingDays.value = cloneWorkingDays(workingDays.value)
         updatedAt.value    = formatUpdatedAt(data.ModifiedAt ?? data.CreatedAt)
         updatedBy.value    = resolveUpdatedBy(data)
       } catch (err) {
@@ -263,6 +382,22 @@ export const useCalendarStore = defineStore('calendar', () => {
         throw err
       }
     }, () => error.value ?? 'Impossible de mettre à jour les jours ouvrables')
+  }
+
+  // Supprime le calendrier dedie d'une categorie — elle retombe sur le
+  // calendrier global. Ne touche pas au calendrier par defaut lui-meme
+  // (voir CalendarService.remove, qui le refuse explicitement).
+  async function deleteCategoryCalendar(id: string, employeeCategoryId: string) {
+    error.value = null
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/calendars/${id}`)
+        await fetchCalendarByCategory(employeeCategoryId)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de supprimer ce calendrier')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de supprimer ce calendrier')
   }
 
   async function updateWorkingHours(hours: WorkingHours) {
@@ -348,24 +483,13 @@ export const useCalendarStore = defineStore('calendar', () => {
     }, () => error.value ?? 'Impossible de mettre à jour le jour férié')
   }
 
-  // ── Actions — Perdiem (mock, hors perimetre de cette passe) ───────
-  function getPerdiemRate(category: string): PerdiemRate | undefined {
-    return perdiemRates.value.find(r => r.category === category)
-  }
-  function addPerdiemRate(rate: Omit<PerdiemRate, 'id'>) {
-    const id = `pd${Date.now()}`
-    perdiemRates.value = [...perdiemRates.value, { ...rate, id }]
-  }
-  function updatePerdiemRate(id: string, data: Partial<PerdiemRate>) {
-    const idx = perdiemRates.value.findIndex(r => r.id === id)
-    if (idx !== -1) perdiemRates.value[idx] = { ...perdiemRates.value[idx], ...data } as PerdiemRate
-  }
-  function removePerdiemRate(id: string) {
-    perdiemRates.value = perdiemRates.value.filter(r => r.id !== id)
-  }
-
   return {
     calendar,
+    calendarId,
+    calendarName,
+    isDefault,
+    pendingCategoryId,
+    isDirty,
     holidays,
     loading,
     error,
@@ -373,18 +497,19 @@ export const useCalendarStore = defineStore('calendar', () => {
     ponctualHolidays,
     daysPerWeek,
     weeklyMinutes,
+    hasWorkingDaysError,
     toMinutes,
     formatMinutes,
-    getPerdiemRate,
     fetchCalendar,
+    fetchDefaultCalendar,
+    fetchCalendarByCategory,
+    fetchConfiguredCategoryCalendars,
     updateWorkingDays,
     updateWorkingHours,
+    deleteCategoryCalendar,
     fetchHolidays,
     addHoliday,
     removeHoliday,
     updateHoliday,
-    addPerdiemRate,
-    updatePerdiemRate,
-    removePerdiemRate,
   }
 })

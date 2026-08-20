@@ -4,17 +4,22 @@
  * (P247_FD_LWL_APP/src/components/shared/CreateModalShell.vue), tokens verts.
  */
 import { onMounted, onUnmounted } from 'vue'
-import { ArrowLeft, Check, Loader2, X, Plus, AlertCircle } from 'lucide-vue-next'
+import { ArrowLeft, Check, Loader2, Save, X, Plus, AlertCircle } from 'lucide-vue-next'
 
 defineProps<{
   title: string
   bannerLabel: string
   createLabel: string
+  // Bouton secondaire "Enregistrer le brouillon", affiché seulement si
+  // fourni — regroupe les 3 actions (brouillon / soumettre / annuler) au
+  // même endroit, en haut, au lieu d'un bouton brouillon isolé en bas du
+  // formulaire (redemande explicite en reunion, voir Lot G #4).
+  draftLabel?: string
   isSaving?: boolean
   saveError?: string | null
 }>()
 
-const emit = defineEmits<{ close: []; create: [] }>()
+const emit = defineEmits<{ close: []; create: []; saveDraft: [] }>()
 
 const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') emit('close') }
 onMounted(() => {
@@ -55,9 +60,20 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             <h1 class="text-2xl font-semibold text-card-foreground">{{ title }}</h1>
             <div class="flex items-center gap-2">
               <button
-                @click="emit('create')"
+                v-if="draftLabel"
+                @click="emit('saveDraft')"
                 :disabled="isSaving"
                 class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <Save class="w-4 h-4" />
+                {{ draftLabel }}
+              </button>
+              <button
+                @click="emit('create')"
+                :disabled="isSaving"
+                :class="draftLabel
+                  ? 'inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-card-foreground border border-border rounded hover:bg-background transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+                  : 'inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'"
               >
                 <Loader2 v-if="isSaving" class="animate-spin w-4 h-4" />
                 <Check v-else class="w-4 h-4" />

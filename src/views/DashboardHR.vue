@@ -4,20 +4,20 @@
         <div class="flex items-center justify-between mb-3.5">
           <div>
             <div class="text-lg font-semibold">{{ t('dashboard.welcome') }}</div>
-            <div class="text-[13px] text-muted-foreground mt-px">{{ t('dashboard.greeting') }} {{ auth.user?.name }} — {{ today }}</div>
-          </div>
-          <div class="flex gap-2">
-            <button :class="btnOutline">
-              <FileDown class="w-4 h-4" /> {{ t('dashboard.export') }}
-            </button>
-            <button :class="btnPrimary" @click="absenceModalOpen = true">
-              <Plus class="w-4 h-4" /> {{ t('dashboard.new_request') }}
-            </button>
+            <div class="text-[13px] text-muted-foreground mt-px">{{ t('dashboard.greeting') }} {{ auth.user?.name }} · {{ today }}</div>
           </div>
         </div>
 
         <!-- KPIs -->
-        <div class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
+        <div v-if="kpiLoading" class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2 animate-pulse" role="status" aria-busy="true" aria-label="Chargement en cours">
+          <div v-for="i in 4" :key="i" :class="kpiCard">
+            <div :class="kpiAccent" class="bg-muted"></div>
+            <div class="h-2.5 bg-muted rounded mb-1.5" style="width: 65%"></div>
+            <div class="h-6 bg-muted rounded mb-1.5" style="width: 35%"></div>
+            <div class="h-2.5 bg-muted rounded" style="width: 50%"></div>
+          </div>
+        </div>
+        <div v-else class="grid grid-cols-4 gap-2.5 mb-3.5 max-md:grid-cols-2">
           <div :class="kpiCard">
             <div :class="kpiAccent" class="bg-success-bg"><Users class="w-[17px] h-[17px] text-success" /></div>
             <div :class="kpiLabel">{{ t('dashboard.active_employees') }}</div>
@@ -96,7 +96,7 @@
             <div class="flex-1">
               <div class="text-sm font-medium">
                 {{ r.employeeName }}
-                <span v-if="r.createdByName && r.createdByName !== r.employeeName" class="text-xs font-normal text-muted-foreground">— créé par {{ r.createdByName }}</span>
+                <span v-if="r.createdByName && r.createdByName !== r.employeeName" class="text-xs font-normal text-muted-foreground">(créé par {{ r.createdByName }})</span>
               </div>
               <div class="text-xs text-muted-foreground">{{ r.leaveTypeName }} · {{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }} · {{ r.daysCount }} jour{{ r.daysCount > 1 ? 's' : '' }}</div>
             </div>
@@ -188,6 +188,7 @@
                 :key="i"
                 class="text-xs text-center py-[5px] px-0.5 rounded cursor-pointer text-foreground relative hover:bg-background"
                 :class="dayClass(day)"
+                :style="dayStyle(day)"
                 @mouseenter="day.dateStr ? showTooltip($event, day) : undefined"
                 @mouseleave="hideTooltip"
               >
@@ -195,7 +196,7 @@
               </div>
             </div>
             <div class="flex gap-3 mt-2.5 flex-wrap">
-              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Absence approuvée</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Absence approuvée (couleur du type)</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-info"></span>Jour férié</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-primary"></span>Aujourd'hui</span>
             </div>
@@ -215,13 +216,6 @@
     </div>
   </Teleport>
 
-  <!-- Fiche de création -->
-  <AbsenceCreate
-    v-if="absenceModalOpen"
-    @close="absenceModalOpen = false"
-    @created="onAbsenceSubmitted"
-  />
-
   <!-- Tour guidé — uniquement juste après l'onboarding (?tour=1), voir
        OnboardingWizard.vue:finish() -->
   <ProductTour v-if="showTour" :steps="TOUR_STEPS" @close="closeTour" />
@@ -233,10 +227,9 @@ import { ref, computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  FileDown, Plus, Users, Clock, Check, UserX, Network, ChevronRight, ChevronLeft,
+  Users, Clock, Check, UserX, Network, ChevronRight, ChevronLeft,
   CalendarClock, BarChart3, GripVertical, Calendar, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-vue-next'
-import AbsenceCreate from '../components/absences/AbsenceCreate.vue'
 import AbsenceWorkflowActions from '../components/absences/AbsenceWorkflowActions.vue'
 import ProductTour from '../components/ui/ProductTour.vue'
 import type { TourStep } from '../components/ui/ProductTour.vue'
@@ -269,19 +262,33 @@ function closeTour() {
   router.replace({ query: {} })
 }
 const TOUR_STEPS: TourStep[] = [
-  { target: '[data-tour="config"]', title: 'Configuration', description: "Gérez ici le calendrier et les jours fériés, la Classification (catégories, métiers et postes de l'entreprise) et les taux de frais/perdiems de mission." },
-  { target: '[data-tour="management"]', title: 'Employés et entités', description: 'Créez et gérez vos employés, entités, ordres de mission et notes de frais depuis cette section.' },
+  { target: '[data-tour="config"]', title: 'Configuration', description: "Gérez ici le calendrier et les jours fériés, ainsi que la Classification (catégories, métiers et postes de l'entreprise)." },
+  { target: '[data-tour="management"]', title: 'Employés et entités', description: 'Créez et gérez vos employés et entités depuis cette section.' },
   { target: '[data-tour="absences"]', title: "Demandes d'absence", description: "Suivez et validez les demandes de congé de votre équipe, et consultez les soldes." },
 ]
 if (entityStore.entities.length === 0) entityStore.fetchAll()
 if (leaves.all.length === 0) leaves.fetchAll()
 if (employeeStore.employees.length === 0) employeeStore.fetchAll()
+// AbsenceWorkflowActions (ligne 104) n'affiche Approuver/Retourner/Refuser
+// que pour les demandes reellement a l'etape courante du validateur — voir
+// pendingForMe.some(...) dans ce composant. Sans ce fetch, un validateur
+// avec CONGE_VOIR_TOUT (ex: Directeur RH) qui voit ici une demande pas
+// encore a son niveau ne voyait quand meme les boutons (ils s'affichaient
+// a tort avant ce correctif, et echouaient au clic cote serveur).
+if (auth.hasPermission('CONGE_VALIDER')) leaves.fetchPendingForMe()
 if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 
 // ── KPIs ─────────────────────────────────────────────────────
 const todayIso = new Date().toISOString().slice(0, 10)
 const thisMonthKey = todayIso.slice(0, 7)
+
+// Squelette tant que les deux sources des KPI n'ont pas fini leur premier
+// chargement — évite le flash "0" avant que les vraies valeurs arrivent
+// (le flag `loading` ne redevient true que sur un fetch reellement lance,
+// voir "if (x.length === 0) fetch()" plus haut : pas de flash sur un retour
+// a cet ecran avec des donnees deja en cache).
+const kpiLoading = computed(() => employeeStore.loading || leaves.loading)
 
 const activeEmployeesCount = computed(() => employeeStore.activeEmployees.length)
 const newHiresThisMonth = computed(() => employeeStore.employees.filter(e => e.hireDate?.slice(0, 7) === thisMonthKey).length)
@@ -296,8 +303,6 @@ const absentTodayCount = computed(() => leaves.all.filter(l =>
 ).length)
 
 // ── Classes du design system ─────────────────────────────────
-const btnPrimary = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-primary text-primary-foreground transition-colors hover:bg-primary/90'
-const btnOutline = 'px-4 py-[7px] rounded-md text-[13px] font-medium cursor-pointer flex items-center gap-1.5 bg-card text-foreground border border-border transition-colors hover:bg-background'
 const kpiCard = 'bg-card border border-border rounded-lg px-3.5 py-3'
 const kpiAccent = 'w-8 h-8 rounded-md flex items-center justify-center mb-2'
 const kpiLabel = 'text-[13px] text-muted-foreground mb-1'
@@ -324,8 +329,13 @@ function dayClass(day: CalDay): string {
   if (day.cls === 'empty') return 'text-transparent pointer-events-none'
   if (day.cls === 'today') return 'bg-primary text-primary-foreground font-semibold'
   if (day.hasHoliday) return 'bg-info-bg text-info font-medium'
-  if (day.hasLeave) return 'bg-success-bg text-success font-medium'
+  if (day.hasLeave) return 'font-medium'
   return ''
+}
+
+function dayStyle(day: CalDay): Record<string, string> {
+  if (day.cls === 'empty' || day.cls === 'today' || day.hasHoliday || !day.hasLeave || !day.leaveColor) return {}
+  return { backgroundColor: `${day.leaveColor}1A`, color: day.leaveColor }
 }
 
 const today = new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US', {
@@ -343,13 +353,6 @@ const typeI18nKey: Record<string, string> = {
 function typeLabel(type: string): string {
   const key = typeI18nKey[type]
   return key ? t(key) : type
-}
-
-// ── AbsenceCreate ─────────────────────────────────────────────
-const absenceModalOpen = ref(false)
-
-function onAbsenceSubmitted() {
-  absenceModalOpen.value = false
 }
 
 // ── Demandes ─────────────────────────────────────────────────
@@ -396,7 +399,7 @@ const sortedBalances = computed(() => {
   const list = [...employeeBalances.value].sort((a, b) => {
     const va = balSortKey.value === 'name' ? a.name : (a.balances[balSortKey.value] ?? 0)
     const vb = balSortKey.value === 'name' ? b.name : (b.balances[balSortKey.value] ?? 0)
-    const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
+    const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb))
     return balSortDir.value === 'asc' ? cmp : -cmp
   })
   const start = (balPage.value - 1) * balPageSize.value
@@ -425,7 +428,7 @@ function nextMonth() {
   else calMonth.value++
 }
 
-interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean; hasHoliday: boolean; holidayName?: string }
+interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean; leaveColor?: string; hasHoliday: boolean; holidayName?: string }
 
 const calDays = computed((): CalDay[] => {
   const y = calYear.value
@@ -443,11 +446,15 @@ const calDays = computed((): CalDay[] => {
     const mm      = String(m + 1).padStart(2, '0')
     const dd      = String(d).padStart(2, '0')
     const dateStr = `${y}-${mm}-${dd}`
-    const hasLeave = leaves.all.some(
+    // Couleur du type de congé (definie a sa creation) plutot qu'une couleur
+    // generique unique pour toute absence — voir showTooltip() plus bas qui
+    // liste deja chaque demande avec sa propre couleur, cette cellule ne
+    // montre qu'un aperçu (premiere demande trouvee ce jour-la).
+    const dayLeave = leaves.all.find(
       l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
     )
     const holiday = isHoliday(new Date(y, m, d), calendarStore.calendar)
-    result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
+    result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave: !!dayLeave, leaveColor: dayLeave?.leaveTypeColor, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
   }
   return result
 })
@@ -476,8 +483,8 @@ function showTooltip(event: MouseEvent, day: CalDay) {
     l => l.status === 'Approved' && l.startDate <= (day.dateStr ?? '') && l.endDate >= (day.dateStr ?? '')
   )
   const lines: { text: string; color: string }[] = []
-  if (day.hasHoliday) lines.push({ text: `Férié — ${day.holidayName}`, color: 'var(--color-info)' })
-  lines.push(...matches.map(l => ({ text: `${l.employeeName} — ${l.leaveTypeName}`, color: l.leaveTypeColor })))
+  if (day.hasHoliday) lines.push({ text: `Férié · ${day.holidayName}`, color: 'var(--color-info)' })
+  lines.push(...matches.map(l => ({ text: `${l.employeeName} · ${l.leaveTypeName}`, color: l.leaveTypeColor })))
   tooltip.lines = lines.length > 0 ? lines : [{ text: t('absence.no_absence'), color: '' }]
   tooltip.x     = rect.left + rect.width / 2
   tooltip.above = rect.top > window.innerHeight / 2

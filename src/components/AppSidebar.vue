@@ -38,15 +38,15 @@
         <SidebarSection v-if="canSeeManagementSection" :label="t('sidebar.management')" data-tour="management">
           <SidebarItem v-if="auth.hasAnyPermission(['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE'])" :icon="Users"    :label="t('sidebar.employees')" :to="{ name: 'hr-employees' }" />
           <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"                                    :icon="Building" :label="t('sidebar.entities')"  :to="{ name: 'hr-entities' }" />
-          <SidebarItem v-if="auth.hasAnyPermission(['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE'])"  :icon="Plane"    :label="t('sidebar.missions')"  :to="{ name: 'hr-missions' }" />
-          <SidebarItem v-if="auth.hasAnyPermission(['FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE'])"      :icon="Receipt"  :label="t('sidebar.expenses')"  :to="{ name: 'hr-expenses' }" />
+          <SidebarItem v-if="MISSIONS_EXPENSES_ENABLED && auth.hasAnyPermission(['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE'])"  :icon="Plane"    :label="t('sidebar.missions')"  :to="{ name: 'hr-missions' }" />
+          <SidebarItem v-if="MISSIONS_EXPENSES_ENABLED && auth.hasAnyPermission(['FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE'])"      :icon="Receipt"  :label="t('sidebar.expenses')"  :to="{ name: 'hr-expenses' }" />
           <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"                                    :icon="Network"  :label="t('sidebar.org_chart')" :to="{ name: 'hr-org-chart' }" />
         </SidebarSection>
 
         <SidebarSection v-if="canSeeConfigSection" :label="t('sidebar.configuration')" data-tour="config">
           <SidebarItem v-if="auth.hasPermission('CONFIG_CALENDRIER')"     :icon="CalendarDays" :label="t('sidebar.config_calendar')" :to="{ name: 'hr-config-calendar' }" />
           <SidebarItem v-if="auth.hasAnyPermission(['CONFIG_METIERS_POSTES', 'CONFIG_CATEGORIES_EMPLOYE'])" :icon="Tags" :label="t('sidebar.classification')" :to="{ name: 'hr-config-classification' }" />
-          <SidebarItem v-if="auth.hasPermission('CONFIG_FRAIS_MISSION')"  :icon="Coins"        :label="t('sidebar.fees_perdiems')"   :to="{ name: 'hr-config-mission-fees' }" />
+          <SidebarItem v-if="MISSIONS_EXPENSES_ENABLED && auth.hasPermission('CONFIG_FRAIS_MISSION')"  :icon="Coins"        :label="t('sidebar.fees_perdiems')"   :to="{ name: 'hr-config-mission-fees' }" />
         </SidebarSection>
       </template>
 
@@ -150,8 +150,8 @@
 
       <SidebarSection :label="t('sidebar.my_requests')">
         <SidebarItem :icon="CalendarOff" :label="t('sidebar.absence_requests')" :to="{ name: 'employee-absences' }" :badge="myPendingCount" />
-        <SidebarItem :icon="Plane"       :label="t('sidebar.my_missions')"      :to="{ name: 'employee-missions' }" />
-        <SidebarItem :icon="Receipt"     :label="t('sidebar.expenses')"         :to="{ name: 'employee-expenses' }" />
+        <SidebarItem v-if="MISSIONS_EXPENSES_ENABLED" :icon="Plane"   :label="t('sidebar.my_missions')"      :to="{ name: 'employee-missions' }" />
+        <SidebarItem v-if="MISSIONS_EXPENSES_ENABLED" :icon="Receipt" :label="t('sidebar.expenses')"         :to="{ name: 'employee-expenses' }" />
       </SidebarSection>
 
       <template v-if="canSeeMyTeamSection">
@@ -189,27 +189,38 @@ import {
 import { useAuthStore }       from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
 import { useLeaveRequestStore } from '../stores/leaveRequests'
+import { useMissionStore } from '../stores/missions'
+import { useExpenseStore } from '../stores/expenses'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
+import { MISSIONS_EXPENSES_ENABLED } from '../config/features'
 
 const { t }        = useI18n()
 const auth         = useAuthStore()
 const navStore     = useNavigationStore()
 const leaveStore   = useLeaveRequestStore()
+const missionStore = useMissionStore()
+const expenseStore = useExpenseStore()
 
+// Le badge "A valider" doit refleter les 3 domaines, pas seulement les
+// congés (bug corrige le 06/08) — chacun reste garde par sa propre
+// permission *_VALIDER cote backend (voir leave/mission/expense controllers).
 if (auth.hasPermission('CONGE_VALIDER') && leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
+if (MISSIONS_EXPENSES_ENABLED && auth.hasPermission('MISSION_VALIDER') && missionStore.pendingForMe.length === 0) missionStore.fetchPendingForMe()
+if (MISSIONS_EXPENSES_ENABLED && auth.hasPermission('FRAIS_VALIDER') && expenseStore.pendingForMe.length === 0) expenseStore.fetchPendingForMe()
 if (leaveStore.mine.length === 0) leaveStore.fetchMine()
 
 const MINE_PENDING = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
-const pendingCount   = computed(() => leaveStore.pendingForMe.length)
+const pendingCount   = computed(() => leaveStore.pendingForMe.length + missionStore.pendingForMe.length + expenseStore.pendingForMe.length)
 const myPendingCount = computed(() => leaveStore.mine.filter(l => MINE_PENDING.has(l.status)).length)
 
 const canSeeManagementSection = computed(() => auth.hasAnyPermission([
   'EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE', 'ENTITE_VOIR',
-  'MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE', 'FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE',
+  ...(MISSIONS_EXPENSES_ENABLED ? ['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE', 'FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE'] : []),
 ]))
 const canSeeConfigSection = computed(() => auth.hasAnyPermission([
   'CONFIG_CALENDRIER', 'CONFIG_JOURS_FERIES', 'CONFIG_TYPES_CONGE',
-  'CONFIG_CATEGORIES_EMPLOYE', 'CONFIG_FRAIS_MISSION', 'CONFIG_METIERS_POSTES',
+  'CONFIG_CATEGORIES_EMPLOYE', 'CONFIG_METIERS_POSTES',
+  ...(MISSIONS_EXPENSES_ENABLED ? ['CONFIG_FRAIS_MISSION'] : []),
 ]))
 const canSeeMyTeamSection = computed(() => auth.hasAnyPermission([
   'CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER', 'EMPLOYE_VOIR_EQUIPE',

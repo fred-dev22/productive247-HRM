@@ -46,8 +46,8 @@ const OrgChartNode: any = defineComponent({
       const hasChildren = node.children.length > 0
       const isCollapsed = collapsed.value.has(node.id)
 
-      const isService = node.type === 'service'
-      const isDept    = node.type === 'department'
+      const isService = node.type === 'Service'
+      const isDept    = node.type === 'Department'
 
       const cardStyle: Record<string, string> = isService
         ? { background: 'var(--galana-red-light)', color: 'var(--galana-red)', border: '1px solid rgba(200,16,46,0.3)' }

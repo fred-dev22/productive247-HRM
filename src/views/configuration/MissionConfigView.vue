@@ -7,46 +7,12 @@
             <h1 class="text-xl font-bold text-foreground">Configuration des missions</h1>
             <p class="text-[13px] text-muted-foreground mt-0.5">Définissez les types de frais et leurs règles par catégorie d'employé</p>
           </div>
-          <button :class="L.btnOutline" @click="showImportToast">
-            <Upload class="w-4 h-4" />
-            Importer
-          </button>
-        </div>
-
-        <!-- Banner avertissement -->
-        <div class="flex items-start gap-2.5 bg-warning-bg border-l-4 border-warning rounded-md px-4 py-3 text-[13px] text-foreground leading-relaxed">
-          <TriangleAlert class="w-4 h-4 text-warning shrink-0 mt-px" />
-          <span>
-            Les catégories et montants affichés sont <strong>provisoires</strong>.
-            Ils doivent être validés avec la direction avant la mise en production.
-          </span>
-        </div>
-
-        <!-- Toast (bouton Importer uniquement — les autres actions passent par le toast global) -->
-        <div v-if="showToast" class="fixed bottom-6 right-6 bg-success text-white px-5 py-3 rounded-lg text-[13px] font-medium flex items-center gap-2 z-[2000] shadow-[0_4px_16px_rgba(0,0,0,0.16)]">
-          <Check class="w-4 h-4" />
-          {{ toastMsg }}
         </div>
 
         <SkeletonLoader v-if="initialLoading" type="table" :lines="6" />
         <template v-else>
 
-        <!-- Section 1 : Catégories d'employés (rappel — gestion complète, y compris les permissions, dans Configuration > Catégories) -->
-        <div :class="L.tableCard">
-          <div class="flex items-start justify-between px-5 pt-4 gap-3">
-            <div>
-              <h2 class="text-[15px] font-semibold text-foreground">Catégories d'employés</h2>
-              <p class="text-[11px] text-muted-foreground mt-0.5">Gérées dans Configuration &gt; Catégories (code, libellé, permissions)</p>
-            </div>
-            <RouterLink :to="{ name: 'hr-config-classification' }" :class="[L.btnOutline, '!px-3 !py-1.5 !text-xs']">
-              Gérer les catégories →
-            </RouterLink>
-          </div>
-
-          <DataTable :columns="catColumns" :rows="store.categories" row-key="id" />
-        </div>
-
-        <!-- Section 2 : Types de frais -->
+        <!-- Types de frais (taux + plafond dans la meme grille) -->
         <div :class="L.tableCard">
           <div class="flex items-start justify-between px-5 pt-4 gap-3 flex-wrap">
             <h2 class="text-[15px] font-semibold text-foreground">Types de frais</h2>
@@ -71,79 +37,101 @@
           </div>
 
           <div class="overflow-x-auto pb-1">
-            <table class="w-full border-collapse text-[13px] min-w-[700px]">
+            <table class="w-full border-collapse text-[13px]">
               <thead>
                 <tr>
-                  <th :class="thUpper">Type de frais</th>
-                  <th v-for="cat in store.categories" :key="cat.id" :class="thUpper">{{ cat.code }}</th>
+                  <th :class="thUpper">Catégorie</th>
+                  <th :class="thUpper">Montant</th>
+                  <th :class="thUpper">Plafond</th>
                   <th :class="thUpper">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="ft in store.expenseTypes" :key="ft.id" class="hover:bg-background">
-                  <td :class="tdCell">
-                    <div class="flex flex-col gap-0.5">
-                      <span class="font-medium text-foreground">{{ ft.name }}</span>
-                      <span class="text-[11px] text-muted-foreground">{{ unitLabel(ft.unit) }}</span>
-                    </div>
-                  </td>
-                  <td v-for="cat in store.categories" :key="cat.id" :class="tdCell">
-                    <div class="flex items-center gap-1.5">
-                      <template v-if="editing?.feeId === ft.id && editing?.catId === cat.id">
+                <template v-for="ft in visibleExpenseTypes" :key="ft.id">
+                  <tr class="bg-background">
+                    <td :class="tdCell" colspan="3">
+                      <div class="flex items-baseline gap-1.5">
+                        <span class="font-medium text-foreground">{{ ft.name }}</span>
+                        <span class="text-[11px] text-muted-foreground">{{ unitLabel(ft.unit) }}</span>
+                      </div>
+                    </td>
+                    <td :class="tdCell">
+                      <div class="flex gap-1 justify-center">
+                        <button :class="iconBtn" @click="openEditFee(ft.id)">
+                          <Pencil class="w-3.5 h-3.5" />
+                        </button>
+                        <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteFee(ft.id, ft.name)">
+                          <Trash2 class="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-for="cat in store.categories" :key="cat.id" class="hover:bg-background">
+                    <td :class="tdCell">{{ cat.name }}</td>
+                    <td :class="tdCell">
+                      <div class="flex items-center gap-1.5">
+                        <template v-if="editing?.feeId === ft.id && editing?.catId === cat.id">
+                          <input
+                            type="number"
+                            min="0"
+                            class="w-[90px] h-7 px-1.5 border border-primary rounded text-[13px] bg-card outline-none"
+                            :value="getAmount(ft.id, cat.id)"
+                            @change="onAmountChange(ft.id, cat.id, $event)"
+                            @blur="editing = null"
+                            ref="amountInputRef"
+                          />
+                        </template>
+                        <template v-else>
+                          <span
+                            v-if="getAmount(ft.id, cat.id) === 0"
+                            class="text-[11px] font-semibold bg-info-bg text-info rounded px-[7px] py-0.5 cursor-pointer whitespace-nowrap hover:opacity-75"
+                            @click="startEdit(ft.id, cat.id)"
+                          >Au réel</span>
+                          <span
+                            v-else
+                            class="text-[13px] font-medium text-foreground cursor-pointer whitespace-nowrap hover:text-primary"
+                            @click="startEdit(ft.id, cat.id)"
+                          >{{ fmt(getAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">{{ getCurrency(ft.id, cat.id) }}</span></span>
+                        </template>
+                      </div>
+                    </td>
+                    <td :class="tdCell">
+                      <template v-if="editingCeiling?.feeId === ft.id && editingCeiling?.catId === cat.id">
                         <input
                           type="number"
                           min="0"
                           class="w-[90px] h-7 px-1.5 border border-primary rounded text-[13px] bg-card outline-none"
-                          :value="getAmount(ft.id, cat.id)"
-                          @change="onAmountChange(ft.id, cat.id, $event)"
-                          @blur="editing = null"
-                          ref="amountInputRef"
+                          :value="getCeilingAmount(ft.id, cat.id)"
+                          @change="onCeilingAmountChange(ft.id, cat.id, $event)"
+                          @blur="editingCeiling = null"
+                          ref="ceilingInputRef"
                         />
                       </template>
                       <template v-else>
                         <span
-                          v-if="getAmount(ft.id, cat.id) === 0"
+                          v-if="getCeilingAmount(ft.id, cat.id) === 0"
                           class="text-[11px] font-semibold bg-info-bg text-info rounded px-[7px] py-0.5 cursor-pointer whitespace-nowrap hover:opacity-75"
-                          @click="startEdit(ft.id, cat.id)"
-                        >Au réel</span>
+                          @click="startEditCeiling(ft.id, cat.id)"
+                        >Aucun plafond</span>
                         <span
                           v-else
                           class="text-[13px] font-medium text-foreground cursor-pointer whitespace-nowrap hover:text-primary"
-                          @click="startEdit(ft.id, cat.id)"
-                        >{{ fmt(getAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">{{ getCurrency(ft.id, cat.id) }}</span></span>
+                          @click="startEditCeiling(ft.id, cat.id)"
+                        >{{ fmt(getCeilingAmount(ft.id, cat.id)) }}<span class="text-[10px] text-muted-foreground ml-0.5">{{ getCeilingCurrency(ft.id, cat.id) }}</span></span>
                       </template>
-                      <button
-                        :class="[
-                          'w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors',
-                          isDocRequired(ft.id, cat.id) ? 'text-primary bg-primary/10' : 'text-muted-foreground/30 hover:text-muted-foreground hover:bg-background',
-                        ]"
-                        :title="isDocRequired(ft.id, cat.id) ? 'Justificatif requis — cliquer pour désactiver' : 'Justificatif non requis — cliquer pour activer'"
-                        @click="toggleDocRequired(ft.id, cat.id)"
-                      >
-                        <Paperclip class="w-3 h-3" />
-                      </button>
-                    </div>
-                  </td>
-                  <td :class="tdCell">
-                    <div class="flex gap-1 justify-center">
-                      <button :class="iconBtn" @click="openEditFee(ft.id)">
-                        <Pencil class="w-3.5 h-3.5" />
-                      </button>
-                      <button :class="[iconBtn, 'hover:!bg-danger-bg hover:!text-danger']" @click="deleteFee(ft.id, ft.name)">
-                        <Trash2 class="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="store.expenseTypes.length === 0">
-                  <td :colspan="store.categories.length + 2" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
+                    </td>
+                    <td :class="tdCell"></td>
+                  </tr>
+                </template>
+                <tr v-if="visibleExpenseTypes.length === 0">
+                  <td colspan="4" class="text-center p-6 text-muted-foreground italic">Aucun type de frais configuré</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p class="text-[11px] text-muted-foreground px-4 pt-2 pb-3">
-            Cliquez sur un montant pour le modifier. "Au réel" signifie remboursement sur justificatif.
-            <Paperclip class="w-3 h-3 inline-block text-primary" /> indique un justificatif obligatoire pour cette case.
+            Cliquez sur un montant ou un plafond pour le modifier. "Au réel" signifie remboursement sur justificatif ;
+            "Aucun plafond" signifie pas de limite.
           </p>
         </div>
 
@@ -194,9 +182,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick } from 'vue'
-import { Upload, TriangleAlert, Check, Plus, Pencil, Trash2, Paperclip } from 'lucide-vue-next'
-import DataTable  from '../../components/ui/DataTable.vue'
+import { ref, reactive, computed, nextTick } from 'vue'
+import { Plus, Pencil, Trash2 } from 'lucide-vue-next'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import { SkeletonLoader } from '../../components'
@@ -209,12 +196,18 @@ import type { ExpenseUnit, MissionCategory } from '../../stores/missionConfig'
 
 const store = useMissionConfigStore()
 
+// Le type systeme "Autre" (secours toujours dispo dans la fiche de note de
+// frais) n'a pas sa place dans cette grille de config — il n'a ni taux ni
+// plafond a definir, voir decision du 12/08.
+const visibleExpenseTypes = computed(() => store.expenseTypes.filter(t => !t.isSystem))
+
 const initialLoading = ref(true)
 ;(async () => {
   await Promise.all([
     store.categories.length === 0 ? store.fetchCategories() : Promise.resolve(),
     store.expenseTypes.length === 0 ? store.fetchExpenseTypes() : Promise.resolve(),
     store.configs.length === 0 ? store.fetchConfigs() : Promise.resolve(),
+    store.ceilings.length === 0 ? store.fetchCeilings() : Promise.resolve(),
   ])
   initialLoading.value = false
 })()
@@ -224,15 +217,7 @@ const thUpper = 'px-3 py-2.5 text-left text-[11px] font-bold text-muted-foregrou
 const tdCell = 'px-3 py-2.5 border-b border-border'
 const iconBtn = 'w-7 h-7 flex items-center justify-center border-0 rounded-md bg-background text-muted-foreground cursor-pointer transition-colors hover:bg-primary/10 hover:text-primary'
 
-const showToast = ref(false)
-const toastMsg  = ref('')
 const amountInputRef = ref<HTMLInputElement | null>(null)
-
-function showImportToast() {
-  toastMsg.value  = 'Import disponible prochainement'
-  showToast.value = true
-  setTimeout(() => { showToast.value = false }, 2500)
-}
 
 function fmt(n: number): string { return n.toLocaleString('fr-FR') }
 function unitLabel(unit: ExpenseUnit): string {
@@ -240,17 +225,11 @@ function unitLabel(unit: ExpenseUnit): string {
 }
 
 // ── Catégorie de mission (3e dimension de la matrice ExpenseConfig) ──
-const MISSION_CATEGORIES: MissionCategory[] = ['Local', 'National', 'International']
+const MISSION_CATEGORIES: MissionCategory[] = ['National', 'International']
 const MISSION_CATEGORY_LABELS: Record<MissionCategory, string> = {
-  Local: 'Locale', National: 'Nationale', International: 'Internationale',
+  National: 'Nationale', International: 'Internationale',
 }
-const selectedMissionCategory = ref<MissionCategory>('Local')
-
-// ── Table catégories (lecture seule — gestion dans Configuration > Catégories) ──
-const catColumns = [
-  { key: 'code',        label: 'Code',        width: '100px' },
-  { key: 'name',        label: 'Libellé',     width: '180px' },
-]
+const selectedMissionCategory = ref<MissionCategory>('National')
 
 // ── Montants + justificatif inline (grille 3D) ──
 const editing = ref<{ feeId: string; catId: string } | null>(null)
@@ -261,10 +240,6 @@ function getAmount(feeId: string, catId: string): number {
 function getCurrency(feeId: string, catId: string): string {
   return store.getConfig(feeId, catId, selectedMissionCategory.value)?.currency ?? 'MGA'
 }
-function isDocRequired(feeId: string, catId: string): boolean {
-  return store.getConfig(feeId, catId, selectedMissionCategory.value)?.documentRequired ?? false
-}
-
 function startEdit(feeId: string, catId: string) {
   editing.value = { feeId, catId }
   nextTick(() => amountInputRef.value?.focus())
@@ -275,8 +250,23 @@ function onAmountChange(feeId: string, catId: string, event: Event) {
   store.upsertConfig(feeId, catId, selectedMissionCategory.value, { dailyRate: val })
 }
 
-function toggleDocRequired(feeId: string, catId: string) {
-  store.upsertConfig(feeId, catId, selectedMissionCategory.value, { documentRequired: !isDocRequired(feeId, catId) })
+// ── Plafonds des notes de frais (Categorie x Type, sans dimension mission) ──
+const editingCeiling = ref<{ feeId: string; catId: string } | null>(null)
+const ceilingInputRef = ref<HTMLInputElement | null>(null)
+
+function getCeilingAmount(feeId: string, catId: string): number {
+  return store.getCeiling(feeId, catId)?.maxAmount ?? 0
+}
+function getCeilingCurrency(feeId: string, catId: string): string {
+  return store.getCeiling(feeId, catId)?.currency ?? 'MGA'
+}
+function startEditCeiling(feeId: string, catId: string) {
+  editingCeiling.value = { feeId, catId }
+  nextTick(() => ceilingInputRef.value?.focus())
+}
+function onCeilingAmountChange(feeId: string, catId: string, event: Event) {
+  const val = Number((event.target as HTMLInputElement).value)
+  store.upsertCeiling(feeId, catId, { maxAmount: val })
 }
 
 // ── Modal type de frais ──

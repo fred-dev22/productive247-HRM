@@ -21,9 +21,14 @@
     @open-card="openCard"
   >
     <template #header-actions>
-      <button v-if="auth.hasPermission('EMPLOYE_CREER')" :class="L.btnPrimary" @click="showCreate = true">
-        <UserPlus class="w-4 h-4" /> {{ t('employee.new') }}
-      </button>
+      <div v-if="auth.hasPermission('EMPLOYE_CREER')" class="flex items-center gap-2">
+        <button :class="L.btnOutline" @click="showImport = true">
+          <Upload class="w-4 h-4" /> Importer
+        </button>
+        <button :class="L.btnPrimary" @click="showCreate = true">
+          <UserPlus class="w-4 h-4" /> {{ t('employee.new') }}
+        </button>
+      </div>
     </template>
 
     <!-- KPIs -->
@@ -47,7 +52,7 @@
         <label :class="L.fpFieldLabel">{{ t('employee.filter_entity') }}</label>
         <select v-model="fEntity" :class="L.fpSelect">
           <option value="">{{ t('employee.filter_entity') }}</option>
-          <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} — {{ e.name }}</option>
+          <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
         </select>
       </div>
       <div :class="L.fpField">
@@ -115,23 +120,27 @@
 
     <EmployeeCard v-if="openCardId !== null" :employees="filtered" :employee-id="openCardId" @close="openCardId = null" />
     <EmployeeCreate v-if="showCreate" @close="showCreate = false" />
+    <ImportWizardModal v-if="showImport" :open="showImport" :config="employeeImportConfig" @close="showImport = false" @imported="store.fetchAll()" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { UserPlus, Users, UserCheck, Clock, ShieldCheck } from 'lucide-vue-next'
+import { UserPlus, Upload, Users, UserCheck, Clock, ShieldCheck } from 'lucide-vue-next'
 import { StatusPill, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import EmployeeCard from '../../components/employees/EmployeeCard.vue'
 import EmployeeCreate from '../../components/employees/EmployeeCreate.vue'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildEmployeeImportConfig } from '../../components/shared/import/configs/employeeImportConfig'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore } from '../../stores/entities'
 import { useAuthStore } from '../../stores/auth'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import { usePositionStore } from '../../stores/positions'
 import type { Employee, EmployeeStatus } from '../../types'
 
 const { t } = useI18n()
@@ -140,6 +149,11 @@ const entityStore = useEntityStore()
 const auth = useAuthStore()
 const categoryStore = useEmployeeCategoryStore()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+// Chargé ici (pas seulement depuis Classification > Poste) — sinon le menu
+// "Poste" de l'assistant d'import reste vide tant que l'utilisateur n'a pas
+// déjà visité cet écran dans la session.
+const positionStore = usePositionStore()
+if (positionStore.positions.length === 0) positionStore.fetchAll()
 // Séquencé (pas en parallèle) : mapEmployee lit entityStore de façon
 // synchrone pour entityName — sans cet ordre, une première visite avec les
 // deux stores vides peut résoudre le nom d'entité en blanc. Le fetch employés
@@ -159,6 +173,8 @@ const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
 
 const showCreate = ref(false)
+const showImport = ref(false)
+const employeeImportConfig = computed(() => buildEmployeeImportConfig())
 const openCardId = ref<string | null>(null)
 function openCard(item: Employee) { openCardId.value = item.id }
 
@@ -206,6 +222,11 @@ const sortFieldMap: Record<string, keyof Employee> = { code: 'code', employee: '
 
 const filtered = computed(() => {
   let rows = store.employees.filter(e => {
+    // "Tous" inclut désormais les employés désactivés — sinon impossible de
+    // les retrouver pour les réactiver sans déjà savoir filtrer sur
+    // "Inactif". La suppression définitive (Lot I, IsDeleted) est le
+    // véritable mécanisme qui fait disparaître un employé partout : elle est
+    // déjà appliquée côté API (findAll), pas besoin de la dupliquer ici.
     if (activeScope.value && e.status !== (activeScope.value as EmployeeStatus)) return false
     if (fEntity.value && e.entityId !== fEntity.value) return false
     if (fCategory.value && e.employeeCategoryId !== fCategory.value) return false

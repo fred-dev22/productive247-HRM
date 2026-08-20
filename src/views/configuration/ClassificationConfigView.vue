@@ -4,7 +4,7 @@
     <!-- En-tête -->
     <div>
       <h1 class="text-xl font-bold text-foreground">Classification</h1>
-      <p class="text-[13px] text-muted-foreground mt-0.5">Catégories, métiers et postes — la structure qui classe chaque employé et détermine ses permissions et son taux de frais</p>
+      <p class="text-[13px] text-muted-foreground mt-0.5">Catégories, métiers et postes : la structure qui classe chaque employé et détermine ses permissions et son taux de frais</p>
     </div>
 
     <!-- Onglets -->
@@ -20,16 +20,22 @@
     <!-- ═══════════ Onglet Catégorie ═══════════ -->
     <template v-if="activeTab === 'category'">
       <div class="flex items-start justify-between gap-4 flex-wrap">
-        <p class="text-[13px] text-muted-foreground">Classent les employés — déterminent leur taux de frais/perdiem et le paquet de permissions de leur compte utilisateur</p>
-        <button :class="L.btnPrimary" @click="openAddCat">
-          <Plus class="w-4 h-4" /> Ajouter une catégorie
-        </button>
+        <p class="text-[13px] text-muted-foreground">Classent les employés, déterminent leur taux de frais/perdiem et le paquet de permissions de leur compte utilisateur</p>
+        <div class="flex gap-2">
+          <button :class="L.btnOutline" @click="showCatImport = true">
+            <Upload class="w-4 h-4" /> Importer
+          </button>
+          <button :class="L.btnPrimary" @click="openAddCat">
+            <Plus class="w-4 h-4" /> Ajouter une catégorie
+          </button>
+        </div>
       </div>
 
       <SkeletonLoader v-if="catStore.loading" type="table" :lines="5" />
       <div v-else :class="L.tableCard">
         <DataTable :columns="catColumns" :rows="catStore.categories" row-key="id">
           <template #cell-permissions="{ row }">{{ row.permissions.length }} permission(s)</template>
+          <template #cell-employeeCount="{ row }">{{ row.employeeCount }} employé(s)</template>
           <template #cell-isActive="{ row }">
             <span :class="row.isActive ? 'text-success' : 'text-muted-foreground'">{{ row.isActive ? 'Actif' : 'Inactif' }}</span>
           </template>
@@ -55,9 +61,14 @@
     <template v-else-if="activeTab === 'job'">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <p class="text-[13px] text-muted-foreground">Catalogue des métiers utilisés pour définir les postes</p>
-        <button :class="L.btnPrimary" @click="openAddJob">
-          <Plus class="w-4 h-4" /> Ajouter un métier
-        </button>
+        <div class="flex gap-2">
+          <button :class="L.btnOutline" @click="showJobImport = true">
+            <Upload class="w-4 h-4" /> Importer
+          </button>
+          <button :class="L.btnPrimary" @click="openAddJob">
+            <Plus class="w-4 h-4" /> Ajouter un métier
+          </button>
+        </div>
       </div>
 
       <SkeletonLoader v-if="jobStore.jobs.length === 0 && jobStore.loading" type="table" :lines="5" />
@@ -85,9 +96,14 @@
     <template v-else>
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <p class="text-[13px] text-muted-foreground">Postes rattachés à un métier et à une entité, utilisés pour affecter les employés</p>
-        <button :class="L.btnPrimary" @click="openAddPos">
-          <Plus class="w-4 h-4" /> Ajouter un poste
-        </button>
+        <div class="flex gap-2">
+          <button :class="L.btnOutline" @click="showPosImport = true">
+            <Upload class="w-4 h-4" /> Importer
+          </button>
+          <button :class="L.btnPrimary" @click="openAddPos">
+            <Plus class="w-4 h-4" /> Ajouter un poste
+          </button>
+        </div>
       </div>
 
       <SkeletonLoader v-if="posStore.positions.length === 0 && posStore.loading" type="table" :lines="5" />
@@ -140,6 +156,10 @@
                 <label :class="cls.fieldLabel">Code *</label>
                 <input v-model="catForm.code" :class="cls.fieldInput" placeholder="ex : CADR-SUP-001" @input="onCatCodeInput" />
               </div>
+              <div :class="cls.field">
+                <label :class="cls.fieldLabel">Description</label>
+                <textarea v-model="catForm.description" :class="cls.fieldTextarea" rows="3" placeholder="Description de la catégorie (optionnel)…"></textarea>
+              </div>
               <div class="flex items-center justify-between">
                 <span :class="cls.fieldLabel">Actif</span>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -157,8 +177,8 @@
   <!-- ── Modal Permissions de catégorie — même coquille que les autres formulaires ── -->
   <CreateModalShell
     v-if="showPermModal && permCategory"
-    :title="`Permissions — ${permCategory.name}`"
-    :banner-label="`Permissions — ${permCategory.name}`"
+    :title="`Permissions · ${permCategory.name}`"
+    :banner-label="`Permissions · ${permCategory.name}`"
     create-label="Fermer"
     @close="showPermModal = false"
     @create="showPermModal = false"
@@ -170,7 +190,7 @@
             <TriangleAlert class="w-4 h-4 text-warning shrink-0 mt-px" />
             <span>
               Ces modifications s'appliquent <strong>uniquement aux prochains comptes créés</strong> dans cette catégorie.
-              Les comptes déjà créés ne sont <strong>jamais</strong> modifiés automatiquement — retirez ou ajoutez un droit individuellement depuis la fiche de l'employé concerné.
+              Les comptes déjà créés ne sont <strong>jamais</strong> modifiés automatiquement. Retirez ou ajoutez un droit individuellement depuis la fiche de l'employé concerné.
             </span>
           </div>
 
@@ -268,7 +288,7 @@
                 <label :class="cls.fieldLabel">Métier *</label>
                 <select v-model="posForm.jobId" :class="cls.fieldSelect">
                   <option value="">-- Choisir --</option>
-                  <option v-for="j in jobStore.jobs" :key="j.id" :value="j.id">{{ j.code }} — {{ j.title }}</option>
+                  <option v-for="j in jobStore.jobs" :key="j.id" :value="j.id">{{ j.code }} · {{ j.title }}</option>
                 </select>
               </div>
               <div :class="cls.field">
@@ -292,17 +312,26 @@
       </div>
     </template>
   </CreateModalShell>
+
+  <!-- ── Import CSV: catégories, métiers, postes ── -->
+  <ImportWizardModal v-if="showCatImport" :open="showCatImport" :config="categoryImportConfig" @close="showCatImport = false" @imported="catStore.fetchAll()" />
+  <ImportWizardModal v-if="showJobImport" :open="showJobImport" :config="jobImportConfig" @close="showJobImport = false" @imported="jobStore.fetchAll()" />
+  <ImportWizardModal v-if="showPosImport" :open="showPosImport" :config="posImportConfig" @close="showPosImport = false" @imported="posStore.fetchAll()" />
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { Plus, Pencil, Trash2, ShieldCheck, TriangleAlert } from 'lucide-vue-next'
+import { Plus, Upload, Pencil, Trash2, ShieldCheck, TriangleAlert } from 'lucide-vue-next'
 import DataTable  from '../../components/ui/DataTable.vue'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import TableLookupField from '../../components/ui/table-lookup/TableLookupField.vue'
 import type { LookupFetchParams } from '../../components/ui/table-lookup/TableLookupField.vue'
 import { SkeletonLoader } from '../../components'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildCategoryImportConfig } from '../../components/shared/import/configs/categoryImportConfig'
+import { buildJobImportConfig } from '../../components/shared/import/configs/jobImportConfig'
+import { buildPositionImportConfig } from '../../components/shared/import/configs/positionImportConfig'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { suggestCode } from '../../lib/codeGen'
@@ -326,6 +355,13 @@ const TABS = [
 ]
 const activeTab = ref<'category' | 'job' | 'position'>('category')
 
+const showCatImport = ref(false)
+const showJobImport = ref(false)
+const showPosImport = ref(false)
+const categoryImportConfig = computed(() => buildCategoryImportConfig())
+const jobImportConfig = computed(() => buildJobImportConfig())
+const posImportConfig = computed(() => buildPositionImportConfig())
+
 // ═══════════════════════ Catégorie ═══════════════════════
 const catStore = useEmployeeCategoryStore()
 const permStore = usePermissionStore()
@@ -333,17 +369,18 @@ if (catStore.categories.length === 0) catStore.fetchAll()
 if (permStore.permissions.length === 0) permStore.fetchAll()
 
 const catColumns = [
-  { key: 'code',        label: 'Code',         width: '100px' },
-  { key: 'name',        label: 'Libellé' },
-  { key: 'permissions', label: 'Permissions',  width: '130px' },
-  { key: 'isActive',    label: 'Statut',       width: '90px', align: 'center' as const },
-  { key: 'actions',     label: 'Actions',      width: '110px', align: 'center' as const },
+  { key: 'code',          label: 'Code',         width: '100px' },
+  { key: 'name',          label: 'Libellé' },
+  { key: 'permissions',   label: 'Permissions',  width: '130px' },
+  { key: 'employeeCount', label: 'Employés',     width: '100px' },
+  { key: 'isActive',      label: 'Statut',       width: '90px', align: 'center' as const },
+  { key: 'actions',       label: 'Actions',      width: '110px', align: 'center' as const },
 ]
 
 const showCatModal = ref(false)
 const editingCatId = ref<string | null>(null)
 const catError = ref('')
-const catForm = reactive({ code: '', name: '', isActive: true })
+const catForm = reactive({ code: '', name: '', description: '', isActive: true })
 
 const catCodeTouched = ref(false)
 function onCatNameInput() {
@@ -355,14 +392,14 @@ function openAddCat() {
   editingCatId.value = null
   catError.value = ''
   catCodeTouched.value = false
-  Object.assign(catForm, { code: '', name: '', isActive: true })
+  Object.assign(catForm, { code: '', name: '', description: '', isActive: true })
   showCatModal.value = true
 }
 function openEditCat(category: EmployeeCategory) {
   editingCatId.value = category.id
   catError.value = ''
   catCodeTouched.value = true
-  Object.assign(catForm, { code: category.code, name: category.name, isActive: category.isActive })
+  Object.assign(catForm, { code: category.code, name: category.name, description: category.description, isActive: category.isActive })
   showCatModal.value = true
 }
 async function saveCat() {

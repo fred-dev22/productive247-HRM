@@ -33,6 +33,7 @@ export interface ExpenseType {
   name:     string
   unit:     ExpenseUnit
   isActive: boolean
+  isSystem: boolean
 }
 
 interface BackendExpenseType {
@@ -41,15 +42,16 @@ interface BackendExpenseType {
   Name: string
   Unit: ExpenseUnit
   IsActive: boolean
+  IsSystem: boolean
 }
 
 function mapExpenseType(raw: BackendExpenseType): ExpenseType {
-  return { id: raw.Id, code: raw.Code, name: raw.Name, unit: raw.Unit, isActive: raw.IsActive }
+  return { id: raw.Id, code: raw.Code, name: raw.Name, unit: raw.Unit, isActive: raw.IsActive, isSystem: raw.IsSystem }
 }
 
 // ── ExpenseConfig — matrice EmployeeCategory x ExpenseType x
 // MissionCategory → taux, reel, aligne sur le backend ────────────
-export type MissionCategory = 'Local' | 'National' | 'International'
+export type MissionCategory = 'National' | 'International'
 
 export interface ExpenseConfigRow {
   id:                 string
@@ -86,10 +88,39 @@ function mapConfig(raw: BackendExpenseConfig): ExpenseConfigRow {
   }
 }
 
+// ── ExpenseCeiling — plafond de note de frais (independant d'une mission)
+// par EmployeeCategory x ExpenseType — plan de tests #21 ────────────
+export interface ExpenseCeilingRow {
+  id:                 string
+  employeeCategoryId: string
+  expenseTypeId:      string
+  maxAmount:          number
+  currency:           string
+}
+
+interface BackendExpenseCeiling {
+  Id: string
+  EmployeeCategoryId: string
+  ExpenseTypeId: string
+  MaxAmount: string | number
+  Currency: string
+}
+
+function mapCeiling(raw: BackendExpenseCeiling): ExpenseCeilingRow {
+  return {
+    id: raw.Id,
+    employeeCategoryId: raw.EmployeeCategoryId,
+    expenseTypeId: raw.ExpenseTypeId,
+    maxAmount: Number(raw.MaxAmount),
+    currency: raw.Currency,
+  }
+}
+
 export const useMissionConfigStore = defineStore('missionConfig', () => {
   const categories   = ref<EmpCategory[]>([])
   const expenseTypes = ref<ExpenseType[]>([])
   const configs      = ref<ExpenseConfigRow[]>([])
+  const ceilings     = ref<ExpenseCeilingRow[]>([])
   const loading = ref(false)
   const error   = ref<string | null>(null)
 
@@ -175,7 +206,7 @@ export const useMissionConfigStore = defineStore('missionConfig', () => {
     }
   }
 
-  async function addExpenseType(payload: Omit<ExpenseType, 'id' | 'isActive'> & { isActive?: boolean }) {
+  async function addExpenseType(payload: Omit<ExpenseType, 'id' | 'isActive' | 'isSystem'> & { isActive?: boolean }) {
     error.value = null
     return withToast('Création du type de frais en cours…', async () => {
       try {
@@ -290,10 +321,68 @@ export const useMissionConfigStore = defineStore('missionConfig', () => {
     }, () => error.value ?? 'Impossible de mettre à jour ce taux')
   }
 
+  // ── ExpenseCeiling (plafond note de frais) ───────────────────
+  async function fetchCeilings() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendExpenseCeiling[]>('/expense-ceilings')
+      ceilings.value = data.map(mapCeiling)
+    } catch (err) {
+      error.value = getApiErrorMessage(err, 'Impossible de charger les plafonds de notes de frais')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function getCeiling(expenseTypeId: string, employeeCategoryId: string): ExpenseCeilingRow | undefined {
+    return ceilings.value.find(c => c.expenseTypeId === expenseTypeId && c.employeeCategoryId === employeeCategoryId)
+  }
+
+  // Meme logique create-ou-update qu'upsertConfig ci-dessus, sans dimension
+  // MissionCategory (le plafond s'applique a une note de frais independamment
+  // d'une mission).
+  async function upsertCeiling(
+    expenseTypeId: string,
+    employeeCategoryId: string,
+    patch: { maxAmount?: number; currency?: string },
+  ) {
+    error.value = null
+    return withToast('Enregistrement en cours…', async () => {
+      try {
+        const existing = getCeiling(expenseTypeId, employeeCategoryId)
+        if (existing) {
+          const body: Record<string, unknown> = {}
+          if (patch.maxAmount !== undefined) body.MaxAmount = patch.maxAmount
+          if (patch.currency !== undefined) body.Currency = patch.currency
+          const { data } = await api.patch<BackendExpenseCeiling>(`/expense-ceilings/${existing.id}`, body)
+          const mapped = mapCeiling(data)
+          const idx = ceilings.value.findIndex(c => c.id === existing.id)
+          if (idx !== -1) ceilings.value[idx] = mapped
+          return mapped
+        }
+        const { data } = await api.post<BackendExpenseCeiling>('/expense-ceilings', {
+          EmployeeCategoryId: employeeCategoryId,
+          ExpenseTypeId: expenseTypeId,
+          MaxAmount: patch.maxAmount ?? 0,
+          Currency: patch.currency ?? 'MGA',
+        })
+        const mapped = mapCeiling(data)
+        ceilings.value.push(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de mettre à jour ce plafond')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de mettre à jour ce plafond')
+  }
+
   return {
-    categories, expenseTypes, configs, loading, error,
+    categories, expenseTypes, configs, ceilings, loading, error,
     fetchCategories, addCategory, updateCategory, deleteCategory,
     fetchExpenseTypes, addExpenseType, updateExpenseType, deleteExpenseType,
     fetchConfigs, getConfig, upsertConfig,
+    fetchCeilings, getCeiling, upsertCeiling,
   }
 })

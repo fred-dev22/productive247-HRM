@@ -11,7 +11,7 @@ const ALL = UPPER + LOWER + DIGITS + SYMBOLS
 function randomChar(charset: string): string {
   const bytes = new Uint32Array(1)
   crypto.getRandomValues(bytes)
-  return charset[bytes[0] % charset.length]!
+  return charset[bytes[0]! % charset.length]!
 }
 
 function shuffle(chars: string[]): string[] {

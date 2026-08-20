@@ -14,7 +14,8 @@ import CreateModalShell from '../shared/CreateModalShell.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
 import { useMissionStore } from '../../stores/missions'
-import type { EstimateResult } from '../../stores/missions'
+import type { EstimateResult, MissionExpenseLinePayload } from '../../stores/missions'
+import { useMissionConfigStore } from '../../stores/missionConfig'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useAuthStore } from '../../stores/auth'
@@ -24,10 +25,12 @@ const props = withDefaults(defineProps<{ mode?: 'self' | 'for-employee' }>(), { 
 const emit = defineEmits<{ close: []; created: [] }>()
 
 const missionStore = useMissionStore()
+const missionConfigStore = useMissionConfigStore()
 const employeeStore = useEmployeeStore()
 const categoryStore = useEmployeeCategoryStore()
 const auth = useAuthStore()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
+if (missionConfigStore.expenseTypes.length === 0) missionConfigStore.fetchExpenseTypes()
 // N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — voir
 // AbsenceCreate.vue pour le detail (fetchAll echouerait en 403 sans
 // EMPLOYE_VOIR_TOUT/EQUIPE).
@@ -41,7 +44,6 @@ const TRANSPORT_MODES: { value: TransportMode; label: string }[] = [
   { value: 'Other', label: 'Autre' },
 ]
 const MISSION_CATEGORIES: { value: MissionCategory; label: string }[] = [
-  { value: 'Local', label: 'Locale' },
   { value: 'National', label: 'Nationale' },
   { value: 'International', label: 'Internationale' },
 ]
@@ -53,7 +55,7 @@ const forWhom = ref<BeneficiaryValue>({ mode: props.mode, employeeId: '' })
 const employeeItems = computed(() =>
   employeeStore.directory
     .filter(e => e.id !== auth.user?.id)
-    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, code: e.code, initials: e.avatarText, avatarColor: e.avatarBg })),
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, code: e.code, initials: e.avatarText, avatarColor: e.avatarBg, status: e.status })),
 )
 
 const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : (auth.user?.id ?? ''))
@@ -76,6 +78,14 @@ const form = reactive({
   advance: 0,
 })
 const error = ref('')
+
+// Mission accompagnant (plan de test #22, ex: le chauffeur d'un directeur)
+// — cree automatiquement un second ordre de mission, memes dates/
+// destination/categorie, pour la personne associee. Exclut le beneficiaire
+// courant de la liste (ne peut pas s'associer lui-meme).
+const associatedEmployeeId = ref('')
+const associableEmployeeItems = computed(() => employeeItems.value.filter(e => e.id !== beneficiaryId.value))
+watch(beneficiaryId, () => { if (associatedEmployeeId.value === beneficiaryId.value) associatedEmployeeId.value = '' })
 
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
 
@@ -100,20 +110,11 @@ watch(
 )
 const perdiemTotal = computed(() => estimateResult.value?.total ?? 0)
 
-// Frais supplémentaires — local uniquement, comme sous l'ancien
-// MissionFormModal : MissionOrder n'a pas de colonne pour stocker des lignes
-// de frais détaillées, seul le total (per diem + ces lignes) alimente le
-// récapitulatif et plafonne l'acompte demandé.
-const EXPENSE_CATS = [
-  { value: 'transport', label: 'Transport' },
-  { value: 'hebergement', label: 'Hébergement' },
-  { value: 'repas', label: 'Repas' },
-  { value: 'fournitures', label: 'Fournitures' },
-  { value: 'autre', label: 'Autre' },
-]
-interface MissionExpenseLine { category: string; description: string; amount: number }
-const expenseLines = reactive<MissionExpenseLine[]>([])
-function addLine() { expenseLines.push({ category: 'transport', description: '', amount: 0 }) }
+// Frais supplémentaires — memes ExpenseType que les notes de frais (Lot
+// #18), persistes sur MissionExpenseLine pour justifier l'acompte demande.
+function firstExpenseTypeId() { return missionConfigStore.expenseTypes[0]?.id ?? '' }
+const expenseLines = reactive<MissionExpenseLinePayload[]>([])
+function addLine() { expenseLines.push({ expenseTypeId: firstExpenseTypeId(), description: '', amount: 0 }) }
 function removeLine(i: number) { expenseLines.splice(i, 1) }
 const expenseTotal = computed(() => expenseLines.reduce((s, l) => s + (l.amount || 0), 0))
 const grandTotal = computed(() => perdiemTotal.value + expenseTotal.value)
@@ -137,6 +138,8 @@ function buildPayload() {
     departureDate: form.departureDate, returnDate: form.returnDate,
     transportModeGo: form.transportModeGo, transportModeReturn: form.transportModeReturn,
     advanceRequested: form.advance,
+    expenseLines: expenseLines.filter(l => l.amount > 0),
+    associatedEmployeeId: associatedEmployeeId.value || undefined,
   }
 }
 
@@ -165,9 +168,11 @@ async function saveDraft() {
     title="Nouvelle mission"
     banner-label="Nouvel ordre de mission"
     create-label="Soumettre"
+    draft-label="Enregistrer le brouillon"
     :save-error="error"
     @close="emit('close')"
     @create="create"
+    @save-draft="saveDraft"
   >
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
@@ -176,12 +181,22 @@ async function saveDraft() {
           <!-- Bénéficiaire -->
           <FormSection title="Bénéficiaire">
           <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" />
-          <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 mb-7 px-3.5 py-2.5 bg-background border border-border rounded-lg">
+          <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 mb-4 px-3.5 py-2.5 bg-background border border-border rounded-lg">
             <UserAvatar :name="selectedEmployee.name" size="sm" />
             <div>
               <div class="text-[13px] font-medium text-foreground">{{ selectedEmployee.name }}</div>
               <div class="text-[11px] text-muted-foreground">{{ selectedEmployee.categoryName || 'Sans catégorie' }}</div>
             </div>
+          </div>
+          <div :class="cls.field" class="mb-3">
+            <label :class="cls.fieldLabel">Associer un accompagnant <span class="font-normal text-muted-foreground">(optionnel)</span></label>
+            <select v-model="associatedEmployeeId" :class="cls.fieldSelect">
+              <option value="">Aucun</option>
+              <option v-for="e in associableEmployeeItems" :key="e.id" :value="e.id">{{ e.label }}</option>
+            </select>
+            <p class="text-[11px] text-muted-foreground mt-1">
+              Crée automatiquement un second ordre de mission, mêmes dates et destination, pour cette personne (ex : le chauffeur).
+            </p>
           </div>
           </FormSection>
 
@@ -249,14 +264,14 @@ async function saveDraft() {
 
           <!-- Frais supplémentaires -->
           <FormSection title="Frais supplémentaires">
-          <p class="text-xs text-muted-foreground -mt-2 mb-3">Optionnel — frais additionnels non couverts par le per diem.</p>
+          <p class="text-xs text-muted-foreground -mt-2 mb-3">Optionnel : frais additionnels non couverts par le per diem.</p>
           <div v-if="expenseLines.length > 0" class="flex flex-col gap-1.5 mb-3">
             <div class="grid grid-cols-[1fr_1fr_120px_36px] gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.05em] px-0.5">
               <span>Catégorie</span><span>Description</span><span>Montant (MGA)</span><span></span>
             </div>
             <div v-for="(line, i) in expenseLines" :key="i" class="grid grid-cols-[1fr_1fr_120px_36px] gap-1.5 items-center">
-              <select v-model="line.category" :class="cls.fieldInput" class="!h-8 !text-xs">
-                <option v-for="c in EXPENSE_CATS" :key="c.value" :value="c.value">{{ c.label }}</option>
+              <select v-model="line.expenseTypeId" :class="cls.fieldInput" class="!h-8 !text-xs">
+                <option v-for="t in missionConfigStore.expenseTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
               </select>
               <input v-model="line.description" :class="cls.fieldInput" class="!h-8 !text-xs" placeholder="Description…" />
               <input v-model.number="line.amount" type="number" min="0" :class="cls.fieldInput" class="!h-8 !text-xs" placeholder="0" />
@@ -293,10 +308,6 @@ async function saveDraft() {
             </div>
           </div>
           </FormSection>
-
-          <div class="mt-6 pt-4 border-t border-border flex justify-end">
-            <button :class="cls.btnOutline" @click="saveDraft">Enregistrer comme brouillon</button>
-          </div>
         </div>
       </div>
     </template>

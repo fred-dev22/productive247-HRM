@@ -34,7 +34,9 @@ const deleteCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 const IN_APPROVAL: MissionOrder['status'][] = ['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
 const CANCELLABLE: MissionOrder['status'][] = ['Draft', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4', 'Approved']
 
-const isOwner   = () => props.mission.employeeId === auth.user?.id
+// Beneficiaire OU createur (Lot A #172) — voir AbsenceWorkflowActions.vue
+// pour le detail, meme raisonnement.
+const isOwner   = () => props.mission.employeeId === auth.user?.id || props.mission.createdById === auth.user?.id
 const canValidate = () => auth.hasPermission('MISSION_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.mission.status)
 
 function submit()  { missionStore.submit(props.mission.id) }
@@ -67,7 +69,7 @@ async function confirmApprove() {
 const returnModal = reactive({ open: false, comment: '', error: '' })
 function openReturn() { Object.assign(returnModal, { open: true, comment: '', error: '' }) }
 async function confirmReturn() {
-  if (returnModal.comment.trim().length < 10) { returnModal.error = 'Le commentaire doit comporter au moins 10 caractères'; return }
+  if (returnModal.comment.trim().length === 0) { returnModal.error = 'Le commentaire est requis'; return }
   returnModal.error = ''
   try {
     await missionStore.returnMission(props.mission.id, returnModal.comment.trim())
@@ -81,7 +83,7 @@ async function confirmReturn() {
 const rejectModal = reactive({ open: false, reason: '', error: '' })
 function openReject() { Object.assign(rejectModal, { open: true, reason: '', error: '' }) }
 async function confirmReject() {
-  if (rejectModal.reason.trim().length < 10) { rejectModal.error = 'Le motif doit comporter au moins 10 caractères'; return }
+  if (rejectModal.reason.trim().length === 0) { rejectModal.error = 'Le motif est requis'; return }
   rejectModal.error = ''
   try {
     await missionStore.reject(props.mission.id, rejectModal.reason.trim())

@@ -170,7 +170,7 @@
                 <span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="typeBadge(e.type)">{{ typeLabel(e.type) }}</span>
               </td>
               <td :class="[L.td, 'text-muted-foreground text-xs']">{{ e.responsibleName || '—' }}</td>
-              <td :class="[L.td, 'text-muted-foreground text-xs']">{{ e.submittedAt || '—' }}</td>
+              <td :class="[L.td, 'text-muted-foreground text-xs']">{{ e.createdAt || '—' }}</td>
               <td :class="L.td">
                 <div class="flex gap-1 flex-wrap">
                   <button :class="L.actView" @click="openCard(e.id)">Voir →</button>
@@ -319,7 +319,7 @@ function typeLabel(t: EntityType | string): string {
 }
 
 function parentName(parentId: string | null): string {
-  if (!parentId) return '— Racine —'
+  if (!parentId) return 'Racine'
   return store.getEntityById(parentId)?.name ?? '—'
 }
 </script>

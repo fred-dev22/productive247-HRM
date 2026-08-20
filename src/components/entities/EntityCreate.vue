@@ -21,11 +21,14 @@ const empStore = useEmployeeStore()
 if (empStore.employees.length === 0) empStore.fetchAll()
 
 const entityColumns = [{ key: 'code', label: 'Code', width: '90px' }, { key: 'name', label: 'Nom' }]
+// Une entité désactivée reste visible (grisée, non sélectionnable) plutôt
+// que de disparaître — voir même pattern dans EntityCard.vue.
 function fetchParents({ searchQuery }: LookupFetchParams) {
-  let items = store.approvedEntities
+  let items = store.entities.filter(e => e.status === 'Active' || e.status === 'Inactive')
   if (searchQuery) { const q = searchQuery.toLowerCase(); items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q)) }
   return { items, total: items.length }
 }
+function isEntityDisabled(item: { status?: string }) { return item.status === 'Inactive' }
 
 const employeeColumns = [{ key: 'code', label: 'Matricule', width: '90px' }, { key: 'name', label: 'Nom' }]
 function fetchManagers({ searchQuery }: LookupFetchParams) {
@@ -33,6 +36,7 @@ function fetchManagers({ searchQuery }: LookupFetchParams) {
   if (searchQuery) { const q = searchQuery.toLowerCase(); items = items.filter(e => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q)) }
   return { items, total: items.length }
 }
+function isEmployeeDisabled(item: { status?: string }) { return item.status !== 'active' }
 
 const parentCode = ref('')
 const managerCode = ref('')
@@ -118,7 +122,7 @@ async function saveDraft() {
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Entité parente</label>
-              <TableLookupField :code="parentCode" :name="form.parentName" value-key="code" name-key="name" :columns="entityColumns" :fetch-fn="fetchParents" modal-title="Sélectionner l'entité parente" placeholder="Code entité" @update:code="parentCode = $event" @update:name="form.parentName = $event" @select="onParentSelect" />
+              <TableLookupField :code="parentCode" :name="form.parentName" value-key="code" name-key="name" :columns="entityColumns" :fetch-fn="fetchParents" :is-item-disabled="isEntityDisabled" :item-disabled-reason="() => 'entité désactivée'" modal-title="Sélectionner l'entité parente" placeholder="Code entité" @update:code="parentCode = $event" @update:name="form.parentName = $event" @select="onParentSelect" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Identifiant légal</label>
@@ -136,7 +140,7 @@ async function saveDraft() {
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Responsable</label>
-              <TableLookupField :code="managerCode" :name="form.responsibleName" value-key="code" name-key="name" :columns="employeeColumns" :fetch-fn="fetchManagers" modal-title="Sélectionner le responsable" placeholder="Matricule" @update:code="managerCode = $event" @update:name="form.responsibleName = $event" @select="onManagerSelect" />
+              <TableLookupField :code="managerCode" :name="form.responsibleName" value-key="code" name-key="name" :columns="employeeColumns" :fetch-fn="fetchManagers" :is-item-disabled="isEmployeeDisabled" :item-disabled-reason="() => 'compte désactivé'" modal-title="Sélectionner le responsable" placeholder="Matricule" @update:code="managerCode = $event" @update:name="form.responsibleName = $event" @select="onManagerSelect" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Téléphone</label>

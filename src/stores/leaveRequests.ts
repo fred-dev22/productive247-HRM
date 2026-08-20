@@ -22,7 +22,9 @@ interface BackendLeaveRequest {
   EmployeeId: string
   LeaveTypeId: string
   StartDate: string
+  StartPeriod: 'full' | 'am' | 'pm'
   EndDate: string
+  EndPeriod: 'full' | 'am' | 'pm'
   DaysCount: string | number
   Reason: string | null
   InterimEmployeeId: string | null
@@ -77,7 +79,9 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
     leaveTypeColor: raw.leaveType?.Color ?? '#94A3B8',
     workflowType: raw.leaveType?.WorkflowType ?? 'Standard',
     startDate: raw.StartDate.slice(0, 10),
+    startPeriod: raw.StartPeriod ?? 'full',
     endDate: raw.EndDate.slice(0, 10),
+    endPeriod: raw.EndPeriod ?? 'full',
     daysCount: Number(raw.DaysCount),
     reason: raw.Reason ?? undefined,
     interimEmployeeId: raw.InterimEmployeeId ?? undefined,
@@ -96,7 +100,11 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
 export interface CreateLeaveRequestPayload {
   leaveTypeId: string
   startDate: string
+  // 'full' | 'am' | 'pm' — voir LeaveRequest.StartPeriod (backend) et la
+  // règle vendredi/week-end (reunion Dominique du 12/06, utils/calendar.ts).
+  startPeriod?: 'full' | 'am' | 'pm'
   endDate: string
+  endPeriod?: 'full' | 'am' | 'pm'
   reason?: string
   interimEmployeeId?: string
   employeeId?: string // uniquement si on soumet pour un autre employé (CONGE_VOIR_TOUT)
@@ -107,19 +115,22 @@ function toBackendCreatePayload(p: CreateLeaveRequestPayload) {
     EmployeeId: p.employeeId,
     LeaveTypeId: p.leaveTypeId,
     StartDate: p.startDate,
+    StartPeriod: p.startPeriod,
     EndDate: p.endDate,
+    EndPeriod: p.endPeriod,
     Reason: p.reason,
     InterimEmployeeId: p.interimEmployeeId,
   }
 }
 
 export const useLeaveRequestStore = defineStore('leaveRequests', () => {
-  const mine         = ref<LeaveRequest[]>([])
-  const team         = ref<LeaveRequest[]>([])
-  const all          = ref<LeaveRequest[]>([])
-  const pendingForMe = ref<LeaveRequest[]>([])
-  const loading      = ref(false)
-  const error        = ref<string | null>(null)
+  const mine          = ref<LeaveRequest[]>([])
+  const team          = ref<LeaveRequest[]>([])
+  const all           = ref<LeaveRequest[]>([])
+  const pendingForMe  = ref<LeaveRequest[]>([])
+  const validatedByMe = ref<LeaveRequest[]>([])
+  const loading       = ref(false)
+  const error         = ref<string | null>(null)
 
   async function fetchMine() {
     loading.value = true
@@ -177,6 +188,25 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
     }
   }
 
+  // Demandes deja decidees par l'utilisateur courant (approuve/refuse/
+  // retourne), peu importe leur statut actuel — permet a "à valider" de
+  // garder ces lignes visibles apres validation, au lieu de les faire
+  // disparaitre comme le fait pendingForMe (qui lui reste une file d'attente
+  // exacte, utilisee pour le badge de notification).
+  async function fetchValidatedByMe() {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<BackendLeaveRequest[]>('/leave-requests/validated-by-me')
+      validatedByMe.value = data.map(mapLeaveRequest)
+    } catch (err) {
+      error.value = getApiErrorMessage(err, 'Impossible de charger les demandes déjà traitées')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function fetchOne(id: string): Promise<LeaveRequest> {
     const { data } = await api.get<BackendLeaveRequest>(`/leave-requests/${id}`)
     return mapLeaveRequest(data)
@@ -186,15 +216,24 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
   // chargées (mine/team/all/pendingForMe) — évite un refetch complet après
   // chaque action de workflow.
   function replaceEverywhere(updated: LeaveRequest) {
-    for (const list of [mine, team, all, pendingForMe]) {
+    for (const list of [mine, team, all, pendingForMe, validatedByMe]) {
       const idx = list.value.findIndex(l => l.id === updated.id)
       if (idx !== -1) list.value[idx] = updated
     }
   }
   function removeEverywhere(id: string) {
-    for (const list of [mine, team, all, pendingForMe]) {
+    for (const list of [mine, team, all, pendingForMe, validatedByMe]) {
       list.value = list.value.filter(l => l.id !== id)
     }
+  }
+  // Ajoute (ou met a jour) la demande dans "deja traitees par moi" juste
+  // apres une decision — sans ça il faut un fetchValidatedByMe() complet
+  // pour la voir apparaitre dans "à valider" (voir removeFromPending
+  // ci-dessous, qui la retire du cote "en attente" au meme moment).
+  function upsertValidatedByMe(item: LeaveRequest) {
+    const idx = validatedByMe.value.findIndex(l => l.id === item.id)
+    if (idx !== -1) validatedByMe.value[idx] = item
+    else validatedByMe.value.unshift(item)
   }
   // Une decision (approuver/refuser/retourner) retire la demande de "à
   // valider" pour l'acteur courant tout de suite — meme si elle escalade au
@@ -218,11 +257,24 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
     }
   }
 
+  // Pas de try/catch avant (Lot corrections 12/08) : un echec (ex: aucun
+  // pool de validation configure) passait inapercu — le bouton "Soumettre"
+  // de la fiche/liste ne fait qu'appeler cette fonction sans l'attendre, il
+  // faut donc que l'erreur soit visible d'elle-meme (toast), pas seulement
+  // propagee a un appelant qui ne l'observe pas toujours.
   async function submit(id: string): Promise<LeaveRequest> {
-    const { data } = await api.post<BackendLeaveRequest>(`/leave-requests/${id}/submit`)
-    const mapped = mapLeaveRequest(data)
-    replaceEverywhere(mapped)
-    return mapped
+    error.value = null
+    return withToast('Soumission en cours…', async () => {
+      try {
+        const { data } = await api.post<BackendLeaveRequest>(`/leave-requests/${id}/submit`)
+        const mapped = mapLeaveRequest(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de soumettre cette demande')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de soumettre cette demande')
   }
 
   /** Crée puis soumet immédiatement — équivalent de l'ancien submitLeave() du mock. */
@@ -267,7 +319,9 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const body: Record<string, unknown> = {}
         if (patch.leaveTypeId !== undefined) body.LeaveTypeId = patch.leaveTypeId
         if (patch.startDate !== undefined) body.StartDate = patch.startDate
+        if (patch.startPeriod !== undefined) body.StartPeriod = patch.startPeriod
         if (patch.endDate !== undefined) body.EndDate = patch.endDate
+        if (patch.endPeriod !== undefined) body.EndPeriod = patch.endPeriod
         if (patch.reason !== undefined) body.Reason = patch.reason
         if (patch.interimEmployeeId !== undefined) body.InterimEmployeeId = patch.interimEmployeeId
         const { data } = await api.patch<BackendLeaveRequest>(`/leave-requests/${id}`, body)
@@ -294,6 +348,23 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
     }, () => error.value ?? 'Impossible de supprimer la demande')
   }
 
+  // DELETE /leave-requests/:id/permanent (Lot I) — suppression définitive,
+  // distincte de remove() ci-dessus (réservée aux brouillons). Ici, une
+  // demande dans n'importe quel statut peut être cachée de tout l'app —
+  // seul un dev peut la restaurer en base.
+  async function deletePermanently(id: string) {
+    error.value = null
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/leave-requests/${id}/permanent`)
+        removeEverywhere(id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de supprimer la demande')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de supprimer la demande')
+  }
+
   async function approve(id: string, comment?: string) {
     error.value = null
     return withToast('Validation en cours…', async () => {
@@ -302,6 +373,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
         removeFromPending(mapped.id)
+        upsertValidatedByMe(mapped)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de valider cette demande')
@@ -318,6 +390,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
         removeFromPending(mapped.id)
+        upsertValidatedByMe(mapped)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de refuser cette demande')
@@ -334,6 +407,7 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
         const mapped = mapLeaveRequest(data)
         replaceEverywhere(mapped)
         removeFromPending(mapped.id)
+        upsertValidatedByMe(mapped)
         return mapped
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de retourner cette demande')
@@ -384,9 +458,9 @@ export const useLeaveRequestStore = defineStore('leaveRequests', () => {
   }
 
   return {
-    mine, team, all, pendingForMe, loading, error,
-    fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchOne,
-    create, submit, createAndSubmit, saveDraft, update, remove,
+    mine, team, all, pendingForMe, validatedByMe, loading, error,
+    fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchValidatedByMe, fetchOne,
+    create, submit, createAndSubmit, saveDraft, update, remove, deletePermanently,
     approve, reject, returnLeave, cancel, markDone, regularize,
   }
 })

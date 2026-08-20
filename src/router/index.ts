@@ -1,12 +1,30 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore }       from '../stores/auth'
 import { useCompanySettingsStore } from '../stores/companySettings'
-import LoginView         from '../views/LoginView.vue'
+import LoginView          from '../views/LoginView.vue'
+import ForgotPasswordView from '../views/ForgotPasswordView.vue'
+import ResetPasswordView  from '../views/ResetPasswordView.vue'
+import PublicApprovalView from '../views/PublicApprovalView.vue'
 import DashboardHR       from '../views/DashboardHR.vue'
 import DashboardEmployee from '../views/DashboardEmployee.vue'
 import CalendarView      from '../views/calendar/CalendarView.vue'
+import { MISSIONS_EXPENSES_ENABLED, PLACEHOLDER_MODULES_ENABLED } from '../config/features'
 
 const PH = () => import('../views/placeholders/PlaceholderView.vue')
+
+// Routes des modules Mission / Note de frais — bloquées tant que
+// MISSIONS_EXPENSES_ENABLED est à false (voir src/config/features.ts), même
+// pour un accès direct par URL, en plus du masquage dans AppSidebar.vue.
+const MISSIONS_EXPENSES_ROUTES = new Set([
+  'hr-missions', 'hr-expenses', 'hr-config-mission-fees',
+  'employee-missions', 'employee-expenses',
+])
+
+// Préfixes des modules encore à l'état de placeholder (Recrutement,
+// Formation, Paie, Rapports — voir PLACEHOLDER_MODULES_ENABLED) — bloque
+// aussi toutes leurs sous-routes (ex. /hr/recruitment/positions) même par
+// accès direct à l'URL, en plus du masquage dans AppNavBar.vue.
+const PLACEHOLDER_MODULE_PATH_PREFIXES = ['/hr/recruitment', '/hr/training', '/hr/payroll', '/hr/reports']
 
 // Route (par nom) -> permission(s) requise(s) en plus de l'espace hr/employee
 // (voir auth.isHRSpace/isEmployeeSpace). Un tableau = n'importe laquelle des
@@ -39,6 +57,13 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'login', component: LoginView },
+    { path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordView },
+    { path: '/reset-password', name: 'reset-password', component: ResetPasswordView },
+    // Validation par email (clic direct depuis la boite mail, sans connexion)
+    // — voir PublicApprovalView.vue / backend PublicApprovalModule. Route en
+    // anglais comme demande (toutes les routes frontend doivent l'etre a
+    // terme, voir Lot K).
+    { path: '/approval/:token', name: 'public-approval', component: PublicApprovalView },
 
     // ── Dashboards ──────────────────────────────────────────────
     { path: '/hr',       name: 'hr-dashboard',       component: DashboardHR,       meta: { requiresAuth: true, layout: 'dashboard' } },
@@ -284,6 +309,14 @@ router.beforeEach(async (to) => {
       if (!companySettings.isOnboarded) {
         return { path: '/onboarding' }
       }
+    }
+
+    if (!MISSIONS_EXPENSES_ENABLED && to.name && MISSIONS_EXPENSES_ROUTES.has(to.name as string)) {
+      return { path: auth.isHRSpace ? '/hr' : '/employee' }
+    }
+
+    if (!PLACEHOLDER_MODULES_ENABLED && PLACEHOLDER_MODULE_PATH_PREFIXES.some((p) => to.path.startsWith(p))) {
+      return { path: auth.isHRSpace ? '/hr' : '/employee' }
     }
 
     // Route couverte par une permission précise (voir ROUTE_PERMISSIONS) —

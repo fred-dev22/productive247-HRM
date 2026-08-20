@@ -5,7 +5,7 @@ import { withToast } from '../lib/withToast'
 import type { ExpenseReport, ExpenseStatus, ExpenseLine, ValidationStep } from '../types'
 
 // ── Backend <-> frontend mapping ────────────────────────────────
-interface BackendEmployeeRef { Id: string; FullName: string; EmployeeNumber?: string }
+interface BackendEmployeeRef { Id: string; FullName: string; EmployeeNumber?: string; EmployeeCategoryId?: string | null }
 interface BackendExpenseTypeRef { Id: string; Name: string }
 interface BackendDecision {
   Id: string
@@ -91,6 +91,7 @@ function mapExpenseReport(raw: BackendExpenseReport): ExpenseReport {
     employeeId: raw.EmployeeId,
     employeeName,
     employeeInitials: initialsFromFullName(employeeName),
+    employeeCategoryId: raw.employee?.EmployeeCategoryId ?? undefined,
     createdById: raw.createdByEmployee?.Id,
     createdByName: raw.createdByEmployee?.FullName,
     title: raw.Title,
@@ -247,11 +248,24 @@ export const useExpenseStore = defineStore('expenses', () => {
     }
   }
 
+  // Pas de try/catch avant (Lot corrections 12/08) : un echec (ex: aucun
+  // pool de validation configure) passait inapercu — le bouton "Soumettre"
+  // de la fiche/liste ne fait qu'appeler cette fonction sans l'attendre, il
+  // faut donc que l'erreur soit visible d'elle-meme (toast), pas seulement
+  // propagee a un appelant qui ne l'observe pas toujours.
   async function submit(id: string): Promise<ExpenseReport> {
-    const { data } = await api.post<BackendExpenseReport>(`/expense-reports/${id}/submit`)
-    const mapped = mapExpenseReport(data)
-    replaceEverywhere(mapped)
-    return mapped
+    error.value = null
+    return withToast('Soumission en cours…', async () => {
+      try {
+        const { data } = await api.post<BackendExpenseReport>(`/expense-reports/${id}/submit`)
+        const mapped = mapExpenseReport(data)
+        replaceEverywhere(mapped)
+        return mapped
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de soumettre cette note de frais')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de soumettre cette note de frais')
   }
 
   /** Crée puis soumet immédiatement. */
@@ -313,6 +327,23 @@ export const useExpenseStore = defineStore('expenses', () => {
     return withToast('Suppression en cours…', async () => {
       try {
         await api.delete(`/expense-reports/${id}`)
+        removeEverywhere(id)
+      } catch (err) {
+        error.value = getApiErrorMessage(err, 'Impossible de supprimer la note de frais')
+        throw err
+      }
+    }, () => error.value ?? 'Impossible de supprimer la note de frais')
+  }
+
+  // DELETE /expense-reports/:id/permanent (Lot I) — suppression définitive,
+  // distincte de remove() ci-dessus (réservée aux brouillons). Ici, une note
+  // dans n'importe quel statut peut être cachée de tout l'app — seul un dev
+  // peut la restaurer en base.
+  async function deletePermanently(id: string) {
+    error.value = null
+    return withToast('Suppression en cours…', async () => {
+      try {
+        await api.delete(`/expense-reports/${id}/permanent`)
         removeEverywhere(id)
       } catch (err) {
         error.value = getApiErrorMessage(err, 'Impossible de supprimer la note de frais')
@@ -387,7 +418,7 @@ export const useExpenseStore = defineStore('expenses', () => {
   return {
     mine, team, all, pendingForMe, loading, error,
     fetchMine, fetchTeam, fetchAll, fetchPendingForMe, fetchOne,
-    create, submit, createAndSubmit, saveDraft, update, remove,
+    create, submit, createAndSubmit, saveDraft, update, remove, deletePermanently,
     approve, reject, returnReport, cancel,
   }
 })

@@ -53,7 +53,7 @@
               <button :class="[btnOutline, 'text-[11px]']" @click="openModal()">
                 <Plus class="w-4 h-4" /> {{ t('absence.new') }}
               </button>
-              <button :class="[btnOutline, 'text-[11px]']" @click="router.push({ name: 'employee-missions' })">
+              <button v-if="MISSIONS_EXPENSES_ENABLED" :class="[btnOutline, 'text-[11px]']" @click="router.push({ name: 'employee-missions' })">
                 <Plane class="w-4 h-4" /> {{ t('nav.my_missions') }}
               </button>
             </div>
@@ -75,13 +75,14 @@
                 v-for="(day, i) in calDays" :key="i"
                 class="text-xs text-center py-[5px] px-0.5 rounded cursor-pointer text-foreground hover:bg-background"
                 :class="dayClass(day)"
+                :style="dayStyle(day)"
                 :title="day.holidayName"
               >
                 {{ day.n ?? '' }}
               </div>
             </div>
             <div class="flex gap-3 mt-2.5 flex-wrap">
-              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Mon absence approuvée</span>
+              <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-success"></span>Mon absence approuvée (couleur du type)</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-info"></span>Jour férié</span>
               <span :class="legClass"><span class="w-2 h-2 rounded-full shrink-0 bg-primary"></span>Aujourd'hui</span>
             </div>
@@ -119,6 +120,7 @@ import { useLeaveRequestStore }     from '../stores/leaveRequests'
 import { useLeaveTypesStore }       from '../stores/leaveTypes'
 import { useLeaveTransactionStore } from '../stores/leaveTransactions'
 import { useCalendarStore }         from '../stores/calendar'
+import { MISSIONS_EXPENSES_ENABLED } from '../config/features'
 
 const auth   = useAuthStore()
 const leaves = useLeaveRequestStore()
@@ -130,7 +132,11 @@ const router = useRouter()
 
 if (leaves.mine.length === 0) leaves.fetchMine()
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
-if (balanceStore.myBalances.length === 0) balanceStore.fetchMyBalances()
+// Toujours rafraîchi (pas de garde "si vide") : le solde peut changer suite
+// à une approbation décidée par un tiers pendant que ce tableau de bord
+// reste ouvert en arrière-plan — un solde figé sur son état d'avant
+// approbation induirait l'employé en erreur sur ses jours réellement pris.
+balanceStore.fetchMyBalances()
 if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 
@@ -193,7 +199,7 @@ function nextMonth() {
   else calMonth.value++
 }
 
-interface CalDay { n: number | null; cls: string; hasLeave: boolean; hasHoliday: boolean; holidayName?: string }
+interface CalDay { n: number | null; cls: string; hasLeave: boolean; leaveColor?: string; hasHoliday: boolean; holidayName?: string }
 
 const MINE_APPROVED_LIKE = new Set(['Approved', 'Registered', 'Done', 'Regularized'])
 const calDays = computed((): CalDay[] => {
@@ -212,11 +218,13 @@ const calDays = computed((): CalDay[] => {
     const mm      = String(m + 1).padStart(2, '0')
     const dd      = String(d).padStart(2, '0')
     const dateStr = `${y}-${mm}-${dd}`
-    const hasLeave = leaves.mine.some(
+    // Couleur du type de congé (definie a sa creation) plutot qu'une couleur
+    // generique unique pour toute absence.
+    const dayLeave = leaves.mine.find(
       l => MINE_APPROVED_LIKE.has(l.status) && l.startDate <= dateStr && l.endDate >= dateStr
     )
     const holiday = isHoliday(new Date(y, m, d), calendarStore.calendar)
-    result.push({ n: d, cls: d === todayNum ? 'today' : '', hasLeave, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
+    result.push({ n: d, cls: d === todayNum ? 'today' : '', hasLeave: !!dayLeave, leaveColor: dayLeave?.leaveTypeColor, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
   }
   return result
 })
@@ -225,7 +233,12 @@ function dayClass(day: CalDay): string {
   if (day.cls === 'empty') return 'text-transparent pointer-events-none'
   if (day.cls === 'today') return 'bg-primary text-primary-foreground font-semibold'
   if (day.hasHoliday) return 'bg-info-bg text-info font-medium'
-  if (day.hasLeave) return 'bg-success-bg text-success font-medium'
+  if (day.hasLeave) return 'font-medium'
   return ''
+}
+
+function dayStyle(day: CalDay): Record<string, string> {
+  if (day.cls === 'empty' || day.cls === 'today' || day.hasHoliday || !day.hasLeave || !day.leaveColor) return {}
+  return { backgroundColor: `${day.leaveColor}1A`, color: day.leaveColor }
 }
 </script>

@@ -52,7 +52,9 @@ export interface LeaveRequest {
   leaveTypeColor:       string
   workflowType:         'Standard' | 'Medical'
   startDate:            string
+  startPeriod:          'full' | 'am' | 'pm'
   endDate:              string
+  endPeriod:            'full' | 'am' | 'pm'
   daysCount:            number
   reason?:              string
   interimEmployeeId?:   string
@@ -90,18 +92,10 @@ export type MissionStatus =
 export type TransportMode =
   | 'PersonalCar' | 'CompanyCar' | 'PublicTransport' | 'Plane' | 'Other'
 
-// MissionCategory (Local/National/International) determine, croisee avec la
+// MissionCategory (National/International) determine, croisee avec la
 // EmployeeCategory reelle de l'employe (voir stores/employeeCategories.ts),
 // quelle ligne de la matrice ExpenseConfig s'applique — voir missionConfig.ts.
-export type MissionCategory = 'Local' | 'National' | 'International'
-
-export interface PerdiemRate {
-  id:          string
-  category:    string
-  ratePerDay:  number
-  currency:    string
-  description: string
-}
+export type MissionCategory = 'National' | 'International'
 
 // Une ligne d'indemnite calculee cote backend a partir de la matrice
 // ExpenseConfig (EmployeeCategory x ExpenseType x MissionCategory) — voir
@@ -116,6 +110,28 @@ export interface MissionAllowanceLine {
   amount:            number
   currency:          string
   documentRequired:  boolean
+}
+
+// Ligne de frais complementaire saisie a la creation pour justifier
+// l'acompte demande (AdvanceRequested = per diem + somme de ces lignes) —
+// meme catalogue ExpenseType que les notes de frais (plan de test #18).
+export interface MissionExpenseLine {
+  id:              string
+  expenseTypeId:   string
+  expenseTypeName: string
+  description?:    string
+  amount:          number
+}
+
+// Mission associee (plan de test #22, ex: le chauffeur d'un directeur) —
+// resume minimal de l'autre ordre de mission liee (voir MissionOrder.
+// linkedMissionOrder), pour un lien de navigation depuis la fiche.
+export interface LinkedMissionSummary {
+  id:            string
+  referenceCode: string
+  destination:   string
+  status:        MissionStatus
+  employeeName:  string
 }
 
 export interface MissionOrder {
@@ -146,6 +162,8 @@ export interface MissionOrder {
   estimatedTotal?:      number
   // Present uniquement sur le detail (GET /mission-orders/:id).
   allowance?:           { lines: MissionAllowanceLine[]; total: number }
+  expenseLines:         MissionExpenseLine[]
+  linkedMission?:       LinkedMissionSummary
   createdAt:            string
   modifiedAt?:          string | null
   validationHistory?:   ValidationStep[]
@@ -179,6 +197,10 @@ export interface ExpenseReport {
   employeeId:           string
   employeeName:         string
   employeeInitials:     string
+  // Categorie du beneficiaire — necessaire pour resoudre le plafond
+  // (ExpenseCeiling) applicable a chaque ligne, cote createur ET validateur
+  // (plafond non bloquant, voir decision du 12/08).
+  employeeCategoryId?:  string
   createdById?:         string
   createdByName?:       string
   title:                string
@@ -251,6 +273,11 @@ export interface Employee {
   // Employee.UserId — présent seulement si hasAccount, sert à interroger/
   // modifier les permissions individuelles du compte (voir EmployeeCard.vue).
   userId?:      string
+  // Régime de congés (réunion Dominique du 12/06) : un employé "local" qui
+  // est absent tout le vendredi précédant un week-end voit ce week-end aussi
+  // décompté de son solde — pas un "expatrié". Voir utils/calendar.ts et
+  // computeWorkingDays côté backend.
+  isExpatriate: boolean
 }
 
 export interface Entity {
@@ -322,7 +349,6 @@ export interface CompanyCalendar {
   id:            string
   workingDays:   WorkingDays
   holidays:      Holiday[]
-  perdiemRates?: PerdiemRate[]
   updatedAt:     string
   updatedBy:     string
 }
@@ -343,5 +369,9 @@ export interface DayPlanning {
   isAbsence:      boolean
   absenceType?:   string
   absenceStatus?: LeaveRequestStatus
+  // Couleur propre au type de congé (LeaveType.Color, définie à la création
+  // du type) — chaque type s'affiche avec sa propre couleur sur le
+  // planning, pas une couleur générique unique pour tous.
+  absenceColor?:  string
   hours?:         WorkingHours
 }

@@ -79,7 +79,8 @@ export const useLeaveTransactionStore = defineStore('leaveTransactions', () => {
           { EmployeeId: employeeId, LeaveTypeId: leaveTypeId, Amount: amount, Reason: reason || undefined },
         )
         const idx = allBalances.value.findIndex(b => b.employeeId === employeeId)
-        if (idx !== -1) allBalances.value[idx] = { ...allBalances.value[idx], balances: data.balances }
+        const current = allBalances.value[idx]
+        if (current) allBalances.value[idx] = { ...current, balances: data.balances }
         return data
       } catch (err) {
         error.value = getApiErrorMessage(err, "Impossible de mettre à jour ce solde")

@@ -4,6 +4,7 @@
     :subtitle="isRh ? 'Toutes les notes de frais' : 'Vos notes de frais'"
     :columns="columns"
     :items="pageItems"
+    :loading="expenseStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} note(s)`"
     search-placeholder="Rechercher une note…"
@@ -104,6 +105,7 @@ import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { useAuthStore } from '../../stores/auth'
 import { useExpenseStore } from '../../stores/expenses'
+import { useDeepLinkOpen } from '../../composables/useDeepLinkOpen'
 import type { ExpenseReport } from '../../types'
 
 const auth = useAuthStore()
@@ -115,17 +117,18 @@ const isRh = computed(() => canSeeAll.value || canSeeTeam.value)
 
 const sourceList = computed<ExpenseReport[]>(() => canSeeAll.value ? expenseStore.all : canSeeTeam.value ? expenseStore.team : expenseStore.mine)
 
-function reload() {
-  if (canSeeAll.value) expenseStore.fetchAll()
-  else if (canSeeTeam.value) expenseStore.fetchTeam()
-  else expenseStore.fetchMine()
-}
-onMounted(reload)
-
 const showCreate = ref(false)
 const openCardId = ref<string | null>(null)
 function openCard(item: ExpenseReport) { openCardId.value = item.id }
 function fmtNum(n: number) { return n.toLocaleString('fr-FR') }
+
+const { applyDeepLink } = useDeepLinkOpen(openCardId)
+async function reload() {
+  if (canSeeAll.value) await expenseStore.fetchAll()
+  else if (canSeeTeam.value) await expenseStore.fetchTeam()
+  else await expenseStore.fetchMine()
+}
+onMounted(async () => { await reload(); applyDeepLink() })
 
 const columns = computed<ListColumn[]>(() => {
   const base: ListColumn[] = [

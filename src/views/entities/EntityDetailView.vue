@@ -51,7 +51,7 @@
                 <router-link v-if="auth.hasPermission('ENTITE_MODIFIER')" :to="{ name: 'hr-entity-edit', params: { id: entity.id } }" :class="L.btnOutline">
                   <Pencil class="w-4 h-4" /> Modifier
                 </router-link>
-                <button v-if="auth.hasPermission('ENTITE_DESACTIVER')" :class="btnDangerOutline" @click="store.deactivateEntity(entity.id)">
+                <button v-if="!isRoot && auth.hasPermission('ENTITE_DESACTIVER')" :class="btnDangerOutline" @click="store.deactivateEntity(entity.id)">
                   <Ban class="w-4 h-4" /> Désactiver
                 </button>
               </template>
@@ -103,7 +103,7 @@
                     <ArrowRight class="w-3 h-3 ml-auto text-muted-foreground" />
                   </router-link>
                 </div>
-                <div v-else :class="emptyInfo">Aucune — entité racine</div>
+                <div v-else :class="emptyInfo">Aucune (entité racine)</div>
               </div>
 
               <!-- Card Sous-entités -->
@@ -159,20 +159,6 @@
                     <div>
                       <div class="text-[11px] text-muted-foreground">Créée le</div>
                       <div class="text-[13px] font-medium">{{ entity.createdAt }}</div>
-                    </div>
-                  </div>
-                  <div v-if="entity.submittedAt" class="flex items-start gap-2.5">
-                    <div :class="[histIcon, '!bg-warning-bg !text-warning']"><Send class="w-3.5 h-3.5" /></div>
-                    <div>
-                      <div class="text-[11px] text-muted-foreground">Soumise le</div>
-                      <div class="text-[13px] font-medium">{{ entity.submittedAt }}</div>
-                    </div>
-                  </div>
-                  <div v-if="entity.approvedAt" class="flex items-start gap-2.5">
-                    <div :class="[histIcon, '!bg-success-bg !text-success']"><Check class="w-3.5 h-3.5" /></div>
-                    <div>
-                      <div class="text-[11px] text-muted-foreground">Approuvée le</div>
-                      <div class="text-[13px] font-medium">{{ entity.approvedAt }}</div>
                     </div>
                   </div>
                 </div>
@@ -235,6 +221,10 @@ if (store.entities.length === 0) store.fetchAll()
 
 const entityId = computed(() => route.params.id as string)
 const entity   = computed(() => store.getEntityById(entityId.value))
+// Entité racine (Direction Générale, créée au seed, sans parent) — ne doit
+// jamais pouvoir être désactivée ni supprimée (voir aussi
+// EntityWorkflowActions.vue, même règle).
+const isRoot   = computed(() => entity.value?.parentId == null)
 const parent   = computed(() => entity.value?.parentId)
 const parentEntity = computed(() => parent.value ? store.getEntityById(parent.value) : undefined)
 const children     = computed(() => store.getChildren(entityId.value))
@@ -252,7 +242,7 @@ function typeLabelOf(t: EntityType): string {
 
 const statusLabel = computed(() => {
   const map: Record<string, string> = {
-    Draft: 'Brouillon', PendingApproval: 'En attente', Active: 'Approuvé', Inactive: 'Inactif',
+    Draft: 'Brouillon', PendingApproval: 'En attente', Active: 'Approuvé', Inactive: 'Désactivée',
   }
   return map[entity.value?.status ?? ''] ?? ''
 })

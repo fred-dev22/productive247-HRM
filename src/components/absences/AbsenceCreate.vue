@@ -24,7 +24,7 @@ import { useEmployeeStore } from '../../stores/employees'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useAuthStore } from '../../stores/auth'
-import { calculateEndDate, getWorkingDaysBetween, isWorkingDay } from '../../utils/calendar'
+import { calculateEndDate, getWorkingDaysBetween, getChargedDaysBetween, getResumeDate, isWorkingDay } from '../../utils/calendar'
 
 const props = defineProps<{ initialLeaveTypeId?: string }>()
 const emit = defineEmits<{ close: []; created: [] }>()
@@ -37,10 +37,10 @@ const categoryStore         = useEmployeeCategoryStore()
 const leaveTypesStore       = useLeaveTypesStore()
 const auth                  = useAuthStore()
 
-if (!calendarStore.calendar.id) calendarStore.fetchCalendar()
 if (calendarStore.holidays.length === 0) calendarStore.fetchHolidays(new Date().getFullYear())
 if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
-if (leaveTransactionStore.myBalances.length === 0) leaveTransactionStore.fetchMyBalances()
+// Toujours rafraîchi (pas de garde "si vide") : voir DashboardEmployee.vue.
+leaveTransactionStore.fetchMyBalances()
 if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 // N'importe qui peut soumettre pour n'importe qui (decision du 01/08) — un
 // simple employé n'a pas EMPLOYE_VOIR_TOUT/EQUIPE, fetchAll() échouerait en
@@ -54,7 +54,7 @@ const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
 const employeeItems = computed(() =>
   employeeStore.directory
     .filter(e => e.id !== auth.user?.id)
-    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg, status: e.status })),
 )
 
 // Carte "bénéficiaire" en lecture seule quand ForWhomSelector n'affiche pas
@@ -76,6 +76,14 @@ const selectedEmployee = computed(() => {
 // restriction d'entité (decision du 01/08, revient sur celle du 30/07) : un
 // responsable en congé peut désigner un intérimaire dans une autre direction.
 const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : auth.user?.id)
+// Le calendrier qui pilote la validation "jour ouvrable" doit être celui DU
+// BÉNÉFICIAIRE (sa catégorie peut avoir un calendrier dédié différent de
+// celui du créateur) — fetchCalendar() sans argument résout pour
+// l'utilisateur courant, pas pour lui. Rejoué à chaque changement de
+// bénéficiaire (bug corrigé : avant, un calendrier déjà en mémoire depuis un
+// écran précédent n'était jamais rafraîchi, la validation utilisait alors le
+// mauvais calendrier).
+watch(beneficiaryId, (id) => { if (id) calendarStore.fetchCalendar(id) }, { immediate: true })
 // Seul le bénéficiaire est exclu : il ne peut pas être son propre
 // intérimaire. Quand on crée pour quelqu'un d'autre, le demandeur (soi-même)
 // reste un intérimaire valide ; quand on crée pour soi-même, ce filtre
@@ -83,7 +91,11 @@ const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? for
 const interimItems = computed(() =>
   employeeStore.directory
     .filter(e => e.id !== beneficiaryId.value)
-    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg })),
+    .map(e => ({
+      id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg,
+      itemDisabled: e.status !== 'active',
+      disabledReason: e.status !== 'active' ? 'compte désactivé' : undefined,
+    })),
 )
 
 const leaveTypeItems = computed(() =>
@@ -106,6 +118,18 @@ const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDay
 const resumeDate = ref('')
 const daysMode   = ref<'from-days' | 'from-date'>('from-days')
 let calculating  = false
+
+// Regime de conges du beneficiaire (voir reunion Dominique du 12/06) — un
+// employe "local" dont l'absence se termine un vendredi voit le week-end
+// suivant aussi decompte de son solde. Ce n'est qu'un apercu avant
+// soumission : computeWorkingDays (backend) reste l'autorite sur ce qui est
+// reellement debite.
+const beneficiaryIsExpatriate = computed(() => {
+  const id = beneficiaryId.value
+  if (!id) return false
+  return employeeStore.getById(id)?.isExpatriate ?? false
+})
+const chargedDaysCount = ref<number | null>(null)
 
 const currentType = computed(() => leaveTypesStore.leaveTypes.find(lt => lt.id === form.leaveTypeId) ?? null)
 const isMedicalType = computed(() => currentType.value?.workflowType === 'Medical')
@@ -132,7 +156,10 @@ const isBalanceInsufficient = computed(() => {
   if (!form.workingDaysCount || !currentType.value) return false
   if (currentType.value.daysPerYear <= 0) return false // illimité
   if (forWhom.value.mode !== 'self' || !myBalance.value) return false
-  return form.workingDaysCount > myBalance.value.balance
+  // Compare au nombre reellement decompte (inclut le week-end "avale" pour
+  // un beneficiaire local, voir chargedDaysCount), pas juste les jours
+  // ouvres demandes.
+  return (chargedDaysCount.value ?? form.workingDaysCount) > myBalance.value.balance
 })
 
 const isNoticePeriodViolated = computed(() => {
@@ -149,16 +176,17 @@ const isNoticePeriodViolated = computed(() => {
 // sans ça, remplir le formulaire avant que la réponse arrive calculait la
 // reprise contre un calendrier vide, jamais recalculée ensuite).
 watch(
-  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.workingDays] as const,
-  ([start, days, period]) => {
+  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value] as const,
+  ([start, days, period, , isExpat]) => {
     if (calculating || daysMode.value !== 'from-days') return
-    if (!start || !days || days <= 0) { resumeDate.value = ''; return }
+    if (!start || !days || days <= 0) { resumeDate.value = ''; chargedDaysCount.value = null; return }
     calculating = true
     try {
-      const result      = calculateEndDate(start, days, calendarStore.calendar, period)
+      const result      = calculateEndDate(start, days, calendarStore.calendar, period, isExpat)
       form.endDate       = result.endDate
       form.endPeriod      = result.endPeriod
       resumeDate.value   = result.resumeDate
+      chargedDaysCount.value = result.chargedDays
     } finally {
       calculating = false
     }
@@ -167,23 +195,39 @@ watch(
 
 function onDaysInput() { daysMode.value = 'from-days' }
 
+// Recalcule depuis des dates de debut/fin explicites (+ leurs demi-journees
+// eventuelles) — utilise aussi bien quand la date de fin est choisie
+// directement que quand une periode de bord (vendredi/lundi apres-midi…)
+// est modifiee ensuite, voir onEndDateChange/onPeriodChange.
 function onEndDateChange() {
   if (calculating) return
   if (!form.startDate || !form.endDate) return
   daysMode.value = 'from-date'
   calculating = true
   try {
-    const days = getWorkingDaysBetween(form.startDate, form.endDate, calendarStore.calendar)
+    const days = getWorkingDaysBetween(form.startDate, form.endDate, calendarStore.calendar, form.startPeriod, form.endPeriod)
     form.workingDaysCount = days
     if (days > 0) {
-      const result      = calculateEndDate(form.startDate, days, calendarStore.calendar, form.startPeriod)
-      resumeDate.value  = result.resumeDate
+      chargedDaysCount.value = getChargedDaysBetween(
+        form.startDate, form.endDate, calendarStore.calendar,
+        form.startPeriod, form.endPeriod, beneficiaryIsExpatriate.value,
+      )
+      resumeDate.value = getResumeDate(form.endDate, calendarStore.calendar)
+    } else {
+      chargedDaysCount.value = null
+      resumeDate.value = ''
     }
   } finally {
     calculating = false
     daysMode.value = 'from-days'
   }
 }
+
+// La periode de fin (Matin/Après-midi/Journée entière) n'a d'effet que
+// lorsque la date de fin est choisie explicitement — en mode "nombre de
+// jours", endPeriod est un resultat du calcul (voir watcher plus haut), pas
+// une entree, et est de toute facon recalcule au prochain changement.
+function onEndPeriodChange() { onEndDateChange() }
 
 function formatDateFR(dateStr: string): string {
   const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc']
@@ -210,7 +254,9 @@ function buildPayload() {
   return {
     leaveTypeId: form.leaveTypeId,
     startDate:   form.startDate,
+    startPeriod: form.startPeriod,
     endDate:     form.endDate || form.startDate,
+    endPeriod:   form.endPeriod,
     reason:      form.comment || undefined,
     interimEmployeeId: form.interimEmployeeId || undefined,
     employeeId:  forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : undefined,
@@ -242,9 +288,11 @@ async function saveDraft() {
     title="Nouvelle demande d'absence"
     banner-label="Nouvelle demande d'absence"
     :create-label="isMedicalType ? 'Enregistrer la déclaration' : 'Soumettre la demande'"
+    draft-label="Enregistrer le brouillon"
     :save-error="error"
     @close="emit('close')"
     @create="create"
+    @save-draft="saveDraft"
   >
     <template #form>
       <div class="flex-1 overflow-auto px-6 py-5">
@@ -322,16 +370,16 @@ async function saveDraft() {
                   v-if="form.endDate && form.workingDaysCount"
                   class="inline-flex items-center text-[11px] font-semibold rounded-md px-2 py-[3px] mt-1 w-fit"
                   :class="isBalanceInsufficient ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'"
-                >{{ form.workingDaysCount }} j ouvrables</span>
+                >{{ form.workingDaysCount }} j ouvrables<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template></span>
               </div>
             </div>
 
             <div :class="cls.field">
               <span :class="cls.fieldLabel">Période de fin</span>
               <div :class="cls.radioGroup">
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="full" /><span>Journée entière</span></label>
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="am" /><span>Matin</span></label>
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="pm" /><span>Après-midi</span></label>
+                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="full" @change="onEndPeriodChange" /><span>Journée entière</span></label>
+                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="am" @change="onEndPeriodChange" /><span>Matin</span></label>
+                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="pm" @change="onEndPeriodChange" /><span>Après-midi</span></label>
               </div>
             </div>
 
@@ -360,10 +408,6 @@ async function saveDraft() {
             </div>
           </div>
           </FormSection>
-
-          <div class="mt-6 pt-4 border-t border-border flex justify-end gap-2">
-            <button :class="cls.btnOutline" @click="saveDraft">Enregistrer comme brouillon</button>
-          </div>
         </div>
       </div>
     </template>

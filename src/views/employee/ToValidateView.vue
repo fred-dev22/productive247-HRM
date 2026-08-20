@@ -1,7 +1,7 @@
 <template>
   <ListPageLayout
     title="Demandes à valider"
-    :subtitle="`${pendingAbsences.length + pendingMissions.length + pendingExpenses.length} en attente de validation`"
+    :subtitle="`${leaveStore.pendingForMe.length + pendingMissions.length + pendingExpenses.length} en attente de validation`"
     :columns="columns"
     :items="pageItems"
     :total="totalCount"
@@ -87,7 +87,7 @@
             <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> {{ noticeWarning(item) }}
           </div>
           <div v-if="item.insufficientBalance" class="flex items-center gap-2 text-[12px] text-danger bg-danger-bg rounded-md px-2.5 py-2">
-            <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant pour ce type de congé — à valider en connaissance de cause.
+            <TriangleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant pour ce type de congé, à valider en connaissance de cause.
           </div>
         </template>
 
@@ -133,7 +133,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ClipboardCheck, TriangleAlert } from 'lucide-vue-next'
 import { StatusPill, UserAvatar, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -149,17 +150,19 @@ import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useMissionStore } from '../../stores/missions'
 import { useExpenseStore } from '../../stores/expenses'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
+import { MISSIONS_EXPENSES_ENABLED } from '../../config/features'
 import type { LeaveRequest, MissionOrder, ExpenseReport } from '../../types'
 
+const route = useRoute()
+const router = useRouter()
 const leaveStore = useLeaveRequestStore()
 const missionStore = useMissionStore()
 const expenseStore = useExpenseStore()
 const leaveTypesStore = useLeaveTypesStore()
 
-if (leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
-if (missionStore.pendingForMe.length === 0) missionStore.fetchPendingForMe()
-if (expenseStore.pendingForMe.length === 0) expenseStore.fetchPendingForMe()
-if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+const ALL_SCOPES = ['absences', 'missions', 'expenses'] as const
+type Scope = typeof ALL_SCOPES[number]
+const VALID_SCOPES: readonly Scope[] = MISSIONS_EXPENSES_ENABLED ? ALL_SCOPES : ['absences']
 
 // Le préavis minimum n'est plus bloquant à la soumission (decision du
 // 01/08) — c'est ici, côté validateur, que l'avertissement doit apparaître
@@ -174,12 +177,17 @@ function noticeWarning(item: LeaveRequest): string | null {
   return `Préavis de ${type.noticeDays} jour(s) non respecté (soumis ${diffDays} jour(s) avant le début)`
 }
 
-const scope = ref<'absences' | 'missions' | 'expenses'>('absences')
-const scopeOptions = [
-  { value: 'absences', label: 'Absences' },
-  { value: 'missions', label: 'Missions' },
-  { value: 'expenses', label: 'Notes de frais' },
-]
+const initialScope = VALID_SCOPES.includes(route.query.scope as Scope)
+  ? (route.query.scope as Scope)
+  : 'absences'
+const scope = ref<'absences' | 'missions' | 'expenses'>(initialScope)
+const scopeOptions = MISSIONS_EXPENSES_ENABLED
+  ? [
+      { value: 'absences', label: 'Absences' },
+      { value: 'missions', label: 'Missions' },
+      { value: 'expenses', label: 'Notes de frais' },
+    ]
+  : [{ value: 'absences', label: 'Absences' }]
 
 const openAbsenceId = ref<string | null>(null)
 const openMissionId = ref<string | null>(null)
@@ -189,6 +197,37 @@ function openCard(item: LeaveRequest | MissionOrder | ExpenseReport) {
   else if (scope.value === 'missions') openMissionId.value = (item as MissionOrder).id
   else openExpenseId.value = (item as ExpenseReport).id
 }
+
+// Deep-link depuis une notification/un email (`?scope=...&open=<id>`, voir
+// workflow-notifier.service.ts hrefToValidate) — ouvre directement la fiche
+// concernee. Un `watch` (pas seulement onMounted) est necessaire : cliquer
+// une notif alors qu'on est deja sur /employee/to-validate ne remonte pas le
+// composant, seule la query change.
+function applyDeepLink() {
+  const id = route.query.open
+  if (typeof id !== 'string' || !id) return
+  if (VALID_SCOPES.includes(route.query.scope as Scope)) {
+    scope.value = route.query.scope as Scope
+  }
+  if (scope.value === 'absences') openAbsenceId.value = id
+  else if (scope.value === 'missions') openMissionId.value = id
+  else openExpenseId.value = id
+  const { open, scope: scopeQuery, ...rest } = route.query
+  void open; void scopeQuery
+  router.replace({ query: rest })
+}
+watch(() => route.query.open, (id) => { if (id) applyDeepLink() })
+
+onMounted(async () => {
+  await Promise.all([
+    leaveStore.pendingForMe.length === 0 ? leaveStore.fetchPendingForMe() : Promise.resolve(),
+    leaveStore.validatedByMe.length === 0 ? leaveStore.fetchValidatedByMe() : Promise.resolve(),
+    MISSIONS_EXPENSES_ENABLED && missionStore.pendingForMe.length === 0 ? missionStore.fetchPendingForMe() : Promise.resolve(),
+    MISSIONS_EXPENSES_ENABLED && expenseStore.pendingForMe.length === 0 ? expenseStore.fetchPendingForMe() : Promise.resolve(),
+  ])
+  if (leaveTypesStore.leaveTypes.length === 0) leaveTypesStore.fetchAll()
+  applyDeepLink()
+})
 
 function shortDate(iso: string): string { return iso ? new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—' }
 function fmtNum(n: number) { return n.toLocaleString('fr-FR') }
@@ -223,7 +262,15 @@ const page = ref(1)
 const pageSize = ref(10)
 watch([scope, searchQuery, pageSize], () => { page.value = 1 })
 
-const pendingAbsences = computed(() => leaveStore.pendingForMe)
+// "à valider" reste une file d'attente (pendingForMe) au sommet, mais un
+// validateur doit aussi garder une trace permanente des demandes de son
+// equipe qu'il a deja traitees (validatedByMe) — sinon elles disparaissent
+// de son ecran des qu'il valide, ce qui n'est pas ce qu'on veut.
+const pendingAbsences = computed(() => {
+  const decidedIds = new Set(leaveStore.pendingForMe.map(l => l.id))
+  const decided = leaveStore.validatedByMe.filter(l => !decidedIds.has(l.id))
+  return [...leaveStore.pendingForMe, ...decided]
+})
 const pendingMissions = computed(() => missionStore.pendingForMe)
 const pendingExpenses = computed(() => expenseStore.pendingForMe)
 

@@ -40,6 +40,7 @@ const form = reactive({
   username: props.employeeEmail ?? '',
   employeeCategoryId: employeeStore.getById(props.employeeId)?.employeeCategoryId ?? '',
   password: generatePassword(),
+  mustChangePassword: true,
 })
 
 function regenerate() {
@@ -63,6 +64,7 @@ async function submit() {
     const created = await store.createUserAccount({
       employeeId: props.employeeId, username: form.username,
       email: props.employeeEmail, password: form.password, employeeCategoryId: form.employeeCategoryId,
+      mustChangePassword: form.mustChangePassword,
     }) as { Id: string }
     createdUserId.value = created.Id
     step.value = 'reveal'
@@ -126,7 +128,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
                 <option value="">-- Choisir --</option>
                 <option v-for="c in categoryStore.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
-              <p class="text-[11px] text-muted-foreground mt-1">Détermine les permissions accordées à ce compte à sa création — modifiables individuellement ensuite.</p>
+              <p class="text-[11px] text-muted-foreground mt-1">Détermine les permissions accordées à ce compte à sa création, modifiables individuellement ensuite.</p>
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Mot de passe temporaire</label>
@@ -137,6 +139,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
                 </button>
               </div>
             </div>
+            <label class="flex items-center gap-2 text-[13px] text-foreground cursor-pointer">
+              <input type="checkbox" v-model="form.mustChangePassword" class="accent-primary" />
+              Changer le mot de passe à la première connexion
+            </label>
           </div>
 
           <div class="flex gap-2 justify-end mt-5 pt-4 border-t border-border">
@@ -148,12 +154,12 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
         <template v-else>
           <div class="flex items-center gap-2 mb-4">
             <ShieldAlert class="w-5 h-5 text-warning shrink-0" />
-            <span class="text-[15px] font-semibold text-foreground">Compte créé — notez le mot de passe</span>
+            <span class="text-[15px] font-semibold text-foreground">Compte créé, notez le mot de passe</span>
           </div>
 
           <p class="text-xs text-muted-foreground mb-3">
             Ce mot de passe ne sera <strong>plus jamais affiché</strong>. Transmettez-le à {{ employeeName }} maintenant.
-            Il devra le changer à sa première connexion.
+            <template v-if="form.mustChangePassword">Il devra le changer à sa première connexion.</template>
           </p>
 
           <div class="flex items-center gap-2 bg-background border border-border rounded-md px-3 py-2.5">

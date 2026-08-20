@@ -24,9 +24,14 @@
   >
     <!-- Bouton "Nouvelle entité" -->
     <template #header-actions>
-      <button v-if="auth.hasPermission('ENTITE_CREER')" :class="L.btnPrimary" @click="showCreate = true">
-        <Plus class="w-4 h-4" /> Nouvelle entité
-      </button>
+      <div v-if="auth.hasPermission('ENTITE_CREER')" class="flex items-center gap-2">
+        <button :class="L.btnOutline" @click="showImport = true">
+          <Upload class="w-4 h-4" /> Importer
+        </button>
+        <button :class="L.btnPrimary" @click="showCreate = true">
+          <Plus class="w-4 h-4" /> Nouvelle entité
+        </button>
+      </div>
     </template>
 
     <!-- KPIs -->
@@ -41,6 +46,7 @@
 
     <!-- Actions contextuelles -->
     <template #row-actions="{ item }">
+      <button :class="quickBtn" @click="openCard(item.id)">Ouvrir la fiche</button>
       <EntityWorkflowActions :entity="item" />
     </template>
 
@@ -122,13 +128,14 @@
     <!-- Fiche (modal) + création -->
     <EntityCard v-if="openCardId !== null" :entities="store.entities" :entity-id="openCardId" @close="openCardId = null" />
     <EntityCreate v-if="showCreate" @close="showCreate = false" />
+    <ImportWizardModal v-if="showImport" :open="showImport" :config="entityImportConfig" @close="showImport = false" @imported="store.fetchAll()" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, provide, type Component } from 'vue'
 import {
-  Plus, List, ListTree, Network, Building, Users, Check, Clock, Maximize2, Minimize2, Info,
+  Plus, Upload, List, ListTree, Network, Building, Users, Check, Clock, Maximize2, Minimize2, Info,
 } from 'lucide-vue-next'
 import { StatusPill, ListPageLayout } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -137,6 +144,8 @@ import EntityCreate from '../../components/entities/EntityCreate.vue'
 import EntityWorkflowActions from '../../components/entities/EntityWorkflowActions.vue'
 import OrgNode from './OrgNode.vue'
 import OrgChartView from '../../components/OrgChartView.vue'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildEntityImportConfig } from '../../components/shared/import/configs/entityImportConfig'
 import * as L from '../../lib/listClasses'
 import { useEntityStore } from '../../stores/entities'
 import { useAuthStore } from '../../stores/auth'
@@ -145,6 +154,8 @@ import type { Entity, EntityType } from '../../types'
 const store = useEntityStore()
 const auth = useAuthStore()
 if (store.entities.length === 0) store.fetchAll()
+
+const quickBtn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer bg-background text-muted-foreground hover:text-foreground'
 
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
@@ -161,6 +172,8 @@ const viewMode = ref('list')
 
 /* ── Fiche & création ───────────────────────────────────────── */
 const showCreate = ref(false)
+const showImport = ref(false)
+const entityImportConfig = computed(() => buildEntityImportConfig())
 const openCardId = ref<string | null>(null)
 function openCard(id: string) { openCardId.value = id }
 
@@ -197,7 +210,7 @@ const scopeOptions = [
   { value: 'Draft', label: 'Brouillon' },
   { value: 'PendingApproval', label: 'En attente' },
   { value: 'Active', label: 'Approuvé' },
-  { value: 'Inactive', label: 'Inactif' },
+  { value: 'Inactive', label: 'Désactivée' },
 ]
 const activeScope = ref('')
 const filterType = ref('')
@@ -220,7 +233,7 @@ function typeBadge(type: string): string {
   return m[type] ?? 'bg-neutral-bg text-neutral'
 }
 function parentName(parentId: string | null): string {
-  if (!parentId) return '— Racine —'
+  if (!parentId) return 'Racine'
   return store.getEntityById(parentId)?.name ?? '—'
 }
 
@@ -228,6 +241,11 @@ function parentName(parentId: string | null): string {
 const sortFieldMap: Record<string, keyof Entity> = { code: 'code', name: 'name', type: 'type', status: 'status' }
 const filtered = computed(() => {
   let rows = store.entities.filter(e => {
+    // "Toutes" inclut désormais les entités désactivées — sinon impossible
+    // de les retrouver pour les réactiver sans déjà savoir filtrer sur
+    // "Inactif". La suppression définitive (Lot I, IsDeleted) est le
+    // véritable mécanisme qui fait disparaître une entité partout : elle
+    // est déjà appliquée côté API (findAll), pas besoin de la dupliquer ici.
     if (activeScope.value && e.status !== activeScope.value) return false
     if (filterType.value && e.type !== filterType.value) return false
     if (searchQuery.value) {

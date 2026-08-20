@@ -37,8 +37,24 @@ const IN_APPROVAL: LeaveRequest['status'][] = ['Pending', 'InApprovalN1', 'InApp
 // même ne peut plus revenir en arrière depuis ce bouton self-service.
 const CANCELLABLE: LeaveRequest['status'][] = ['Draft', 'Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4']
 
-const isOwner   = () => props.leave.employeeId === auth.user?.id
-const canValidate = () => auth.hasPermission('CONGE_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.leave.status)
+// Beneficiaire OU createur (Lot A #172 : n'importe qui peut creer une
+// demande pour n'importe qui) — le createur doit garder la main sur les
+// actions de son propre brouillon meme s'il n'en est pas le beneficiaire,
+// exactement comme le backend l'autorise deja (voir
+// LeaveRequestService.submit/cancel/remove).
+const isOwner   = () => props.leave.employeeId === auth.user?.id || props.leave.createdById === auth.user?.id
+// Avoir la permission CONGE_VALIDER (large, quelqu'un qui valide QUELQUE
+// PART dans l'entreprise) ne veut pas dire que CETTE demande attend une
+// decision de MOI precisement — un Directeur RH avec CONGE_VOIR_TOUT peut
+// voir une demande encore a l'etape N+1 alors que lui n'intervient qu'en
+// N+2 : sans ce filtre supplementaire, les boutons Approuver/Retourner/
+// Refuser s'affichaient quand meme et echouaient cote serveur au clic
+// (assertIsCurrentApprover). pendingForMe est deja calcule cote serveur
+// avec la bonne logique d'etape courante (voir findPendingForMe) — on s'en
+// sert ici comme unique source de verite plutot que de la dupliquer.
+const canValidate = () =>
+  auth.hasPermission('CONGE_VALIDER') && !isOwner() && IN_APPROVAL.includes(props.leave.status) &&
+  store.pendingForMe.some(l => l.id === props.leave.id)
 
 function submit()  { store.submit(props.leave.id) }
 function markDone() { store.markDone(props.leave.id) }
@@ -77,7 +93,7 @@ async function confirmApprove() {
 const returnModal = reactive({ open: false, comment: '', error: '' })
 function openReturn() { Object.assign(returnModal, { open: true, comment: '', error: '' }) }
 async function confirmReturn() {
-  if (returnModal.comment.trim().length < 10) { returnModal.error = 'Le commentaire doit comporter au moins 10 caractères'; return }
+  if (returnModal.comment.trim().length === 0) { returnModal.error = 'Le commentaire est requis'; return }
   returnModal.error = ''
   try {
     await store.returnLeave(props.leave.id, returnModal.comment.trim())
@@ -91,7 +107,7 @@ async function confirmReturn() {
 const rejectModal = reactive({ open: false, reason: '', error: '' })
 function openReject() { Object.assign(rejectModal, { open: true, reason: '', error: '' }) }
 async function confirmReject() {
-  if (rejectModal.reason.trim().length < 10) { rejectModal.error = 'Le motif doit comporter au moins 10 caractères'; return }
+  if (rejectModal.reason.trim().length === 0) { rejectModal.error = 'Le motif est requis'; return }
   rejectModal.error = ''
   try {
     await store.reject(props.leave.id, rejectModal.reason.trim())
