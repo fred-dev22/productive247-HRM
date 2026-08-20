@@ -261,11 +261,22 @@ function goToDependency(dep: { routeTo: import('vue-router').RouteLocationRaw })
   emit('close')
   router.push(dep.routeTo)
 }
+// Reste vrai apres le clic sur "Suivant" tant qu'on est encore a l'etape 1 —
+// bloque un double-clic (l'utilisateur qui reclique en pensant que c'est
+// bloque). Ne se reinitialise que si on revient a l'etape 1 depuis l'etape 2
+// (voir goBack), jamais tout seul.
+const nextClicked = ref(false)
 function goNext() {
-  if (step.value === 1 && fileReady.value) step.value = 2
+  if (step.value === 1 && fileReady.value && !nextClicked.value) {
+    nextClicked.value = true
+    step.value = 2
+  }
 }
 function goBack() {
-  if (step.value === 2) step.value = 1
+  if (step.value === 2) {
+    step.value = 1
+    nextClicked.value = false
+  }
 }
 
 // Bouton principal de la barre de titre : son libellé/action dépend de
@@ -277,7 +288,7 @@ const primaryLabel = computed(() => {
   return 'Fermer'
 })
 const primaryDisabled = computed(() => {
-  if (step.value === 1) return !fileReady.value || !!blockingDependency.value
+  if (step.value === 1) return !fileReady.value || !!blockingDependency.value || nextClicked.value
   if (step.value === 2) return rows.value.length === 0
   return false
 })
