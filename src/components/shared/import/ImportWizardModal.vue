@@ -78,18 +78,37 @@ function isTruthy(v: string): boolean {
   return ['1', 'true', 'oui', 'yes', 'x'].includes(v.trim().toLowerCase())
 }
 
-function buildRows(parsed: Record<string, string>[]) {
+// Compare les en-têtes sans tenir compte des accents/casse/espaces —
+// un fichier tape a la main ("intitule" sans accent) ou resauvegarde
+// depuis Excel avec un encodage different ("IntitulÃ©") ne doit pas
+// echouer sur une comparaison strictement egale a col.csvHeader alors
+// que la colonne est manifestement la bonne.
+function normalizeHeader(s: string): string {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+// Fait correspondre chaque en-tete attendu (config) au vrai nom de colonne
+// tel qu'il apparait dans le fichier, via la comparaison normalisee
+// ci-dessus — utilise a la fois pour la verification des colonnes
+// manquantes et pour la lecture des cellules dans buildRows().
+function buildHeaderMap(actualHeaders: string[]): Map<string, string> {
+  return new Map(actualHeaders.map(h => [normalizeHeader(h), h]))
+}
+
+function buildRows(parsed: Record<string, string>[], headerMap: Map<string, string>) {
   rows.value = parsed.map((raw) => {
     const values: Record<string, string> = {}
     const rawValues: Record<string, string> = {}
     for (const col of props.config.columns) {
-      const cell = (raw[col.csvHeader] ?? '').trim()
+      const actualKey = headerMap.get(normalizeHeader(col.csvHeader)) ?? col.csvHeader
+      const cell = (raw[actualKey] ?? '').trim()
       rawValues[col.key] = cell
       values[col.key] = col.type === 'select' ? resolveSelect(col, cell) : col.type === 'date' ? resolveDate(cell) : cell
     }
     const extra: Record<string, unknown> = {}
     for (const col of props.config.extraColumns ?? []) {
-      const cell = (raw[col.csvHeader] ?? '').trim()
+      const actualKey = headerMap.get(normalizeHeader(col.csvHeader)) ?? col.csvHeader
+      const cell = (raw[actualKey] ?? '').trim()
       extra[col.key] = col.type === 'boolean' ? isTruthy(cell) : cell
     }
     return { values, raw: rawValues, extra }
@@ -117,12 +136,16 @@ function handleFile(file: File | undefined) {
         return
       }
       const headers = results.meta.fields ?? []
-      const missing = props.config.columns.filter(c => c.required && !headers.includes(c.csvHeader))
+      const headerMap = buildHeaderMap(headers)
+      const missing = props.config.columns.filter(c => c.required && !headerMap.has(normalizeHeader(c.csvHeader)))
       if (missing.length > 0) {
-        fileError.value = `Colonne(s) manquante(s) dans le fichier : ${missing.map(c => c.csvHeader).join(', ')}`
+        // Liste aussi ce qui a ete detecte dans le fichier — permet de
+        // reperer immediatement un probleme d'encodage (accents corrompus,
+        // ex: "IntitulÃ©") plutot qu'un simple nom de colonne different.
+        fileError.value = `Colonne(s) manquante(s) dans le fichier : ${missing.map(c => c.csvHeader).join(', ')}. Colonnes détectées dans le fichier : ${headers.join(', ') || 'aucune'}.`
         return
       }
-      buildRows(results.data)
+      buildRows(results.data, headerMap)
       fileReady.value = true
     },
     // err.message vient de PapaParse (toujours en anglais) — jamais affiché
