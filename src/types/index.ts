@@ -227,7 +227,7 @@ export type EntityType   = 'Direction' | 'Department' | 'Service'
 
 // ── Employees ─────────────────────────────────────────────────
 export type EmployeeStatus  = 'active' | 'trial' | 'onleave' | 'inactive'
-export type ContractType    = 'CDI' | 'CDD' | 'Stage' | 'Freelance'
+export type ContractType    = 'CDI' | 'CDD' | 'Stage' | 'Freelance' | 'Apprenti' | 'Alternant'
 export type Gender          = 'M' | 'F'
 export type MaritalStatus   = 'Single' | 'Married' | 'Divorced' | 'Widowed'
 export type IdDocumentType  = 'NationalId' | 'Passport' | 'ResidencePermit'

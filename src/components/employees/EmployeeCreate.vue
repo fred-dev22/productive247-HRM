@@ -272,7 +272,7 @@ async function create() {
               <label :class="cls.fieldLabel">Type de contrat <span class="text-danger">*</span></label>
               <select v-model="form.contractType" :class="cls.fieldSelect">
                 <option value="">-- Choisir --</option>
-                <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option>
+                <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option><option value="Apprenti">Apprenti</option><option value="Alternant">Alternant</option>
               </select>
             </div>
             <div :class="cls.field">

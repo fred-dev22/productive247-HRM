@@ -143,6 +143,8 @@
                     <option value="CDD">CDD</option>
                     <option value="Stage">Stage</option>
                     <option value="Freelance">Freelance</option>
+                    <option value="Apprenti">Apprenti</option>
+                    <option value="Alternant">Alternant</option>
                   </select>
                   <div v-if="err.contractType" :class="cls.fieldError">{{ err.contractType }}</div>
                 </div>

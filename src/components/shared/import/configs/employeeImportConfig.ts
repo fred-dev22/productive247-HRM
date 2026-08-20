@@ -25,6 +25,8 @@ const CONTRACT_OPTIONS = [
   { value: 'FixedTerm', label: 'CDD' },
   { value: 'Internship', label: 'Stage' },
   { value: 'Freelance', label: 'Freelance' },
+  { value: 'Apprenticeship', label: 'Apprenti' },
+  { value: 'WorkStudy', label: 'Alternant' },
 ]
 const STATUS_OPTIONS = [
   { value: 'Active', label: 'Actif' },

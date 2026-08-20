@@ -392,7 +392,7 @@ async function deletePermanently() {
           <div :class="cls.field">
             <label :class="cls.fieldLabel">Type de contrat</label>
             <select v-if="isEditMode" v-model="form.contractType" :class="cls.fieldSelect">
-              <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option>
+              <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option><option value="Apprenti">Apprenti</option><option value="Alternant">Alternant</option>
             </select>
             <div v-else :class="readBox">{{ current.contractType }}</div>
           </div>
