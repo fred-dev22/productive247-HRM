@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-export type ToastStatus = 'loading' | 'error'
+export type ToastStatus = 'loading' | 'success' | 'error'
 
 // État global d'un seul snackbar (bas-droite) — reflète une action backend en
 // cours (POST/PATCH/DELETE). N'affiche jamais un résultat avant que l'API
 // n'ait réellement répondu : voir withToast() dans lib/withToast.ts, qui
-// masque la barre sur succès et la fait virer au rouge sur échec.
+// bascule la même barre sur un message de confirmation en cas de succès, ou
+// la fait virer au rouge sur échec — jamais fermée puis rouverte, seul le
+// texte/statut change en place.
 export const useToastStore = defineStore('toast', () => {
   const visible = ref(false)
   const message = ref('')
@@ -42,6 +44,13 @@ export const useToastStore = defineStore('toast', () => {
     hideTimer = setTimeout(() => { visible.value = false }, ms)
   }
 
+  function success(text: string) {
+    message.value = text
+    status.value  = 'success'
+    visible.value = true
+    hideAfter(2000)
+  }
+
   function error(text: string) {
     message.value = text
     status.value  = 'error'
@@ -49,5 +58,5 @@ export const useToastStore = defineStore('toast', () => {
     hideAfter(5000)
   }
 
-  return { visible, message, status, loading, hide, hideAfter, error }
+  return { visible, message, status, loading, hide, hideAfter, success, error }
 })
