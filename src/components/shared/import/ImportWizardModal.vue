@@ -18,12 +18,14 @@ import {
 } from 'lucide-vue-next'
 import { api, getApiErrorMessage } from '../../../lib/api'
 import * as cls from '../../../lib/formClasses'
+import { useToastStore } from '../../../stores/toast'
 import type { ImportConfig, ImportColumn, ParsedRow, ImportRowResult } from './importTypes'
 
 const props = defineProps<{ open: boolean; config: ImportConfig }>()
 const emit = defineEmits<{ close: []; imported: [] }>()
 
 const router = useRouter()
+const toast = useToastStore()
 
 const STEP_LABELS = ['Fichier', 'Aperçu', 'Import'] as const
 
@@ -31,6 +33,12 @@ const step = ref<1 | 2 | 3>(1)
 const fileError = ref('')
 const fileName = ref('')
 const fileReady = ref(false)
+// Vrai pendant l'analyse du fichier (Papa.parse + resolution de toutes les
+// lignes/colonnes) — pour un gros fichier ce n'est pas instantane, sans
+// indicateur l'utilisateur ne voit rien bouger et reclique plusieurs fois en
+// pensant que c'est bloque. Desactive "Suivant" et affiche le meme toast
+// global que le reste de l'app pendant ce temps.
+const parsingFile = ref(false)
 const dragOver = ref(false)
 const rows = ref<ParsedRow[]>([])
 
@@ -127,12 +135,16 @@ function handleFile(file: File | undefined) {
     return
   }
   fileName.value = file.name
+  parsingFile.value = true
+  toast.loading('Analyse du fichier en cours…')
   Papa.parse<Record<string, string>>(file, {
     header: true,
     skipEmptyLines: true,
     complete: (results) => {
       if (results.data.length === 0) {
         fileError.value = 'Le fichier est vide ou illisible.'
+        parsingFile.value = false
+        toast.hide()
         return
       }
       const headers = results.meta.fields ?? []
@@ -143,22 +155,32 @@ function handleFile(file: File | undefined) {
         // reperer immediatement un probleme d'encodage (accents corrompus,
         // ex: "IntitulÃ©") plutot qu'un simple nom de colonne different.
         fileError.value = `Colonne(s) manquante(s) dans le fichier : ${missing.map(c => c.csvHeader).join(', ')}. Colonnes détectées dans le fichier : ${headers.join(', ') || 'aucune'}.`
+        parsingFile.value = false
+        toast.hide()
         return
       }
       buildRows(results.data, headerMap)
       fileReady.value = true
+      parsingFile.value = false
+      toast.success(`${results.data.length} ligne(s) analysée(s)`)
     },
     // err.message vient de PapaParse (toujours en anglais) — jamais affiché
     // tel quel, voir Lot F #3.
-    error: () => { fileError.value = "Le fichier n'a pas pu être lu. Vérifiez qu'il s'agit bien d'un CSV valide." },
+    error: () => {
+      fileError.value = "Le fichier n'a pas pu être lu. Vérifiez qu'il s'agit bien d'un CSV valide."
+      parsingFile.value = false
+      toast.hide()
+    },
   })
 }
 
 function onFileInput(e: Event) {
+  if (parsingFile.value) return
   handleFile((e.target as HTMLInputElement).files?.[0])
 }
 function onDrop(e: DragEvent) {
   dragOver.value = false
+  if (parsingFile.value) return
   handleFile(e.dataTransfer?.files?.[0])
 }
 
@@ -394,17 +416,22 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               </button>
 
               <label
-                class="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg py-10 px-4 text-center cursor-pointer transition-colors"
-                :class="dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'"
+                class="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg py-10 px-4 text-center transition-colors"
+                :class="[
+                  parsingFile ? 'opacity-60 pointer-events-none cursor-wait' : 'cursor-pointer',
+                  dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40',
+                ]"
                 @dragover.prevent="dragOver = true"
                 @dragleave.prevent="dragOver = false"
                 @drop.prevent="onDrop"
               >
-                <Upload class="w-6 h-6 text-muted-foreground" />
-                <span class="text-[13px] text-foreground font-medium">Glissez un fichier CSV ici, ou cliquez pour parcourir</span>
+                <Loader2 v-if="parsingFile" class="w-6 h-6 text-primary animate-spin" />
+                <Upload v-else class="w-6 h-6 text-muted-foreground" />
+                <span v-if="parsingFile" class="text-[13px] text-foreground font-medium">Analyse du fichier en cours, patientez…</span>
+                <span v-else class="text-[13px] text-foreground font-medium">Glissez un fichier CSV ici, ou cliquez pour parcourir</span>
                 <span v-if="fileReady" class="text-[11px] text-success flex items-center gap-1"><CheckCircle2 class="w-3.5 h-3.5" /> {{ fileName }} — {{ rows.length }} ligne(s), prêt</span>
-                <span v-else-if="fileName" class="text-[11px] text-primary">{{ fileName }}</span>
-                <input type="file" accept=".csv" class="hidden" @change="onFileInput" />
+                <span v-else-if="fileName && !parsingFile" class="text-[11px] text-primary">{{ fileName }}</span>
+                <input type="file" accept=".csv" class="hidden" :disabled="parsingFile" @change="onFileInput" />
               </label>
 
               <p v-if="fileError" :class="[cls.fieldErrorBlock, 'mt-3']">
