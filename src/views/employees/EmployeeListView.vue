@@ -66,7 +66,7 @@
         <label :class="L.fpFieldLabel">{{ t('employee.filter_contract') }}</label>
         <select v-model="fContract" :class="L.fpSelect">
           <option value="">{{ t('employee.filter_contract') }}</option>
-          <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option>
+          <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option><option value="Apprenti">Apprenti</option><option value="Alternant">Alternant</option>
         </select>
       </div>
       <button class="mt-auto py-[7px] bg-transparent border-0 text-xs text-muted-foreground cursor-pointer text-left hover:text-primary" @click="resetFilters">{{ t('employee.filter_reset') }}</button>

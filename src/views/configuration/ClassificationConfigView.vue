@@ -344,6 +344,7 @@ import { usePositionStore } from '../../stores/positions'
 import type { Position } from '../../stores/positions'
 import { useEntityStore } from '../../stores/entities'
 import { confirmDialog } from '../../lib/confirm'
+import { MISSIONS_EXPENSES_ENABLED } from '../../config/features'
 
 const iconBtn = 'w-7 h-7 flex items-center justify-center border-0 rounded-md bg-background text-muted-foreground cursor-pointer transition-colors hover:bg-primary/10 hover:text-primary'
 
@@ -431,9 +432,23 @@ function openPermissions(category: EmployeeCategory) {
   permCategory.value = category
   showPermModal.value = true
 }
+// Missions et notes de frais sont masquées de toute l'app (nav, routes —
+// voir config/features.ts) tant que MISSIONS_EXPENSES_ENABLED est faux,
+// mais leurs permissions restaient visibles ici : un RH pouvait les
+// cocher/décocher pour une catégorie sans que ça ait le moindre effet
+// visible ailleurs, ce qui prêtait à confusion. Masquées ici aussi, pas
+// supprimées — réapparaissent automatiquement si le flag est réactivé.
+const HIDDEN_MODULES = MISSIONS_EXPENSES_ENABLED ? [] : ['Missions', 'Notes de frais']
+// RAPPORT_EXPORTER existe dans le catalogue par anticipation (voir
+// prisma/seed.ts) mais n'est raccordee a aucun bouton reel pour l'instant
+// (le bouton "Exporter" de LeaveBalancesView.vue est un no-op) — la cocher
+// n'a donc aucun effet visible. Masquee ici jusqu'a ce que la fonctionnalite
+// d'export existe vraiment, meme logique que HIDDEN_MODULES ci-dessus.
+const HIDDEN_PERMISSION_CODES = ['RAPPORT_EXPORTER']
 const permissionsByModule = computed(() => {
   const groups = new Map<string, typeof permStore.permissions>()
   for (const p of permStore.permissions) {
+    if (HIDDEN_MODULES.includes(p.module) || HIDDEN_PERMISSION_CODES.includes(p.code)) continue
     if (!groups.has(p.module)) groups.set(p.module, [])
     groups.get(p.module)!.push(p)
   }

@@ -18,12 +18,14 @@ import {
 } from 'lucide-vue-next'
 import { api, getApiErrorMessage } from '../../../lib/api'
 import * as cls from '../../../lib/formClasses'
+import { useToastStore } from '../../../stores/toast'
 import type { ImportConfig, ImportColumn, ParsedRow, ImportRowResult } from './importTypes'
 
 const props = defineProps<{ open: boolean; config: ImportConfig }>()
 const emit = defineEmits<{ close: []; imported: [] }>()
 
 const router = useRouter()
+const toast = useToastStore()
 
 const STEP_LABELS = ['Fichier', 'Aperçu', 'Import'] as const
 
@@ -31,6 +33,12 @@ const step = ref<1 | 2 | 3>(1)
 const fileError = ref('')
 const fileName = ref('')
 const fileReady = ref(false)
+// Vrai pendant l'analyse du fichier (Papa.parse + resolution de toutes les
+// lignes/colonnes) — pour un gros fichier ce n'est pas instantane, sans
+// indicateur l'utilisateur ne voit rien bouger et reclique plusieurs fois en
+// pensant que c'est bloque. Desactive "Suivant" et affiche le meme toast
+// global que le reste de l'app pendant ce temps.
+const parsingFile = ref(false)
 const dragOver = ref(false)
 const rows = ref<ParsedRow[]>([])
 
@@ -57,22 +65,58 @@ function resolveSelect(col: ImportColumn, rawValue: string): string {
   return match ? match.value : ''
 }
 
+// Le champ date de l'aperçu est un <input type="date"> natif : il n'accepte
+// QUE le format ISO (AAAA-MM-JJ) et affiche silencieusement vide sinon, même
+// si la cellule du fichier a bien une valeur — sans ça, un fichier ouvert/
+// resauvegardé dans Excel en local FR (format JJ/MM/AAAA par défaut)
+// paraissait avoir des dates manquantes alors qu'elles étaient bien
+// présentes, juste dans un format que le champ ne sait pas afficher.
+function resolveDate(rawValue: string): string {
+  const v = rawValue.trim()
+  if (!v || /^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+  const eu = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+  if (eu) {
+    const [, d, m, y] = eu
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  return v
+}
+
 function isTruthy(v: string): boolean {
   return ['1', 'true', 'oui', 'yes', 'x'].includes(v.trim().toLowerCase())
 }
 
-function buildRows(parsed: Record<string, string>[]) {
+// Compare les en-têtes sans tenir compte des accents/casse/espaces —
+// un fichier tape a la main ("intitule" sans accent) ou resauvegarde
+// depuis Excel avec un encodage different ("IntitulÃ©") ne doit pas
+// echouer sur une comparaison strictement egale a col.csvHeader alors
+// que la colonne est manifestement la bonne.
+function normalizeHeader(s: string): string {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+// Fait correspondre chaque en-tete attendu (config) au vrai nom de colonne
+// tel qu'il apparait dans le fichier, via la comparaison normalisee
+// ci-dessus — utilise a la fois pour la verification des colonnes
+// manquantes et pour la lecture des cellules dans buildRows().
+function buildHeaderMap(actualHeaders: string[]): Map<string, string> {
+  return new Map(actualHeaders.map(h => [normalizeHeader(h), h]))
+}
+
+function buildRows(parsed: Record<string, string>[], headerMap: Map<string, string>) {
   rows.value = parsed.map((raw) => {
     const values: Record<string, string> = {}
     const rawValues: Record<string, string> = {}
     for (const col of props.config.columns) {
-      const cell = (raw[col.csvHeader] ?? '').trim()
+      const actualKey = headerMap.get(normalizeHeader(col.csvHeader)) ?? col.csvHeader
+      const cell = (raw[actualKey] ?? '').trim()
       rawValues[col.key] = cell
-      values[col.key] = col.type === 'select' ? resolveSelect(col, cell) : cell
+      values[col.key] = col.type === 'select' ? resolveSelect(col, cell) : col.type === 'date' ? resolveDate(cell) : cell
     }
     const extra: Record<string, unknown> = {}
     for (const col of props.config.extraColumns ?? []) {
-      const cell = (raw[col.csvHeader] ?? '').trim()
+      const actualKey = headerMap.get(normalizeHeader(col.csvHeader)) ?? col.csvHeader
+      const cell = (raw[actualKey] ?? '').trim()
       extra[col.key] = col.type === 'boolean' ? isTruthy(cell) : cell
     }
     return { values, raw: rawValues, extra }
@@ -91,34 +135,52 @@ function handleFile(file: File | undefined) {
     return
   }
   fileName.value = file.name
+  parsingFile.value = true
+  toast.loading('Analyse du fichier en cours…')
   Papa.parse<Record<string, string>>(file, {
     header: true,
     skipEmptyLines: true,
     complete: (results) => {
       if (results.data.length === 0) {
         fileError.value = 'Le fichier est vide ou illisible.'
+        parsingFile.value = false
+        toast.hide()
         return
       }
       const headers = results.meta.fields ?? []
-      const missing = props.config.columns.filter(c => c.required && !headers.includes(c.csvHeader))
+      const headerMap = buildHeaderMap(headers)
+      const missing = props.config.columns.filter(c => c.required && !headerMap.has(normalizeHeader(c.csvHeader)))
       if (missing.length > 0) {
-        fileError.value = `Colonne(s) manquante(s) dans le fichier : ${missing.map(c => c.csvHeader).join(', ')}`
+        // Liste aussi ce qui a ete detecte dans le fichier — permet de
+        // reperer immediatement un probleme d'encodage (accents corrompus,
+        // ex: "IntitulÃ©") plutot qu'un simple nom de colonne different.
+        fileError.value = `Colonne(s) manquante(s) dans le fichier : ${missing.map(c => c.csvHeader).join(', ')}. Colonnes détectées dans le fichier : ${headers.join(', ') || 'aucune'}.`
+        parsingFile.value = false
+        toast.hide()
         return
       }
-      buildRows(results.data)
+      buildRows(results.data, headerMap)
       fileReady.value = true
+      parsingFile.value = false
+      toast.success(`${results.data.length} ligne(s) analysée(s)`)
     },
     // err.message vient de PapaParse (toujours en anglais) — jamais affiché
     // tel quel, voir Lot F #3.
-    error: () => { fileError.value = "Le fichier n'a pas pu être lu. Vérifiez qu'il s'agit bien d'un CSV valide." },
+    error: () => {
+      fileError.value = "Le fichier n'a pas pu être lu. Vérifiez qu'il s'agit bien d'un CSV valide."
+      parsingFile.value = false
+      toast.hide()
+    },
   })
 }
 
 function onFileInput(e: Event) {
+  if (parsingFile.value) return
   handleFile((e.target as HTMLInputElement).files?.[0])
 }
 function onDrop(e: DragEvent) {
   dragOver.value = false
+  if (parsingFile.value) return
   handleFile(e.dataTransfer?.files?.[0])
 }
 
@@ -199,11 +261,22 @@ function goToDependency(dep: { routeTo: import('vue-router').RouteLocationRaw })
   emit('close')
   router.push(dep.routeTo)
 }
+// Reste vrai apres le clic sur "Suivant" tant qu'on est encore a l'etape 1 —
+// bloque un double-clic (l'utilisateur qui reclique en pensant que c'est
+// bloque). Ne se reinitialise que si on revient a l'etape 1 depuis l'etape 2
+// (voir goBack), jamais tout seul.
+const nextClicked = ref(false)
 function goNext() {
-  if (step.value === 1 && fileReady.value) step.value = 2
+  if (step.value === 1 && fileReady.value && !nextClicked.value) {
+    nextClicked.value = true
+    step.value = 2
+  }
 }
 function goBack() {
-  if (step.value === 2) step.value = 1
+  if (step.value === 2) {
+    step.value = 1
+    nextClicked.value = false
+  }
 }
 
 // Bouton principal de la barre de titre : son libellé/action dépend de
@@ -215,7 +288,7 @@ const primaryLabel = computed(() => {
   return 'Fermer'
 })
 const primaryDisabled = computed(() => {
-  if (step.value === 1) return !fileReady.value || !!blockingDependency.value
+  if (step.value === 1) return !fileReady.value || !!blockingDependency.value || nextClicked.value
   if (step.value === 2) return rows.value.length === 0
   return false
 })
@@ -354,17 +427,22 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               </button>
 
               <label
-                class="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg py-10 px-4 text-center cursor-pointer transition-colors"
-                :class="dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'"
+                class="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg py-10 px-4 text-center transition-colors"
+                :class="[
+                  parsingFile ? 'opacity-60 pointer-events-none cursor-wait' : 'cursor-pointer',
+                  dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40',
+                ]"
                 @dragover.prevent="dragOver = true"
                 @dragleave.prevent="dragOver = false"
                 @drop.prevent="onDrop"
               >
-                <Upload class="w-6 h-6 text-muted-foreground" />
-                <span class="text-[13px] text-foreground font-medium">Glissez un fichier CSV ici, ou cliquez pour parcourir</span>
+                <Loader2 v-if="parsingFile" class="w-6 h-6 text-primary animate-spin" />
+                <Upload v-else class="w-6 h-6 text-muted-foreground" />
+                <span v-if="parsingFile" class="text-[13px] text-foreground font-medium">Analyse du fichier en cours, patientez…</span>
+                <span v-else class="text-[13px] text-foreground font-medium">Glissez un fichier CSV ici, ou cliquez pour parcourir</span>
                 <span v-if="fileReady" class="text-[11px] text-success flex items-center gap-1"><CheckCircle2 class="w-3.5 h-3.5" /> {{ fileName }} — {{ rows.length }} ligne(s), prêt</span>
-                <span v-else-if="fileName" class="text-[11px] text-primary">{{ fileName }}</span>
-                <input type="file" accept=".csv" class="hidden" @change="onFileInput" />
+                <span v-else-if="fileName && !parsingFile" class="text-[11px] text-primary">{{ fileName }}</span>
+                <input type="file" accept=".csv" class="hidden" :disabled="parsingFile" @change="onFileInput" />
               </label>
 
               <p v-if="fileError" :class="[cls.fieldErrorBlock, 'mt-3']">

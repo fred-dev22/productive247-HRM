@@ -231,7 +231,7 @@ async function create() {
           <label class="flex items-center gap-2 mt-3.5 text-[13px] text-foreground cursor-pointer">
             <input type="checkbox" v-model="form.isExpatriate" class="accent-primary" />
             Employé expatrié
-            <span class="text-[11px] text-muted-foreground">(régime de congés différent : le week-end n'est jamais décompté)</span>
+            <span class="text-[11px] text-muted-foreground">(régime de congés différent : le week-end n'est jamais décompté ; les jours fériés restent exclus dans les deux cas)</span>
           </label>
 
           </FormSection>
@@ -272,7 +272,7 @@ async function create() {
               <label :class="cls.fieldLabel">Type de contrat <span class="text-danger">*</span></label>
               <select v-model="form.contractType" :class="cls.fieldSelect">
                 <option value="">-- Choisir --</option>
-                <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option>
+                <option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Stage">Stage</option><option value="Freelance">Freelance</option><option value="Apprenti">Apprenti</option><option value="Alternant">Alternant</option>
               </select>
             </div>
             <div :class="cls.field">

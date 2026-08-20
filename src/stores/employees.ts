@@ -26,9 +26,11 @@ function p(i: number) { return PALETTE[i % PALETTE.length]! }
 
 const CONTRACT_TYPE_TO_BACKEND: Record<ContractType, string> = {
   CDI: 'Permanent', CDD: 'FixedTerm', Stage: 'Internship', Freelance: 'Freelance',
+  Apprenti: 'Apprenticeship', Alternant: 'WorkStudy',
 }
 const CONTRACT_TYPE_FROM_BACKEND: Record<string, ContractType> = {
   Permanent: 'CDI', FixedTerm: 'CDD', Internship: 'Stage', Freelance: 'Freelance',
+  Apprenticeship: 'Apprenti', WorkStudy: 'Alternant',
 }
 const STATUS_TO_BACKEND: Record<EmployeeStatus, string> = {
   active: 'Active', trial: 'OnTrial', onleave: 'OnLeave', inactive: 'Inactive',
