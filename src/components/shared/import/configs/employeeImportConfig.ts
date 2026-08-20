@@ -63,6 +63,13 @@ export function buildEmployeeImportConfig(): ImportConfig {
       },
     ],
     columns: [
+      // Facultatif : laissee vide, le backend genere automatiquement un
+      // matricule (EMPxxx, voir EmployeeService.generateEmployeeNumber) —
+      // exactement le meme comportement que la creation manuelle quand
+      // l'admin ne touche pas au champ pre-rempli. Remplie, elle permet de
+      // reprendre une numerotation deja existante (ex : ancien systeme RH)
+      // plutot que de repartir sur EMP001.
+      { key: 'EmployeeNumber', csvHeader: 'Matricule', label: 'Matricule', required: false, type: 'text', sample: '' },
       { key: 'FirstName', csvHeader: 'Prénom', label: 'Prénom', required: true, type: 'text', sample: 'Jean' },
       { key: 'LastName', csvHeader: 'Nom', label: 'Nom', required: true, type: 'text', sample: 'Rakoto' },
       { key: 'Gender', csvHeader: 'Genre', label: 'Genre', required: true, type: 'select', sample: 'Homme', options: () => GENDER_OPTIONS },
@@ -101,12 +108,14 @@ export function buildEmployeeImportConfig(): ImportConfig {
     ],
     sampleRows: [
       {
-        Prénom: 'Jean', Nom: 'Rakoto', Genre: 'Homme', 'Date de naissance': '1990-05-12', 'Situation matrimoniale': 'Célibataire',
+        Matricule: '', Prénom: 'Jean', Nom: 'Rakoto', Genre: 'Homme', 'Date de naissance': '1990-05-12', 'Situation matrimoniale': 'Célibataire',
         'Type de pièce': 'CIN', 'Numéro de pièce': '', Email: 'jean.rakoto@galana.com', 'Téléphone mobile': '',
         'Type de contrat': 'CDI', "Date d'embauche": '2024-01-15', 'Code entité': 'DG', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'non',
       },
       {
-        Prénom: 'Marie', Nom: 'Andria', Genre: 'Femme', 'Date de naissance': '1988-11-03', 'Situation matrimoniale': "Marié(e)",
+        // Matricule rempli : montre qu'on peut reprendre une numerotation
+        // existante plutot que de laisser le systeme generer EMP00x.
+        Matricule: 'RH-2023-011', Prénom: 'Marie', Nom: 'Andria', Genre: 'Femme', 'Date de naissance': '1988-11-03', 'Situation matrimoniale': "Marié(e)",
         'Type de pièce': 'CIN', 'Numéro de pièce': '', Email: 'marie.andria@galana.com', 'Téléphone mobile': '',
         'Type de contrat': 'CDI', "Date d'embauche": '2023-06-01', 'Code entité': 'DG', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'oui',
       },

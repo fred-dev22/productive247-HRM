@@ -94,7 +94,7 @@
                 <label class="flex items-center gap-2 col-span-full text-[13px] text-foreground cursor-pointer">
                   <input type="checkbox" v-model="form.isExpatriate" class="accent-primary" />
                   Employé expatrié
-                  <span class="text-[11px] text-muted-foreground">(régime de congés différent : le week-end n'est jamais décompté)</span>
+                  <span class="text-[11px] text-muted-foreground">(régime de congés différent : le week-end n'est jamais décompté ; les jours fériés restent exclus dans les deux cas)</span>
                 </label>
               </div>
             </div>
