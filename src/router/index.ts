@@ -180,17 +180,20 @@ const router = createRouter({
     },
 
     // ── Module Recrutement ───────────────────────────────────────
-    { path: '/hr/recruitment',              name: 'hr-recruitment',              component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Recrutement' } },
-    { path: '/hr/recruitment/positions',    name: 'hr-recruitment-positions',    component: PH, meta: { requiresAuth: true, title: "Offres d'emploi" } },
-    { path: '/hr/recruitment/applications', name: 'hr-recruitment-applications', component: PH, meta: { requiresAuth: true, title: 'Candidatures' } },
-    { path: '/hr/recruitment/interviews',   name: 'hr-recruitment-interviews',   component: PH, meta: { requiresAuth: true, title: 'Entretiens' } },
-    { path: '/hr/recruitment/pipeline',     name: 'hr-recruitment-pipeline',     component: PH, meta: { requiresAuth: true, title: 'Pipeline de recrutement' } },
-    { path: '/hr/recruitment/cv-library',   name: 'hr-recruitment-cv-library',   component: PH, meta: { requiresAuth: true, title: 'CVthèque / Potentiels' } },
-    { path: '/hr/recruitment/spontaneous',  name: 'hr-recruitment-spontaneous',  component: PH, meta: { requiresAuth: true, title: 'Candidatures spontanées' } },
-    { path: '/hr/recruitment/internships',  name: 'hr-recruitment-internships',  component: PH, meta: { requiresAuth: true, title: 'Demandes de stage' } },
-    { path: '/hr/recruitment/needs',        name: 'hr-recruitment-needs',        component: PH, meta: { requiresAuth: true, title: "Expressions de besoin" } },
-    { path: '/hr/recruitment/contracts',    name: 'hr-recruitment-contracts',    component: PH, meta: { requiresAuth: true, title: 'Contrats à générer' } },
-    { path: '/hr/recruitment/trial',        name: 'hr-recruitment-trial',        component: PH, meta: { requiresAuth: true, title: "Périodes d'essai" } },
+    // Ecrans reels (design uniquement, donnees fictives — voir
+    // src/stores/recruitment/), masques tant que PLACEHOLDER_MODULES_ENABLED
+    // est a false (voir plus bas et src/config/features.ts).
+    { path: '/hr/recruitment',              name: 'hr-recruitment',              component: () => import('../views/recruitment/RecruitmentDashboardView.vue'),   meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/positions',    name: 'hr-recruitment-positions',    component: () => import('../views/recruitment/JobOffersView.vue'),              meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/applications', name: 'hr-recruitment-applications', component: () => import('../views/recruitment/ApplicationsView.vue'),           meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/interviews',   name: 'hr-recruitment-interviews',   component: () => import('../views/recruitment/InterviewsView.vue'),             meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/pipeline',     name: 'hr-recruitment-pipeline',     component: () => import('../views/recruitment/PipelineView.vue'),               meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/cv-library',   name: 'hr-recruitment-cv-library',   component: () => import('../views/recruitment/TalentPoolView.vue'),             meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/spontaneous',  name: 'hr-recruitment-spontaneous',  component: () => import('../views/recruitment/SpontaneousApplicationsView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/internships',  name: 'hr-recruitment-internships',  component: () => import('../views/recruitment/InternshipRequestsView.vue'),     meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/needs',        name: 'hr-recruitment-needs',        component: () => import('../views/recruitment/HiringRequestsView.vue'),         meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/contracts',    name: 'hr-recruitment-contracts',    component: () => import('../views/recruitment/ContractsView.vue'),              meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/trial',        name: 'hr-recruitment-trial',        component: () => import('../views/recruitment/TrialPeriodsView.vue'),           meta: { requiresAuth: true, layout: 'dashboard' } },
 
     // ── Module Formation ─────────────────────────────────────────
     { path: '/hr/training',             name: 'hr-training',             component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Formation' } },
