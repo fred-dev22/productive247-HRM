@@ -74,7 +74,7 @@ import { X, Menu } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
 import { useLeaveRequestStore } from '../stores/leaveRequests'
-import { PLACEHOLDER_MODULES_ENABLED } from '../config/features'
+import { PLACEHOLDER_MODULES_ENABLED, RECRUITMENT_MODULE_ENABLED } from '../config/features'
 
 const router       = useRouter()
 const route        = useRoute()
@@ -111,7 +111,8 @@ const mobileItemClass =
   'flex items-center px-5 py-3 text-sm font-medium text-foreground/80 cursor-pointer border-b border-border last:border-0 no-underline hover:bg-background hover:text-primary'
 
 // 'administration' contient des fonctionnalités réelles couvertes par des
-// permissions — masqué si l'utilisateur n'en a aucune. 'recruitment'/
+// permissions — masqué si l'utilisateur n'en a aucune. 'recruitment' a son
+// propre flag (RECRUITMENT_MODULE_ENABLED, vrais écrans sur cette branche).
 // 'training'/'payroll'/'reports' restent des modules placeholder (voir
 // PLACEHOLDER_MODULES_ENABLED, src/config/features.ts) — masqués tant
 // qu'ils ne sont pas construits.
@@ -122,7 +123,7 @@ const hrNavItems = computed(() => [
     'CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE',
     'CONFIG_CALENDRIER', 'CONFIG_FRAIS_MISSION',
   ]) },
-  { key: 'recruitment', label: t('nav.recruitment'), visible: PLACEHOLDER_MODULES_ENABLED },
+  { key: 'recruitment', label: t('nav.recruitment'), visible: RECRUITMENT_MODULE_ENABLED },
   { key: 'training',    label: t('nav.training'),    visible: PLACEHOLDER_MODULES_ENABLED },
   { key: 'payroll',     label: t('nav.payroll'),      visible: PLACEHOLDER_MODULES_ENABLED },
   { key: 'reports', label: t('nav.reports'), visible: PLACEHOLDER_MODULES_ENABLED && auth.hasAnyPermission(['RAPPORT_VOIR', 'ENTITE_VOIR']) },

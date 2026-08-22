@@ -8,7 +8,7 @@ import PublicApprovalView from '../views/PublicApprovalView.vue'
 import DashboardHR       from '../views/DashboardHR.vue'
 import DashboardEmployee from '../views/DashboardEmployee.vue'
 import CalendarView      from '../views/calendar/CalendarView.vue'
-import { MISSIONS_EXPENSES_ENABLED, PLACEHOLDER_MODULES_ENABLED } from '../config/features'
+import { MISSIONS_EXPENSES_ENABLED, PLACEHOLDER_MODULES_ENABLED, RECRUITMENT_MODULE_ENABLED } from '../config/features'
 
 const PH = () => import('../views/placeholders/PlaceholderView.vue')
 
@@ -20,11 +20,14 @@ const MISSIONS_EXPENSES_ROUTES = new Set([
   'employee-missions', 'employee-expenses',
 ])
 
-// Préfixes des modules encore à l'état de placeholder (Recrutement,
-// Formation, Paie, Rapports — voir PLACEHOLDER_MODULES_ENABLED) — bloque
-// aussi toutes leurs sous-routes (ex. /hr/recruitment/positions) même par
-// accès direct à l'URL, en plus du masquage dans AppNavBar.vue.
-const PLACEHOLDER_MODULE_PATH_PREFIXES = ['/hr/recruitment', '/hr/training', '/hr/payroll', '/hr/reports']
+// Préfixes des modules encore à l'état de placeholder (Formation, Paie,
+// Rapports — voir PLACEHOLDER_MODULES_ENABLED). Recrutement a son propre
+// flag (RECRUITMENT_MODULE_ENABLED, voir plus bas) car il a de vrais écrans
+// sur la branche dev-recrutement-module. Bloque aussi toutes les sous-routes
+// (ex. /hr/training/catalog) même par accès direct à l'URL, en plus du
+// masquage dans AppNavBar.vue.
+const PLACEHOLDER_MODULE_PATH_PREFIXES = ['/hr/training', '/hr/payroll', '/hr/reports']
+const RECRUITMENT_MODULE_PATH_PREFIX = '/hr/recruitment'
 
 // Route (par nom) -> permission(s) requise(s) en plus de l'espace hr/employee
 // (voir auth.isHRSpace/isEmployeeSpace). Un tableau = n'importe laquelle des
@@ -319,6 +322,10 @@ router.beforeEach(async (to) => {
     }
 
     if (!PLACEHOLDER_MODULES_ENABLED && PLACEHOLDER_MODULE_PATH_PREFIXES.some((p) => to.path.startsWith(p))) {
+      return { path: auth.isHRSpace ? '/hr' : '/employee' }
+    }
+
+    if (!RECRUITMENT_MODULE_ENABLED && to.path.startsWith(RECRUITMENT_MODULE_PATH_PREFIX)) {
       return { path: auth.isHRSpace ? '/hr' : '/employee' }
     }
 
