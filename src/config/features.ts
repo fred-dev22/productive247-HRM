@@ -9,4 +9,11 @@ export const MISSIONS_EXPENSES_ENABLED: boolean = false
 // Recrutement, Formation, Paie, Rapports (l'onglet du haut, distinct de la
 // section "Rapports" du sidebar Administration qui elle est réelle). Masqués
 // tant qu'ils ne sont pas construits, pas pour une raison budgétaire.
-export const PLACEHOLDER_MODULES_ENABLED: boolean = false
+//
+// A true UNIQUEMENT sur la branche dev-recrutement-module : le module
+// Recrutement y a de vrais écrans (design + données fictives, voir
+// src/views/recruitment/). Formation/Paie/Rapports restent de simples
+// placeholders vides mais redeviennent visibles aussi, faute de flag
+// par module — effet de bord mineur et sans consequence sur cette branche
+// isolée. Remettre à false avant toute fusion vers qa/main.
+export const PLACEHOLDER_MODULES_ENABLED: boolean = true
