@@ -17,6 +17,7 @@
     v-model:page="page"
     v-model:page-size="pageSize"
     @reset-filters="resetFilters"
+    @open-card="openCard"
   >
     <template #header-actions>
       <button :class="L.btnPrimary" @click="showCreate = true">
@@ -48,11 +49,7 @@
 
     <!-- Actions contextuelles (ligne sélectionnée) -->
     <template #row-actions="{ item }">
-      <template v-if="item.status === 'Scheduled'">
-        <button :class="doneCls" @click="markDoneItem(item)"><CheckCircle2 class="w-3.5 h-3.5" /> Marquer comme effectué</button>
-        <button :class="evaluateCls" @click="openEvaluate(item)"><Star class="w-3.5 h-3.5" /> Évaluer</button>
-        <button :class="cancelCls" @click="cancelItem(item)"><Ban class="w-3.5 h-3.5" /> Annuler</button>
-      </template>
+      <InterviewWorkflowActions :item="item" />
     </template>
 
     <!-- Cellules -->
@@ -74,24 +71,11 @@
         <div class="grid grid-cols-2 gap-2 text-[12px]">
           <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Date et heure</div>{{ formatDateTime(item.scheduledAt) }}</div>
           <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Lieu</div>{{ item.location }}</div>
-          <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Participants</div>{{ item.participants.join(', ') }}</div>
         </div>
-
-        <div v-if="item.status === 'Done' && item.evaluation" class="pt-2 border-t border-border">
-          <div class="text-[11px] text-muted-foreground mb-1">Évaluation</div>
-          <div class="text-[13px] font-semibold text-foreground mb-1">Note : {{ item.evaluation.score }}/5</div>
-          <p class="text-[12px] text-foreground whitespace-pre-line">{{ item.evaluation.comment }}</p>
-          <div class="text-[11px] text-muted-foreground mt-1.5">Par {{ item.evaluation.interviewerName }}</div>
+        <div class="pt-2 border-t border-border">
+          <InterviewWorkflowActions :item="item" />
         </div>
-
-        <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border">
-          <template v-if="item.status === 'Scheduled'">
-            <button :class="doneCls" @click="markDoneItem(item)"><CheckCircle2 class="w-3.5 h-3.5" /> Marquer comme effectué</button>
-            <button :class="evaluateCls" @click="openEvaluate(item)"><Star class="w-3.5 h-3.5" /> Évaluer</button>
-            <button :class="cancelCls" @click="cancelItem(item)"><Ban class="w-3.5 h-3.5" /> Annuler</button>
-          </template>
-          <span v-else class="text-xs text-muted-foreground italic">Aucune action disponible</span>
-        </div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
       </div>
     </template>
 
@@ -147,28 +131,8 @@
       </template>
     </CreateModalShell>
 
-    <!-- Modale Évaluer -->
-    <ModalShell :open="evaluateModal.open" title="Évaluer l'entretien" max-width="max-w-[420px]" @close="evaluateModal.open = false">
-      <div :class="cls.field">
-        <label :class="cls.fieldLabel">Note *</label>
-        <select v-model.number="evaluateModal.score" :class="cls.fieldSelect">
-          <option v-for="n in 5" :key="n" :value="n">{{ n }} / 5</option>
-        </select>
-      </div>
-      <div :class="cls.field">
-        <label :class="cls.fieldLabel">Commentaire *</label>
-        <textarea v-model="evaluateModal.comment" :class="cls.fieldTextarea" placeholder="Impressions, points forts, réserves…" rows="4"></textarea>
-      </div>
-      <div :class="cls.field">
-        <label :class="cls.fieldLabel">Évaluateur *</label>
-        <input v-model="evaluateModal.interviewerName" :class="cls.fieldInput" placeholder="Nom de l'évaluateur" />
-      </div>
-      <div v-if="evaluateModal.error" :class="cls.fieldError">{{ evaluateModal.error }}</div>
-      <template #footer>
-        <button :class="cls.btnPrimary" @click="confirmEvaluate"><Star class="w-4 h-4" /> Enregistrer l'évaluation</button>
-        <button :class="cls.btnOutline" @click="evaluateModal.open = false">Annuler</button>
-      </template>
-    </ModalShell>
+    <!-- Fiche complète -->
+    <InterviewCard v-if="openCardId !== null" :items="filtered" :item-id="openCardId" @close="openCardId = null" />
   </ListPageLayout>
 </template>
 
@@ -177,38 +141,30 @@
  * Liste des entretiens (Interview), module Recrutement, design uniquement
  * (données fictives, voir src/stores/recruitment). Calquée sur
  * EmployeeListView.vue / JobOffersView.vue / HiringRequestsView.vue :
- * ListPageLayout + boutons de workflow repris à l'identique de
- * MissionWorkflowActions.vue.
+ * ListPageLayout + boutons de workflow dans InterviewWorkflowActions.vue,
+ * fiche complète dans InterviewCard.vue.
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { Plus, CalendarClock, Clock, CheckCircle2, CalendarDays, Star, Ban } from 'lucide-vue-next'
+import { Plus, CalendarClock, Clock, CheckCircle2, CalendarDays } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
-import ModalShell from '../../components/ui/ModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import InterviewWorkflowActions from '../../components/recruitment/InterviewWorkflowActions.vue'
+import InterviewCard from '../../components/recruitment/InterviewCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { todayIso } from '../../lib/date'
-import { confirmDialog } from '../../lib/confirm'
 import { useInterviewStore, useApplicationStore } from '../../stores/recruitment'
 import type { Interview } from '../../stores/recruitment'
-import { useAuthStore } from '../../stores/auth'
 
 const interviewStore = useInterviewStore()
 const applicationStore = useApplicationStore()
-const auth = useAuthStore()
 
-/* ── Styles (KPI + boutons de workflow, repris à l'identique de
-   MissionWorkflowActions.vue) ─────────────────────────────────── */
+/* ── Styles (KPI) ───────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
-
-const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
-const doneCls     = btn + ' bg-success-bg text-success hover:brightness-95'
-const evaluateCls = btn + ' bg-info-bg text-info hover:brightness-95'
-const cancelCls   = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
 
 /* ── Formatage date et heure (ex : "25/08/2026 10:00") ─────────── */
 function formatDateTime(iso: string): string {
@@ -329,25 +285,8 @@ function create() {
   resetForm()
 }
 
-/* ── Actions de workflow ────────────────────────────────────── */
-function markDoneItem(item: Interview) { interviewStore.markDone(item.id) }
-
-async function cancelItem(item: Interview) {
-  if (await confirmDialog('Annuler cet entretien ?')) interviewStore.cancel(item.id)
-}
-
-const evaluateModal = reactive({ open: false, itemId: '', score: 5, comment: '', interviewerName: '', error: '' })
-function openEvaluate(item: Interview) {
-  Object.assign(evaluateModal, { open: true, itemId: item.id, score: 5, comment: '', interviewerName: auth.user?.name ?? '', error: '' })
-}
-function confirmEvaluate() {
-  if (evaluateModal.comment.trim().length === 0) { evaluateModal.error = 'Le commentaire est requis'; return }
-  if (!evaluateModal.interviewerName.trim()) { evaluateModal.error = "Le nom de l'évaluateur est requis"; return }
-  interviewStore.evaluate(evaluateModal.itemId, {
-    score: evaluateModal.score,
-    comment: evaluateModal.comment.trim(),
-    interviewerName: evaluateModal.interviewerName.trim(),
-  })
-  evaluateModal.open = false
-}
+/* ── Fiche complète (double-clic sur une ligne ou bouton "Ouvrir la
+   fiche") ──────────────────────────────────────────────────── */
+const openCardId = ref<string | null>(null)
+function openCard(item: Interview) { openCardId.value = item.id }
 </script>

@@ -13,6 +13,7 @@
     v-model:sort-dir="sortDir"
     v-model:page="page"
     v-model:page-size="pageSize"
+    @open-card="openCard"
   >
     <template #header-actions>
       <button :class="L.btnPrimary" @click="showCreate = true">
@@ -32,6 +33,11 @@
           <div><div :class="kpiVal">{{ distinctTagsCount }}</div><div :class="kpiLbl">Tags distincts</div></div>
         </div>
       </div>
+    </template>
+
+    <!-- Actions contextuelles (ligne sélectionnée) -->
+    <template #row-actions="{ item }">
+      <TalentPoolWorkflowActions :item="item" />
     </template>
 
     <!-- Cellules -->
@@ -64,13 +70,8 @@
             <span v-for="tag in item.tags" :key="tag" class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-primary/10 text-primary">{{ tag }}</span>
           </div>
         </div>
-        <div v-if="item.notes" class="text-[12px]">
-          <div class="text-muted-foreground text-[11px]">Notes</div>
-          <p class="text-foreground whitespace-pre-line">{{ item.notes }}</p>
-        </div>
-        <button :class="removeCls" class="w-full justify-center mt-1" @click="removeEntry(item)">
-          <Trash2 class="w-3.5 h-3.5" /> Retirer du vivier
-        </button>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
+        <TalentPoolWorkflowActions :item="item" />
       </div>
     </template>
 
@@ -125,6 +126,9 @@
         </div>
       </template>
     </CreateModalShell>
+
+    <!-- Fiche (double-clic) -->
+    <TalentPoolCard v-if="openCardId !== null" :entries="filtered" :entry-id="openCardId" @close="openCardId = null" />
   </ListPageLayout>
 </template>
 
@@ -137,28 +141,26 @@
  * "Ajouter un profil" et "Retirer du vivier" existent côté store.
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { UserPlus, Users, Tag, Trash2 } from 'lucide-vue-next'
+import { UserPlus, Users, Tag } from 'lucide-vue-next'
 import { ListPageLayout, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import TalentPoolCard from '../../components/recruitment/TalentPoolCard.vue'
+import TalentPoolWorkflowActions from '../../components/recruitment/TalentPoolWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
-import { confirmDialog } from '../../lib/confirm'
 import { formatDate } from '../../lib/date'
 import { useTalentPoolStore } from '../../stores/recruitment'
 import type { TalentPoolEntry } from '../../stores/recruitment'
 
 const talentPoolStore = useTalentPoolStore()
 
-/* ── Styles (KPI + bouton "Retirer", repris à l'identique du langage
-   visuel des autres écrans du module) ─────────────────────────── */
+/* ── Styles (KPI, repris à l'identique du langage visuel des autres
+   écrans du module) ────────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
-
-const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
-const removeCls = btn + ' bg-danger-bg text-danger hover:brightness-95'
 
 /* ── Colonnes ───────────────────────────────────────────────── */
 const columns: ListColumn[] = [
@@ -255,8 +257,7 @@ function create() {
   resetForm()
 }
 
-/* ── Actions ────────────────────────────────────────────────── */
-async function removeEntry(item: TalentPoolEntry) {
-  if (await confirmDialog('Retirer ce profil du vivier de talents ?')) talentPoolStore.remove(item.id)
-}
+/* ── Fiche complète (double-clic ou "Ouvrir la fiche") ───────── */
+const openCardId = ref<string | null>(null)
+function openCard(item: TalentPoolEntry) { openCardId.value = item.id }
 </script>

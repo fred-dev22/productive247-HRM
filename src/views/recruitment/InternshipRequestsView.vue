@@ -17,7 +17,13 @@
     v-model:page="page"
     v-model:page-size="pageSize"
     @reset-filters="resetFilters"
+    @open-card="openCard"
   >
+    <!-- Actions contextuelles (ligne sélectionnée) -->
+    <template #row-actions="{ item }">
+      <ApplicationWorkflowActions :item="item" />
+    </template>
+
     <!-- KPIs -->
     <template #above-table>
       <div class="grid grid-cols-3 gap-2.5 mb-3.5 max-md:grid-cols-1">
@@ -54,50 +60,18 @@
       <div class="flex flex-col gap-3.5">
         <div>
           <div class="text-sm font-semibold text-foreground truncate">{{ item.candidateName }}</div>
-          <div class="text-[11px] text-muted-foreground truncate">{{ item.jobOfferTitle || 'Candidature spontanée' }}</div>
+          <div class="text-[11px] text-muted-foreground truncate">{{ item.candidateEmail }}</div>
         </div>
         <div><StatusPill :status="item.status" /></div>
 
         <div class="grid grid-cols-1 gap-2 text-[12px]">
-          <div><div class="text-muted-foreground text-[11px]">Email</div>{{ item.candidateEmail }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Téléphone</div>{{ item.candidatePhone }}</div>
-          <div>
-            <div class="text-muted-foreground text-[11px]">CV</div>
-            <span class="inline-flex items-center gap-1"><FileText class="w-3.5 h-3.5" />{{ item.cvFileName }}</span>
-          </div>
+          <div><div class="text-muted-foreground text-[11px]">Offre liée</div>{{ item.jobOfferTitle || 'Candidature spontanée' }}</div>
           <div><div class="text-muted-foreground text-[11px]">Candidature reçue le</div>{{ formatDate(item.appliedAt) }}</div>
         </div>
 
-        <div :class="cls.field">
-          <label :class="cls.fieldLabel">Statut de la candidature</label>
-          <select :class="cls.fieldSelect" :value="item.status" @change="onStatusChange(item, $event)">
-            <option value="New">Nouvelle</option>
-            <option value="InReview">En cours</option>
-            <option value="InterviewScheduled">Entretien planifié</option>
-            <option value="Retained">Retenue</option>
-            <option value="Rejected">Refusé</option>
-          </select>
-        </div>
+        <ApplicationWorkflowActions :item="item" />
 
-        <button v-if="item.status !== 'Retained'" :class="cls.btnOutline" class="w-full justify-center" @click="addToPool(item)">
-          <Star class="w-4 h-4" /> Ajouter au vivier de talents
-        </button>
-
-        <div class="pt-2 border-t border-border flex flex-col gap-2">
-          <div class="text-[11px] font-semibold text-muted-foreground tracking-wide">NOTES</div>
-          <div v-if="item.notes.length === 0" class="text-xs text-muted-foreground italic">Aucune note pour le moment.</div>
-          <div v-for="(note, i) in item.notes" :key="i" class="text-[12px] bg-background rounded-md px-2.5 py-2 flex flex-col gap-0.5">
-            <div class="flex items-center justify-between gap-2">
-              <span class="font-medium text-foreground text-[11px] truncate">{{ note.authorName }}</span>
-              <span class="text-[10px] text-muted-foreground shrink-0">{{ formatDate(note.date) }}</span>
-            </div>
-            <p class="text-foreground whitespace-pre-line">{{ note.text }}</p>
-          </div>
-          <textarea v-model="noteDrafts[item.id]" :class="cls.fieldTextarea" rows="2" placeholder="Ajouter une note…"></textarea>
-          <button :class="cls.btnOutline" class="self-end" :disabled="!(noteDrafts[item.id] ?? '').trim()" @click="addNote(item)">
-            <Plus class="w-3.5 h-3.5" /> Ajouter
-          </button>
-        </div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
       </div>
     </template>
 
@@ -105,6 +79,9 @@
       <Users class="w-8 h-8" />
       <p class="text-[13px]">Aucune demande de stage pour le moment.</p>
     </template>
+
+    <!-- Fiche (double-clic ou "Ouvrir la fiche") -->
+    <ApplicationCard v-if="openCardId !== null" :items="filtered" :item-id="openCardId" @close="openCardId = null" />
   </ListPageLayout>
 </template>
 
@@ -114,19 +91,22 @@
  * Recrutement, design uniquement (données fictives, voir
  * src/stores/recruitment). Calquée sur ApplicationsView.vue.
  */
-import { reactive, ref, watch, computed } from 'vue'
-import { Users, UserPlus, Clock, FileText, Star, Plus } from 'lucide-vue-next'
+import { ref, watch, computed } from 'vue'
+import { Users, UserPlus, Clock, FileText } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
-import * as cls from '../../lib/formClasses'
-import { confirmDialog } from '../../lib/confirm'
+import ApplicationCard from '../../components/recruitment/ApplicationCard.vue'
+import ApplicationWorkflowActions from '../../components/recruitment/ApplicationWorkflowActions.vue'
+import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { useApplicationStore } from '../../stores/recruitment'
-import type { Application, ApplicationStatus } from '../../stores/recruitment'
-import { useAuthStore } from '../../stores/auth'
+import type { Application } from '../../stores/recruitment'
 
 const applicationStore = useApplicationStore()
-const auth = useAuthStore()
+
+/* ── Fiche plein écran ──────────────────────────────────────── */
+const openCardId = ref<string | null>(null)
+function openCard(item: Application) { openCardId.value = item.id }
 
 /* ── Styles (KPI, repris à l'identique d'EmployeeListView.vue) ────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
@@ -205,24 +185,4 @@ const pageItems = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filtered.value.slice(start, start + pageSize.value)
 })
-
-/* ── Aperçu rapide : changement de statut, notes, vivier de talents ── */
-function onStatusChange(item: Application, e: Event) {
-  const value = (e.target as HTMLSelectElement).value as ApplicationStatus
-  applicationStore.setStatus(item.id, value)
-}
-
-const noteDrafts = reactive<Record<string, string>>({})
-function addNote(item: Application) {
-  const text = (noteDrafts[item.id] ?? '').trim()
-  if (!text) return
-  applicationStore.addNote(item.id, auth.user?.name ?? '', text)
-  noteDrafts[item.id] = ''
-}
-
-async function addToPool(item: Application) {
-  if (await confirmDialog(`Ajouter ${item.candidateName} au vivier de talents ?`)) {
-    applicationStore.addToTalentPool(item.id)
-  }
-}
 </script>

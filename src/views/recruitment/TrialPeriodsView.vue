@@ -17,6 +17,7 @@
     v-model:page="page"
     v-model:page-size="pageSize"
     @reset-filters="resetFilters"
+    @open-card="openCard"
   >
     <!-- KPIs -->
     <template #above-table>
@@ -42,12 +43,7 @@
 
     <!-- Actions contextuelles (ligne sélectionnée) -->
     <template #row-actions="{ item }">
-      <template v-if="ACTIONABLE.includes(item.status)">
-        <button :class="infoCls" @click="openEvaluate(item)"><ClipboardCheck class="w-3.5 h-3.5" /> Évaluer</button>
-        <button :class="approveCls" @click="convertTrial(item)"><UserCheck class="w-3.5 h-3.5" /> Convertir en CDI</button>
-        <button :class="warningCls" @click="openExtend(item)"><CalendarClock class="w-3.5 h-3.5" /> Prolonger</button>
-        <button :class="cancelCls" @click="cancelTrial(item)"><Ban class="w-3.5 h-3.5" /> Annuler</button>
-      </template>
+      <TrialEmployeeWorkflowActions :item="item" />
     </template>
 
     <!-- Filtres -->
@@ -83,21 +79,10 @@
           <div><div class="text-muted-foreground text-[11px]">Fin d'essai</div>{{ formatDate(item.trialEndDate) }}</div>
         </div>
 
-        <div v-if="item.evaluation" class="pt-2 border-t border-border">
-          <div class="text-[11px] text-muted-foreground mb-1">Évaluation</div>
-          <div class="text-[13px] font-semibold text-foreground mb-1">Note : {{ item.evaluation.score }}/5</div>
-          <p class="text-[12px] text-foreground whitespace-pre-line">{{ item.evaluation.comment }}</p>
-          <div class="text-[11px] text-muted-foreground mt-1.5">Par {{ item.evaluation.evaluatedByName }} le {{ formatDate(item.evaluation.date) }}</div>
-        </div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
 
-        <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border">
-          <template v-if="ACTIONABLE.includes(item.status)">
-            <button :class="infoCls" @click="openEvaluate(item)"><ClipboardCheck class="w-3.5 h-3.5" /> Évaluer</button>
-            <button :class="approveCls" @click="convertTrial(item)"><UserCheck class="w-3.5 h-3.5" /> Convertir en CDI</button>
-            <button :class="warningCls" @click="openExtend(item)"><CalendarClock class="w-3.5 h-3.5" /> Prolonger</button>
-            <button :class="cancelCls" @click="cancelTrial(item)"><Ban class="w-3.5 h-3.5" /> Annuler</button>
-          </template>
-          <span v-else class="text-xs text-muted-foreground italic">Aucune action disponible</span>
+        <div class="pt-2 border-t border-border">
+          <TrialEmployeeWorkflowActions :item="item" />
         </div>
       </div>
     </template>
@@ -107,41 +92,8 @@
       <p class="text-[13px]">Aucune période d'essai</p>
     </template>
 
-    <!-- Modale Évaluer -->
-    <ModalShell :open="evaluateModal.open" title="Évaluer la période d'essai" max-width="max-w-[420px]" @close="evaluateModal.open = false">
-      <div :class="cls.field">
-        <label :class="cls.fieldLabel">Note *</label>
-        <select v-model.number="evaluateModal.score" :class="cls.fieldSelect">
-          <option v-for="n in 5" :key="n" :value="n">{{ n }} / 5</option>
-        </select>
-      </div>
-      <div :class="cls.field">
-        <label :class="cls.fieldLabel">Commentaire *</label>
-        <textarea v-model="evaluateModal.comment" :class="cls.fieldTextarea" placeholder="Impressions, points forts, réserves…" rows="4"></textarea>
-      </div>
-      <div :class="cls.field">
-        <label :class="cls.fieldLabel">Évaluateur *</label>
-        <input v-model="evaluateModal.evaluatedByName" :class="cls.fieldInput" placeholder="Nom de l'évaluateur" />
-      </div>
-      <div v-if="evaluateModal.error" :class="cls.fieldError">{{ evaluateModal.error }}</div>
-      <template #footer>
-        <button :class="cls.btnPrimary" @click="confirmEvaluate"><ClipboardCheck class="w-4 h-4" /> Enregistrer l'évaluation</button>
-        <button :class="cls.btnOutline" @click="evaluateModal.open = false">Annuler</button>
-      </template>
-    </ModalShell>
-
-    <!-- Modale Prolonger -->
-    <ModalShell :open="extendModal.open" title="Prolonger la période d'essai" max-width="max-w-[420px]" @close="extendModal.open = false">
-      <div :class="cls.field">
-        <label :class="cls.fieldLabel">Nouvelle date de fin *</label>
-        <input type="date" v-model="extendModal.newEndDate" :class="cls.fieldInput" />
-      </div>
-      <div v-if="extendModal.error" :class="cls.fieldError">{{ extendModal.error }}</div>
-      <template #footer>
-        <button :class="cls.btnPrimary" @click="confirmExtend"><CalendarClock class="w-4 h-4" /> Prolonger</button>
-        <button :class="cls.btnOutline" @click="extendModal.open = false">Annuler</button>
-      </template>
-    </ModalShell>
+    <!-- Fiche (double-clic ou "Ouvrir la fiche") -->
+    <TrialEmployeeCard v-if="openCardId !== null" :items="filtered" :item-id="openCardId" @close="openCardId = null" />
   </ListPageLayout>
 </template>
 
@@ -149,42 +101,35 @@
 /**
  * Périodes d'essai (TrialEmployee), module Recrutement, design uniquement
  * (données fictives, voir src/stores/recruitment). Calquée sur
- * EmployeeListView.vue / InterviewsView.vue : ListPageLayout + boutons de
- * workflow repris à l'identique de MissionWorkflowActions.vue.
+ * EmployeeListView.vue / HiringRequestsView.vue : ListPageLayout + fiche
+ * plein écran (TrialEmployeeCard) + actions de workflow réutilisables
+ * (TrialEmployeeWorkflowActions), même pattern que le module Missions.
  */
-import { ref, reactive, computed, watch } from 'vue'
-import { Users, Clock, CalendarClock, UserCheck, ClipboardCheck, Ban } from 'lucide-vue-next'
+import { ref, computed, watch } from 'vue'
+import { Users, Clock, CalendarClock, UserCheck } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
-import ModalShell from '../../components/ui/ModalShell.vue'
-import * as cls from '../../lib/formClasses'
+import TrialEmployeeCard from '../../components/recruitment/TrialEmployeeCard.vue'
+import TrialEmployeeWorkflowActions from '../../components/recruitment/TrialEmployeeWorkflowActions.vue'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
-import { confirmDialog } from '../../lib/confirm'
 import { useTrialStore } from '../../stores/recruitment'
 import type { TrialEmployee } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
-import { useAuthStore } from '../../stores/auth'
 
 const trialStore = useTrialStore()
 const entityStore = useEntityStore()
-const auth = useAuthStore()
 if (entityStore.entities.length === 0) entityStore.fetchAll()
 
-/* ── Styles (KPI + boutons de workflow, repris à l'identique de
-   MissionWorkflowActions.vue) ─────────────────────────────────── */
+/* ── Styles KPI ─────────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
 
-const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
-const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'
-const infoCls    = btn + ' bg-info-bg text-info hover:brightness-95'
-const warningCls = btn + ' bg-warning-bg text-warning hover:brightness-95'
-const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
-
-const ACTIONABLE: TrialEmployee['status'][] = ['OnTrial', 'Extended']
+/* ── Fiche plein écran ──────────────────────────────────────── */
+const openCardId = ref<string | null>(null)
+function openCard(item: TrialEmployee) { openCardId.value = item.id }
 
 /* ── Colonnes ───────────────────────────────────────────────── */
 const columns: ListColumn[] = [
@@ -254,37 +199,4 @@ const pageItems = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filtered.value.slice(start, start + pageSize.value)
 })
-
-/* ── Actions de workflow ────────────────────────────────────── */
-async function convertTrial(item: TrialEmployee) {
-  if (await confirmDialog("Convertir cette période d'essai en CDI ?")) trialStore.convert(item.id)
-}
-async function cancelTrial(item: TrialEmployee) {
-  if (await confirmDialog("Annuler cette période d'essai ?")) trialStore.cancel(item.id)
-}
-
-const evaluateModal = reactive({ open: false, itemId: '', score: 5, comment: '', evaluatedByName: '', error: '' })
-function openEvaluate(item: TrialEmployee) {
-  Object.assign(evaluateModal, { open: true, itemId: item.id, score: 5, comment: '', evaluatedByName: auth.user?.name ?? '', error: '' })
-}
-function confirmEvaluate() {
-  if (evaluateModal.comment.trim().length === 0) { evaluateModal.error = 'Le commentaire est requis'; return }
-  if (!evaluateModal.evaluatedByName.trim()) { evaluateModal.error = "Le nom de l'évaluateur est requis"; return }
-  trialStore.evaluate(evaluateModal.itemId, {
-    score: evaluateModal.score,
-    comment: evaluateModal.comment.trim(),
-    evaluatedByName: evaluateModal.evaluatedByName.trim(),
-  })
-  evaluateModal.open = false
-}
-
-const extendModal = reactive({ open: false, itemId: '', newEndDate: '', error: '' })
-function openExtend(item: TrialEmployee) {
-  Object.assign(extendModal, { open: true, itemId: item.id, newEndDate: item.trialEndDate, error: '' })
-}
-function confirmExtend() {
-  if (!extendModal.newEndDate) { extendModal.error = 'La nouvelle date de fin est requise'; return }
-  trialStore.extend(extendModal.itemId, extendModal.newEndDate)
-  extendModal.open = false
-}
 </script>

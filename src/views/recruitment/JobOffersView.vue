@@ -17,6 +17,7 @@
     v-model:page="page"
     v-model:page-size="pageSize"
     @reset-filters="resetFilters"
+    @open-card="openCard"
   >
     <template #header-actions>
       <button :class="L.btnPrimary" @click="showCreate = true">
@@ -48,13 +49,7 @@
 
     <!-- Actions contextuelles (ligne sélectionnée) -->
     <template #row-actions="{ item }">
-      <button v-if="item.status === 'Draft'" :class="approveCls" @click="submitOffer(item)"><Send class="w-3.5 h-3.5" /> Soumettre</button>
-      <template v-if="item.status === 'PendingApproval'">
-        <button :class="approveCls" @click="approveOffer(item)"><Check class="w-3.5 h-3.5" /> Approuver</button>
-        <button :class="rejectCls" @click="openReject(item)"><X class="w-3.5 h-3.5" /> Refuser</button>
-      </template>
-      <button v-if="item.status === 'Approved'" :class="approveCls" @click="publishOffer(item)"><Rocket class="w-3.5 h-3.5" /> Publier</button>
-      <button v-if="item.status === 'Published'" :class="cancelCls" @click="closeOffer(item)"><Archive class="w-3.5 h-3.5" /> Clôturer</button>
+      <JobOfferWorkflowActions :item="item" />
     </template>
 
     <!-- Filtres -->
@@ -90,30 +85,17 @@
       <div class="flex flex-col gap-3.5">
         <div>
           <div class="text-sm font-semibold text-foreground truncate">{{ item.title }}</div>
-          <div class="text-[11px] text-muted-foreground truncate">{{ item.entityName }} · {{ item.location }}</div>
         </div>
         <div><StatusPill :status="item.status" /></div>
-        <div v-if="item.rejectionReason" :class="cls.fieldErrorBlock">{{ item.rejectionReason }}</div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
+          <div><div class="text-muted-foreground text-[11px]">Entité</div>{{ item.entityName }}</div>
           <div><div class="text-muted-foreground text-[11px]">Type de contrat</div>{{ item.contractType }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Publiée le</div>{{ formatDate(item.publishedAt) }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Vues</div>{{ item.views }}</div>
-          <div><div class="text-muted-foreground text-[11px]">Candidatures</div>{{ jobOfferStore.applicationsCount(item.id) }}</div>
+          <div><div class="text-muted-foreground text-[11px]">Lieu</div>{{ item.location }}</div>
         </div>
-        <div class="text-[12px]">
-          <div class="text-muted-foreground text-[11px]">Description</div>
-          <p class="text-foreground whitespace-pre-line">{{ item.description }}</p>
+        <div class="pt-2 border-t border-border">
+          <JobOfferWorkflowActions :item="item" />
         </div>
-        <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border">
-          <button v-if="item.status === 'Draft'" :class="approveCls" @click="submitOffer(item)"><Send class="w-3.5 h-3.5" /> Soumettre</button>
-          <template v-if="item.status === 'PendingApproval'">
-            <button :class="approveCls" @click="approveOffer(item)"><Check class="w-3.5 h-3.5" /> Approuver</button>
-            <button :class="rejectCls" @click="openReject(item)"><X class="w-3.5 h-3.5" /> Refuser</button>
-          </template>
-          <button v-if="item.status === 'Approved'" :class="approveCls" @click="publishOffer(item)"><Rocket class="w-3.5 h-3.5" /> Publier</button>
-          <button v-if="item.status === 'Published'" :class="cancelCls" @click="closeOffer(item)"><Archive class="w-3.5 h-3.5" /> Clôturer</button>
-          <span v-if="!['Draft', 'PendingApproval', 'Approved', 'Published'].includes(item.status)" class="text-xs text-muted-foreground italic">Aucune action disponible</span>
-        </div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
       </div>
     </template>
 
@@ -186,22 +168,14 @@
       </template>
     </CreateModalShell>
 
-    <!-- Modale Refuser -->
-    <ModalShell :open="rejectModal.open" title="Refuser l'offre" max-width="max-w-[420px]" @close="rejectModal.open = false">
-      <label :class="cls.fieldLabel">Motif du refus *</label>
-      <textarea v-model="rejectModal.reason" :class="cls.fieldTextarea" placeholder="Indiquez le motif du refus…" rows="4"></textarea>
-      <div v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</div>
-      <template #footer>
-        <button :class="cls.btnPrimary" @click="confirmReject">Confirmer le refus</button>
-        <button :class="cls.btnOutline" @click="rejectModal.open = false">Annuler</button>
-      </template>
-    </ModalShell>
+    <!-- Fiche complète -->
+    <JobOfferCard v-if="openCardId !== null" :items="filtered" :item-id="openCardId" @close="openCardId = null" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
 /**
- * Liste des offres d'emploi (JobOffer) — module Recrutement, design
+ * Liste des offres d'emploi (JobOffer), module Recrutement, design
  * uniquement (données fictives, voir src/stores/recruitment). Calquée sur
  * EmployeeListView.vue / MissionListView.vue : ListPageLayout + boutons de
  * workflow repris à l'identique de MissionWorkflowActions.vue. Pas de bouton
@@ -209,15 +183,14 @@
  * d'action cancel exposée par useJobOfferStore).
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { Plus, Send, Check, X, Rocket, Archive, Briefcase, Clock, Globe, Users } from 'lucide-vue-next'
+import { Plus, Briefcase, Clock, Globe, Users } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
-import ModalShell from '../../components/ui/ModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import JobOfferWorkflowActions from '../../components/recruitment/JobOfferWorkflowActions.vue'
+import JobOfferCard from '../../components/recruitment/JobOfferCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
-import { formatDate } from '../../lib/date'
-import { confirmDialog } from '../../lib/confirm'
 import { useJobOfferStore, useHiringRequestStore } from '../../stores/recruitment'
 import type { JobOffer } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
@@ -234,17 +207,11 @@ const CONTRACT_TYPES = [
   { value: 'Freelance', label: 'Freelance' },
 ]
 
-/* ── Styles (KPI + boutons de workflow, repris à l'identique de
-   MissionWorkflowActions.vue) ─────────────────────────────────── */
+/* ── Styles (KPI) ───────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
-
-const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
-const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'
-const rejectCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
-const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
 
 /* ── Colonnes ───────────────────────────────────────────────── */
 const columns: ListColumn[] = [
@@ -372,20 +339,8 @@ function saveDraft() {
   resetForm()
 }
 
-/* ── Actions de workflow ────────────────────────────────────── */
-function submitOffer(item: JobOffer) { jobOfferStore.submit(item.id) }
-function approveOffer(item: JobOffer) { jobOfferStore.approve(item.id) }
-function publishOffer(item: JobOffer) { jobOfferStore.publish(item.id) }
-
-async function closeOffer(item: JobOffer) {
-  if (await confirmDialog("Clôturer cette offre d'emploi ?")) jobOfferStore.close(item.id)
-}
-
-const rejectModal = reactive({ open: false, itemId: '', reason: '', error: '' })
-function openReject(item: JobOffer) { Object.assign(rejectModal, { open: true, itemId: item.id, reason: '', error: '' }) }
-function confirmReject() {
-  if (rejectModal.reason.trim().length === 0) { rejectModal.error = 'Le motif est requis'; return }
-  jobOfferStore.reject(rejectModal.itemId, rejectModal.reason.trim())
-  rejectModal.open = false
-}
+/* ── Fiche complète (double-clic sur une ligne ou bouton "Ouvrir la
+   fiche") ──────────────────────────────────────────────────── */
+const openCardId = ref<string | null>(null)
+function openCard(item: JobOffer) { openCardId.value = item.id }
 </script>

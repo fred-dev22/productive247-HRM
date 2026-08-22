@@ -32,6 +32,7 @@
       v-model:page="page"
       v-model:page-size="pageSize"
       @reset-filters="resetFilters"
+      @open-card="openCard"
     >
       <template #header-actions>
         <button :class="L.btnPrimary" @click="showCreate = true">
@@ -63,18 +64,7 @@
 
       <!-- Actions contextuelles (ligne sélectionnée) -->
       <template #row-actions="{ item }">
-        <button v-if="item.status === 'Draft'" :class="approveCls" @click="submitContract(item)"><Send class="w-3.5 h-3.5" /> Soumettre</button>
-        <template v-if="item.status === 'PendingApproval'">
-          <button :class="approveCls" @click="approveContract(item)"><Check class="w-3.5 h-3.5" /> Approuver</button>
-          <button :class="returnCls" @click="openReturn(item)"><Undo2 class="w-3.5 h-3.5" /> Retourner</button>
-          <button :class="rejectCls" @click="openReject(item)"><X class="w-3.5 h-3.5" /> Refuser</button>
-        </template>
-        <button v-if="item.status === 'Approved'" :class="infoCls" @click="sendContract(item)"><Mail class="w-3.5 h-3.5" /> Envoyer au candidat</button>
-        <template v-if="item.status === 'SentToCandidate'">
-          <button :class="approveCls" @click="acceptContract(item)"><CheckCircle2 class="w-3.5 h-3.5" /> Le candidat accepte</button>
-          <button :class="rejectCls" @click="refuseContract(item)"><XCircle class="w-3.5 h-3.5" /> Le candidat refuse</button>
-        </template>
-        <button v-if="CANCELLABLE.includes(item.status)" :class="cancelCls" @click="cancelContract(item)"><Ban class="w-3.5 h-3.5" /> Annuler</button>
+        <ContractWorkflowActions :item="item" />
       </template>
 
       <!-- Filtres -->
@@ -121,25 +111,10 @@
           </div>
 
           <div class="pt-2 border-t border-border">
-            <div class="text-[11px] text-muted-foreground mb-1">Aperçu du contrat</div>
-            <p class="text-[12px] text-foreground whitespace-pre-line bg-background border border-dashed border-border rounded-lg p-3">{{ contractPreview(item) }}</p>
+            <ContractWorkflowActions :item="item" />
           </div>
 
-          <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border">
-            <button v-if="item.status === 'Draft'" :class="approveCls" @click="submitContract(item)"><Send class="w-3.5 h-3.5" /> Soumettre</button>
-            <template v-if="item.status === 'PendingApproval'">
-              <button :class="approveCls" @click="approveContract(item)"><Check class="w-3.5 h-3.5" /> Approuver</button>
-              <button :class="returnCls" @click="openReturn(item)"><Undo2 class="w-3.5 h-3.5" /> Retourner</button>
-              <button :class="rejectCls" @click="openReject(item)"><X class="w-3.5 h-3.5" /> Refuser</button>
-            </template>
-            <button v-if="item.status === 'Approved'" :class="infoCls" @click="sendContract(item)"><Mail class="w-3.5 h-3.5" /> Envoyer au candidat</button>
-            <template v-if="item.status === 'SentToCandidate'">
-              <button :class="approveCls" @click="acceptContract(item)"><CheckCircle2 class="w-3.5 h-3.5" /> Le candidat accepte</button>
-              <button :class="rejectCls" @click="refuseContract(item)"><XCircle class="w-3.5 h-3.5" /> Le candidat refuse</button>
-            </template>
-            <button v-if="CANCELLABLE.includes(item.status)" :class="cancelCls" @click="cancelContract(item)"><Ban class="w-3.5 h-3.5" /> Annuler</button>
-            <span v-if="!CANCELLABLE.includes(item.status) && item.status !== 'SentToCandidate'" class="text-xs text-muted-foreground italic">Aucune action disponible</span>
-          </div>
+          <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
         </div>
       </template>
 
@@ -209,27 +184,7 @@
         </template>
       </CreateModalShell>
 
-      <!-- Modale Retourner -->
-      <ModalShell :open="returnModal.open" title="Retourner le contrat" max-width="max-w-[420px]" @close="returnModal.open = false">
-        <label :class="cls.fieldLabel">Commentaire *</label>
-        <textarea v-model="returnModal.comment" :class="cls.fieldTextarea" placeholder="Expliquez les corrections requises…" rows="4"></textarea>
-        <div v-if="returnModal.error" :class="cls.fieldError">{{ returnModal.error }}</div>
-        <template #footer>
-          <button :class="cls.btnPrimary" @click="confirmReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
-          <button :class="cls.btnOutline" @click="returnModal.open = false">Annuler</button>
-        </template>
-      </ModalShell>
-
-      <!-- Modale Refuser -->
-      <ModalShell :open="rejectModal.open" title="Refuser le contrat" max-width="max-w-[420px]" @close="rejectModal.open = false">
-        <label :class="cls.fieldLabel">Motif du refus *</label>
-        <textarea v-model="rejectModal.reason" :class="cls.fieldTextarea" placeholder="Indiquez le motif du refus…" rows="4"></textarea>
-        <div v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</div>
-        <template #footer>
-          <button :class="cls.btnPrimary" @click="confirmReject">Confirmer le refus</button>
-          <button :class="cls.btnOutline" @click="rejectModal.open = false">Annuler</button>
-        </template>
-      </ModalShell>
+      <ContractCard v-if="openCardId !== null" :items="filtered" :item-id="openCardId" @close="openCardId = null" />
     </ListPageLayout>
 
     <!-- ── Sous-vue Modèles de contrat ───────────────────────────── -->
@@ -292,22 +247,23 @@
  * module Recrutement, design uniquement (données fictives, voir
  * src/stores/recruitment). Deux sous-vues basculables par un onglet local
  * (une seule route). Sous-vue Contrats calquée sur EmployeeListView.vue /
- * HiringRequestsView.vue : ListPageLayout + boutons de workflow repris à
- * l'identique de MissionWorkflowActions.vue.
+ * MissionListView.vue : ListPageLayout + volet d'aperçu compact
+ * (ContractWorkflowActions) + fiche complète en plein écran (ContractCard),
+ * même pattern que le module Missions.
  */
 import { ref, reactive, computed, watch } from 'vue'
 import {
-  Plus, Send, Check, Undo2, X, Ban, Mail, CheckCircle2, XCircle,
-  FileSignature, FileText, Clock, Pencil,
+  Plus, Mail, CheckCircle2, FileSignature, FileText, Clock, Pencil, Check,
 } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import ModalShell from '../../components/ui/ModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import ContractWorkflowActions from '../../components/recruitment/ContractWorkflowActions.vue'
+import ContractCard from '../../components/recruitment/ContractCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
-import { confirmDialog } from '../../lib/confirm'
 import { useContractStore, useApplicationStore } from '../../stores/recruitment'
 import type { Contract, ContractTemplate } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
@@ -336,21 +292,11 @@ const tabBtn = 'px-3 py-1.5 rounded text-[13px] font-medium cursor-pointer inlin
 const tabBtnActive = tabBtn + ' bg-primary text-primary-foreground'
 const tabBtnInactive = tabBtn + ' bg-transparent text-muted-foreground hover:text-foreground'
 
-/* ── Styles (KPI + boutons de workflow, repris à l'identique de
-   MissionWorkflowActions.vue) ─────────────────────────────────── */
+/* ── Styles (KPI) ───────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
-
-const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
-const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'
-const returnCls  = btn + ' bg-info-bg text-info hover:brightness-95'
-const rejectCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
-const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
-const infoCls    = btn + ' bg-info-bg text-info hover:brightness-95'
-
-const CANCELLABLE: Contract['status'][] = ['Draft', 'PendingApproval', 'Approved', 'SentToCandidate']
 
 function formatSalary(n: number): string { return `${n.toLocaleString('fr-FR')} MGA` }
 
@@ -432,17 +378,9 @@ const pageItems = computed(() => {
   return filtered.value.slice(start, start + pageSize.value)
 })
 
-/* ── Aperçu du contenu du contrat (placeholders remplacés) ─────── */
-function contractPreview(item: Contract): string {
-  const tpl = contractStore.templates.find(t => t.id === item.templateId)
-  if (!tpl) return ''
-  return tpl.content
-    .replaceAll('{{nom_candidat}}', item.candidateName)
-    .replaceAll('{{poste}}', item.jobTitle)
-    .replaceAll('{{entite}}', item.entityName)
-    .replaceAll('{{date_debut}}', formatDate(item.startDate))
-    .replaceAll('{{salaire}}', item.salary.toLocaleString('fr-FR'))
-}
+/* ── Fiche complète (Card) ──────────────────────────────────── */
+const openCardId = ref<string | null>(null)
+function openCard(item: Contract) { openCardId.value = item.id }
 
 /* ── Génération d'un contrat ────────────────────────────────── */
 // Candidatures retenues n'ayant pas déjà de contrat généré.
@@ -499,37 +437,6 @@ function create() {
   contractStore.generate(buildPayload())
   showCreate.value = false
   resetForm()
-}
-
-/* ── Actions de workflow ────────────────────────────────────── */
-function submitContract(item: Contract) { contractStore.submit(item.id) }
-function approveContract(item: Contract) { contractStore.approve(item.id) }
-function sendContract(item: Contract) { contractStore.sendToCandidate(item.id) }
-
-async function acceptContract(item: Contract) {
-  if (await confirmDialog('Confirmer que le candidat accepte ce contrat ?')) contractStore.candidateAccept(item.id)
-}
-async function refuseContract(item: Contract) {
-  if (await confirmDialog('Confirmer que le candidat refuse ce contrat ?')) contractStore.candidateRefuse(item.id)
-}
-async function cancelContract(item: Contract) {
-  if (await confirmDialog('Annuler ce contrat ?')) contractStore.cancel(item.id)
-}
-
-const returnModal = reactive({ open: false, itemId: '', comment: '', error: '' })
-function openReturn(item: Contract) { Object.assign(returnModal, { open: true, itemId: item.id, comment: '', error: '' }) }
-function confirmReturn() {
-  if (returnModal.comment.trim().length === 0) { returnModal.error = 'Le commentaire est requis'; return }
-  contractStore.returnItem(returnModal.itemId, returnModal.comment.trim())
-  returnModal.open = false
-}
-
-const rejectModal = reactive({ open: false, itemId: '', reason: '', error: '' })
-function openReject(item: Contract) { Object.assign(rejectModal, { open: true, itemId: item.id, reason: '', error: '' }) }
-function confirmReject() {
-  if (rejectModal.reason.trim().length === 0) { rejectModal.error = 'Le motif est requis'; return }
-  contractStore.reject(rejectModal.itemId, rejectModal.reason.trim())
-  rejectModal.open = false
 }
 
 /* ── Modèles de contrat ─────────────────────────────────────── */

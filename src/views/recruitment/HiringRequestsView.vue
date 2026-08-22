@@ -17,6 +17,7 @@
     v-model:page="page"
     v-model:page-size="pageSize"
     @reset-filters="resetFilters"
+    @open-card="openCard"
   >
     <template #header-actions>
       <button :class="L.btnPrimary" @click="showCreate = true">
@@ -44,13 +45,7 @@
 
     <!-- Actions contextuelles (ligne sélectionnée) -->
     <template #row-actions="{ item }">
-      <button v-if="item.status === 'Draft'" :class="approveCls" @click="submitReq(item)"><Send class="w-3.5 h-3.5" /> Soumettre</button>
-      <template v-if="item.status === 'PendingApproval'">
-        <button :class="approveCls" @click="approveReq(item)"><Check class="w-3.5 h-3.5" /> Approuver</button>
-        <button :class="returnCls" @click="openReturn(item)"><Undo2 class="w-3.5 h-3.5" /> Retourner</button>
-        <button :class="rejectCls" @click="openReject(item)"><X class="w-3.5 h-3.5" /> Refuser</button>
-      </template>
-      <button v-if="CANCELLABLE.includes(item.status)" :class="cancelCls" @click="cancelReq(item)"><Ban class="w-3.5 h-3.5" /> Annuler</button>
+      <HiringRequestWorkflowActions :item="item" />
     </template>
 
     <!-- Filtres -->
@@ -85,22 +80,9 @@
         <div class="grid grid-cols-2 gap-2 text-[12px]">
           <div><div class="text-muted-foreground text-[11px]">Effectif</div>{{ item.headcount }}</div>
           <div><div class="text-muted-foreground text-[11px]">Date</div>{{ formatDate(item.requestedAt) }}</div>
-          <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Demandé par</div>{{ item.requestedByName }}</div>
         </div>
-        <div class="text-[12px]">
-          <div class="text-muted-foreground text-[11px]">Profil recherché</div>
-          <p class="text-foreground whitespace-pre-line">{{ item.profile }}</p>
-        </div>
-        <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border">
-          <button v-if="item.status === 'Draft'" :class="approveCls" @click="submitReq(item)"><Send class="w-3.5 h-3.5" /> Soumettre</button>
-          <template v-if="item.status === 'PendingApproval'">
-            <button :class="approveCls" @click="approveReq(item)"><Check class="w-3.5 h-3.5" /> Approuver</button>
-            <button :class="returnCls" @click="openReturn(item)"><Undo2 class="w-3.5 h-3.5" /> Retourner</button>
-            <button :class="rejectCls" @click="openReject(item)"><X class="w-3.5 h-3.5" /> Refuser</button>
-          </template>
-          <button v-if="CANCELLABLE.includes(item.status)" :class="cancelCls" @click="cancelReq(item)"><Ban class="w-3.5 h-3.5" /> Annuler</button>
-          <span v-if="item.status !== 'Draft' && item.status !== 'PendingApproval' && !CANCELLABLE.includes(item.status)" class="text-xs text-muted-foreground italic">Aucune action disponible</span>
-        </div>
+        <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
+        <HiringRequestWorkflowActions :item="item" />
       </div>
     </template>
 
@@ -164,46 +146,28 @@
       </template>
     </CreateModalShell>
 
-    <!-- Modale Retourner -->
-    <ModalShell :open="returnModal.open" title="Retourner la demande" max-width="max-w-[420px]" @close="returnModal.open = false">
-      <label :class="cls.fieldLabel">Commentaire *</label>
-      <textarea v-model="returnModal.comment" :class="cls.fieldTextarea" placeholder="Expliquez les corrections requises…" rows="4"></textarea>
-      <div v-if="returnModal.error" :class="cls.fieldError">{{ returnModal.error }}</div>
-      <template #footer>
-        <button :class="cls.btnPrimary" @click="confirmReturn"><Undo2 class="w-4 h-4" /> Retourner</button>
-        <button :class="cls.btnOutline" @click="returnModal.open = false">Annuler</button>
-      </template>
-    </ModalShell>
-
-    <!-- Modale Refuser -->
-    <ModalShell :open="rejectModal.open" title="Refuser la demande" max-width="max-w-[420px]" @close="rejectModal.open = false">
-      <label :class="cls.fieldLabel">Motif du refus *</label>
-      <textarea v-model="rejectModal.reason" :class="cls.fieldTextarea" placeholder="Indiquez le motif du refus…" rows="4"></textarea>
-      <div v-if="rejectModal.error" :class="cls.fieldError">{{ rejectModal.error }}</div>
-      <template #footer>
-        <button :class="cls.btnPrimary" @click="confirmReject">Confirmer le refus</button>
-        <button :class="cls.btnOutline" @click="rejectModal.open = false">Annuler</button>
-      </template>
-    </ModalShell>
+    <!-- Fiche (double-clic ou "Ouvrir la fiche") -->
+    <HiringRequestCard v-if="openCardId !== null" :requests="filtered" :request-id="openCardId" @close="openCardId = null" />
   </ListPageLayout>
 </template>
 
 <script setup lang="ts">
 /**
- * Liste des expressions de besoin (HiringRequest) — module Recrutement,
+ * Liste des expressions de besoin (HiringRequest), module Recrutement,
  * design uniquement (données fictives, voir src/stores/recruitment).
  * Calquée sur EmployeeListView.vue / MissionListView.vue : ListPageLayout +
- * boutons de workflow repris à l'identique de MissionWorkflowActions.vue.
+ * fiche plein écran (HiringRequestCard) + actions de workflow réutilisables
+ * (HiringRequestWorkflowActions), même pattern que le module Missions.
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { Plus, Send, Check, Undo2, X, Ban, Briefcase, Clock, CheckCircle2 } from 'lucide-vue-next'
+import { Plus, Briefcase, Clock, CheckCircle2 } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
-import ModalShell from '../../components/ui/ModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import HiringRequestCard from '../../components/recruitment/HiringRequestCard.vue'
+import HiringRequestWorkflowActions from '../../components/recruitment/HiringRequestWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
-import { confirmDialog } from '../../lib/confirm'
 import { formatDate } from '../../lib/date'
 import { useHiringRequestStore } from '../../stores/recruitment'
 import type { HiringRequest } from '../../stores/recruitment'
@@ -215,20 +179,15 @@ const entityStore = useEntityStore()
 const auth = useAuthStore()
 if (entityStore.entities.length === 0) entityStore.fetchAll()
 
-/* ── Styles (KPI + boutons de workflow, repris à l'identique de
-   MissionWorkflowActions.vue) ─────────────────────────────────── */
+/* ── Styles KPI ─────────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
 
-const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
-const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'
-const returnCls  = btn + ' bg-info-bg text-info hover:brightness-95'
-const rejectCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
-const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
-
-const CANCELLABLE: HiringRequest['status'][] = ['Draft', 'PendingApproval']
+/* ── Fiche plein écran ──────────────────────────────────────── */
+const openCardId = ref<string | null>(null)
+function openCard(item: HiringRequest) { openCardId.value = item.id }
 
 /* ── Colonnes ───────────────────────────────────────────────── */
 const columns: ListColumn[] = [
@@ -349,29 +308,5 @@ function saveDraft() {
   hiringRequestStore.create(buildPayload())
   showCreate.value = false
   resetForm()
-}
-
-/* ── Actions de workflow ────────────────────────────────────── */
-function submitReq(item: HiringRequest) { hiringRequestStore.submit(item.id) }
-function approveReq(item: HiringRequest) { hiringRequestStore.approve(item.id) }
-
-async function cancelReq(item: HiringRequest) {
-  if (await confirmDialog('Annuler cette expression de besoin ?')) hiringRequestStore.cancel(item.id)
-}
-
-const returnModal = reactive({ open: false, itemId: '', comment: '', error: '' })
-function openReturn(item: HiringRequest) { Object.assign(returnModal, { open: true, itemId: item.id, comment: '', error: '' }) }
-function confirmReturn() {
-  if (returnModal.comment.trim().length === 0) { returnModal.error = 'Le commentaire est requis'; return }
-  hiringRequestStore.returnItem(returnModal.itemId, returnModal.comment.trim())
-  returnModal.open = false
-}
-
-const rejectModal = reactive({ open: false, itemId: '', reason: '', error: '' })
-function openReject(item: HiringRequest) { Object.assign(rejectModal, { open: true, itemId: item.id, reason: '', error: '' }) }
-function confirmReject() {
-  if (rejectModal.reason.trim().length === 0) { rejectModal.error = 'Le motif est requis'; return }
-  hiringRequestStore.reject(rejectModal.itemId, rejectModal.reason.trim())
-  rejectModal.open = false
 }
 </script>
