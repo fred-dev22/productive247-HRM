@@ -29,6 +29,21 @@ const toast = useToastStore()
 
 const STEP_LABELS = ['Fichier', 'Aperçu', 'Import'] as const
 
+// Tableau d'apercu (etape 2) souvent plus large que l'ecran — sur un poste
+// de bureau avec souris classique (pas de pave tactile), rien ne permet de
+// deplacer la molette verticale en defilement horizontal, et la scrollbar
+// native peut etre quasi invisible selon les reglages Windows (retour
+// client). On convertit donc le scroll vertical en scroll horizontal quand
+// la souris est au-dessus du tableau ET qu'il deborde reellement, sans
+// toucher au scroll vertical normal de la page sinon.
+const previewTableRef = ref<HTMLElement | null>(null)
+function onPreviewWheel(e: WheelEvent) {
+  const el = previewTableRef.value
+  if (!el || el.scrollWidth <= el.clientWidth) return
+  e.preventDefault()
+  el.scrollLeft += e.deltaY
+}
+
 const step = ref<1 | 2 | 3>(1)
 const fileError = ref('')
 const fileName = ref('')
@@ -463,7 +478,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               </span>
             </div>
 
-            <div class="overflow-x-auto border border-border rounded-lg">
+            <div ref="previewTableRef" class="import-preview-scroll overflow-x-auto border border-border rounded-lg" @wheel="onPreviewWheel">
               <table class="w-full text-[12px] border-collapse">
                 <thead>
                   <tr class="bg-background">
@@ -582,3 +597,27 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+/* Scrollbar horizontale toujours visible et epaisse (retour client : sur
+   desktop + souris classique, la scrollbar native Windows est souvent trop
+   fine/masquee pour etre reperee ou attrapee a la souris). Le defilement
+   molette->horizontal (voir onPreviewWheel) reste le moyen principal, ceci
+   est la solution de repli visuelle. */
+.import-preview-scroll {
+  scrollbar-width: auto;
+}
+.import-preview-scroll::-webkit-scrollbar {
+  height: 12px;
+}
+.import-preview-scroll::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+.import-preview-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 6px;
+}
+.import-preview-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
+</style>
