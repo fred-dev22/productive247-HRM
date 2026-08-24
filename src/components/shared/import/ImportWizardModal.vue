@@ -91,8 +91,11 @@ function resolveDate(rawValue: string): string {
   if (!v || /^\d{4}-\d{2}-\d{2}$/.test(v)) return v
   const eu = v.match(/^(\d{1,2})[/\-\\](\d{1,2})[/\-\\](\d{4})$/)
   if (eu) {
+    // Non-null : les 3 groupes sont obligatoires dans le pattern (aucun `?`),
+    // leur presence est garantie des que le match reussit — RegExpMatchArray
+    // ne le sait juste pas statiquement.
     const [, d, m, y] = eu
-    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+    return `${y}-${m!.padStart(2, '0')}-${d!.padStart(2, '0')}`
   }
   return v
 }
