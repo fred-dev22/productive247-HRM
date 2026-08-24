@@ -143,7 +143,7 @@ export function buildEmployeeImportConfig(): ImportConfig {
       const categoryId = created.EmployeeCategoryId as string | undefined
       if (!categoryId) throw new Error('Compte non créé : catégorie manquante')
       if (!email) throw new Error('Compte non créé : email manquant')
-      await api.post('/users', {
+      const { data } = await api.post('/users', {
         Username: email,
         Email: email,
         Password: generatePassword(),
@@ -152,6 +152,14 @@ export function buildEmployeeImportConfig(): ImportConfig {
         IsActive: true,
         MustChangePassword: true,
       })
+      // Le compte est cree meme si l'email echoue (voir user.service.ts) —
+      // sur un import de masse, c'est le seul moyen pour l'employe de
+      // recevoir ses identifiants, donc un echec doit remonter comme
+      // avertissement plutot que de disparaitre silencieusement. Recuperation :
+      // reinitialiser le mot de passe de l'employe depuis sa fiche.
+      if (data?.EmailSent === false) {
+        throw new Error("Compte créé, mais l'email n'a pas pu être envoyé. Réinitialisez son mot de passe depuis sa fiche pour renvoyer ses identifiants.")
+      }
     },
   }
 }
