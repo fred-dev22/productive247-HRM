@@ -61,7 +61,10 @@ const blockingDependency = computed(() => props.config.dependencies.find(d => d.
 
 /* ── Étape 1 : recommandations + fichier ─────────────────────── */
 function downloadSample() {
-  const headers = props.config.columns.map(c => c.csvHeader)
+  // Inclut aussi les colonnes "extra" (ex: Créer un compte) — sans ça, un
+  // champ pourtant importable n'apparaissait jamais dans le fichier exemple,
+  // personne ne savait qu'il existait.
+  const headers = [...props.config.columns, ...(props.config.extraColumns ?? [])].map(c => c.csvHeader)
   const csv = Papa.unparse({ fields: headers, data: props.config.sampleRows.map(r => headers.map(h => r[h] ?? '')) })
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
