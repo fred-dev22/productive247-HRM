@@ -68,6 +68,14 @@ const router = createRouter({
     // terme, voir Lot K).
     { path: '/approval/:token', name: 'public-approval', component: PublicApprovalView },
 
+    // Portail carriere public (module Recrutement) — accessible sans compte,
+    // depuis un lien partage d'une offre publiee (voir JobOfferCard.vue).
+    // Masque tant que RECRUITMENT_MODULE_ENABLED est a false (garde plus
+    // bas, avant meme la verification requiresAuth puisque ces routes n'en
+    // ont pas).
+    { path: '/careers',     name: 'public-careers',       component: () => import('../views/recruitment/PublicCareersView.vue') },
+    { path: '/careers/:id', name: 'public-careers-offer', component: () => import('../views/recruitment/PublicJobApplicationView.vue') },
+
     // ── Dashboards ──────────────────────────────────────────────
     { path: '/hr',       name: 'hr-dashboard',       component: DashboardHR,       meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/employee', name: 'employee-dashboard', component: DashboardEmployee, meta: { requiresAuth: true, layout: 'dashboard' } },
@@ -270,6 +278,14 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const companySettings = useCompanySettingsStore()
+
+  // Portail carriere public : ni requiresAuth ni espace hr/employee, donc
+  // aucune des verifications ci-dessous (y compris RECRUITMENT_MODULE_ENABLED
+  // plus bas) ne s'appliquerait a un visiteur non connecte — verifie ici,
+  // avant tout le reste.
+  if ((to.name === 'public-careers' || to.name === 'public-careers-offer') && !RECRUITMENT_MODULE_ENABLED) {
+    return { path: '/' }
+  }
 
   // Non connecté → login — vide aussi les autres stores au passage : sans
   // ça, une session invalidée autrement qu'via logout() (ex: restoreSession

@@ -7,7 +7,7 @@
  * contrairement à MissionOrder (referenceCode) ou Employee (code).
  */
 import { ref, computed, watch } from 'vue'
-import { Eye, Users } from 'lucide-vue-next'
+import { Eye, Users, Link2, Check } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
@@ -51,6 +51,17 @@ function selectSidebar(no: string) {
 }
 
 const showStats = computed(() => current.value?.status === 'Published' || current.value?.status === 'Closed')
+
+// Lien du portail carriere public (voir router/index.ts, route
+// public-careers-offer) — n'a de sens que pour une offre reellement
+// publiee, une offre en brouillon/attente n'est pas visible sur cette page.
+const publicUrl = computed(() => current.value ? `${window.location.origin}/careers/${current.value.id}` : '')
+const copied = ref(false)
+async function copyPublicUrl() {
+  await navigator.clipboard.writeText(publicUrl.value)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
+}
 </script>
 
 <template>
@@ -105,6 +116,18 @@ const showStats = computed(() => current.value?.status === 'Published' || curren
             </div>
           </div>
           <div v-if="current.rejectionReason" :class="[cls.fieldErrorBlock, 'mt-3']">{{ current.rejectionReason }}</div>
+          <div v-if="current.status === 'Published'" :class="cls.field" class="mt-3">
+            <label :class="cls.fieldLabel">Lien public (portail carrière)</label>
+            <div class="flex items-center gap-2">
+              <div :class="readBox" class="flex-1 truncate font-mono text-xs">{{ publicUrl }}</div>
+              <button type="button" :class="cls.btnOutline" class="shrink-0" @click="copyPublicUrl">
+                <Check v-if="copied" class="w-3.5 h-3.5 text-success" />
+                <Link2 v-else class="w-3.5 h-3.5" />
+                {{ copied ? 'Copié' : 'Copier' }}
+              </button>
+            </div>
+            <p class="text-[11px] text-muted-foreground mt-1">N'importe qui avec ce lien peut voir l'offre et postuler, sans se connecter.</p>
+          </div>
         </FormSection>
 
         <!-- Section Description -->

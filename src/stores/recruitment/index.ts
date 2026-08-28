@@ -62,6 +62,15 @@ export const useApplicationStore = defineStore('recruitment-applications', {
     spontaneous: (state) => state.items.filter(a => a.source === 'Spontaneous'),
   },
   actions: {
+    // Depot public (portail carriere, sans connexion, voir
+    // PublicJobApplicationView.vue) — toujours source 'Offer' puisqu'on ne
+    // peut postuler que depuis une offre publiee.
+    apply(payload: { jobOfferId: string; jobOfferTitle: string; candidateName: string; candidateEmail: string; candidatePhone: string; cvFileName: string }) {
+      this.items.unshift({
+        ...payload, id: nextId('app'), source: 'Offer', status: 'New',
+        appliedAt: new Date().toISOString().slice(0, 10), notes: [],
+      })
+    },
     setStatus(id: string, status: ApplicationStatus) { const a = this.items.find(x => x.id === id); if (a) a.status = status },
     addNote(id: string, authorName: string, text: string) {
       const a = this.items.find(x => x.id === id)
