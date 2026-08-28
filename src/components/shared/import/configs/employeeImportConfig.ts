@@ -113,13 +113,18 @@ export function buildEmployeeImportConfig(): ImportConfig {
         Matricule: '', Prénom: 'Jean', Nom: 'Rakoto', Genre: 'Homme', 'Date de naissance': '1990-05-12', 'Situation matrimoniale': 'Célibataire',
         'Type de pièce': 'CIN', 'Numéro de pièce': '', Email: 'jean.rakoto@galana.com', 'Téléphone mobile': '',
         'Type de contrat': 'CDI', "Date d'embauche": '2024-01-15', 'Code entité': 'DG', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'non',
+        'Créer un compte': 'non',
       },
       {
         // Matricule rempli : montre qu'on peut reprendre une numerotation
-        // existante plutot que de laisser le systeme generer EMP00x.
+        // existante plutot que de laisser le systeme generer EMP00x. Compte
+        // coche : montre aux RH que ce champ existe et comment le remplir.
         Matricule: 'RH-2023-011', Prénom: 'Marie', Nom: 'Andria', Genre: 'Femme', 'Date de naissance': '1988-11-03', 'Situation matrimoniale': "Marié(e)",
         'Type de pièce': 'CIN', 'Numéro de pièce': '', Email: 'marie.andria@galana.com', 'Téléphone mobile': '',
-        'Type de contrat': 'CDI', "Date d'embauche": '2023-06-01', 'Code entité': 'DG', 'Code poste': '', 'Code catégorie': '', Statut: 'Actif', 'Expatrié': 'oui',
+        'Type de contrat': 'CDI', "Date d'embauche": '2023-06-01', 'Code entité': 'DG', 'Code poste': '', 'Code catégorie': 'EMPLOYE', Statut: 'Actif', 'Expatrié': 'oui',
+        // Categorie obligatoire des que "Créer un compte" est coche (voir
+        // rowValidation plus bas) — 'EMPLOYE' existe dans le seed par defaut.
+        'Créer un compte': 'oui',
       },
     ],
     // "Créer un compte" a besoin d'une catégorie (elle determine les
@@ -143,7 +148,7 @@ export function buildEmployeeImportConfig(): ImportConfig {
       const categoryId = created.EmployeeCategoryId as string | undefined
       if (!categoryId) throw new Error('Compte non créé : catégorie manquante')
       if (!email) throw new Error('Compte non créé : email manquant')
-      await api.post('/users', {
+      const { data } = await api.post('/users', {
         Username: email,
         Email: email,
         Password: generatePassword(),
@@ -152,6 +157,14 @@ export function buildEmployeeImportConfig(): ImportConfig {
         IsActive: true,
         MustChangePassword: true,
       })
+      // Le compte est cree meme si l'email echoue (voir user.service.ts) —
+      // sur un import de masse, c'est le seul moyen pour l'employe de
+      // recevoir ses identifiants, donc un echec doit remonter comme
+      // avertissement plutot que de disparaitre silencieusement. Recuperation :
+      // reinitialiser le mot de passe de l'employe depuis sa fiche.
+      if (data?.EmailSent === false) {
+        throw new Error("Compte créé, mais l'email n'a pas pu être envoyé. Réinitialisez son mot de passe depuis sa fiche pour renvoyer ses identifiants.")
+      }
     },
   }
 }
