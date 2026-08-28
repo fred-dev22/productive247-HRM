@@ -56,7 +56,7 @@ export const jobOffers = reactive<JobOffer[]>([
     id: 'offer-4', hiringRequestId: undefined, title: 'Stagiaire communication', entityName: 'Direction Générale',
     contractType: 'Stage', location: 'Antananarivo',
     description: 'Appui à l\'équipe communication sur les supports internes et les réseaux sociaux, stage de 6 mois.',
-    status: 'Draft', views: 0,
+    status: 'Published', publishedAt: '2026-08-15', views: 42,
   },
 ])
 
@@ -91,7 +91,9 @@ export const applications = reactive<Application[]>([
   {
     id: 'app-6', jobOfferId: 'offer-4', jobOfferTitle: 'Stagiaire communication',
     candidateName: 'Faniry Rasolofo', candidateEmail: 'faniry.rasolofo@gmail.com', candidatePhone: '032 65 432 10',
-    source: 'Internship', cvFileName: 'CV_Faniry_Rasolofo.pdf', status: 'New', appliedAt: '2026-08-16', notes: [],
+    // Candidature a une offre de stage = candidature "Offer" normale, pas de
+    // source separee (voir types.ts).
+    source: 'Offer', cvFileName: 'CV_Faniry_Rasolofo.pdf', status: 'New', appliedAt: '2026-08-16', notes: [],
   },
 ])
 

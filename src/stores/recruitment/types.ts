@@ -37,7 +37,10 @@ export interface JobOffer {
   rejectionReason?: string
 }
 
-export type ApplicationSource = 'Offer' | 'Spontaneous' | 'Internship'
+// Un stage est une offre d'emploi comme une autre (JobOffer.contractType =
+// 'Stage') : pas de source "Internship" separee, une candidature a une offre
+// de stage est une candidature "Offer" normale (decision du 25/08).
+export type ApplicationSource = 'Offer' | 'Spontaneous'
 export type ApplicationStatus = 'New' | 'InReview' | 'InterviewScheduled' | 'Retained' | 'Rejected'
 
 export interface ApplicationNote {

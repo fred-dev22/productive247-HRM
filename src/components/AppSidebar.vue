@@ -60,9 +60,8 @@
           <SidebarItem :icon="GitMerge"        :label="t('sidebar.pipeline')"     :to="{ name: 'hr-recruitment-pipeline' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.candidates')">
-          <SidebarItem :icon="BookUser"      :label="t('sidebar.cvtheque')"            :to="{ name: 'hr-recruitment-cv-library' }" />
-          <SidebarItem :icon="Inbox"         :label="t('sidebar.spontaneous_apps')"    :to="{ name: 'hr-recruitment-spontaneous' }" />
-          <SidebarItem :icon="GraduationCap" :label="t('sidebar.internship_requests')" :to="{ name: 'hr-recruitment-internships' }" />
+          <SidebarItem :icon="BookUser" :label="t('sidebar.cvtheque')"         :to="{ name: 'hr-recruitment-cv-library' }" />
+          <SidebarItem :icon="Inbox"    :label="t('sidebar.spontaneous_apps')" :to="{ name: 'hr-recruitment-spontaneous' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.hr_admin_section')">
           <SidebarItem :icon="FilePlus" :label="t('sidebar.needs')"                 :to="{ name: 'hr-recruitment-needs' }" />
@@ -181,7 +180,7 @@ import { useI18n }            from 'vue-i18n'
 import {
   LayoutDashboard, CalendarRange, CalendarOff, PieChart, Users, Building, Plane,
   Receipt, Network, CalendarDays, Coins, Briefcase, Calendar, GitMerge, BookUser,
-  Inbox, GraduationCap, FilePlus, FileText, Clock, Library, UserPlus, Flame,
+  Inbox, FilePlus, FileText, Clock, Library, UserPlus, Flame,
   Snowflake, Star, Landmark, ReceiptText, List, Clock3, Upload, AlarmClock, Table,
   TrendingUp, Gift, BarChart3, ArrowLeftRight, Percent, TrendingDown,
   FileSpreadsheet, Plug, ClipboardCheck, Tags, ChevronLeft, ChevronRight,

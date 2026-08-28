@@ -51,13 +51,15 @@ export const useJobOfferStore = defineStore('recruitment-job-offers', {
   },
 })
 
-// ── Candidatures (offre / spontanées / stages) ──────────────────
+// ── Candidatures (offre / spontanées) ────────────────────────────
+// Une offre de stage est une JobOffer comme une autre (contractType =
+// 'Stage') : ses candidatures sont des candidatures "Offer" normales,
+// visibles dans l'ecran Candidatures, pas dans un ecran a part.
 export const useApplicationStore = defineStore('recruitment-applications', {
   state: () => ({ items: applications }),
   getters: {
     fromOffers: (state) => state.items.filter(a => a.source === 'Offer'),
     spontaneous: (state) => state.items.filter(a => a.source === 'Spontaneous'),
-    internships: (state) => state.items.filter(a => a.source === 'Internship'),
   },
   actions: {
     setStatus(id: string, status: ApplicationStatus) { const a = this.items.find(x => x.id === id); if (a) a.status = status },

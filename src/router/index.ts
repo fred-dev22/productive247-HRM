@@ -193,7 +193,6 @@ const router = createRouter({
     { path: '/hr/recruitment/pipeline',     name: 'hr-recruitment-pipeline',     component: () => import('../views/recruitment/PipelineView.vue'),               meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/cv-library',   name: 'hr-recruitment-cv-library',   component: () => import('../views/recruitment/TalentPoolView.vue'),             meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/spontaneous',  name: 'hr-recruitment-spontaneous',  component: () => import('../views/recruitment/SpontaneousApplicationsView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
-    { path: '/hr/recruitment/internships',  name: 'hr-recruitment-internships',  component: () => import('../views/recruitment/InternshipRequestsView.vue'),     meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/needs',        name: 'hr-recruitment-needs',        component: () => import('../views/recruitment/HiringRequestsView.vue'),         meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/contracts',    name: 'hr-recruitment-contracts',    component: () => import('../views/recruitment/ContractsView.vue'),              meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/trial',        name: 'hr-recruitment-trial',        component: () => import('../views/recruitment/TrialPeriodsView.vue'),           meta: { requiresAuth: true, layout: 'dashboard' } },
