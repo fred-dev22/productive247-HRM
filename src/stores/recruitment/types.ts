@@ -73,11 +73,17 @@ export interface InterviewEvaluation {
 }
 
 export interface InterviewParticipant {
+  // Id du vrai compte employe (choisi via l'annuaire /employees/directory
+  // dans InterviewsView.vue) — evite les doublons et les fautes de frappe
+  // qu'un champ texte libre permettait.
+  employeeId?: string
   name: string
-  // Optionnel : renseigne par le recruteur (format "Nom <email>" dans le
-  // champ Participants) pour que ce participant soit ajoute comme invite
-  // sur les boutons "Ajouter a mon calendrier" (voir calendarLinks.ts). Sans
-  // email on ne peut pas l'inviter automatiquement, il reste juste affiche.
+  // L'annuaire leger (/employees/directory) n'expose pas l'email — champ
+  // volontairement minimal, accessible sans permission elevee (voir
+  // employees.ts). Ce champ reste donc vide tant qu'on le remplit depuis ce
+  // picker ; conserve pour que "Ajouter a mon calendrier" (calendarLinks.ts)
+  // invite ce participant des que l'email sera disponible (endpoint enrichi,
+  // ou vrai backend Recrutement).
   email?: string
 }
 

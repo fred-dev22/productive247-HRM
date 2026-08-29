@@ -147,11 +147,28 @@
                 </div>
                 <div :class="cls.field" class="col-span-2">
                   <label :class="cls.fieldLabel">Participants <span class="text-danger">*</span></label>
-                  <input v-model="form.participantsText" :class="cls.fieldInput" placeholder="ex : Christiane Tchako <christiane.tchako@galana.com>, Hery Rasoanaivo…" />
-                  <p class="text-[11px] text-muted-foreground mt-1">
-                    Séparez les noms par des virgules. Ajoutez l'email entre chevrons (<code class="font-mono">Nom &lt;email&gt;</code>)
-                    pour que ce participant soit automatiquement invité au calendrier, en plus du candidat.
-                  </p>
+                  <TableLookupField
+                    :code="participantPickerCode" :name="participantPickerName"
+                    :columns="employeeLookupColumns"
+                    :fetch-fn="fetchEmployeesForPicker"
+                    value-key="id" name-key="label"
+                    modal-title="Ajouter un participant"
+                    placeholder="Rechercher un employé (code, nom, entité)…"
+                    :is-item-disabled="(item) => item.status && item.status !== 'active'"
+                    :item-disabled-reason="() => 'compte désactivé'"
+                    @update:code="participantPickerCode = $event"
+                    @update:name="participantPickerName = $event"
+                    @select="onAddParticipant"
+                  />
+                  <div v-if="form.participants.length" class="flex flex-col gap-1.5 mt-2">
+                    <div v-for="(p, idx) in form.participants" :key="p.employeeId" class="flex items-center gap-2 bg-background border border-border rounded-md px-2.5 h-[34px]">
+                      <span class="text-[13px] text-foreground flex-1 truncate">{{ p.name }}</span>
+                      <button type="button" class="text-muted-foreground hover:text-danger cursor-pointer" title="Retirer" @click="form.participants.splice(idx, 1)">
+                        <X class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <p class="text-[11px] text-muted-foreground mt-1">Recherchez et ajoutez un ou plusieurs employés déjà enregistrés dans le système.</p>
                 </div>
               </div>
             </FormSection>
@@ -175,10 +192,12 @@
  * fiche complète dans InterviewCard.vue.
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { Plus, CalendarClock, Clock, CheckCircle2, CalendarDays, MapPin, Video } from 'lucide-vue-next'
+import { Plus, CalendarClock, Clock, CheckCircle2, CalendarDays, MapPin, Video, X } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import TableLookupField from '../../components/ui/table-lookup/TableLookupField.vue'
+import type { LookupColumn, LookupFetchParams } from '../../components/ui/table-lookup/TableLookupField.vue'
 import InterviewWorkflowActions from '../../components/recruitment/InterviewWorkflowActions.vue'
 import InterviewCard from '../../components/recruitment/InterviewCard.vue'
 import * as cls from '../../lib/formClasses'
@@ -186,9 +205,15 @@ import * as L from '../../lib/listClasses'
 import { todayIso } from '../../lib/date'
 import { useInterviewStore, useApplicationStore } from '../../stores/recruitment'
 import type { Interview, InterviewMode, InterviewParticipant } from '../../stores/recruitment'
+import { useEmployeeStore } from '../../stores/employees'
 
 const interviewStore = useInterviewStore()
 const applicationStore = useApplicationStore()
+const employeeStore = useEmployeeStore()
+// Annuaire léger, deja utilise pour ce genre de picker ailleurs dans l'appli
+// (MissionCreate.vue, AbsenceCreate.vue…) : accessible sans permission
+// elevee, mais n'expose pas l'email (voir InterviewParticipant.email).
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
 /* ── Styles (KPI) ───────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
@@ -280,14 +305,50 @@ const pageItems = computed(() => {
 /* ── Création ───────────────────────────────────────────────── */
 const eligibleApplications = computed(() => applicationStore.items.filter(a => a.status === 'New' || a.status === 'InReview'))
 
+/* ── Picker de participants (annuaire employés réel, voir plus haut) ──── */
+const employeeLookupColumns: LookupColumn[] = [
+  { key: 'code', label: 'Code', width: '90px' },
+  { key: 'label', label: 'Nom' },
+  { key: 'sublabel', label: 'Entité' },
+]
+function fetchEmployeesForPicker(params: LookupFetchParams) {
+  const q = (params.searchQuery ?? '').toLowerCase()
+  let rows = employeeStore.directory.map(e => ({ id: e.id, code: e.code, label: e.name, sublabel: e.entityName, status: e.status }))
+  if (q) {
+    rows = rows.filter(e =>
+      e.label.toLowerCase().includes(q) || (e.sublabel ?? '').toLowerCase().includes(q) || (e.code ?? '').toLowerCase().includes(q),
+    )
+  }
+  const total = rows.length
+  const start = (params.page - 1) * params.pageSize
+  return { items: rows.slice(start, start + params.pageSize), total }
+}
+// Champ contrôlé du picker : remis à vide après chaque ajout (voir
+// onAddParticipant) pour que "Ajouter un participant" reste utilisable en
+// boucle, contrairement à un TableLookupField classique à sélection unique.
+const participantPickerCode = ref('')
+const participantPickerName = ref('')
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onAddParticipant(item: any) {
+  const employeeId = String(item.id)
+  if (!form.participants.some(p => p.employeeId === employeeId)) {
+    form.participants.push({ employeeId, name: String(item.label) })
+  }
+  participantPickerCode.value = ''
+  participantPickerName.value = ''
+}
+
 const showCreate = ref(false)
 const error = ref<string | null>(null)
 const form = reactive({
-  applicationId: '', scheduledAt: '', mode: 'InPerson' as InterviewMode, location: '', meetingLink: '', participantsText: '',
+  applicationId: '', scheduledAt: '', mode: 'InPerson' as InterviewMode, location: '', meetingLink: '',
+  participants: [] as InterviewParticipant[],
 })
 
 function resetForm() {
-  Object.assign(form, { applicationId: '', scheduledAt: '', mode: 'InPerson', location: '', meetingLink: '', participantsText: '' })
+  Object.assign(form, { applicationId: '', scheduledAt: '', mode: 'InPerson', location: '', meetingLink: '', participants: [] })
+  participantPickerCode.value = ''
+  participantPickerName.value = ''
   error.value = null
 }
 
@@ -296,18 +357,9 @@ function validate(): boolean {
   if (!form.scheduledAt) { error.value = 'La date et l\'heure sont requises'; return false }
   if (form.mode === 'InPerson' && !form.location.trim()) { error.value = 'Le lieu est requis'; return false }
   if (form.mode === 'VideoCall' && !form.meetingLink.trim()) { error.value = 'Le lien de la réunion est requis'; return false }
-  if (!form.participantsText.trim()) { error.value = 'Au moins un participant est requis'; return false }
+  if (!form.participants.length) { error.value = 'Au moins un participant est requis'; return false }
   error.value = null
   return true
-}
-
-// Accepte "Nom" ou "Nom <email>" par entrée (séparées par des virgules), sur
-// le modèle du champ "À" d'un client mail — voir InterviewParticipant.
-function parseParticipants(text: string): InterviewParticipant[] {
-  return text.split(',').map(raw => raw.trim()).filter(Boolean).map(entry => {
-    const m = /^(.+?)\s*<([^<>]+)>$/.exec(entry)
-    return m ? { name: m[1]!.trim(), email: m[2]!.trim() } : { name: entry }
-  })
 }
 
 function buildPayload() {
@@ -321,7 +373,7 @@ function buildPayload() {
     mode: form.mode,
     location: form.mode === 'InPerson' ? form.location.trim() : undefined,
     meetingLink: form.mode === 'VideoCall' ? form.meetingLink.trim() : undefined,
-    participants: parseParticipants(form.participantsText),
+    participants: form.participants,
   }
 }
 
