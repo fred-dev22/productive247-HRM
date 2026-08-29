@@ -57,12 +57,16 @@ function formatDateTime(iso: string): string {
 // Ajout au calendrier — voir lib/calendarLinks.ts : aucun backend ni OAuth
 // necessaire, Google/Outlook exposent une URL publique "ajouter un
 // evenement", et le .ics s'ouvre dans n'importe quelle appli de calendrier.
+// Le candidat est toujours invite (son email est connu). Les participants
+// ne le sont que s'ils ont un email renseigne au moment de la planification.
 function calendarEvent(i: Interview) {
+  const attendees = [i.candidateEmail, ...i.participants.map(p => p.email)].filter((e): e is string => !!e)
   return {
     title: `Entretien · ${i.candidateName} (${i.jobOfferTitle})`,
-    description: `Entretien de recrutement pour le poste de ${i.jobOfferTitle}.\nParticipants : ${i.participants.join(', ')}${i.mode === 'VideoCall' ? `\nLien : ${i.meetingLink}` : ''}`,
+    description: `Entretien de recrutement pour le poste de ${i.jobOfferTitle}.\nParticipants : ${i.participants.map(p => p.name).join(', ')}${i.mode === 'VideoCall' ? `\nLien : ${i.meetingLink}` : ''}`,
     location: i.mode === 'VideoCall' ? i.meetingLink : i.location,
     startIso: i.scheduledAt,
+    attendees,
   }
 }
 function addToGoogle() { if (current.value) window.open(googleCalendarUrl(calendarEvent(current.value)), '_blank', 'noopener') }
@@ -125,13 +129,20 @@ function downloadIcsFile() { if (current.value) downloadIcs(calendarEvent(curren
             </div>
             <div :class="cls.field" class="col-span-2">
               <label :class="cls.fieldLabel">Participants</label>
-              <div :class="[readBox, 'h-auto min-h-[38px] py-2']">{{ current.participants.join(', ') }}</div>
+              <div :class="[readBox, 'h-auto min-h-[38px] py-2 flex-wrap gap-x-1.5']">
+                <span v-for="(p, idx) in current.participants" :key="p.name">
+                  {{ p.name }}<span v-if="!p.email" class="text-muted-foreground/70" title="Pas d'email renseigné : ne sera pas invité automatiquement au calendrier"> (sans email)</span><span v-if="idx < current.participants.length - 1">, </span>
+                </span>
+              </div>
             </div>
           </div>
 
           <div class="mt-4 pt-4 border-t border-border">
             <p class="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.05em] mb-2 flex items-center gap-1.5">
               <CalendarPlus class="w-3.5 h-3.5" /> Ajouter à mon calendrier
+            </p>
+            <p class="text-[11px] text-muted-foreground mb-2">
+              Invite automatiquement {{ current.candidateName }}{{ current.participants.filter(p => p.email).length ? ` et ${current.participants.filter(p => p.email).length} participant(s)` : '' }} dès l'enregistrement de l'événement.
             </p>
             <div class="flex items-center gap-2 flex-wrap">
               <button type="button" :class="cls.btnOutline" @click="addToGoogle">Google Calendar</button>

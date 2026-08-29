@@ -72,10 +72,22 @@ export interface InterviewEvaluation {
   interviewerName: string
 }
 
+export interface InterviewParticipant {
+  name: string
+  // Optionnel : renseigne par le recruteur (format "Nom <email>" dans le
+  // champ Participants) pour que ce participant soit ajoute comme invite
+  // sur les boutons "Ajouter a mon calendrier" (voir calendarLinks.ts). Sans
+  // email on ne peut pas l'inviter automatiquement, il reste juste affiche.
+  email?: string
+}
+
 export interface Interview {
   id: string
   applicationId: string
   candidateName: string
+  // Toujours connu (recopie d'Application.candidateEmail a la creation) :
+  // le candidat est systematiquement invite au calendrier de son entretien.
+  candidateEmail: string
   jobOfferTitle: string
   scheduledAt: string
   mode: InterviewMode
@@ -83,7 +95,7 @@ export interface Interview {
   // location pour un entretien en presentiel, meetingLink pour une visio.
   location?: string
   meetingLink?: string
-  participants: string[]
+  participants: InterviewParticipant[]
   status: InterviewStatus
   evaluation?: InterviewEvaluation
 }

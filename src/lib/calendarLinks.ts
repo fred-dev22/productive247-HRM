@@ -13,6 +13,16 @@ export interface CalendarEventInput {
   location?: string
   /** Date/heure de debut, format local naif 'YYYY-MM-DDTHH:mm:ss' (comme Interview.scheduledAt) */
   startIso: string
+  /**
+   * Emails a inviter (candidat + participants qui en ont renseigne un).
+   * Google/Outlook pre-remplissent alors la liste d'invites : un seul clic
+   * sur "Enregistrer" dans leur propre interface envoie ensuite de vraies
+   * invitations, avec le compte du recruteur comme organisateur — aucun
+   * OAuth ni backend requis pour ca. Un envoi entierement silencieux (sans
+   * ce clic) demanderait l'API Google Calendar / Microsoft Graph avec une
+   * appli OAuth enregistree sur le tenant Galana, hors de portee ici.
+   */
+  attendees?: string[]
 }
 
 // Duree non suivie sur Interview (pas de champ dedie) — 1h par defaut,
@@ -45,6 +55,8 @@ export function googleCalendarUrl(e: CalendarEventInput): string {
     details: e.description ?? '',
     location: e.location ?? '',
   })
+  // "add" pre-remplit les invites de l'evenement Google (voir CalendarEventInput.attendees).
+  if (e.attendees?.length) params.set('add', e.attendees.join(','))
   return `https://calendar.google.com/calendar/render?${params.toString()}`
 }
 
@@ -59,6 +71,8 @@ export function outlookCalendarUrl(e: CalendarEventInput): string {
     body: e.description ?? '',
     location: e.location ?? '',
   })
+  // "to" pre-remplit les destinataires de l'evenement Outlook (voir CalendarEventInput.attendees).
+  if (e.attendees?.length) params.set('to', e.attendees.join(','))
   return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`
 }
 
@@ -80,6 +94,11 @@ function icsContent(e: CalendarEventInput): string {
     `SUMMARY:${icsEscape(e.title)}`,
     e.description ? `DESCRIPTION:${icsEscape(e.description)}` : '',
     e.location ? `LOCATION:${icsEscape(e.location)}` : '',
+    // Selon l'appli de calendrier qui ouvre le fichier, ces lignes se
+    // traduisent par un vrai envoi d'invitation ou juste un affichage
+    // informatif des invites — contrairement aux liens Google/Outlook
+    // ci-dessus qui garantissent l'envoi via un vrai compte connecte.
+    ...(e.attendees ?? []).map(email => `ATTENDEE;RSVP=TRUE:mailto:${email}`),
     'END:VEVENT',
     'END:VCALENDAR',
   ].filter(Boolean)

@@ -99,13 +99,17 @@ export const applications = reactive<Application[]>([
 
 export const interviews = reactive<Interview[]>([
   {
-    id: 'itw-1', applicationId: 'app-1', candidateName: 'Fara Ratsimbazafy', jobOfferTitle: 'Comptable',
+    id: 'itw-1', applicationId: 'app-1', candidateName: 'Fara Ratsimbazafy', candidateEmail: 'fara.ratsimbazafy@gmail.com', jobOfferTitle: 'Comptable',
     scheduledAt: '2026-08-25T10:00:00', mode: 'VideoCall', meetingLink: 'https://meet.google.com/abc-defg-hij',
-    participants: ['Christiane Tchako', 'Hery Rasoanaivo'], status: 'Scheduled',
+    // Un participant avec email (invite automatiquement au calendrier) et un
+    // sans (juste affiche) : illustre les deux cas geres par le formulaire.
+    participants: [{ name: 'Christiane Tchako', email: 'christiane.tchako@galana.com' }, { name: 'Hery Rasoanaivo' }],
+    status: 'Scheduled',
   },
   {
-    id: 'itw-2', applicationId: 'app-3', candidateName: 'Lova Rakotomalala', jobOfferTitle: 'Chauffeur poids lourd',
-    scheduledAt: '2026-08-05T09:00:00', mode: 'InPerson', location: 'Site Toamasina', participants: ['Nirina Andriamampionona'],
+    id: 'itw-2', applicationId: 'app-3', candidateName: 'Lova Rakotomalala', candidateEmail: 'lova.rakoto@gmail.com', jobOfferTitle: 'Chauffeur poids lourd',
+    scheduledAt: '2026-08-05T09:00:00', mode: 'InPerson', location: 'Site Toamasina',
+    participants: [{ name: 'Nirina Andriamampionona', email: 'nirina.andriamampionona@galana.com' }],
     status: 'Done', evaluation: { score: 4, comment: 'Très bonne connaissance des consignes de sécurité, disponible immédiatement.', interviewerName: 'Nirina Andriamampionona' },
   },
 ])

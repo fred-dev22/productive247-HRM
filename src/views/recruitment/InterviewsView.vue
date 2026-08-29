@@ -64,7 +64,7 @@
         <MapPin class="w-3.5 h-3.5 shrink-0" /> {{ item.location }}
       </span>
     </template>
-    <template #cell-participants="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.participants.join(', ') }}</span></template>
+    <template #cell-participants="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.participants.map(p => p.name).join(', ') }}</span></template>
     <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
     <!-- Aperçu rapide -->
@@ -147,8 +147,11 @@
                 </div>
                 <div :class="cls.field" class="col-span-2">
                   <label :class="cls.fieldLabel">Participants <span class="text-danger">*</span></label>
-                  <input v-model="form.participantsText" :class="cls.fieldInput" placeholder="ex : Christiane Tchako, Hery Rasoanaivo…" />
-                  <p class="text-[11px] text-muted-foreground mt-1">Séparez les noms par des virgules.</p>
+                  <input v-model="form.participantsText" :class="cls.fieldInput" placeholder="ex : Christiane Tchako <christiane.tchako@galana.com>, Hery Rasoanaivo…" />
+                  <p class="text-[11px] text-muted-foreground mt-1">
+                    Séparez les noms par des virgules. Ajoutez l'email entre chevrons (<code class="font-mono">Nom &lt;email&gt;</code>)
+                    pour que ce participant soit automatiquement invité au calendrier, en plus du candidat.
+                  </p>
                 </div>
               </div>
             </FormSection>
@@ -182,7 +185,7 @@ import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { todayIso } from '../../lib/date'
 import { useInterviewStore, useApplicationStore } from '../../stores/recruitment'
-import type { Interview, InterviewMode } from '../../stores/recruitment'
+import type { Interview, InterviewMode, InterviewParticipant } from '../../stores/recruitment'
 
 const interviewStore = useInterviewStore()
 const applicationStore = useApplicationStore()
@@ -298,17 +301,27 @@ function validate(): boolean {
   return true
 }
 
+// Accepte "Nom" ou "Nom <email>" par entrée (séparées par des virgules), sur
+// le modèle du champ "À" d'un client mail — voir InterviewParticipant.
+function parseParticipants(text: string): InterviewParticipant[] {
+  return text.split(',').map(raw => raw.trim()).filter(Boolean).map(entry => {
+    const m = /^(.+?)\s*<([^<>]+)>$/.exec(entry)
+    return m ? { name: m[1]!.trim(), email: m[2]!.trim() } : { name: entry }
+  })
+}
+
 function buildPayload() {
   const app = applicationStore.items.find(a => a.id === form.applicationId)
   return {
     applicationId: form.applicationId,
     candidateName: app?.candidateName ?? '',
+    candidateEmail: app?.candidateEmail ?? '',
     jobOfferTitle: app?.jobOfferTitle ?? 'Candidature spontanée',
     scheduledAt: form.scheduledAt,
     mode: form.mode,
     location: form.mode === 'InPerson' ? form.location.trim() : undefined,
     meetingLink: form.mode === 'VideoCall' ? form.meetingLink.trim() : undefined,
-    participants: form.participantsText.split(',').map(p => p.trim()).filter(Boolean),
+    participants: parseParticipants(form.participantsText),
   }
 }
 
