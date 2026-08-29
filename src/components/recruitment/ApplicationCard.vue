@@ -84,6 +84,7 @@ function addNote() {
   >
     <template #title-badges>
       <StatusPill :status="current.status" />
+      <span v-if="current.source === 'Internal'" class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-info-bg text-info">Candidature interne</span>
     </template>
 
     <!-- Barre d'actions -->
@@ -94,7 +95,7 @@ function addNote() {
     <template #form>
       <div class="px-6 py-5 max-w-4xl">
         <!-- Section Candidat -->
-        <FormSection title="Candidat" :recaps="[current.candidateName, current.candidateEmail]">
+        <FormSection title="Candidat" :recaps="[current.candidateName, current.candidateEmail || 'Interne']">
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Nom</label>
@@ -102,11 +103,11 @@ function addNote() {
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Email</label>
-              <div :class="readBox">{{ current.candidateEmail }}</div>
+              <div :class="readBox">{{ current.candidateEmail || 'Candidature interne, sans email' }}</div>
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Téléphone</label>
-              <div :class="readBox">{{ current.candidatePhone }}</div>
+              <div :class="readBox">{{ current.candidatePhone || '—' }}</div>
             </div>
           </div>
         </FormSection>
@@ -121,7 +122,8 @@ function addNote() {
             <div :class="cls.field">
               <label :class="cls.fieldLabel">CV</label>
               <div :class="readBox">
-                <span class="inline-flex items-center gap-1.5 truncate"><FileText class="w-3.5 h-3.5 shrink-0" />{{ current.cvFileName }}</span>
+                <span v-if="current.cvFileName" class="inline-flex items-center gap-1.5 truncate"><FileText class="w-3.5 h-3.5 shrink-0" />{{ current.cvFileName }}</span>
+                <span v-else class="text-muted-foreground">Dossier employé existant</span>
               </div>
             </div>
             <div :class="cls.field">

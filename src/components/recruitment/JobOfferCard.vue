@@ -7,15 +7,18 @@
  * contrairement à MissionOrder (referenceCode) ou Employee (code).
  */
 import { ref, computed, watch } from 'vue'
-import { Eye, Users, Link2, Check, Coins } from 'lucide-vue-next'
+import { Eye, Users, Link2, Check, Coins, UserPlus2 } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
+import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
+import type { LookupColumn, LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import JobOfferWorkflowActions from './JobOfferWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
-import { useJobOfferStore } from '../../stores/recruitment'
+import { useJobOfferStore, useApplicationStore } from '../../stores/recruitment'
 import type { JobOffer } from '../../stores/recruitment'
+import { useEmployeeStore } from '../../stores/employees'
 
 const props = defineProps<{
   /** Offres de la liste courante (déjà filtrée par la vue), pour la navigation N° */
@@ -27,6 +30,9 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const jobOfferStore = useJobOfferStore()
+const applicationStore = useApplicationStore()
+const employeeStore = useEmployeeStore()
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
 
@@ -51,6 +57,48 @@ function selectSidebar(no: string) {
 }
 
 const showStats = computed(() => current.value?.status === 'Published' || current.value?.status === 'Closed')
+
+/* ── Candidature interne (mobilité) ────────────────────────────────
+   Voir liste-besoins.md / doc2 ligne 742 ("Ajouter à la candidature" depuis
+   la fiche d'un salarié) — même annuaire employé que les participants
+   d'entretien (InterviewsView.vue), pas d'accès à EmployeeCard.vue (module
+   Administration, on n'y touche pas depuis cette branche). */
+const internalApplications = computed(() =>
+  current.value ? applicationStore.items.filter(a => a.jobOfferId === current.value!.id && a.source === 'Internal') : [],
+)
+const employeeLookupColumns: LookupColumn[] = [
+  { key: 'code', label: 'Code', width: '90px' },
+  { key: 'label', label: 'Nom' },
+  { key: 'sublabel', label: 'Entité' },
+]
+function fetchEmployeesForPicker(params: LookupFetchParams) {
+  const q = (params.searchQuery ?? '').toLowerCase()
+  let rows = employeeStore.directory.map(e => ({ id: e.id, code: e.code, label: e.name, sublabel: e.entityName, status: e.status }))
+  if (q) {
+    rows = rows.filter(e =>
+      e.label.toLowerCase().includes(q) || (e.sublabel ?? '').toLowerCase().includes(q) || (e.code ?? '').toLowerCase().includes(q),
+    )
+  }
+  const total = rows.length
+  const start = (params.page - 1) * params.pageSize
+  return { items: rows.slice(start, start + params.pageSize), total }
+}
+const internalPickerCode = ref('')
+const internalPickerName = ref('')
+const internalPickerError = ref('')
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onAddInternalCandidate(item: any) {
+  if (!current.value) return
+  const employeeId = String(item.id)
+  if (internalApplications.value.some(a => a.employeeId === employeeId)) {
+    internalPickerError.value = 'Cet employé a déjà une candidature interne sur cette offre.'
+  } else {
+    applicationStore.applyInternal({ jobOfferId: current.value.id, jobOfferTitle: current.value.title, employeeId, candidateName: String(item.label) })
+    internalPickerError.value = ''
+  }
+  internalPickerCode.value = ''
+  internalPickerName.value = ''
+}
 
 // Lien du portail carriere public (voir router/index.ts, route
 // public-careers-offer) — n'a de sens que pour une offre reellement
@@ -135,6 +183,34 @@ async function copyPublicUrl() {
         <!-- Section Description -->
         <FormSection title="Description">
           <p class="text-[13px] text-foreground whitespace-pre-line">{{ current.description }}</p>
+        </FormSection>
+
+        <!-- Section Candidature interne (mobilité) -->
+        <FormSection v-if="current.status === 'Published'" title="Candidature interne" :recaps="[`${internalApplications.length} candidature(s)`]">
+          <label :class="cls.fieldLabel">Ajouter un employé comme candidat interne</label>
+          <TableLookupField
+            :code="internalPickerCode" :name="internalPickerName"
+            :columns="employeeLookupColumns"
+            :fetch-fn="fetchEmployeesForPicker"
+            value-key="id" name-key="label"
+            modal-title="Ajouter un candidat interne"
+            placeholder="Rechercher un employé (code, nom, entité)…"
+            :is-item-disabled="(item) => item.status && item.status !== 'active'"
+            :item-disabled-reason="() => 'compte désactivé'"
+            @update:code="internalPickerCode = $event"
+            @update:name="internalPickerName = $event"
+            @select="onAddInternalCandidate"
+          />
+          <p v-if="internalPickerError" :class="[cls.fieldError, 'mt-1']">{{ internalPickerError }}</p>
+          <p class="text-[11px] text-muted-foreground mt-1.5">Permet à un employé déjà dans le système de postuler à cette offre, sans redéposer de CV.</p>
+
+          <div v-if="internalApplications.length > 0" class="flex flex-col gap-1.5 mt-3">
+            <div v-for="a in internalApplications" :key="a.id" class="flex items-center gap-2 bg-background border border-border rounded-md px-2.5 h-[34px]">
+              <UserPlus2 class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span class="text-[13px] text-foreground flex-1 truncate">{{ a.candidateName }}</span>
+              <span class="text-[11px] text-muted-foreground">{{ formatDate(a.appliedAt) }}</span>
+            </div>
+          </div>
         </FormSection>
 
         <!-- Section Statistiques -->

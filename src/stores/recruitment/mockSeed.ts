@@ -8,7 +8,7 @@
  */
 import { reactive } from 'vue'
 import type {
-  HiringRequest, JobOffer, Application, Interview, TalentPoolEntry,
+  HiringRequest, JobOffer, Application, Interview, InterviewEvaluationTemplate, TalentPoolEntry,
   ContractTemplate, Contract, TrialEmployee,
 } from './types'
 
@@ -121,20 +121,40 @@ export const interviews = reactive<Interview[]>([
     id: 'itw-2', applicationId: 'app-3', candidateName: 'Lova Rakotomalala', candidateEmail: 'lova.rakoto@gmail.com', jobOfferTitle: 'Chauffeur poids lourd',
     scheduledAt: '2026-08-05T09:00:00', mode: 'InPerson', location: 'Site Toamasina',
     participants: [{ name: 'Nirina Andriamampionona', email: 'nirina.andriamampionona@galana.com' }],
-    status: 'Done', evaluation: { score: 4, comment: 'Très bonne connaissance des consignes de sécurité, disponible immédiatement.', interviewerName: 'Nirina Andriamampionona' },
+    status: 'Done',
+    evaluation: {
+      score: 4, comment: 'Très bonne connaissance des consignes de sécurité, disponible immédiatement.', interviewerName: 'Nirina Andriamampionona',
+      // Illustre l'evaluation par grille (voir interviewEvaluationTemplates
+      // plus bas) : score = moyenne des criteres, calculee automatiquement.
+      templateName: 'Grille poste terrain',
+      criteriaScores: [
+        { label: 'Expérience pratique', score: 4 },
+        { label: 'Respect des consignes de sécurité', score: 5 },
+        { label: 'Autonomie', score: 4 },
+        { label: 'Ponctualité', score: 3 },
+      ],
+    },
   },
+])
+
+export const interviewEvaluationTemplates = reactive<InterviewEvaluationTemplate[]>([
+  { id: 'ievt-1', name: 'Grille standard', criteria: ['Compétences techniques', 'Communication', 'Motivation', 'Adéquation culturelle'] },
+  { id: 'ievt-2', name: 'Grille poste terrain', criteria: ['Expérience pratique', 'Respect des consignes de sécurité', 'Autonomie', 'Ponctualité'] },
 ])
 
 export const talentPool = reactive<TalentPoolEntry[]>([
   {
     id: 'tp-1', candidateName: 'Njaka Rabemananjara', candidateEmail: 'njaka.rabe@hotmail.com', candidatePhone: '034 22 111 09',
     tags: ['Chauffeur', 'Permis EC'], notes: 'Bon profil, à recontacter au renouvellement de son permis.',
-    sourceApplicationId: 'app-4', addedAt: '2026-08-02',
+    sourceApplicationId: 'app-4', addedAt: '2026-08-02', status: 'Open',
+    evaluations: [
+      { score: 4, comment: 'Permis EC expiré au moment de la candidature, sinon très bon profil transport.', evaluatedByName: 'Nirina Andriamampionona', date: '2026-08-02' },
+    ],
   },
   {
     id: 'tp-2', candidateName: 'Bako Randriamahefa', candidateEmail: 'bako.randriamahefa@gmail.com', candidatePhone: '033 11 222 33',
     tags: ['Comptable', 'Bilingue FR/EN'], notes: 'Candidature spontanée reçue en juin, profil intéressant pour un futur poste senior.',
-    addedAt: '2026-06-18',
+    addedAt: '2026-06-18', status: 'Open', evaluations: [],
   },
 ])
 

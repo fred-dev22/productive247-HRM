@@ -47,14 +47,20 @@
     </template>
 
     <!-- Cellules -->
-    <template #cell-candidate="{ item }"><span class="font-medium text-foreground text-[13px] truncate">{{ item.candidateName }}</span></template>
-    <template #cell-candidateEmail="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.candidateEmail }}</span></template>
-    <template #cell-candidatePhone="{ item }"><span class="text-muted-foreground text-xs whitespace-nowrap">{{ item.candidatePhone }}</span></template>
+    <template #cell-candidate="{ item }">
+      <span class="inline-flex items-center gap-1.5 min-w-0">
+        <span class="font-medium text-foreground text-[13px] truncate">{{ item.candidateName }}</span>
+        <span v-if="item.source === 'Internal'" class="text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap bg-info-bg text-info shrink-0" title="Employé existant, candidature interne">Interne</span>
+      </span>
+    </template>
+    <template #cell-candidateEmail="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.candidateEmail || '—' }}</span></template>
+    <template #cell-candidatePhone="{ item }"><span class="text-muted-foreground text-xs whitespace-nowrap">{{ item.candidatePhone || '—' }}</span></template>
     <template #cell-jobOfferTitle="{ item }"><span class="text-foreground text-xs truncate">{{ item.jobOfferTitle || 'Candidature spontanée' }}</span></template>
     <template #cell-cvFileName="{ item }">
-      <span class="inline-flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+      <span v-if="item.cvFileName" class="inline-flex items-center gap-1 text-xs text-muted-foreground min-w-0">
         <FileText class="w-3.5 h-3.5 shrink-0" /> <span class="truncate">{{ item.cvFileName }}</span>
       </span>
+      <span v-else class="text-xs text-muted-foreground">—</span>
     </template>
     <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
     <template #cell-appliedAt="{ item }"><span class="text-muted-foreground text-xs">{{ formatDate(item.appliedAt) }}</span></template>
@@ -63,8 +69,11 @@
     <template #details-panel="{ item }">
       <div class="flex flex-col gap-3.5">
         <div>
-          <div class="text-sm font-semibold text-foreground truncate">{{ item.candidateName }}</div>
-          <div class="text-[11px] text-muted-foreground truncate">{{ item.candidateEmail }}</div>
+          <div class="text-sm font-semibold text-foreground truncate flex items-center gap-1.5">
+            {{ item.candidateName }}
+            <span v-if="item.source === 'Internal'" class="text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap bg-info-bg text-info">Interne</span>
+          </div>
+          <div class="text-[11px] text-muted-foreground truncate">{{ item.candidateEmail || 'Candidature interne, sans email' }}</div>
         </div>
         <div><StatusPill :status="item.status" /></div>
 

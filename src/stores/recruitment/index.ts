@@ -7,12 +7,12 @@
  */
 import { defineStore } from 'pinia'
 import {
-  hiringRequests, jobOffers, applications, interviews, talentPool,
+  hiringRequests, jobOffers, applications, interviews, interviewEvaluationTemplates, talentPool,
   contractTemplates, contracts, trialEmployees, nextId,
 } from './mockSeed'
 import type {
-  HiringRequest, JobOffer, Application, ApplicationStatus, Interview,
-  TalentPoolEntry, Contract, TrialEmployee,
+  HiringRequest, JobOffer, Application, ApplicationStatus, Interview, InterviewEvaluation,
+  TalentPoolEntry, TalentPoolEvaluation, Contract, TrialEmployee,
 } from './types'
 
 export * from './types'
@@ -61,8 +61,11 @@ export const useJobOfferStore = defineStore('recruitment-job-offers', {
 export const useApplicationStore = defineStore('recruitment-applications', {
   state: () => ({ items: applications }),
   getters: {
-    fromOffers: (state) => state.items.filter(a => a.source === 'Offer'),
+    // Externe (Offer) ou interne (Internal) : les deux sont liees a une
+    // offre precise, contrairement a Spontaneous — voir ApplicationsView.vue.
+    fromOffers: (state) => state.items.filter(a => a.source === 'Offer' || a.source === 'Internal'),
     spontaneous: (state) => state.items.filter(a => a.source === 'Spontaneous'),
+    internal: (state) => state.items.filter(a => a.source === 'Internal'),
   },
   actions: {
     // Depot public (portail carriere, sans connexion, voir
@@ -86,6 +89,19 @@ export const useApplicationStore = defineStore('recruitment-applications', {
         appliedAt: new Date().toISOString().slice(0, 10), notes: [],
       })
     },
+    // Candidature interne (mobilite) — un employe deja dans le systeme
+    // postule a une offre publiee, voir JobOfferCard.vue. Pas de CV ni
+    // d'email/telephone : l'annuaire leger utilise pour choisir l'employe
+    // (meme limite que InterviewParticipant, voir employees.ts) ne les
+    // expose pas.
+    applyInternal(payload: { jobOfferId: string; jobOfferTitle: string; employeeId: string; candidateName: string }) {
+      this.items.unshift({
+        jobOfferId: payload.jobOfferId, jobOfferTitle: payload.jobOfferTitle, employeeId: payload.employeeId,
+        candidateName: payload.candidateName, candidateEmail: '', candidatePhone: '',
+        id: nextId('app'), source: 'Internal', status: 'New',
+        appliedAt: new Date().toISOString().slice(0, 10), notes: [],
+      })
+    },
     setStatus(id: string, status: ApplicationStatus) { const a = this.items.find(x => x.id === id); if (a) a.status = status },
     addNote(id: string, authorName: string, text: string) {
       const a = this.items.find(x => x.id === id)
@@ -97,7 +113,7 @@ export const useApplicationStore = defineStore('recruitment-applications', {
       talentPool.unshift({
         id: nextId('tp'), candidateName: a.candidateName, candidateEmail: a.candidateEmail,
         candidatePhone: a.candidatePhone, tags, notes, sourceApplicationId: a.id,
-        addedAt: new Date().toISOString().slice(0, 10),
+        addedAt: new Date().toISOString().slice(0, 10), status: 'Open', evaluations: [],
       })
     },
   },
@@ -105,7 +121,7 @@ export const useApplicationStore = defineStore('recruitment-applications', {
 
 // ── Entretiens ────────────────────────────────────────────────
 export const useInterviewStore = defineStore('recruitment-interviews', {
-  state: () => ({ items: interviews }),
+  state: () => ({ items: interviews, evaluationTemplates: interviewEvaluationTemplates }),
   actions: {
     schedule(payload: Omit<Interview, 'id' | 'status'>) {
       this.items.push({ ...payload, id: nextId('itw'), status: 'Scheduled' })
@@ -114,7 +130,7 @@ export const useInterviewStore = defineStore('recruitment-interviews', {
     },
     markDone(id: string) { const i = this.items.find(x => x.id === id); if (i) i.status = 'Done' },
     cancel(id: string) { const i = this.items.find(x => x.id === id); if (i) i.status = 'Cancelled' },
-    evaluate(id: string, evaluation: { score: number; comment: string; interviewerName: string }) {
+    evaluate(id: string, evaluation: InterviewEvaluation) {
       const i = this.items.find(x => x.id === id)
       if (i) { i.evaluation = evaluation; i.status = 'Done' }
     },
@@ -125,14 +141,20 @@ export const useInterviewStore = defineStore('recruitment-interviews', {
 export const useTalentPoolStore = defineStore('recruitment-talent-pool', {
   state: () => ({ items: talentPool }),
   actions: {
-    add(payload: Omit<TalentPoolEntry, 'id' | 'addedAt'>) {
-      this.items.unshift({ ...payload, id: nextId('tp'), addedAt: new Date().toISOString().slice(0, 10) })
+    add(payload: Omit<TalentPoolEntry, 'id' | 'addedAt' | 'status' | 'evaluations'>) {
+      this.items.unshift({ ...payload, id: nextId('tp'), addedAt: new Date().toISOString().slice(0, 10), status: 'Open', evaluations: [] })
     },
     remove(id: string) { const idx = this.items.findIndex(x => x.id === id); if (idx >= 0) this.items.splice(idx, 1) },
     searchByTag(query: string) {
       const q = query.trim().toLowerCase()
       if (!q) return this.items
       return this.items.filter(e => e.tags.some(t => t.toLowerCase().includes(q)) || e.candidateName.toLowerCase().includes(q))
+    },
+    close(id: string) { const e = this.items.find(x => x.id === id); if (e) e.status = 'Closed' },
+    reopen(id: string) { const e = this.items.find(x => x.id === id); if (e) e.status = 'Open' },
+    addEvaluation(id: string, evaluation: Omit<TalentPoolEvaluation, 'date'>) {
+      const e = this.items.find(x => x.id === id)
+      if (e) e.evaluations.unshift({ ...evaluation, date: new Date().toISOString().slice(0, 10) })
     },
   },
 })

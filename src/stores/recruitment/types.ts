@@ -44,7 +44,11 @@ export interface JobOffer {
 // Un stage est une offre d'emploi comme une autre (JobOffer.contractType =
 // 'Stage') : pas de source "Internship" separee, une candidature a une offre
 // de stage est une candidature "Offer" normale (decision du 25/08).
-export type ApplicationSource = 'Offer' | 'Spontaneous'
+// 'Internal' : mobilite interne, voir liste-besoins.md / doc2 ligne 742
+// ("Ajouter a la candidature" depuis la fiche d'un salarie) — un employe deja
+// dans le systeme postule a une offre, contrairement a 'Offer'/'Spontaneous'
+// qui restent des candidats externes.
+export type ApplicationSource = 'Offer' | 'Spontaneous' | 'Internal'
 export type ApplicationStatus = 'New' | 'InReview' | 'InterviewScheduled' | 'Retained' | 'Rejected'
 
 export interface ApplicationNote {
@@ -61,7 +65,14 @@ export interface Application {
   candidateEmail: string
   candidatePhone: string
   source: ApplicationSource
-  cvFileName: string
+  // Absent pour une candidature interne (source 'Internal') : le dossier de
+  // l'employe existe deja, pas besoin de redeposer un CV.
+  cvFileName?: string
+  // Renseigne uniquement pour une candidature interne (source 'Internal') —
+  // id du vrai compte employe, choisi via l'annuaire (voir JobOfferCard.vue),
+  // meme limite que InterviewParticipant.employeeId (pas d'email disponible
+  // depuis l'annuaire leger).
+  employeeId?: string
   status: ApplicationStatus
   appliedAt: string
   notes: ApplicationNote[]
@@ -70,10 +81,30 @@ export interface Application {
 export type InterviewStatus = 'Scheduled' | 'Done' | 'Cancelled'
 export type InterviewMode = 'InPerson' | 'VideoCall'
 
+// Grilles d'evaluation standardisees (cartographie client, section
+// "Entretiens" : "Grilles d'evaluation standardisees") — un jeu fixe de
+// criteres note chacun /5, plutot qu'une seule note globale. Reste
+// optionnel : "Aucune (note libre)" reste possible sur le formulaire
+// d'evaluation (voir InterviewWorkflowActions.vue).
+export interface InterviewEvaluationTemplate {
+  id: string
+  name: string
+  criteria: string[]
+}
+
+export interface InterviewCriterionScore {
+  label: string
+  score: number
+}
+
 export interface InterviewEvaluation {
+  // Note globale : moyenne des criteres si une grille a ete utilisee, saisie
+  // directement sinon.
   score: number
   comment: string
   interviewerName: string
+  templateName?: string
+  criteriaScores?: InterviewCriterionScore[]
 }
 
 export interface InterviewParticipant {
@@ -110,6 +141,21 @@ export interface Interview {
   evaluation?: InterviewEvaluation
 }
 
+// Vue par defaut du client : "Potentiels ouverts" (doc2, section "Objet
+// Potentiel") — sous-entend un statut. Ouvert = toujours disponible/a
+// recontacter ; Ferme = plus d'actualite (recrute ailleurs, ne repond plus…).
+export type TalentPoolStatus = 'Open' | 'Closed'
+
+// Le client modelise "Evaluations Potentiel" comme une entite a part, pas un
+// champ texte (doc2, section "Objet Potentiel") — historique horodate,
+// meme forme que TrialEvaluation.
+export interface TalentPoolEvaluation {
+  score: number
+  comment: string
+  evaluatedByName: string
+  date: string
+}
+
 export interface TalentPoolEntry {
   id: string
   candidateName: string
@@ -119,6 +165,8 @@ export interface TalentPoolEntry {
   notes: string
   sourceApplicationId?: string
   addedAt: string
+  status: TalentPoolStatus
+  evaluations: TalentPoolEvaluation[]
 }
 
 export interface ContractTemplate {

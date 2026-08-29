@@ -84,6 +84,7 @@ function applicationsByStatus(status: ApplicationStatus) {
 const SOURCE_LABELS: Record<ApplicationSource, string> = {
   Offer: 'Candidature sur offre',
   Spontaneous: 'Candidature spontanée',
+  Internal: 'Candidature interne',
 }
 function sourceLabel(source: ApplicationSource): string {
   return SOURCE_LABELS[source] ?? source
