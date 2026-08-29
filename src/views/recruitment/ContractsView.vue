@@ -213,7 +213,7 @@
             <span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-primary/10 text-primary shrink-0">{{ t.contractType }}</span>
           </div>
           <p class="text-[12px] text-muted-foreground line-clamp-3">{{ excerpt(t.content) }}</p>
-          <button :class="L.btnOutline" class="self-start" @click="openEditTemplate(t)"><Pencil class="w-3.5 h-3.5" /> Modifier</button>
+          <button :class="L.btnOutline" class="self-start" @click="openTemplateCardId = t.id"><Pencil class="w-3.5 h-3.5" /> Modifier</button>
         </div>
       </div>
       <div v-else :class="L.emptyState">
@@ -221,12 +221,13 @@
         <p class="text-[13px]">Aucun modèle de contrat</p>
       </div>
 
-      <!-- Modale Nouveau modèle / Modifier — même coquille que partout
-           ailleurs (CreateModalShell), pas la petite popup ModalShell. -->
+      <!-- Modale Nouveau modèle — même coquille que partout ailleurs
+           (CreateModalShell). Modifier un modèle existant se fait sur une
+           fiche à part (ContractTemplateCard), avec navigateur entre modèles. -->
       <CreateModalShell
         v-if="templateModal.open"
-        :title="templateModal.editingId ? 'Modifier le modèle' : 'Nouveau modèle de contrat'"
-        :banner-label="templateModal.editingId ? 'Modifier le modèle' : 'Nouveau modèle de contrat'"
+        title="Nouveau modèle de contrat"
+        banner-label="Nouveau modèle de contrat"
         create-label="Enregistrer"
         :save-error="templateModal.error"
         @close="templateModal.open = false"
@@ -272,6 +273,10 @@
           </div>
         </template>
       </CreateModalShell>
+
+      <!-- Fiche d'un modèle existant — navigation entre modèles sans
+           fermer/rouvrir (voir ContractTemplateCard.vue). -->
+      <ContractTemplateCard v-if="openTemplateCardId !== null" :items="contractStore.templates" :item-id="openTemplateCardId" @close="openTemplateCardId = null" />
     </div>
   </div>
 </template>
@@ -295,12 +300,13 @@ import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import ContractWorkflowActions from '../../components/recruitment/ContractWorkflowActions.vue'
 import ContractCard from '../../components/recruitment/ContractCard.vue'
+import ContractTemplateCard from '../../components/recruitment/ContractTemplateCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { resolveContractContent, buildContractHtml } from '../../lib/contractDocument'
 import { useContractStore, useApplicationStore } from '../../stores/recruitment'
-import type { Contract, ContractTemplate } from '../../stores/recruitment'
+import type { Contract } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
 
 const contractStore = useContractStore()
@@ -499,25 +505,19 @@ function excerpt(content: string): string {
   return content.length > 140 ? content.slice(0, 140).trim() + '…' : content
 }
 
-const templateModal = reactive({ open: false, editingId: '', name: '', contractType: 'CDI', content: '', error: '' })
+const templateModal = reactive({ open: false, name: '', contractType: 'CDI', content: '', error: '' })
 function openNewTemplate() {
-  Object.assign(templateModal, { open: true, editingId: '', name: '', contractType: 'CDI', content: '', error: '' })
-}
-function openEditTemplate(t: ContractTemplate) {
-  Object.assign(templateModal, { open: true, editingId: t.id, name: t.name, contractType: t.contractType, content: t.content, error: '' })
+  Object.assign(templateModal, { open: true, name: '', contractType: 'CDI', content: '', error: '' })
 }
 function confirmTemplate() {
   if (!templateModal.name.trim()) { templateModal.error = 'Le nom est requis'; return }
   if (!templateModal.content.trim()) { templateModal.error = 'Le contenu est requis'; return }
-  if (templateModal.editingId) {
-    contractStore.updateTemplate(templateModal.editingId, {
-      name: templateModal.name.trim(), contractType: templateModal.contractType, content: templateModal.content.trim(),
-    })
-  } else {
-    contractStore.createTemplate(templateModal.name.trim(), templateModal.contractType, templateModal.content.trim())
-  }
+  contractStore.createTemplate(templateModal.name.trim(), templateModal.contractType, templateModal.content.trim())
   templateModal.open = false
 }
+
+/* ── Fiche d'un modèle existant (voir ContractTemplateCard.vue) ────── */
+const openTemplateCardId = ref<string | null>(null)
 
 // Aperçu en direct du modèle en cours d'édition, avec des données
 // d'exemple (le modèle n'est pas encore lié à une vraie candidature) — même
