@@ -11,7 +11,6 @@ import { reactive } from 'vue'
 import { Send, Check, X, Rocket, Archive } from 'lucide-vue-next'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
-import { confirmDialog } from '../../lib/confirm'
 import { useJobOfferStore } from '../../stores/recruitment'
 import type { JobOffer } from '../../stores/recruitment'
 
@@ -27,8 +26,18 @@ function submitOffer() { jobOfferStore.submit(props.item.id) }
 function approveOffer() { jobOfferStore.approve(props.item.id) }
 function publishOffer() { jobOfferStore.publish(props.item.id) }
 
-async function closeOffer() {
-  if (await confirmDialog("Clôturer cette offre d'emploi ?")) jobOfferStore.close(props.item.id)
+/* ── Modale Clôturer ────────────────────────────────────────────
+   Le coût de la campagne (annonces, cabinet…) est demandé ici, au moment où
+   il est enfin connu — voir JobOffer.recruitmentCost et PipelineView.vue
+   ("coût par recrutement"). Optionnel : on ne bloque pas la clôture si le
+   recruteur ne l'a pas encore. */
+const closeModal = reactive({ open: false, cost: '' as string })
+function openClose() { Object.assign(closeModal, { open: true, cost: '' }) }
+function confirmClose() {
+  const trimmed = closeModal.cost.trim()
+  const cost = trimmed ? Number(trimmed) : undefined
+  jobOfferStore.close(props.item.id, cost !== undefined && !Number.isNaN(cost) ? cost : undefined)
+  closeModal.open = false
 }
 
 /* ── Modale Refuser ─────────────────────────────────────────── */
@@ -49,7 +58,7 @@ function confirmReject() {
       <button :class="rejectCls" @click="openReject"><X class="w-3.5 h-3.5" /> Refuser</button>
     </template>
     <button v-if="item.status === 'Approved'" :class="approveCls" @click="publishOffer"><Rocket class="w-3.5 h-3.5" /> Publier</button>
-    <button v-if="item.status === 'Published'" :class="cancelCls" @click="closeOffer"><Archive class="w-3.5 h-3.5" /> Clôturer</button>
+    <button v-if="item.status === 'Published'" :class="cancelCls" @click="openClose"><Archive class="w-3.5 h-3.5" /> Clôturer</button>
     <span v-if="!['Draft', 'PendingApproval', 'Approved', 'Published'].includes(item.status)" class="text-xs text-muted-foreground italic">Aucune action disponible</span>
   </div>
 
@@ -61,6 +70,17 @@ function confirmReject() {
     <template #footer>
       <button :class="cls.btnPrimary" @click="confirmReject">Confirmer le refus</button>
       <button :class="cls.btnOutline" @click="rejectModal.open = false">Annuler</button>
+    </template>
+  </ModalShell>
+
+  <!-- Modale Clôturer -->
+  <ModalShell :open="closeModal.open" title="Clôturer l'offre d'emploi" max-width="max-w-[420px]" @close="closeModal.open = false">
+    <label :class="cls.fieldLabel">Coût du recrutement <span :class="cls.fieldOptional">(optionnel, en MGA)</span></label>
+    <input type="number" min="0" v-model="closeModal.cost" :class="cls.fieldInput" placeholder="ex : 450000" />
+    <p class="text-[11px] text-muted-foreground mt-1">Annonces, cabinet de recrutement, etc. Sert au calcul du coût moyen par recrutement (page Pipeline).</p>
+    <template #footer>
+      <button :class="cls.btnPrimary" @click="confirmClose">Confirmer la clôture</button>
+      <button :class="cls.btnOutline" @click="closeModal.open = false">Annuler</button>
     </template>
   </ModalShell>
 </template>

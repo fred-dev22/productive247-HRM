@@ -41,10 +41,12 @@ export const jobOffers = reactive<JobOffer[]>([
     status: 'Published', publishedAt: '2026-08-06', views: 214,
   },
   {
+    // Clôturée : le poste est pourvu (app-3, Lova Rakotomalala, retenue) —
+    // illustre le "coût par recrutement" affiché sur PipelineView.vue.
     id: 'offer-2', hiringRequestId: undefined, title: 'Chauffeur poids lourd', entityName: 'Direction Exploitation',
     contractType: 'CDD', location: 'Toamasina',
     description: 'Conduite de camions-citernes sur le réseau national, respect strict des consignes de sécurité transport de matières dangereuses.',
-    status: 'Published', publishedAt: '2026-07-28', views: 356,
+    status: 'Closed', publishedAt: '2026-07-28', views: 356, recruitmentCost: 450000,
   },
   {
     id: 'offer-3', hiringRequestId: undefined, title: 'Responsable QHSE', entityName: 'Direction Générale',

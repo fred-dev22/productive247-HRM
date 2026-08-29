@@ -46,7 +46,10 @@ export const useJobOfferStore = defineStore('recruitment-job-offers', {
     approve(id: string) { const o = this.items.find(x => x.id === id); if (o) o.status = 'Approved' },
     reject(id: string, reason: string) { const o = this.items.find(x => x.id === id); if (o) { o.status = 'Rejected'; o.rejectionReason = reason } },
     publish(id: string) { const o = this.items.find(x => x.id === id); if (o) { o.status = 'Published'; o.publishedAt = new Date().toISOString().slice(0, 10) } },
-    close(id: string) { const o = this.items.find(x => x.id === id); if (o) o.status = 'Closed' },
+    close(id: string, recruitmentCost?: number) {
+      const o = this.items.find(x => x.id === id)
+      if (o) { o.status = 'Closed'; if (recruitmentCost !== undefined) o.recruitmentCost = recruitmentCost }
+    },
     applicationsCount(id: string): number { return applications.filter(a => a.jobOfferId === id).length },
   },
 })

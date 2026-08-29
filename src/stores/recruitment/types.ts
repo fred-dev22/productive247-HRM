@@ -35,6 +35,10 @@ export interface JobOffer {
   publishedAt?: string
   views: number
   rejectionReason?: string
+  // Renseigne a la cloture de l'offre (voir JobOfferWorkflowActions.vue) :
+  // cout total de la campagne (annonces, cabinet de recrutement, etc.), en
+  // MGA. Sert au calcul du "cout par recrutement" sur PipelineView.vue.
+  recruitmentCost?: number
 }
 
 // Un stage est une offre d'emploi comme une autre (JobOffer.contractType =

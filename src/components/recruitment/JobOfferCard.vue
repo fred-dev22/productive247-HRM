@@ -7,7 +7,7 @@
  * contrairement à MissionOrder (referenceCode) ou Employee (code).
  */
 import { ref, computed, watch } from 'vue'
-import { Eye, Users, Link2, Check } from 'lucide-vue-next'
+import { Eye, Users, Link2, Check, Coins } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
@@ -55,6 +55,8 @@ const showStats = computed(() => current.value?.status === 'Published' || curren
 // Lien du portail carriere public (voir router/index.ts, route
 // public-careers-offer) — n'a de sens que pour une offre reellement
 // publiee, une offre en brouillon/attente n'est pas visible sur cette page.
+function formatCost(n: number): string { return `${n.toLocaleString('fr-FR')} MGA` }
+
 const publicUrl = computed(() => current.value ? `${window.location.origin}/careers/${current.value.id}` : '')
 const copied = ref(false)
 async function copyPublicUrl() {
@@ -150,6 +152,13 @@ async function copyPublicUrl() {
               <div class="flex items-center gap-2 h-[38px]">
                 <Users class="w-4 h-4 text-muted-foreground" />
                 <span class="text-[13px] font-medium text-foreground">{{ jobOfferStore.applicationsCount(current.id) }}</span>
+              </div>
+            </div>
+            <div v-if="current.recruitmentCost !== undefined" :class="cls.field">
+              <label :class="cls.fieldLabel">Coût du recrutement</label>
+              <div class="flex items-center gap-2 h-[38px]">
+                <Coins class="w-4 h-4 text-muted-foreground" />
+                <span class="text-[13px] font-medium text-foreground">{{ formatCost(current.recruitmentCost) }}</span>
               </div>
             </div>
           </div>

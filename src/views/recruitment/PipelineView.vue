@@ -34,7 +34,7 @@
       <div :class="L.cardHeader">
         <div :class="L.cardTitle"><TrendingUp class="w-4 h-4 text-primary" /> Indicateurs du pipeline</div>
       </div>
-      <div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+      <div class="grid grid-cols-3 gap-4 max-md:grid-cols-1">
         <div>
           <div class="text-[22px] font-bold leading-none">{{ conversionRate }}%</div>
           <div class="text-xs text-muted-foreground mt-1">Taux de conversion (candidatures retenues / total)</div>
@@ -42,6 +42,10 @@
         <div>
           <div class="text-[22px] font-bold leading-none">{{ avgResponseTimeLabel }}</div>
           <div class="text-xs text-muted-foreground mt-1">Temps moyen avant première réponse (valeur indicative)</div>
+        </div>
+        <div>
+          <div class="text-[22px] font-bold leading-none">{{ avgRecruitmentCostLabel }}</div>
+          <div class="text-xs text-muted-foreground mt-1">Coût moyen par recrutement ({{ closedOffersWithCost.length }} offre(s) clôturée(s) avec coût renseigné)</div>
         </div>
       </div>
       <div class="text-[11px] text-muted-foreground mt-3 pt-3 border-t border-border">
@@ -58,10 +62,11 @@ import { TrendingUp } from 'lucide-vue-next'
 import { StatusPill } from '../../components'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
-import { useApplicationStore } from '../../stores/recruitment'
+import { useApplicationStore, useJobOfferStore } from '../../stores/recruitment'
 import type { ApplicationStatus, ApplicationSource } from '../../stores/recruitment'
 
 const applicationStore = useApplicationStore()
+const jobOfferStore = useJobOfferStore()
 
 const COLUMNS: { status: ApplicationStatus }[] = [
   { status: 'New' },
@@ -112,5 +117,22 @@ const avgResponseTimeLabel = computed(() => {
   const v = avgResponseDays.value
   if (v === null) return 'Non disponible'
   return `${v} jour${v > 1 ? 's' : ''}`
+})
+
+// Coût par recrutement = coût de campagne (JobOffer.recruitmentCost, saisi à
+// la clôture — voir JobOfferWorkflowActions.vue), moyenné sur les offres
+// clôturées qui l'ont renseigné. Une offre clôturée sans coût saisi n'est
+// pas comptée comme "coût 0" : elle est simplement exclue de la moyenne.
+const closedOffersWithCost = computed(() =>
+  jobOfferStore.items.filter((o): o is typeof o & { recruitmentCost: number } => o.status === 'Closed' && o.recruitmentCost !== undefined),
+)
+const avgRecruitmentCost = computed(() => {
+  const offers = closedOffersWithCost.value
+  if (offers.length === 0) return null
+  return Math.round(offers.reduce((sum, o) => sum + o.recruitmentCost, 0) / offers.length)
+})
+const avgRecruitmentCostLabel = computed(() => {
+  const v = avgRecruitmentCost.value
+  return v === null ? 'Non disponible' : `${v.toLocaleString('fr-FR')} MGA`
 })
 </script>
