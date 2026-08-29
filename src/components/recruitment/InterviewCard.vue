@@ -6,11 +6,13 @@
  * dans la liste courante : Interview n'a pas de code de référence propre.
  */
 import { ref, computed, watch } from 'vue'
+import { MapPin, Video, CalendarPlus } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import InterviewWorkflowActions from './InterviewWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
+import { googleCalendarUrl, outlookCalendarUrl, downloadIcs } from '../../lib/calendarLinks'
 import type { Interview } from '../../stores/recruitment'
 
 const props = defineProps<{
@@ -51,6 +53,21 @@ function formatDateTime(iso: string): string {
   const [, y, mo, d, h, mi] = m
   return `${d}/${mo}/${y} ${h}:${mi}`
 }
+
+// Ajout au calendrier — voir lib/calendarLinks.ts : aucun backend ni OAuth
+// necessaire, Google/Outlook exposent une URL publique "ajouter un
+// evenement", et le .ics s'ouvre dans n'importe quelle appli de calendrier.
+function calendarEvent(i: Interview) {
+  return {
+    title: `Entretien · ${i.candidateName} (${i.jobOfferTitle})`,
+    description: `Entretien de recrutement pour le poste de ${i.jobOfferTitle}.\nParticipants : ${i.participants.join(', ')}${i.mode === 'VideoCall' ? `\nLien : ${i.meetingLink}` : ''}`,
+    location: i.mode === 'VideoCall' ? i.meetingLink : i.location,
+    startIso: i.scheduledAt,
+  }
+}
+function addToGoogle() { if (current.value) window.open(googleCalendarUrl(calendarEvent(current.value)), '_blank', 'noopener') }
+function addToOutlook() { if (current.value) window.open(outlookCalendarUrl(calendarEvent(current.value)), '_blank', 'noopener') }
+function downloadIcsFile() { if (current.value) downloadIcs(calendarEvent(current.value), `entretien-${current.value.candidateName.replace(/\s+/g, '-').toLowerCase()}`) }
 </script>
 
 <template>
@@ -96,12 +113,30 @@ function formatDateTime(iso: string): string {
               <div :class="readBox">{{ formatDateTime(current.scheduledAt) }}</div>
             </div>
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Lieu</label>
-              <div :class="readBox">{{ current.location }}</div>
+              <label :class="cls.fieldLabel">{{ current.mode === 'VideoCall' ? 'Visioconférence' : 'Lieu' }}</label>
+              <div v-if="current.mode === 'VideoCall'" :class="readBox">
+                <a :href="current.meetingLink" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-primary hover:underline truncate">
+                  <Video class="w-3.5 h-3.5 shrink-0" /> {{ current.meetingLink }}
+                </a>
+              </div>
+              <div v-else :class="readBox">
+                <span class="flex items-center gap-1.5"><MapPin class="w-3.5 h-3.5 shrink-0 text-muted-foreground" /> {{ current.location }}</span>
+              </div>
             </div>
             <div :class="cls.field" class="col-span-2">
               <label :class="cls.fieldLabel">Participants</label>
               <div :class="[readBox, 'h-auto min-h-[38px] py-2']">{{ current.participants.join(', ') }}</div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-border">
+            <p class="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.05em] mb-2 flex items-center gap-1.5">
+              <CalendarPlus class="w-3.5 h-3.5" /> Ajouter à mon calendrier
+            </p>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button type="button" :class="cls.btnOutline" @click="addToGoogle">Google Calendar</button>
+              <button type="button" :class="cls.btnOutline" @click="addToOutlook">Outlook</button>
+              <button type="button" :class="cls.btnOutline" @click="downloadIcsFile">Télécharger (.ics)</button>
             </div>
           </div>
         </FormSection>

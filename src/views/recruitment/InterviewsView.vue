@@ -56,7 +56,14 @@
     <template #cell-candidateName="{ item }"><span class="font-medium text-foreground text-xs truncate">{{ item.candidateName }}</span></template>
     <template #cell-jobOfferTitle="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.jobOfferTitle }}</span></template>
     <template #cell-scheduledAt="{ item }"><span class="text-muted-foreground text-xs whitespace-nowrap">{{ formatDateTime(item.scheduledAt) }}</span></template>
-    <template #cell-location="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.location }}</span></template>
+    <template #cell-location="{ item }">
+      <a v-if="item.mode === 'VideoCall'" :href="item.meetingLink" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-primary text-xs truncate hover:underline" @click.stop>
+        <Video class="w-3.5 h-3.5 shrink-0" /> Visioconférence
+      </a>
+      <span v-else class="inline-flex items-center gap-1 text-muted-foreground text-xs truncate">
+        <MapPin class="w-3.5 h-3.5 shrink-0" /> {{ item.location }}
+      </span>
+    </template>
     <template #cell-participants="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.participants.join(', ') }}</span></template>
     <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
@@ -70,7 +77,11 @@
         <div><StatusPill :status="item.status" /></div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
           <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Date et heure</div>{{ formatDateTime(item.scheduledAt) }}</div>
-          <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Lieu</div>{{ item.location }}</div>
+          <div class="col-span-2">
+            <div class="text-muted-foreground text-[11px]">{{ item.mode === 'VideoCall' ? 'Visioconférence' : 'Lieu' }}</div>
+            <a v-if="item.mode === 'VideoCall'" :href="item.meetingLink" target="_blank" rel="noopener" class="text-primary hover:underline break-all">{{ item.meetingLink }}</a>
+            <span v-else>{{ item.location }}</span>
+          </div>
         </div>
         <div class="pt-2 border-t border-border">
           <InterviewWorkflowActions :item="item" />
@@ -115,8 +126,24 @@
                   <input type="datetime-local" v-model="form.scheduledAt" :class="cls.fieldInput" />
                 </div>
                 <div :class="cls.field">
+                  <label :class="cls.fieldLabel">Modalité <span class="text-danger">*</span></label>
+                  <div class="flex gap-1.5">
+                    <button type="button" :class="[modeBtn, form.mode === 'InPerson' ? modeBtnActive : '']" @click="form.mode = 'InPerson'">
+                      <MapPin class="w-3.5 h-3.5" /> Présentiel
+                    </button>
+                    <button type="button" :class="[modeBtn, form.mode === 'VideoCall' ? modeBtnActive : '']" @click="form.mode = 'VideoCall'">
+                      <Video class="w-3.5 h-3.5" /> Visioconférence
+                    </button>
+                  </div>
+                </div>
+                <div v-if="form.mode === 'InPerson'" :class="cls.field" class="col-span-2">
                   <label :class="cls.fieldLabel">Lieu <span class="text-danger">*</span></label>
                   <input v-model="form.location" :class="cls.fieldInput" placeholder="ex : Salle de réunion 2, Direction Générale…" />
+                </div>
+                <div v-else :class="cls.field" class="col-span-2">
+                  <label :class="cls.fieldLabel">Lien de la réunion <span class="text-danger">*</span></label>
+                  <input v-model="form.meetingLink" :class="cls.fieldInput" placeholder="ex : https://meet.google.com/xxx-xxxx-xxx ou lien Teams" />
+                  <p class="text-[11px] text-muted-foreground mt-1">Collez le lien Google Meet, Microsoft Teams, Zoom…</p>
                 </div>
                 <div :class="cls.field" class="col-span-2">
                   <label :class="cls.fieldLabel">Participants <span class="text-danger">*</span></label>
@@ -145,7 +172,7 @@
  * fiche complète dans InterviewCard.vue.
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { Plus, CalendarClock, Clock, CheckCircle2, CalendarDays } from 'lucide-vue-next'
+import { Plus, CalendarClock, Clock, CheckCircle2, CalendarDays, MapPin, Video } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
@@ -155,7 +182,7 @@ import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { todayIso } from '../../lib/date'
 import { useInterviewStore, useApplicationStore } from '../../stores/recruitment'
-import type { Interview } from '../../stores/recruitment'
+import type { Interview, InterviewMode } from '../../stores/recruitment'
 
 const interviewStore = useInterviewStore()
 const applicationStore = useApplicationStore()
@@ -165,6 +192,9 @@ const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
 const kpiVal = 'text-[22px] font-bold leading-none'
 const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
+
+const modeBtn = 'flex-1 h-[38px] px-2.5 rounded-md border border-border bg-background text-muted-foreground text-[13px] font-medium cursor-pointer inline-flex items-center justify-center gap-1.5 transition-colors hover:text-foreground'
+const modeBtnActive = '!bg-primary/10 !text-primary !border-primary/30'
 
 /* ── Formatage date et heure (ex : "25/08/2026 10:00") ─────────── */
 function formatDateTime(iso: string): string {
@@ -179,7 +209,7 @@ const columns: ListColumn[] = [
   { key: 'candidateName', label: 'Candidat', sortable: true, hideable: false, width: 180 },
   { key: 'jobOfferTitle', label: 'Offre', sortable: true, width: 180 },
   { key: 'scheduledAt', label: 'Date et heure', sortable: true, width: 150 },
-  { key: 'location', label: 'Lieu', sortable: true, width: 180 },
+  { key: 'location', label: 'Lieu / Visio', width: 170 },
   { key: 'participants', label: 'Participants', width: 220 },
   { key: 'status', label: 'Statut', width: 130 },
 ]
@@ -215,7 +245,7 @@ function resetFilters() {
 }
 
 const sortFieldMap: Record<string, keyof Interview> = {
-  candidateName: 'candidateName', jobOfferTitle: 'jobOfferTitle', scheduledAt: 'scheduledAt', location: 'location',
+  candidateName: 'candidateName', jobOfferTitle: 'jobOfferTitle', scheduledAt: 'scheduledAt',
 }
 
 const filtered = computed(() => {
@@ -223,7 +253,8 @@ const filtered = computed(() => {
     if (activeScope.value && i.status !== activeScope.value) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
-      if (!i.candidateName.toLowerCase().includes(q) && !i.jobOfferTitle.toLowerCase().includes(q) && !i.location.toLowerCase().includes(q)) return false
+      const place = (i.location ?? i.meetingLink ?? '').toLowerCase()
+      if (!i.candidateName.toLowerCase().includes(q) && !i.jobOfferTitle.toLowerCase().includes(q) && !place.includes(q)) return false
     }
     return true
   })
@@ -249,18 +280,19 @@ const eligibleApplications = computed(() => applicationStore.items.filter(a => a
 const showCreate = ref(false)
 const error = ref<string | null>(null)
 const form = reactive({
-  applicationId: '', scheduledAt: '', location: '', participantsText: '',
+  applicationId: '', scheduledAt: '', mode: 'InPerson' as InterviewMode, location: '', meetingLink: '', participantsText: '',
 })
 
 function resetForm() {
-  Object.assign(form, { applicationId: '', scheduledAt: '', location: '', participantsText: '' })
+  Object.assign(form, { applicationId: '', scheduledAt: '', mode: 'InPerson', location: '', meetingLink: '', participantsText: '' })
   error.value = null
 }
 
 function validate(): boolean {
   if (!form.applicationId) { error.value = 'Sélectionnez une candidature'; return false }
   if (!form.scheduledAt) { error.value = 'La date et l\'heure sont requises'; return false }
-  if (!form.location.trim()) { error.value = 'Le lieu est requis'; return false }
+  if (form.mode === 'InPerson' && !form.location.trim()) { error.value = 'Le lieu est requis'; return false }
+  if (form.mode === 'VideoCall' && !form.meetingLink.trim()) { error.value = 'Le lien de la réunion est requis'; return false }
   if (!form.participantsText.trim()) { error.value = 'Au moins un participant est requis'; return false }
   error.value = null
   return true
@@ -273,7 +305,9 @@ function buildPayload() {
     candidateName: app?.candidateName ?? '',
     jobOfferTitle: app?.jobOfferTitle ?? 'Candidature spontanée',
     scheduledAt: form.scheduledAt,
-    location: form.location.trim(),
+    mode: form.mode,
+    location: form.mode === 'InPerson' ? form.location.trim() : undefined,
+    meetingLink: form.mode === 'VideoCall' ? form.meetingLink.trim() : undefined,
     participants: form.participantsText.split(',').map(p => p.trim()).filter(Boolean),
   }
 }

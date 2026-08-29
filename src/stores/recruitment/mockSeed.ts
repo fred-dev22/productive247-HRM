@@ -100,12 +100,12 @@ export const applications = reactive<Application[]>([
 export const interviews = reactive<Interview[]>([
   {
     id: 'itw-1', applicationId: 'app-1', candidateName: 'Fara Ratsimbazafy', jobOfferTitle: 'Comptable',
-    scheduledAt: '2026-08-25T10:00:00', location: 'Salle de réunion 2, Direction Générale',
+    scheduledAt: '2026-08-25T10:00:00', mode: 'VideoCall', meetingLink: 'https://meet.google.com/abc-defg-hij',
     participants: ['Christiane Tchako', 'Hery Rasoanaivo'], status: 'Scheduled',
   },
   {
     id: 'itw-2', applicationId: 'app-3', candidateName: 'Lova Rakotomalala', jobOfferTitle: 'Chauffeur poids lourd',
-    scheduledAt: '2026-08-05T09:00:00', location: 'Site Toamasina', participants: ['Nirina Andriamampionona'],
+    scheduledAt: '2026-08-05T09:00:00', mode: 'InPerson', location: 'Site Toamasina', participants: ['Nirina Andriamampionona'],
     status: 'Done', evaluation: { score: 4, comment: 'Très bonne connaissance des consignes de sécurité, disponible immédiatement.', interviewerName: 'Nirina Andriamampionona' },
   },
 ])

@@ -64,6 +64,7 @@ export interface Application {
 }
 
 export type InterviewStatus = 'Scheduled' | 'Done' | 'Cancelled'
+export type InterviewMode = 'InPerson' | 'VideoCall'
 
 export interface InterviewEvaluation {
   score: number
@@ -77,7 +78,11 @@ export interface Interview {
   candidateName: string
   jobOfferTitle: string
   scheduledAt: string
-  location: string
+  mode: InterviewMode
+  // L'un ou l'autre selon mode, jamais les deux (voir InterviewsView.vue) :
+  // location pour un entretien en presentiel, meetingLink pour une visio.
+  location?: string
+  meetingLink?: string
   participants: string[]
   status: InterviewStatus
   evaluation?: InterviewEvaluation
