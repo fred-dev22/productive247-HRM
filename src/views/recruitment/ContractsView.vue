@@ -221,29 +221,57 @@
         <p class="text-[13px]">Aucun modèle de contrat</p>
       </div>
 
-      <!-- Modale Nouveau modèle / Modifier -->
-      <ModalShell :open="templateModal.open" :title="templateModal.editingId ? 'Modifier le modèle' : 'Nouveau modèle de contrat'" max-width="max-w-[560px]" @close="templateModal.open = false">
-        <div :class="cls.field">
-          <label :class="cls.fieldLabel">Nom du modèle *</label>
-          <input v-model="templateModal.name" :class="cls.fieldInput" placeholder="ex : CDI standard" />
-        </div>
-        <div :class="cls.field">
-          <label :class="cls.fieldLabel">Type de contrat *</label>
-          <select v-model="templateModal.contractType" :class="cls.fieldSelect">
-            <option v-for="c in CONTRACT_TYPES" :key="c.value" :value="c.value">{{ c.label }}</option>
-          </select>
-        </div>
-        <div :class="cls.field">
-          <label :class="cls.fieldLabel">Contenu *</label>
-          <textarea v-model="templateModal.content" :class="cls.fieldTextarea" rows="6" placeholder="Texte du contrat…"></textarea>
-          <p class="text-[11px] text-muted-foreground mt-1">{{ placeholderHint }}</p>
-        </div>
-        <div v-if="templateModal.error" :class="cls.fieldError">{{ templateModal.error }}</div>
-        <template #footer>
-          <button :class="cls.btnPrimary" @click="confirmTemplate"><Check class="w-4 h-4" /> Enregistrer</button>
-          <button :class="cls.btnOutline" @click="templateModal.open = false">Annuler</button>
+      <!-- Modale Nouveau modèle / Modifier — même coquille que partout
+           ailleurs (CreateModalShell), pas la petite popup ModalShell. -->
+      <CreateModalShell
+        v-if="templateModal.open"
+        :title="templateModal.editingId ? 'Modifier le modèle' : 'Nouveau modèle de contrat'"
+        :banner-label="templateModal.editingId ? 'Modifier le modèle' : 'Nouveau modèle de contrat'"
+        create-label="Enregistrer"
+        :save-error="templateModal.error"
+        @close="templateModal.open = false"
+        @create="confirmTemplate"
+      >
+        <template #form>
+          <div class="flex-1 overflow-auto px-6 py-5">
+            <div class="max-w-3xl mx-auto">
+
+              <FormSection title="Modèle">
+                <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
+                  <div :class="cls.field" class="col-span-2">
+                    <label :class="cls.fieldLabel">Nom du modèle <span class="text-danger">*</span></label>
+                    <input v-model="templateModal.name" :class="cls.fieldInput" placeholder="ex : CDI standard" />
+                  </div>
+                  <div :class="cls.field">
+                    <label :class="cls.fieldLabel">Type de contrat <span class="text-danger">*</span></label>
+                    <select v-model="templateModal.contractType" :class="cls.fieldSelect">
+                      <option v-for="c in CONTRACT_TYPES" :key="c.value" :value="c.value">{{ c.label }}</option>
+                    </select>
+                  </div>
+                </div>
+              </FormSection>
+
+              <FormSection title="Contenu">
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">Contenu <span class="text-danger">*</span></label>
+                  <textarea v-model="templateModal.content" :class="cls.fieldTextarea" rows="6" placeholder="Texte du contrat…"></textarea>
+                  <p class="text-[11px] text-muted-foreground mt-1">{{ placeholderHint }}</p>
+                </div>
+              </FormSection>
+
+              <FormSection title="Aperçu (exemple)">
+                <div class="border border-border rounded-lg overflow-hidden h-[420px] bg-muted">
+                  <iframe :srcdoc="templatePreviewHtml" class="w-full h-full border-0" title="Aperçu du modèle" />
+                </div>
+                <p class="text-[11px] text-muted-foreground mt-1.5">
+                  Rendu avec des données d'exemple (candidat, poste, dates fictifs) — juste pour voir le document final, sans l'imprimer.
+                </p>
+              </FormSection>
+
+            </div>
+          </div>
         </template>
-      </ModalShell>
+      </CreateModalShell>
     </div>
   </div>
 </template>
@@ -260,17 +288,17 @@
  */
 import { ref, reactive, computed, watch } from 'vue'
 import {
-  Plus, Mail, CheckCircle2, FileSignature, FileText, Clock, Pencil, Check,
+  Plus, Mail, CheckCircle2, FileSignature, FileText, Clock, Pencil,
 } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
-import ModalShell from '../../components/ui/ModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import ContractWorkflowActions from '../../components/recruitment/ContractWorkflowActions.vue'
 import ContractCard from '../../components/recruitment/ContractCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
+import { resolveContractContent, buildContractHtml } from '../../lib/contractDocument'
 import { useContractStore, useApplicationStore } from '../../stores/recruitment'
 import type { Contract, ContractTemplate } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
@@ -490,4 +518,23 @@ function confirmTemplate() {
   }
   templateModal.open = false
 }
+
+// Aperçu en direct du modèle en cours d'édition, avec des données
+// d'exemple (le modèle n'est pas encore lié à une vraie candidature) — même
+// document que sur la fiche d'un contrat généré, sans le bouton PDF (voir
+// lib/contractDocument.ts).
+const TEMPLATE_PREVIEW_EXAMPLE = {
+  candidateName: 'Jean Rakoto', jobTitle: 'Comptable', entityName: 'Direction Générale',
+  startDate: '01/01/2026', endDate: '31/12/2026', salary: '500 000',
+}
+const templatePreviewHtml = computed(() => {
+  const resolvedContent = resolveContractContent(templateModal.content, {
+    ...TEMPLATE_PREVIEW_EXAMPLE,
+    endDate: templateModal.contractType === 'CDI' ? undefined : TEMPLATE_PREVIEW_EXAMPLE.endDate,
+  })
+  return buildContractHtml({
+    candidateName: TEMPLATE_PREVIEW_EXAMPLE.candidateName, jobTitle: TEMPLATE_PREVIEW_EXAMPLE.jobTitle,
+    entityName: TEMPLATE_PREVIEW_EXAMPLE.entityName, templateName: templateModal.name || 'Modèle de contrat', resolvedContent,
+  })
+})
 </script>
