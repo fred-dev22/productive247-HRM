@@ -299,6 +299,7 @@
     "needs": "Needs Expressions",
     "contracts_to_generate": "Contracts to Generate",
     "trial_periods": "Trial Periods",
+    "my_internal_applications": "My Internal Applications",
     "catalog": "Catalog",
     "sessions": "Planned Sessions",
     "enrollments": "Enrollments",

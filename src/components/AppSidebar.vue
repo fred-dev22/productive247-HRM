@@ -153,6 +153,13 @@
         <SidebarItem v-if="MISSIONS_EXPENSES_ENABLED" :icon="Receipt" :label="t('sidebar.expenses')"         :to="{ name: 'employee-expenses' }" />
       </SidebarSection>
 
+      <!-- Visibilite d'une candidature interne (mobilite) proposee par un
+           recruteur, voir JobOfferCard.vue — sans cette section, l'employe
+           concerne n'en avait jamais connaissance. -->
+      <SidebarSection v-if="RECRUITMENT_MODULE_ENABLED" :label="t('nav.recruitment')">
+        <SidebarItem :icon="Briefcase" :label="t('sidebar.my_internal_applications')" :to="{ name: 'employee-internal-applications' }" />
+      </SidebarSection>
+
       <template v-if="canSeeMyTeamSection">
         <SidebarSection :label="t('sidebar.my_team')">
           <SidebarItem
@@ -191,7 +198,7 @@ import { useLeaveRequestStore } from '../stores/leaveRequests'
 import { useMissionStore } from '../stores/missions'
 import { useExpenseStore } from '../stores/expenses'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
-import { MISSIONS_EXPENSES_ENABLED } from '../config/features'
+import { MISSIONS_EXPENSES_ENABLED, RECRUITMENT_MODULE_ENABLED } from '../config/features'
 
 const { t }        = useI18n()
 const auth         = useAuthStore()

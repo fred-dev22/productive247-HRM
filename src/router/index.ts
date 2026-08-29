@@ -285,6 +285,15 @@ const router = createRouter({
       component: () => import('../views/employee/TeamView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
     },
+    // Cote employe du module Recrutement (mock) : visibilite d'une
+    // candidature interne le concernant, voir MyInternalApplicationsView.vue
+    // — sans ca, un employe propose comme candidat interne (JobOfferCard.vue)
+    // n'en avait jamais connaissance dans l'appli.
+    {
+      path: '/employee/internal-applications', name: 'employee-internal-applications',
+      component: () => import('../views/recruitment/MyInternalApplicationsView.vue'),
+      meta: { requiresAuth: true, layout: 'dashboard' },
+    },
 
     // Catch-all → login
     { path: '/:pathMatch(.*)*', redirect: '/' },
@@ -364,7 +373,7 @@ router.beforeEach(async (to) => {
       return { path: auth.isHRSpace ? '/hr' : '/employee' }
     }
 
-    if (!RECRUITMENT_MODULE_ENABLED && to.path.startsWith(RECRUITMENT_MODULE_PATH_PREFIX)) {
+    if (!RECRUITMENT_MODULE_ENABLED && (to.path.startsWith(RECRUITMENT_MODULE_PATH_PREFIX) || to.name === 'employee-internal-applications')) {
       return { path: auth.isHRSpace ? '/hr' : '/employee' }
     }
 
