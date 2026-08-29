@@ -60,6 +60,13 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
     @go-next="goNext"
     @select-sidebar="selectSidebar"
   >
+    <template #title-badges>
+      <span
+        class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+        :class="current.status === 'Open' ? 'bg-success-bg text-success' : 'bg-neutral-bg text-neutral'"
+      >{{ current.status === 'Open' ? 'Ouvert' : 'Fermé' }}</span>
+    </template>
+
     <template #action-buttons>
       <TalentPoolWorkflowActions :item="current" @removed="emit('close')" />
     </template>
@@ -104,6 +111,18 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
         <FormSection title="Notes">
           <p v-if="current.notes" class="text-[13px] text-foreground whitespace-pre-line">{{ current.notes }}</p>
           <p v-else class="text-xs text-muted-foreground italic">Aucune note</p>
+        </FormSection>
+
+        <!-- Section Évaluations -->
+        <FormSection title="Évaluations" :recaps="[`${current.evaluations.length} évaluation(s)`]">
+          <div v-if="current.evaluations.length === 0" class="text-xs text-muted-foreground italic">Aucune évaluation pour le moment.</div>
+          <div v-for="(ev, i) in current.evaluations" :key="i" class="text-[13px] bg-background rounded-md px-3 py-2 flex flex-col gap-0.5 mb-2 last:mb-0">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium text-foreground text-xs truncate">{{ ev.evaluatedByName }} — {{ ev.score }} / 5</span>
+              <span class="text-[11px] text-muted-foreground shrink-0">{{ formatDate(ev.date) }}</span>
+            </div>
+            <p class="text-foreground whitespace-pre-line">{{ ev.comment }}</p>
+          </div>
         </FormSection>
       </div>
     </template>

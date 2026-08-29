@@ -8,6 +8,9 @@
     :total-text="`${totalCount} profil(s)`"
     search-placeholder="Rechercher un candidat, un tag…"
     :page-size-options="[15, 25, 50]"
+    scope-label="Profils :"
+    :scope-options="scopeOptions"
+    v-model:scope="activeScope"
     v-model:search-query="searchQuery"
     v-model:sort-key="sortKey"
     v-model:sort-dir="sortDir"
@@ -52,6 +55,12 @@
     </template>
     <template #cell-notes="{ item }"><span class="text-muted-foreground text-xs truncate" :title="item.notes">{{ item.notes || 'Aucune note' }}</span></template>
     <template #cell-addedAt="{ item }"><span class="text-muted-foreground text-xs">{{ formatDate(item.addedAt) }}</span></template>
+    <template #cell-status="{ item }">
+      <span
+        class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+        :class="item.status === 'Open' ? 'bg-success-bg text-success' : 'bg-neutral-bg text-neutral'"
+      >{{ item.status === 'Open' ? 'Ouvert' : 'Fermé' }}</span>
+    </template>
 
     <!-- Aperçu rapide -->
     <template #details-panel="{ item }">
@@ -59,6 +68,12 @@
         <div>
           <div class="text-sm font-semibold text-foreground truncate">{{ item.candidateName }}</div>
           <div class="text-[11px] text-muted-foreground truncate">Ajouté le {{ formatDate(item.addedAt) }}</div>
+        </div>
+        <div>
+          <span
+            class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+            :class="item.status === 'Open' ? 'bg-success-bg text-success' : 'bg-neutral-bg text-neutral'"
+          >{{ item.status === 'Open' ? 'Ouvert' : 'Fermé' }}</span>
         </div>
         <div class="grid grid-cols-1 gap-2 text-[12px]">
           <div><div class="text-muted-foreground text-[11px]">Email</div>{{ item.candidateEmail }}</div>
@@ -170,6 +185,7 @@ const columns: ListColumn[] = [
   { key: 'tags', label: 'Tags', width: 220 },
   { key: 'notes', label: 'Notes', width: 240 },
   { key: 'addedAt', label: 'Ajouté le', sortable: true, width: 110 },
+  { key: 'status', label: 'Statut', width: 100 },
 ]
 
 /* ── KPIs ───────────────────────────────────────────────────── */
@@ -183,13 +199,19 @@ const distinctTagsCount = computed(() => {
    Même pattern que EmployeeListView.vue : la vue calcule elle-même
    "filtered" puis passe la page déjà filtrée/triée à ListPageLayout.
    La recherche filtre à la fois sur le nom du candidat et sur les tags. */
+const scopeOptions = [
+  { value: '', label: 'Tous' },
+  { value: 'Open', label: 'Ouvert' },
+  { value: 'Closed', label: 'Fermé' },
+]
+const activeScope = ref('')
 const searchQuery = ref('')
 const sortKey = ref('')
 const sortDir = ref<'asc' | 'desc'>('asc')
 const page = ref(1)
 const pageSize = ref(15)
 
-watch([searchQuery, pageSize], () => { page.value = 1 })
+watch([activeScope, searchQuery, pageSize], () => { page.value = 1 })
 
 const sortFieldMap: Record<string, keyof TalentPoolEntry> = {
   candidateName: 'candidateName', candidateEmail: 'candidateEmail', addedAt: 'addedAt',
@@ -197,6 +219,7 @@ const sortFieldMap: Record<string, keyof TalentPoolEntry> = {
 
 const filtered = computed(() => {
   let rows = talentPoolStore.items.filter(e => {
+    if (activeScope.value && e.status !== activeScope.value) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
       const matchesName = e.candidateName.toLowerCase().includes(q)
