@@ -97,6 +97,15 @@ export const applications = reactive<Application[]>([
     // source separee (voir types.ts).
     source: 'Offer', cvFileName: 'CV_Faniry_Rasolofo.pdf', status: 'New', appliedAt: '2026-08-16', notes: [],
   },
+  {
+    // Retenue et sans contrat genere : seule candidature eligible sur
+    // ContractsView.vue ("Generer un contrat") — app-3 (Lova) est aussi
+    // Retained mais a deja son contrat (ctr-1), donc exclue de ce picker.
+    id: 'app-7', jobOfferId: 'offer-1', jobOfferTitle: 'Comptable',
+    candidateName: 'Tantely Randriamampionona', candidateEmail: 'tantely.randriamampionona@gmail.com', candidatePhone: '033 55 667 78',
+    source: 'Offer', cvFileName: 'CV_Tantely_Randriamampionona.pdf', status: 'Retained', appliedAt: '2026-08-20',
+    notes: [{ authorName: 'Christiane Tchako', text: 'Excellent entretien, profil retenu pour le poste.', date: '2026-08-22' }],
+  },
 ])
 
 export const interviews = reactive<Interview[]>([
@@ -145,6 +154,14 @@ export const contractTemplates = reactive<ContractTemplate[]>([
   {
     id: 'tpl-4', name: 'Prestation freelance', contractType: 'Freelance',
     content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat de prestation de services pour la mission de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant des honoraires mensuels de {{salaire}} Ariary.',
+  },
+  {
+    id: 'tpl-6', name: 'Contrat d\'apprentissage', contractType: 'Apprenti',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat d\'apprentissage pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une rémunération mensuelle de {{salaire}} Ariary, dans le cadre d\'une formation en alternance sanctionnée par un diplôme ou titre professionnel.',
+  },
+  {
+    id: 'tpl-7', name: 'Contrat de professionnalisation', contractType: 'Alternant',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat de professionnalisation pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une rémunération mensuelle de {{salaire}} Ariary, alternant périodes de formation théorique et périodes en entreprise.',
   },
   {
     // Document distinct pour la periode d'essai elle-meme (avant

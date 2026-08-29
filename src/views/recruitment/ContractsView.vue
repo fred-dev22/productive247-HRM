@@ -279,11 +279,19 @@ if (entityStore.entities.length === 0) entityStore.fetchAll()
 const placeholderHint = 'Placeholders disponibles : ' +
   ['nom_candidat', 'poste', 'entite', 'date_debut', 'salaire'].map(p => `{{${p}}}`).join(', ') + '.'
 
+// Liste fixe, volontairement non extensible depuis l'écran (voir echange du
+// 29/08) : elle reprend exactement les vrais types de contrat du module
+// Employés (stores/employees.ts, CONTRACT_TYPE_TO_BACKEND), pour rester
+// cohérent avec ce que ce module alimentera plus tard, plus "Période
+// d'essai" propre au processus de recrutement (document distinct, pas une
+// nature de contrat en soi — voir TrialEmployee).
 const CONTRACT_TYPES = [
   { value: 'CDI', label: 'CDI' },
   { value: 'CDD', label: 'CDD' },
   { value: 'Stage', label: 'Stage' },
   { value: 'Freelance', label: 'Freelance' },
+  { value: 'Apprenti', label: 'Apprentissage' },
+  { value: 'Alternant', label: 'Alternance' },
   { value: 'Essai', label: 'Période d\'essai' },
 ]
 
