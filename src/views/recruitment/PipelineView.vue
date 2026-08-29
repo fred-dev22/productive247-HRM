@@ -40,8 +40,8 @@
           <div class="text-xs text-muted-foreground mt-1">Taux de conversion (candidatures retenues / total)</div>
         </div>
         <div>
-          <div class="text-[22px] font-bold leading-none">{{ avgResponseTimeLabel }}</div>
-          <div class="text-xs text-muted-foreground mt-1">Temps moyen avant première réponse (valeur indicative)</div>
+          <div class="text-[22px] font-bold leading-none">{{ avgTimeToHireLabel }}</div>
+          <div class="text-xs text-muted-foreground mt-1">Temps moyen d'embauche (candidature → prise de poste, {{ timeToHireSamples.length }} contrat(s))</div>
         </div>
         <div>
           <div class="text-[22px] font-bold leading-none">{{ avgRecruitmentCostLabel }}</div>
@@ -62,11 +62,12 @@ import { TrendingUp } from 'lucide-vue-next'
 import { StatusPill } from '../../components'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
-import { useApplicationStore, useJobOfferStore } from '../../stores/recruitment'
+import { useApplicationStore, useJobOfferStore, useContractStore } from '../../stores/recruitment'
 import type { ApplicationStatus, ApplicationSource } from '../../stores/recruitment'
 
 const applicationStore = useApplicationStore()
 const jobOfferStore = useJobOfferStore()
+const contractStore = useContractStore()
 
 const COLUMNS: { status: ApplicationStatus }[] = [
   { status: 'New' },
@@ -98,25 +99,27 @@ const conversionRate = computed(() => {
   return Math.round((retained / total) * 100)
 })
 
-// Estimation illustrative : écart en jours entre la candidature et sa
-// première note (premier échange tracé), moyenné sur les candidatures qui
-// en ont au moins une. Faute de note, il n'y a rien à mesurer.
-const avgResponseDays = computed(() => {
-  const samples = applicationStore.items
-    .filter(a => a.notes.length > 0)
-    .map(a => {
-      const firstNoteTime = Math.min(...a.notes.map(n => new Date(n.date).getTime()))
-      const appliedTime = new Date(a.appliedAt).getTime()
-      return Math.max(0, Math.round((firstNoteTime - appliedTime) / 86400000))
+// Temps moyen d'embauche = écart entre la candidature (Application.appliedAt)
+// et la prise de poste effective (Contract.startDate), sur les contrats
+// réellement acceptés par le candidat — pas une estimation : les deux dates
+// existent telles quelles dans le système, reliées via applicationId.
+const timeToHireSamples = computed(() => {
+  return contractStore.items
+    .filter(c => c.status === 'AcceptedByCandidate')
+    .map(c => {
+      const app = applicationStore.items.find(a => a.id === c.applicationId)
+      if (!app) return null
+      const days = Math.round((new Date(c.startDate).getTime() - new Date(app.appliedAt).getTime()) / 86400000)
+      return days >= 0 ? days : null
     })
-  if (samples.length === 0) return null
-  return Math.round(samples.reduce((sum, v) => sum + v, 0) / samples.length)
+    .filter((d): d is number => d !== null)
 })
 
-const avgResponseTimeLabel = computed(() => {
-  const v = avgResponseDays.value
-  if (v === null) return 'Non disponible'
-  return `${v} jour${v > 1 ? 's' : ''}`
+const avgTimeToHireLabel = computed(() => {
+  const samples = timeToHireSamples.value
+  if (samples.length === 0) return 'Non disponible'
+  const avg = Math.round(samples.reduce((sum, v) => sum + v, 0) / samples.length)
+  return `${avg} jour${avg > 1 ? 's' : ''}`
 })
 
 // Coût par recrutement = coût de campagne (JobOffer.recruitmentCost, saisi à
