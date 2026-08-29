@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore }       from '../stores/auth'
 import { useCompanySettingsStore } from '../stores/companySettings'
+import { useNavigationStore } from '../stores/navigation'
 import LoginView          from '../views/LoginView.vue'
 import ForgotPasswordView from '../views/ForgotPasswordView.vue'
 import ResetPasswordView  from '../views/ResetPasswordView.vue'
@@ -28,6 +29,21 @@ const MISSIONS_EXPENSES_ROUTES = new Set([
 // masquage dans AppNavBar.vue.
 const PLACEHOLDER_MODULE_PATH_PREFIXES = ['/hr/training', '/hr/payroll', '/hr/reports']
 const RECRUITMENT_MODULE_PATH_PREFIX = '/hr/recruitment'
+
+// Onglet actif (AppNavBar.vue) et sidebar (AppSidebar.vue) suivent tous les
+// deux navigationStore.activeModule, qui n'etait mis a jour qu'au clic sur un
+// onglet (handleHRNav) — un rechargement de page ou un lien direct vers
+// /hr/recruitment/... laissait donc l'onglet et la sidebar bloques sur le
+// dernier module clique (souvent "administration" par defaut). Deduit ici de
+// l'URL a chaque navigation pour rester juste quelle que soit la façon dont
+// on arrive sur la page.
+function moduleForPath(path: string): string {
+  if (path.startsWith(RECRUITMENT_MODULE_PATH_PREFIX)) return 'recruitment'
+  if (path.startsWith('/hr/training')) return 'training'
+  if (path.startsWith('/hr/payroll')) return 'payroll'
+  if (path.startsWith('/hr/reports')) return 'reports'
+  return 'administration'
+}
 
 // Route (par nom) -> permission(s) requise(s) en plus de l'espace hr/employee
 // (voir auth.isHRSpace/isEmployeeSpace). Un tableau = n'importe laquelle des
@@ -317,6 +333,12 @@ router.beforeEach(async (to) => {
     }
     if (to.path.startsWith('/employee') && auth.isHRSpace) {
       return { path: '/hr' }
+    }
+
+    // Voir commentaire sur moduleForPath : synchronise l'onglet actif et la
+    // sidebar sur l'URL réellement visitée, peu importe comment on y arrive.
+    if (to.path.startsWith('/hr')) {
+      useNavigationStore().setModule(moduleForPath(to.path))
     }
 
     // RH connecté + entreprise jamais onboardée (CompanySettings.IsOnboarded,
