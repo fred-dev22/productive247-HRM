@@ -92,6 +92,7 @@
       <template #cell-entityName="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.entityName }}</span></template>
       <template #cell-templateName="{ item }"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-primary/10 text-primary">{{ item.templateName }}</span></template>
       <template #cell-startDate="{ item }"><span class="text-muted-foreground text-xs">{{ formatDate(item.startDate) }}</span></template>
+      <template #cell-endDate="{ item }"><span class="text-muted-foreground text-xs">{{ item.endDate ? formatDate(item.endDate) : '—' }}</span></template>
       <template #cell-salary="{ item }"><span class="text-xs font-semibold tabular-nums">{{ formatSalary(item.salary) }}</span></template>
       <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
@@ -107,6 +108,7 @@
           <div class="grid grid-cols-2 gap-2 text-[12px]">
             <div><div class="text-muted-foreground text-[11px]">Modèle</div>{{ item.templateName }}</div>
             <div><div class="text-muted-foreground text-[11px]">Date de début</div>{{ formatDate(item.startDate) }}</div>
+            <div v-if="item.endDate"><div class="text-muted-foreground text-[11px]">Date de fin</div>{{ formatDate(item.endDate) }}</div>
             <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Salaire</div>{{ formatSalary(item.salary) }}</div>
           </div>
 
@@ -172,11 +174,16 @@
                     <label :class="cls.fieldLabel">Date de début <span class="text-danger">*</span></label>
                     <input type="date" v-model="form.startDate" :class="cls.fieldInput" />
                   </div>
+                  <div v-if="selectedTemplateType !== 'CDI'" :class="cls.field">
+                    <label :class="cls.fieldLabel">Date de fin <span class="text-danger">*</span></label>
+                    <input type="date" v-model="form.endDate" :class="cls.fieldInput" />
+                  </div>
                   <div :class="cls.field">
                     <label :class="cls.fieldLabel">Salaire mensuel brut (MGA) <span class="text-danger">*</span></label>
                     <input type="number" min="0" v-model.number="form.salary" :class="cls.fieldInput" placeholder="0" />
                   </div>
                 </div>
+                <p v-if="!selectedTemplateType" class="text-[11px] text-muted-foreground mt-2">Sélectionnez d'abord un modèle : la date de fin n'apparaît que si le type de contrat n'est pas un CDI.</p>
               </FormSection>
 
             </div>
@@ -277,7 +284,8 @@ if (entityStore.entities.length === 0) entityStore.fetchAll()
 // mustache Vue font echouer le compilateur (il cherche la premiere sequence
 // "}}" pour fermer l'interpolation, meme a l'interieur d'une chaine).
 const placeholderHint = 'Placeholders disponibles : ' +
-  ['nom_candidat', 'poste', 'entite', 'date_debut', 'salaire'].map(p => `{{${p}}}`).join(', ') + '.'
+  ['nom_candidat', 'poste', 'entite', 'date_debut', 'date_fin', 'salaire'].map(p => `{{${p}}}`).join(', ') +
+  '. {{date_fin}} reste vide pour un modèle de type CDI (durée indéterminée).'
 
 // Liste fixe, volontairement non extensible depuis l'écran (voir echange du
 // 29/08) : elle reprend exactement les vrais types de contrat du module
@@ -316,6 +324,7 @@ const columns: ListColumn[] = [
   { key: 'entityName', label: 'Entité', sortable: true, width: 170 },
   { key: 'templateName', label: 'Modèle', width: 140 },
   { key: 'startDate', label: 'Date de début', sortable: true, width: 130 },
+  { key: 'endDate', label: 'Date de fin', sortable: true, width: 130 },
   { key: 'salary', label: 'Salaire', align: 'right', sortable: true, width: 140 },
   { key: 'status', label: 'Statut', width: 160 },
 ]
@@ -356,7 +365,7 @@ function resetFilters() {
 }
 
 const sortFieldMap: Record<string, keyof Contract> = {
-  candidateName: 'candidateName', jobTitle: 'jobTitle', entityName: 'entityName', startDate: 'startDate', salary: 'salary',
+  candidateName: 'candidateName', jobTitle: 'jobTitle', entityName: 'entityName', startDate: 'startDate', endDate: 'endDate', salary: 'salary',
 }
 
 const filtered = computed(() => {
@@ -400,11 +409,15 @@ const eligibleApplications = computed(() =>
 const showCreate = ref(false)
 const error = ref<string | null>(null)
 const form = reactive({
-  applicationId: '', templateId: '', jobTitle: '', entityId: '', startDate: '', salary: 0,
+  applicationId: '', templateId: '', jobTitle: '', entityId: '', startDate: '', endDate: '', salary: 0,
 })
 
+// Type du modèle sélectionné : pilote l'affichage/l'obligation de la date
+// de fin (tout sauf CDI, voir Contract.endDate).
+const selectedTemplateType = computed(() => contractStore.templates.find(t => t.id === form.templateId)?.contractType ?? '')
+
 function resetForm() {
-  Object.assign(form, { applicationId: '', templateId: '', jobTitle: '', entityId: '', startDate: '', salary: 0 })
+  Object.assign(form, { applicationId: '', templateId: '', jobTitle: '', entityId: '', startDate: '', endDate: '', salary: 0 })
   error.value = null
 }
 
@@ -420,6 +433,10 @@ function validate(): boolean {
   if (!form.jobTitle.trim()) { error.value = 'Le poste est requis'; return false }
   if (!form.entityId) { error.value = "L'entité est requise"; return false }
   if (!form.startDate) { error.value = 'La date de début est requise'; return false }
+  if (selectedTemplateType.value !== 'CDI') {
+    if (!form.endDate) { error.value = 'La date de fin est requise pour ce type de contrat'; return false }
+    if (form.endDate <= form.startDate) { error.value = 'La date de fin doit être postérieure à la date de début'; return false }
+  }
   if (!form.salary || form.salary <= 0) { error.value = 'Le salaire doit être supérieur à 0'; return false }
   error.value = null
   return true
@@ -437,6 +454,7 @@ function buildPayload() {
     jobTitle: form.jobTitle.trim(),
     entityName: entity?.name ?? '',
     startDate: form.startDate,
+    endDate: selectedTemplateType.value !== 'CDI' ? form.endDate : undefined,
     salary: form.salary,
   }
 }

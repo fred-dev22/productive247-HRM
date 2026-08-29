@@ -5,12 +5,13 @@
  * contenu organisé en FormSection. Calqué sur MissionCard.vue.
  */
 import { ref, computed, watch } from 'vue'
-import { Download } from 'lucide-vue-next'
+import { Download, UserPlus, CheckCircle2 } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import ContractWorkflowActions from './ContractWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
+import { confirmDialog } from '../../lib/confirm'
 import { formatDate } from '../../lib/date'
 import { resolveContractContent, buildContractHtml, downloadContractPdf } from '../../lib/contractDocument'
 import { useContractStore } from '../../stores/recruitment'
@@ -55,7 +56,8 @@ function documentInput(item: Contract) {
   const resolvedContent = tpl
     ? resolveContractContent(tpl.content, {
         candidateName: item.candidateName, jobTitle: item.jobTitle, entityName: item.entityName,
-        startDate: formatDate(item.startDate), salary: formatSalary(item.salary),
+        startDate: formatDate(item.startDate), endDate: item.endDate ? formatDate(item.endDate) : undefined,
+        salary: formatSalary(item.salary),
       })
     : ''
   return {
@@ -66,6 +68,20 @@ function documentInput(item: Contract) {
 
 const documentHtml = computed(() => (current.value ? buildContractHtml(documentInput(current.value)) : ''))
 function downloadPdf() { if (current.value) downloadContractPdf(documentInput(current.value)) }
+
+/* ── Créer le profil employé (simulation) ────────────────────────────
+   Voir Contract.employeeProfileCreated et BACKLOG.md, "Conversion candidat
+   -> employe" : ne cree rien dans le vrai module Employes, faute de
+   backend sur ce module. Sert a visualiser/valider le point d'entree. */
+async function createEmployeeProfile() {
+  if (!current.value) return
+  if (await confirmDialog(
+    "Simuler la création du profil employé de " + current.value.candidateName + " ? " +
+    "Ceci ne crée aucun compte réel dans le module Employés (ce module n'a pas encore de backend).",
+  )) {
+    contractStore.markEmployeeProfileCreated(current.value.id)
+  }
+}
 
 const pageTitle = computed(() => current.value?.candidateName ?? '')
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
@@ -121,12 +137,32 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
               <label :class="cls.fieldLabel">Date de début</label>
               <div :class="readBox">{{ formatDate(current.startDate) }}</div>
             </div>
+            <div v-if="current.endDate" :class="cls.field">
+              <label :class="cls.fieldLabel">Date de fin</label>
+              <div :class="readBox">{{ formatDate(current.endDate) }}</div>
+            </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Salaire mensuel brut</label>
               <div :class="readBox">{{ formatSalary(current.salary) }}</div>
             </div>
           </div>
           <div v-if="current.rejectionReason" :class="cls.fieldErrorBlock" class="mt-3">{{ current.rejectionReason }}</div>
+        </FormSection>
+
+        <!-- Section Conversion en employé (simulation, voir BACKLOG.md) -->
+        <FormSection v-if="current.status === 'AcceptedByCandidate'" title="Conversion en employé">
+          <div v-if="current.employeeProfileCreated" class="flex items-center gap-2 text-success text-[13px] font-medium">
+            <CheckCircle2 class="w-4 h-4" /> Profil employé créé (simulation)
+          </div>
+          <template v-else>
+            <button type="button" :class="cls.btnPrimary" @click="createEmployeeProfile">
+              <UserPlus class="w-4 h-4" /> Créer le profil employé
+            </button>
+            <p class="text-[11px] text-muted-foreground mt-1.5">
+              Simulation uniquement : ce module n'a pas encore de backend, ce bouton ne crée aucun compte réel dans le module Employés.
+              À déclencher une fois le contrat signé physiquement et reçu par les RH.
+            </p>
+          </template>
         </FormSection>
 
         <!-- Section Document du contrat -->

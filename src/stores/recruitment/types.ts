@@ -141,9 +141,18 @@ export interface Contract {
   jobTitle: string
   entityName: string
   startDate: string
+  // Absent pour un CDI (duree indeterminee, pas de terme) ; requis pour tout
+  // autre type (CDD, Stage, Freelance, Apprenti, Alternant, Essai), voir
+  // validate() dans ContractsView.vue.
+  endDate?: string
   salary: number
   status: ContractStatus
   rejectionReason?: string
+  // Simulation uniquement : ce module n'a pas de backend, ce champ ne cree
+  // aucun vrai compte dans le module Employes (voir BACKLOG.md, "Conversion
+  // candidat -> employe"). Sert juste a visualiser/valider le point d'entree
+  // avec le client avant de le brancher pour de vrai.
+  employeeProfileCreated?: boolean
 }
 
 export type TrialStatus = 'OnTrial' | 'Extended' | 'Converted' | 'Cancelled'

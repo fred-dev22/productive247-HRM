@@ -145,37 +145,37 @@ export const contractTemplates = reactive<ContractTemplate[]>([
   },
   {
     id: 'tpl-2', name: 'CDD standard', contractType: 'CDD',
-    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat à durée déterminée pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une rémunération mensuelle brute de {{salaire}} Ariary.',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat à durée déterminée pour le poste de {{poste}} au sein de {{entite}}, du {{date_debut}} au {{date_fin}}, moyennant une rémunération mensuelle brute de {{salaire}} Ariary.',
   },
   {
     id: 'tpl-3', name: 'Convention de stage', contractType: 'Stage',
-    content: 'Entre GALANA et {{nom_candidat}}, il est convenu une convention de stage pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une gratification mensuelle de {{salaire}} Ariary.',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu une convention de stage pour le poste de {{poste}} au sein de {{entite}}, du {{date_debut}} au {{date_fin}}, moyennant une gratification mensuelle de {{salaire}} Ariary.',
   },
   {
     id: 'tpl-4', name: 'Prestation freelance', contractType: 'Freelance',
-    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat de prestation de services pour la mission de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant des honoraires mensuels de {{salaire}} Ariary.',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat de prestation de services pour la mission de {{poste}} au sein de {{entite}}, du {{date_debut}} au {{date_fin}}, moyennant des honoraires mensuels de {{salaire}} Ariary.',
   },
   {
     id: 'tpl-6', name: 'Contrat d\'apprentissage', contractType: 'Apprenti',
-    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat d\'apprentissage pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une rémunération mensuelle de {{salaire}} Ariary, dans le cadre d\'une formation en alternance sanctionnée par un diplôme ou titre professionnel.',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat d\'apprentissage pour le poste de {{poste}} au sein de {{entite}}, du {{date_debut}} au {{date_fin}}, moyennant une rémunération mensuelle de {{salaire}} Ariary, dans le cadre d\'une formation en alternance sanctionnée par un diplôme ou titre professionnel.',
   },
   {
     id: 'tpl-7', name: 'Contrat de professionnalisation', contractType: 'Alternant',
-    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat de professionnalisation pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une rémunération mensuelle de {{salaire}} Ariary, alternant périodes de formation théorique et périodes en entreprise.',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat de professionnalisation pour le poste de {{poste}} au sein de {{entite}}, du {{date_debut}} au {{date_fin}}, moyennant une rémunération mensuelle de {{salaire}} Ariary, alternant périodes de formation théorique et périodes en entreprise.',
   },
   {
     // Document distinct pour la periode d'essai elle-meme (avant
     // confirmation dans le contrat definitif) — voir TrialEmployee et
     // ContractsView.vue.
     id: 'tpl-5', name: 'Période d\'essai', contractType: 'Essai',
-    content: 'Entre GALANA et {{nom_candidat}}, il est convenu une période d\'essai pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une rémunération mensuelle brute de {{salaire}} Ariary. Cette période permet à chacune des parties d\'apprécier si le poste convient, avant confirmation dans un contrat définitif.',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu une période d\'essai pour le poste de {{poste}} au sein de {{entite}}, du {{date_debut}} au {{date_fin}}, moyennant une rémunération mensuelle brute de {{salaire}} Ariary. Cette période permet à chacune des parties d\'apprécier si le poste convient, avant confirmation dans un contrat définitif.',
   },
 ])
 
 export const contracts = reactive<Contract[]>([
   {
     id: 'ctr-1', applicationId: 'app-3', candidateName: 'Lova Rakotomalala', templateId: 'tpl-2', templateName: 'CDD standard',
-    jobTitle: 'Chauffeur poids lourd', entityName: 'Direction Exploitation', startDate: '2026-09-01', salary: 950000,
+    jobTitle: 'Chauffeur poids lourd', entityName: 'Direction Exploitation', startDate: '2026-09-01', endDate: '2027-02-28', salary: 950000,
     status: 'AcceptedByCandidate',
   },
 ])

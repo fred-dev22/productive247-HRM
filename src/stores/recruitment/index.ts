@@ -168,6 +168,12 @@ export const useContractStore = defineStore('recruitment-contracts', {
     },
     candidateRefuse(id: string) { const c = this.items.find(x => x.id === id); if (c) c.status = 'RefusedByCandidate' },
     cancel(id: string) { const c = this.items.find(x => x.id === id); if (c) c.status = 'Cancelled' },
+    // Simulation uniquement (voir Contract.employeeProfileCreated) : ne cree
+    // rien dans le vrai module Employes, faute de backend sur ce module.
+    markEmployeeProfileCreated(id: string) {
+      const c = this.items.find(x => x.id === id)
+      if (c) c.employeeProfileCreated = true
+    },
   },
 })
 

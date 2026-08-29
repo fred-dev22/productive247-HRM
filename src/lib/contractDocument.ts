@@ -21,15 +21,18 @@ export interface ContractDocumentInput {
 // Remplace les placeholders {{...}} d'un modele de contrat (voir
 // ContractTemplate.content) par les valeurs reelles du contrat genere —
 // seule logique de resolution du module, partagee par tous les apercus.
+// endDate est optionnel : absent pour un CDI (duree indeterminee), fourni
+// pour tout autre type (voir ContractsView.vue).
 export function resolveContractContent(
   content: string,
-  vars: { candidateName: string; jobTitle: string; entityName: string; startDate: string; salary: string },
+  vars: { candidateName: string; jobTitle: string; entityName: string; startDate: string; salary: string; endDate?: string },
 ): string {
   return content
     .replaceAll('{{nom_candidat}}', vars.candidateName)
     .replaceAll('{{poste}}', vars.jobTitle)
     .replaceAll('{{entite}}', vars.entityName)
     .replaceAll('{{date_debut}}', vars.startDate)
+    .replaceAll('{{date_fin}}', vars.endDate ?? '')
     .replaceAll('{{salaire}}', vars.salary)
 }
 
@@ -49,6 +52,10 @@ export function buildContractHtml(doc: ContractDocumentInput): string {
 <meta charset="utf-8">
 <title>${escapeHtml(doc.templateName)} — ${escapeHtml(doc.candidateName)}</title>
 <style>
+  /* Force le portrait dans le dialogue d'impression — sans ça, certains
+     navigateurs reprennent l'orientation du dernier document imprime
+     (souvent paysage), quelle que soit la mise en page de celui-ci. */
+  @page { size: A4 portrait; margin: 0; }
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
   body { margin: 0; padding: 0; background: #eef2f1; font-family: Georgia, 'Times New Roman', serif; color: #1f2937; }

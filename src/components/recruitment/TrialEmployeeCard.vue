@@ -63,7 +63,8 @@ function documentInput() {
   const resolvedContent = tpl
     ? resolveContractContent(tpl.content, {
         candidateName: contract.candidateName, jobTitle: contract.jobTitle, entityName: contract.entityName,
-        startDate: formatDate(contract.startDate), salary: formatSalary(contract.salary),
+        startDate: formatDate(contract.startDate), endDate: contract.endDate ? formatDate(contract.endDate) : undefined,
+        salary: formatSalary(contract.salary),
       })
     : ''
   return {
