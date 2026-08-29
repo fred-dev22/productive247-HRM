@@ -120,6 +120,17 @@
         <div class="flex-1 overflow-auto px-6 py-5">
           <div class="max-w-3xl mx-auto">
 
+            <FormSection title="Rattachement">
+              <div :class="cls.field">
+                <label :class="cls.fieldLabel">Rattacher à une demande approuvée <span :class="cls.fieldOptional">(optionnel)</span></label>
+                <select v-model="form.hiringRequestId" :class="cls.fieldSelect">
+                  <option value="">Aucune</option>
+                  <option v-for="r in approvedHiringRequests" :key="r.id" :value="r.id">{{ r.positionTitle }} · {{ r.entityName }}</option>
+                </select>
+                <p class="text-[11px] text-muted-foreground mt-1">En sélectionnant une demande, le titre, l'entité et la description ci-dessous se pré-remplissent.</p>
+              </div>
+            </FormSection>
+
             <FormSection title="Offre">
               <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
                 <div :class="cls.field" class="col-span-2">
@@ -150,16 +161,6 @@
               <div :class="cls.field">
                 <label :class="cls.fieldLabel">Description <span class="text-danger">*</span></label>
                 <textarea v-model="form.description" :class="cls.fieldTextarea" rows="4" placeholder="Missions, responsabilités, profil recherché…"></textarea>
-              </div>
-            </FormSection>
-
-            <FormSection title="Rattachement">
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Rattacher à une demande approuvée <span :class="cls.fieldOptional">(optionnel)</span></label>
-                <select v-model="form.hiringRequestId" :class="cls.fieldSelect">
-                  <option value="">Aucune</option>
-                  <option v-for="r in approvedHiringRequests" :key="r.id" :value="r.id">{{ r.positionTitle }} · {{ r.entityName }}</option>
-                </select>
               </div>
             </FormSection>
 
@@ -301,6 +302,21 @@ function resetForm() {
   Object.assign(form, { title: '', entityId: '', contractType: 'CDI', location: '', description: '', hiringRequestId: '' })
   error.value = null
 }
+
+// Rattacher une demande approuvée pré-remplit ce que l'offre partage avec
+// elle (titre, entité, description ← profil recherché) — le reste
+// (type de contrat, lieu) n'existe pas sur l'expression de besoin, à
+// renseigner à la main. Ne s'applique qu'au moment du choix : décocher la
+// demande ensuite ne réinitialise pas les champs déjà pré-remplis.
+watch(() => form.hiringRequestId, (id) => {
+  if (!id) return
+  const request = hiringRequestStore.items.find(r => r.id === id)
+  if (!request) return
+  form.title = request.positionTitle
+  const entity = entityStore.approvedEntities.find(e => e.name === request.entityName)
+  if (entity) form.entityId = entity.id
+  if (!form.description.trim()) form.description = request.profile
+})
 
 function validate(): boolean {
   if (!form.title.trim()) { error.value = 'Le titre est requis'; return false }
