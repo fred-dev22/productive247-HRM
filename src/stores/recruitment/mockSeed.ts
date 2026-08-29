@@ -138,6 +138,21 @@ export const contractTemplates = reactive<ContractTemplate[]>([
     id: 'tpl-2', name: 'CDD standard', contractType: 'CDD',
     content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat à durée déterminée pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une rémunération mensuelle brute de {{salaire}} Ariary.',
   },
+  {
+    id: 'tpl-3', name: 'Convention de stage', contractType: 'Stage',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu une convention de stage pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une gratification mensuelle de {{salaire}} Ariary.',
+  },
+  {
+    id: 'tpl-4', name: 'Prestation freelance', contractType: 'Freelance',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu un contrat de prestation de services pour la mission de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant des honoraires mensuels de {{salaire}} Ariary.',
+  },
+  {
+    // Document distinct pour la periode d'essai elle-meme (avant
+    // confirmation dans le contrat definitif) — voir TrialEmployee et
+    // ContractsView.vue.
+    id: 'tpl-5', name: 'Période d\'essai', contractType: 'Essai',
+    content: 'Entre GALANA et {{nom_candidat}}, il est convenu une période d\'essai pour le poste de {{poste}} au sein de {{entite}}, à compter du {{date_debut}}, moyennant une rémunération mensuelle brute de {{salaire}} Ariary. Cette période permet à chacune des parties d\'apprécier si le poste convient, avant confirmation dans un contrat définitif.',
+  },
 ])
 
 export const contracts = reactive<Contract[]>([

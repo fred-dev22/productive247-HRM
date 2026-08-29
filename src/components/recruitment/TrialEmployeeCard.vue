@@ -6,13 +6,18 @@
  * sur MissionCard.vue.
  */
 import { ref, computed, watch } from 'vue'
+import { Download } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import TrialEmployeeWorkflowActions from './TrialEmployeeWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
+import { resolveContractContent, buildContractHtml, downloadContractPdf } from '../../lib/contractDocument'
+import { useContractStore } from '../../stores/recruitment'
 import type { TrialEmployee } from '../../stores/recruitment'
+
+const contractStore = useContractStore()
 
 const props = defineProps<{
   /** Périodes d'essai de la liste courante (pour la navigation N°) */
@@ -43,6 +48,38 @@ function selectSidebar(no: string) {
 
 const pageTitle = computed(() => current.value?.employeeName ?? '')
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
+
+function formatSalary(n: number): string { return `${n.toLocaleString('fr-FR')} MGA` }
+
+/* ── Contrat lié (voir TrialEmployee.contractId) ────────────────────
+   Une période d'essai naît toujours d'un contrat déjà généré (voir
+   ContractsView.vue) — on retrouve ici le même document que sur sa fiche. */
+const linkedContract = computed(() => current.value ? contractStore.items.find(c => c.id === current.value!.contractId) ?? null : null)
+
+function documentInput() {
+  const contract = linkedContract.value
+  if (!contract) return null
+  const tpl = contractStore.templates.find(t => t.id === contract.templateId)
+  const resolvedContent = tpl
+    ? resolveContractContent(tpl.content, {
+        candidateName: contract.candidateName, jobTitle: contract.jobTitle, entityName: contract.entityName,
+        startDate: formatDate(contract.startDate), salary: formatSalary(contract.salary),
+      })
+    : ''
+  return {
+    candidateName: contract.candidateName, jobTitle: contract.jobTitle, entityName: contract.entityName,
+    templateName: contract.templateName, resolvedContent,
+  }
+}
+
+const documentHtml = computed(() => {
+  const input = documentInput()
+  return input ? buildContractHtml(input) : ''
+})
+function downloadPdf() {
+  const input = documentInput()
+  if (input) downloadContractPdf(input)
+}
 </script>
 
 <template>
@@ -96,6 +133,16 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
               <div :class="readBox">{{ formatDate(current.trialEndDate) }}</div>
             </div>
           </div>
+        </FormSection>
+
+        <!-- Section Contrat lié -->
+        <FormSection v-if="linkedContract" title="Contrat lié" :recaps="[linkedContract.templateName]">
+          <div class="border border-border rounded-lg overflow-hidden h-[560px] bg-muted">
+            <iframe :srcdoc="documentHtml" class="w-full h-full border-0" title="Aperçu du contrat" />
+          </div>
+          <button type="button" :class="[cls.btnPrimary, 'mt-3']" @click="downloadPdf">
+            <Download class="w-4 h-4" /> Télécharger le PDF
+          </button>
         </FormSection>
 
         <!-- Section Évaluation -->

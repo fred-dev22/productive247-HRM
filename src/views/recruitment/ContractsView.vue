@@ -284,6 +284,7 @@ const CONTRACT_TYPES = [
   { value: 'CDD', label: 'CDD' },
   { value: 'Stage', label: 'Stage' },
   { value: 'Freelance', label: 'Freelance' },
+  { value: 'Essai', label: 'Période d\'essai' },
 ]
 
 /* ── Onglets ────────────────────────────────────────────────── */

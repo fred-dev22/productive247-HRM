@@ -5,12 +5,14 @@
  * contenu organisé en FormSection. Calqué sur MissionCard.vue.
  */
 import { ref, computed, watch } from 'vue'
+import { Download } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import ContractWorkflowActions from './ContractWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
+import { resolveContractContent, buildContractHtml, downloadContractPdf } from '../../lib/contractDocument'
 import { useContractStore } from '../../stores/recruitment'
 import type { Contract } from '../../stores/recruitment'
 
@@ -45,17 +47,25 @@ function selectSidebar(no: string) {
   if (c) currentId.value = c.id
 }
 
-/* ── Aperçu du contenu du contrat (placeholders remplacés) ─────── */
-function contractPreview(item: Contract): string {
+/* ── Document du contrat (aperçu écran + PDF) ──────────────────────
+   Voir lib/contractDocument.ts : document HTML autonome, réutilisé tel quel
+   pour l'aperçu (iframe) et pour l'impression/PDF (nouvel onglet). */
+function documentInput(item: Contract) {
   const tpl = contractStore.templates.find(t => t.id === item.templateId)
-  if (!tpl) return ''
-  return tpl.content
-    .replaceAll('{{nom_candidat}}', item.candidateName)
-    .replaceAll('{{poste}}', item.jobTitle)
-    .replaceAll('{{entite}}', item.entityName)
-    .replaceAll('{{date_debut}}', formatDate(item.startDate))
-    .replaceAll('{{salaire}}', item.salary.toLocaleString('fr-FR'))
+  const resolvedContent = tpl
+    ? resolveContractContent(tpl.content, {
+        candidateName: item.candidateName, jobTitle: item.jobTitle, entityName: item.entityName,
+        startDate: formatDate(item.startDate), salary: formatSalary(item.salary),
+      })
+    : ''
+  return {
+    candidateName: item.candidateName, jobTitle: item.jobTitle, entityName: item.entityName,
+    templateName: item.templateName, resolvedContent,
+  }
 }
+
+const documentHtml = computed(() => (current.value ? buildContractHtml(documentInput(current.value)) : ''))
+function downloadPdf() { if (current.value) downloadContractPdf(documentInput(current.value)) }
 
 const pageTitle = computed(() => current.value?.candidateName ?? '')
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
@@ -119,9 +129,17 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           <div v-if="current.rejectionReason" :class="cls.fieldErrorBlock" class="mt-3">{{ current.rejectionReason }}</div>
         </FormSection>
 
-        <!-- Section Aperçu du contenu -->
-        <FormSection title="Aperçu du contenu">
-          <p class="text-[13px] text-foreground whitespace-pre-line bg-background border border-dashed border-border rounded-lg p-3">{{ contractPreview(current) }}</p>
+        <!-- Section Document du contrat -->
+        <FormSection title="Document du contrat">
+          <div class="border border-border rounded-lg overflow-hidden h-[560px] bg-muted">
+            <iframe :srcdoc="documentHtml" class="w-full h-full border-0" title="Aperçu du contrat" />
+          </div>
+          <button type="button" :class="[cls.btnPrimary, 'mt-3']" @click="downloadPdf">
+            <Download class="w-4 h-4" /> Télécharger le PDF
+          </button>
+          <p class="text-[11px] text-muted-foreground mt-1.5">
+            Ouvre le document dans un nouvel onglet et lance l'impression — choisissez "Enregistrer au format PDF" comme destination pour le télécharger.
+          </p>
         </FormSection>
       </div>
     </template>
