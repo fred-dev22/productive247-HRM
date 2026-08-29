@@ -19,6 +19,12 @@
     @reset-filters="resetFilters"
     @open-card="openCard"
   >
+    <template #header-actions>
+      <button :class="L.btnPrimary" @click="showCreate = true">
+        <Plus class="w-4 h-4" /> Nouvelle candidature
+      </button>
+    </template>
+
     <!-- Actions contextuelles (ligne sélectionnée) -->
     <template #row-actions="{ item }">
       <ApplicationWorkflowActions :item="item" />
@@ -79,6 +85,61 @@
       <p class="text-[13px]">Aucune candidature spontanée pour le moment.</p>
     </template>
 
+    <!-- Création : un RH enregistre un CV reçu par un autre canal (mail,
+         dépôt en personne…) — voir "Réception et enregistrement des
+         candidatures spontanées" dans les specs client. -->
+    <CreateModalShell
+      v-if="showCreate"
+      title="Nouvelle candidature spontanée"
+      banner-label="Candidature spontanée"
+      create-label="Enregistrer"
+      :save-error="error"
+      @close="showCreate = false"
+      @create="create"
+    >
+      <template #form>
+        <div class="flex-1 overflow-auto px-6 py-5">
+          <div class="max-w-3xl mx-auto">
+            <FormSection title="Candidat">
+              <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
+                <div :class="cls.field" class="col-span-2">
+                  <label :class="cls.fieldLabel">Nom complet <span class="text-danger">*</span></label>
+                  <input v-model="form.candidateName" :class="cls.fieldInput" placeholder="Prénom et nom" />
+                </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">Email <span class="text-danger">*</span></label>
+                  <input v-model="form.candidateEmail" type="email" :class="cls.fieldInput" placeholder="candidat@exemple.com" />
+                </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">Téléphone <span class="text-danger">*</span></label>
+                  <input v-model="form.candidatePhone" :class="cls.fieldInput" placeholder="034 00 000 00" />
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title="CV">
+              <label
+                class="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-lg py-8 px-4 text-center transition-colors cursor-pointer"
+                :class="dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'"
+                @dragover.prevent="dragOver = true"
+                @dragleave.prevent="dragOver = false"
+                @drop.prevent="onDrop"
+              >
+                <div class="w-9 h-9 rounded-full flex items-center justify-center" :class="form.cvFileName ? 'bg-success-bg' : 'bg-primary/10'">
+                  <FileCheck2 v-if="form.cvFileName" class="w-4.5 h-4.5 text-success" />
+                  <UploadCloud v-else class="w-4.5 h-4.5 text-primary" />
+                </div>
+                <span v-if="form.cvFileName" class="text-[13px] font-medium text-foreground">{{ form.cvFileName }}</span>
+                <span v-else class="text-[13px] font-medium text-foreground">Glissez le CV ici, ou cliquez pour parcourir</span>
+                <span class="text-[11px] text-muted-foreground">{{ form.cvFileName ? 'Cliquez pour remplacer le fichier' : 'PDF ou Word' }}</span>
+                <input type="file" accept=".pdf,.doc,.docx" class="hidden" @change="onFileInput" />
+              </label>
+            </FormSection>
+          </div>
+        </div>
+      </template>
+    </CreateModalShell>
+
     <!-- Fiche (double-clic ou "Ouvrir la fiche") -->
     <ApplicationCard v-if="openCardId !== null" :items="filtered" :item-id="openCardId" @close="openCardId = null" />
   </ListPageLayout>
@@ -91,12 +152,14 @@
  * src/stores/recruitment). Calquée sur ApplicationsView.vue, sans colonne
  * "offre liée" (toujours vide par définition pour cette source).
  */
-import { ref, watch, computed } from 'vue'
-import { Users, UserPlus, Clock, FileText } from 'lucide-vue-next'
-import { ListPageLayout, StatusPill } from '../../components'
+import { ref, reactive, watch, computed } from 'vue'
+import { Users, UserPlus, Clock, FileText, Plus, UploadCloud, FileCheck2 } from 'lucide-vue-next'
+import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
+import FormSection from '../../components/ui/form-field/FormSection.vue'
 import ApplicationCard from '../../components/recruitment/ApplicationCard.vue'
 import ApplicationWorkflowActions from '../../components/recruitment/ApplicationWorkflowActions.vue'
+import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { useApplicationStore } from '../../stores/recruitment'
@@ -180,4 +243,41 @@ const pageItems = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filtered.value.slice(start, start + pageSize.value)
 })
+
+/* ── Création (un RH enregistre un CV reçu par un autre canal) ───── */
+const showCreate = ref(false)
+const error = ref<string | null>(null)
+const dragOver = ref(false)
+const form = reactive({ candidateName: '', candidateEmail: '', candidatePhone: '', cvFileName: '' })
+
+function resetForm() {
+  Object.assign(form, { candidateName: '', candidateEmail: '', candidatePhone: '', cvFileName: '' })
+  error.value = null
+}
+
+function setFile(file: File | undefined) {
+  if (!file) return
+  form.cvFileName = file.name
+}
+function onFileInput(e: Event) { setFile((e.target as HTMLInputElement).files?.[0]) }
+function onDrop(e: DragEvent) { dragOver.value = false; setFile(e.dataTransfer?.files?.[0]) }
+
+function validate(): boolean {
+  if (!form.candidateName.trim()) { error.value = 'Le nom complet est requis'; return false }
+  if (!form.candidateEmail.trim()) { error.value = "L'email est requis"; return false }
+  if (!form.candidatePhone.trim()) { error.value = 'Le téléphone est requis'; return false }
+  if (!form.cvFileName) { error.value = 'Le CV est requis'; return false }
+  error.value = null
+  return true
+}
+
+function create() {
+  if (!validate()) return
+  applicationStore.applySpontaneous({
+    candidateName: form.candidateName.trim(), candidateEmail: form.candidateEmail.trim(),
+    candidatePhone: form.candidatePhone.trim(), cvFileName: form.cvFileName,
+  })
+  showCreate.value = false
+  resetForm()
+}
 </script>

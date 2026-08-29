@@ -45,6 +45,16 @@
           </div>
         </router-link>
       </div>
+
+      <div class="bg-card border border-dashed border-border rounded-xl p-6 mt-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <p class="text-[13px] text-foreground/80">Vous ne trouvez pas l'offre qui vous correspond ?</p>
+        <router-link
+          :to="{ name: 'public-careers-spontaneous' }"
+          class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary no-underline mt-1.5 hover:underline"
+        >
+          Postuler spontanément <ArrowRight class="w-3.5 h-3.5" />
+        </router-link>
+      </div>
     </div>
   </div>
 </template>

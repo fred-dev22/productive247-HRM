@@ -74,6 +74,18 @@ export const useApplicationStore = defineStore('recruitment-applications', {
         appliedAt: new Date().toISOString().slice(0, 10), notes: [],
       })
     },
+    // Candidature spontanee (pas liee a une offre) — deux points d'entree
+    // partagent cette action : le portail public (PublicSpontaneousApplicationView.vue,
+    // le candidat se depose lui-meme) et l'ecran interne
+    // (SpontaneousApplicationsView.vue, un RH enregistre un CV reçu par un
+    // autre canal — mail, depot en personne...). Voir la note du client :
+    // "Reception ET enregistrement des candidatures spontanees".
+    applySpontaneous(payload: { candidateName: string; candidateEmail: string; candidatePhone: string; cvFileName: string }) {
+      this.items.unshift({
+        ...payload, id: nextId('app'), source: 'Spontaneous', status: 'New',
+        appliedAt: new Date().toISOString().slice(0, 10), notes: [],
+      })
+    },
     setStatus(id: string, status: ApplicationStatus) { const a = this.items.find(x => x.id === id); if (a) a.status = status },
     addNote(id: string, authorName: string, text: string) {
       const a = this.items.find(x => x.id === id)

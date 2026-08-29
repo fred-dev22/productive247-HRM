@@ -89,8 +89,9 @@ const router = createRouter({
     // Masque tant que RECRUITMENT_MODULE_ENABLED est a false (garde plus
     // bas, avant meme la verification requiresAuth puisque ces routes n'en
     // ont pas).
-    { path: '/careers',     name: 'public-careers',       component: () => import('../views/recruitment/PublicCareersView.vue') },
-    { path: '/careers/:id', name: 'public-careers-offer', component: () => import('../views/recruitment/PublicJobApplicationView.vue') },
+    { path: '/careers',             name: 'public-careers',             component: () => import('../views/recruitment/PublicCareersView.vue') },
+    { path: '/careers/spontaneous', name: 'public-careers-spontaneous', component: () => import('../views/recruitment/PublicSpontaneousApplicationView.vue') },
+    { path: '/careers/:id',         name: 'public-careers-offer',       component: () => import('../views/recruitment/PublicJobApplicationView.vue') },
 
     // ── Dashboards ──────────────────────────────────────────────
     { path: '/hr',       name: 'hr-dashboard',       component: DashboardHR,       meta: { requiresAuth: true, layout: 'dashboard' } },
@@ -299,7 +300,8 @@ router.beforeEach(async (to) => {
   // aucune des verifications ci-dessous (y compris RECRUITMENT_MODULE_ENABLED
   // plus bas) ne s'appliquerait a un visiteur non connecte — verifie ici,
   // avant tout le reste.
-  if ((to.name === 'public-careers' || to.name === 'public-careers-offer') && !RECRUITMENT_MODULE_ENABLED) {
+  const PUBLIC_CAREERS_ROUTE_NAMES = new Set(['public-careers', 'public-careers-offer', 'public-careers-spontaneous'])
+  if (to.name && PUBLIC_CAREERS_ROUTE_NAMES.has(to.name as string) && !RECRUITMENT_MODULE_ENABLED) {
     return { path: '/' }
   }
 
