@@ -13,6 +13,11 @@ export interface AuthUser {
   entityId?:       string
   entityName?:     string
   validatorLevel?: 1 | 2 | 3 | 4
+  // Ciblage d'eligibilite (demande client, 01/09) — necessaires pour filtrer
+  // les types de conge/jours feries sur le calendrier personnel de
+  // l'utilisateur connecte (voir lib/eligibility.ts, DashboardEmployee.vue).
+  gender?:         'M' | 'F'
+  isExpatriate?:   boolean
 }
 
 // Statut de LeaveRequest — reprend tel quel l'enum backend (voir

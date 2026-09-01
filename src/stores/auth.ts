@@ -38,6 +38,11 @@ interface BackendEmployee {
   FullName: string
   Email: string
   OrganizationUnitId: string
+  // Necessaire au filtrage (cote frontend) des types de conge/jours feries
+  // restreints par genre/statut expatrie sur le calendrier personnel de
+  // l'utilisateur connecte — voir lib/eligibility.ts et DashboardEmployee.vue.
+  Gender: string
+  IsExpatriate: boolean
 }
 
 interface BackendOrganizationUnit {
@@ -96,6 +101,8 @@ export const useAuthStore = defineStore('auth', () => {
       email:      employee.Email,
       entityId:   employee.OrganizationUnitId,
       entityName,
+      gender:       employee.Gender === 'F' ? 'F' : 'M',
+      isExpatriate: employee.IsExpatriate,
     }
   }
 

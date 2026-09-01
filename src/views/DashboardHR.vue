@@ -242,6 +242,7 @@ import { useEmployeeStore } from '../stores/employees'
 import { useLeaveTransactionStore } from '../stores/leaveTransactions'
 import { useCalendarStore } from '../stores/calendar'
 import { isHoliday } from '../utils/calendar'
+import { isEligible } from '../lib/eligibility'
 
 const auth        = useAuthStore()
 const leaves      = useLeaveRequestStore()
@@ -342,19 +343,6 @@ const today = new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'e
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
 })
 
-// ── Type display helper ──────────────────────────────────────
-const typeI18nKey: Record<string, string> = {
-  'Congé annuel':    'absence.types.annual',
-  'Congé maladie':   'absence.types.sick',
-  'Récupération':    'absence.types.recovery',
-  'Télétravail':     'absence.types.remote',
-  'Congé maternité': 'absence.types.maternity',
-}
-function typeLabel(type: string): string {
-  const key = typeI18nKey[type]
-  return key ? t(key) : type
-}
-
 // ── Demandes ─────────────────────────────────────────────────
 const tab = ref<'pending' | 'approved'>('pending')
 
@@ -430,6 +418,21 @@ function nextMonth() {
 
 interface CalDay { n: number | null; dateStr: string | null; cls: string; hasLeave: boolean; leaveColor?: string; hasHoliday: boolean; holidayName?: string }
 
+// Ciblage d'eligibilite (demande client, 01/09) — meme filtre local que
+// DashboardEmployee.vue : ce mini-calendrier resout le calendrier de
+// l'utilisateur RH connecte (fetchCalendar() sans argument), un jour ferie
+// non applicable a lui ne doit pas y apparaitre comme ferie.
+const myEligibility = computed(() => {
+  const u = auth.user
+  if (!u || u.gender === undefined || u.isExpatriate === undefined) return null
+  return { gender: u.gender, isExpatriate: u.isExpatriate, entityId: u.entityId ?? null }
+})
+const effectiveCalendar = computed(() => {
+  const rule = myEligibility.value
+  if (!rule) return calendarStore.calendar
+  return { ...calendarStore.calendar, holidays: calendarStore.calendar.holidays.filter(h => isEligible(h, rule)) }
+})
+
 const calDays = computed((): CalDay[] => {
   const y = calYear.value
   const m = calMonth.value
@@ -453,7 +456,7 @@ const calDays = computed((): CalDay[] => {
     const dayLeave = leaves.all.find(
       l => l.status === 'Approved' && l.startDate <= dateStr && l.endDate >= dateStr
     )
-    const holiday = isHoliday(new Date(y, m, d), calendarStore.calendar)
+    const holiday = isHoliday(new Date(y, m, d), effectiveCalendar.value)
     result.push({ n: d, dateStr, cls: d === todayNum ? 'today' : '', hasLeave: !!dayLeave, leaveColor: dayLeave?.leaveTypeColor, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
   }
   return result

@@ -155,6 +155,19 @@ const beneficiaryIsExpatriate = computed(() => {
 })
 const chargedDaysCount = ref<number | null>(null)
 
+// Ciblage d'eligibilite (demande client, 01/09) — calendarStore.holidays est
+// un cache global partage par plusieurs ecrans (voir stores/calendar.ts:
+// calendar), donc filtré ici localement plutôt que muté dans le store : un
+// jour ferie non applicable au beneficiaire ne doit pas etre traite comme
+// ferie pour le decompte de SA demande, sans affecter les autres ecrans qui
+// lisent la meme liste (ex: Configuration > Calendrier, qui doit rester
+// exhaustive).
+const effectiveCalendar = computed(() => {
+  const rule = beneficiaryEligibility.value
+  if (!rule) return calendarStore.calendar
+  return { ...calendarStore.calendar, holidays: calendarStore.calendar.holidays.filter(h => isEligible(h, rule)) }
+})
+
 const currentType = computed(() => leaveTypesStore.leaveTypes.find(lt => lt.id === form.leaveTypeId) ?? null)
 const isMedicalType = computed(() => currentType.value?.workflowType === 'Medical')
 
@@ -168,7 +181,7 @@ const isPastDate = computed(() => {
 const isNotWorkingDay = computed(() => {
   if (!form.startDate) return false
   const p = form.startDate.split('-').map(Number)
-  return !isWorkingDay(new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1), calendarStore.calendar)
+  return !isWorkingDay(new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1), effectiveCalendar.value)
 })
 
 const myBalance = computed(() => {
@@ -200,13 +213,13 @@ const isNoticePeriodViolated = computed(() => {
 // sans ça, remplir le formulaire avant que la réponse arrive calculait la
 // reprise contre un calendrier vide, jamais recalculée ensuite).
 watch(
-  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value] as const,
+  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value, effectiveCalendar.value.holidays] as const,
   ([start, days, period, , isExpat]) => {
     if (calculating || daysMode.value !== 'from-days') return
     if (!start || !days || days <= 0) { resumeDate.value = ''; chargedDaysCount.value = null; return }
     calculating = true
     try {
-      const result      = calculateEndDate(start, days, calendarStore.calendar, period, isExpat)
+      const result      = calculateEndDate(start, days, effectiveCalendar.value, period, isExpat)
       form.endDate       = result.endDate
       form.endPeriod      = result.endPeriod
       resumeDate.value   = result.resumeDate
@@ -229,14 +242,14 @@ function onEndDateChange() {
   daysMode.value = 'from-date'
   calculating = true
   try {
-    const days = getWorkingDaysBetween(form.startDate, form.endDate, calendarStore.calendar, form.startPeriod, form.endPeriod)
+    const days = getWorkingDaysBetween(form.startDate, form.endDate, effectiveCalendar.value, form.startPeriod, form.endPeriod)
     form.workingDaysCount = days
     if (days > 0) {
       chargedDaysCount.value = getChargedDaysBetween(
-        form.startDate, form.endDate, calendarStore.calendar,
+        form.startDate, form.endDate, effectiveCalendar.value,
         form.startPeriod, form.endPeriod, beneficiaryIsExpatriate.value,
       )
-      resumeDate.value = getResumeDate(form.endDate, calendarStore.calendar)
+      resumeDate.value = getResumeDate(form.endDate, effectiveCalendar.value)
     } else {
       chargedDaysCount.value = null
       resumeDate.value = ''

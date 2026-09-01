@@ -115,6 +115,7 @@ import { StatusPill } from '../components'
 import { formatDate } from '../lib/date'
 import { confirmDialog } from '../lib/confirm'
 import { isHoliday } from '../utils/calendar'
+import { isEligible } from '../lib/eligibility'
 import { useAuthStore }             from '../stores/auth'
 import { useLeaveRequestStore }     from '../stores/leaveRequests'
 import { useLeaveTypesStore }       from '../stores/leaveTypes'
@@ -181,6 +182,24 @@ function showToast(msg: string) {
 // ── Calendrier (mois réel, mes absences + jours fériés) ───────
 const weekDays = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
+// Ciblage d'eligibilite (demande client, 01/09) — un jour ferie non
+// applicable a l'utilisateur connecte (genre/statut expatrie/entite) ne doit
+// pas apparaitre comme ferie sur SON calendrier personnel. Filtre localement
+// (calendarStore.holidays reste le cache global exhaustif, voir
+// AbsenceCreate.vue) ; gender/isExpatriate absents (session ouverte avant ce
+// correctif) => on ne filtre rien plutot que de risquer de masquer a tort un
+// jour ferie qui s'applique bien a lui.
+const myEligibility = computed(() => {
+  const u = auth.user
+  if (!u || u.gender === undefined || u.isExpatriate === undefined) return null
+  return { gender: u.gender, isExpatriate: u.isExpatriate, entityId: u.entityId ?? null }
+})
+const effectiveCalendar = computed(() => {
+  const rule = myEligibility.value
+  if (!rule) return calendarStore.calendar
+  return { ...calendarStore.calendar, holidays: calendarStore.calendar.holidays.filter(h => isEligible(h, rule)) }
+})
+
 const _now     = new Date()
 const calYear  = ref(_now.getFullYear())
 const calMonth = ref(_now.getMonth())
@@ -223,7 +242,7 @@ const calDays = computed((): CalDay[] => {
     const dayLeave = leaves.mine.find(
       l => MINE_APPROVED_LIKE.has(l.status) && l.startDate <= dateStr && l.endDate >= dateStr
     )
-    const holiday = isHoliday(new Date(y, m, d), calendarStore.calendar)
+    const holiday = isHoliday(new Date(y, m, d), effectiveCalendar.value)
     result.push({ n: d, cls: d === todayNum ? 'today' : '', hasLeave: !!dayLeave, leaveColor: dayLeave?.leaveTypeColor, hasHoliday: holiday.isHoliday, holidayName: holiday.name })
   }
   return result
