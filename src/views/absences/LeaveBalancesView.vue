@@ -18,6 +18,7 @@
     <template #header-actions>
       <div class="flex items-center gap-2">
         <button :class="L.btnOutline" @click="openCredit"><PlusCircle class="w-4 h-4" /> Ajuster un solde</button>
+        <button :class="L.btnOutline" @click="showImport = true"><Upload class="w-4 h-4" /> Importer des soldes</button>
         <button :class="L.btnOutline" @click="() => {}"><FileDown class="w-4 h-4" /> Exporter</button>
       </div>
     </template>
@@ -145,14 +146,18 @@
       </div>
     </template>
   </CreateModalShell>
+
+  <ImportWizardModal v-if="showImport" :open="showImport" :config="leaveBalanceImportConfig" @close="showImport = false" @imported="balanceStore.fetchAllBalances()" />
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { FileDown, Users, Sun, RefreshCw, Home, PlusCircle } from 'lucide-vue-next'
+import { FileDown, Users, Sun, RefreshCw, Home, PlusCircle, Upload } from 'lucide-vue-next'
 import { UserAvatar, ListPageLayout } from '../../components'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildLeaveBalanceImportConfig } from '../../components/shared/import/configs/leaveBalanceImportConfig'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import * as L from '../../lib/listClasses'
 import * as fcls from '../../lib/formClasses'
@@ -163,6 +168,12 @@ import type { LeaveBalance } from '../../types'
 
 const balanceStore = useLeaveTransactionStore()
 const entityStore  = useEntityStore()
+
+// Import des soldes de conges initiaux (demande client, voir
+// leaveBalanceImportConfig.ts) — meme placement que "Ajuster un solde",
+// juste a cote, puisque les deux touchent le meme concept.
+const showImport = ref(false)
+const leaveBalanceImportConfig = computed(() => buildLeaveBalanceImportConfig())
 
 onMounted(() => {
   balanceStore.fetchAllBalances()
