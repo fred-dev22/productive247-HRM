@@ -126,12 +126,17 @@ interface BackendDirectoryEmployee {
   EmployeeCategoryId: string | null
   Status: string
   IsExpatriate: boolean
+  // Necessaire au filtrage des types de conge/jours feries restreints par
+  // genre (voir lib/eligibility.ts) — pas une donnee sensible au meme titre
+  // que les autres champs qu'omet cette reponse allegee (voir sa doc).
+  Gender: string
 }
 
 // Complete les champs absents de la reponse allegee par des valeurs neutres
 // — jamais lus par les ecrans qui consomment ce mapping (selecteurs), donc
 // sans consequence, contrairement a mapEmployee() qui alimente aussi les
-// fiches employe completes.
+// fiches employe completes. Exception : gender/isExpatriate ci-dessous, bien
+// reels (pas neutres), necessaires au filtrage d'eligibilite.
 function mapDirectoryEmployee(raw: BackendDirectoryEmployee, paletteIndex: number): Employee {
   const entity = useEntityStore().getEntityById(raw.OrganizationUnitId)
   const c = p(paletteIndex)
@@ -151,7 +156,7 @@ function mapDirectoryEmployee(raw: BackendDirectoryEmployee, paletteIndex: numbe
     contractType: 'CDI',
     status:       STATUS_FROM_BACKEND[raw.Status] ?? 'active',
     managerId:    entity?.managerId ?? undefined,
-    gender:        'M',
+    gender:        raw.Gender === 'F' ? 'F' : 'M',
     birthDate:     '',
     maritalStatus: 'Single',
     idType:        'NationalId',

@@ -25,6 +25,7 @@ import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useAuthStore } from '../../stores/auth'
 import { calculateEndDate, getWorkingDaysBetween, getChargedDaysBetween, getResumeDate, isWorkingDay } from '../../utils/calendar'
+import { isEligible } from '../../lib/eligibility'
 
 const props = defineProps<{ initialLeaveTypeId?: string }>()
 const emit = defineEmits<{ close: []; created: [] }>()
@@ -98,8 +99,22 @@ const interimItems = computed(() =>
     })),
 )
 
+// Ciblage d'eligibilite (demande client, 01/09) — un type de conge restreint
+// a un genre/statut expatrie/entite n'est meme pas propose si le beneficiaire
+// n'y est pas eligible. Tant que l'employe correspondant n'est pas identifie
+// (repertoire pas encore charge), on ne filtre rien plutot que de risquer de
+// masquer a tort un type valide (voir stores/employees.ts:getById).
+const beneficiaryEligibility = computed(() => {
+  const id = beneficiaryId.value
+  if (!id) return null
+  const emp = employeeStore.getById(id)
+  if (!emp) return null
+  return { gender: emp.gender, isExpatriate: emp.isExpatriate, entityId: emp.entityId }
+})
 const leaveTypeItems = computed(() =>
-  leaveTypesStore.activeTypes.map(lt => ({ id: lt.id, label: lt.name })),
+  leaveTypesStore.activeTypes
+    .filter(lt => !beneficiaryEligibility.value || isEligible(lt, beneficiaryEligibility.value))
+    .map(lt => ({ id: lt.id, label: lt.name })),
 )
 
 const form = reactive({
@@ -111,6 +126,15 @@ const form = reactive({
   endPeriod:        'full' as 'full' | 'am' | 'pm',
   interimEmployeeId: '',
   comment:          '',
+})
+// Le type deja selectionne peut devenir non eligible quand on change de
+// beneficiaire (ex: type "Femme uniquement" choisi puis beneficiaire changé
+// pour un homme) — mieux vaut le vider explicitement que de soumettre une
+// demande sur un type que le beneficiaire ne devrait pas voir.
+watch(leaveTypeItems, (items) => {
+  if (form.leaveTypeId && !items.some(i => i.id === form.leaveTypeId)) {
+    form.leaveTypeId = ''
+  }
 })
 const error = ref('')
 const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDays: '' })
