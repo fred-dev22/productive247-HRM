@@ -35,6 +35,13 @@ documentée dans le changelog) ou explicitement abandonnée.
   d'identité, matricule…) avant de créer un vrai `Employee` via l'API
   existante. Nécessite un vrai backend Recrutement.
 
+- **Rappels des échéances à venir sur une période donnée.** Idée remontée en
+  revue hebdo du 29/08 en relisant les documents client sur l'Administration
+  (pas encore appliquée, juste mise de côté) : pouvoir choisir une période
+  (ex. aujourd'hui à la fin de l'année) et voir/être notifié des échéances qui
+  tombent dedans, fins de CDD, fins de stage, anniversaires des employés. Rien
+  n'existe aujourd'hui pour ça dans le module Administration.
+
 ## Recrutement
 
 - **Candidature interne (mobilité).** Le client décrit explicitement la
