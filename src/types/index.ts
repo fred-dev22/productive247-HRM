@@ -343,6 +343,11 @@ export interface Holiday {
   isRecurring:         boolean       // true = annuel, false = ponctuel
   holidayType:         HolidayScope
   organizationUnitId?: string | null // requis si holidayType = 'Local'
+  // Ciblage d'eligibilite (demande client, 01/09) — absent/null sur un
+  // critere = s'applique a tout le monde sur ce critere. Meme mecanisme que
+  // sur LeaveType (voir stores/leaveTypes.ts).
+  appliesToGender?:     'M' | 'F' | null
+  appliesToExpatriate?: boolean | null
 }
 
 export interface CompanyCalendar {

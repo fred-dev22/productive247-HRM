@@ -3,9 +3,11 @@ import { reactive, computed, watch, ref } from 'vue'
 import { Check, Pipette } from 'lucide-vue-next'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
+import EligibilityFields from '../ui/form-field/EligibilityFields.vue'
 import * as cls from '../../lib/formClasses'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { LeaveTypeConfig } from '../../stores/leaveTypes'
+import { useEntityStore } from '../../stores/entities'
 
 const props = defineProps<{
   editId?: string
@@ -17,6 +19,8 @@ const emit = defineEmits<{
 }>()
 
 const store  = useLeaveTypesStore()
+const entityStore = useEntityStore()
+if (entityStore.entities.length === 0) entityStore.fetchAll()
 const isEdit = computed(() => !!props.editId)
 const error  = ref('')
 
@@ -38,6 +42,12 @@ const form = reactive({
   isSystem:         false,
   color:            '#006B3C',
 })
+// Ciblage d'eligibilite (voir EligibilityFields.vue) : champs texte ('',
+// 'M'/'F', 'true'/'false', id d'entite) comme tout autre select optionnel de
+// l'appli, convertis en valeurs typees au moment de construire le payload.
+const appliesToGenderText = ref('')
+const appliesToExpatriateText = ref('')
+const organizationUnitIdText = ref('')
 // Uniquement à la création — n'a pas de sens sur un type déjà existant.
 // Pré-cochée par défaut (décision du 31/07) : le cas courant est de vouloir
 // que les employés déjà présents en bénéficient tout de suite plutôt que
@@ -71,6 +81,9 @@ function populate() {
       form.isActive         = lt.isActive
       form.isSystem         = lt.isSystem
       form.color            = lt.color
+      appliesToGenderText.value = lt.appliesToGender ?? ''
+      appliesToExpatriateText.value = lt.appliesToExpatriate === undefined || lt.appliesToExpatriate === null ? '' : String(lt.appliesToExpatriate)
+      organizationUnitIdText.value = lt.organizationUnitId ?? ''
     }
   } else {
     Object.assign(form, {
@@ -78,6 +91,9 @@ function populate() {
       noticeDays:0, documentRequired:false, documentDeadlineDays:undefined, workflowType:'Standard',
       isActive:true, isSystem:false, color:'#006B3C',
     })
+    appliesToGenderText.value = ''
+    appliesToExpatriateText.value = ''
+    organizationUnitIdText.value = ''
   }
   errors.name = ''
   errors.code = ''
@@ -109,6 +125,9 @@ async function handleSave() {
     isActive:         form.isActive,
     isSystem:         form.isSystem,
     color:            form.color,
+    appliesToGender:     appliesToGenderText.value ? (appliesToGenderText.value as 'M' | 'F') : undefined,
+    appliesToExpatriate: appliesToExpatriateText.value === '' ? undefined : appliesToExpatriateText.value === 'true',
+    organizationUnitId:  organizationUnitIdText.value || undefined,
   }
   try {
     if (isEdit.value && props.editId) {
@@ -232,6 +251,20 @@ async function handleSave() {
                   </span>
                 </label>
               </div>
+            </div>
+          </FormSection>
+
+          <FormSection title="Éligibilité">
+            <p class="text-[11px] text-muted-foreground -mt-0.5 mb-3">
+              Restreint ce type de congé à une partie des employés. Laissez sur "Tous" pour qu'il s'applique à tout le monde, comme aujourd'hui.
+            </p>
+            <EligibilityFields v-model:gender="appliesToGenderText" v-model:expatriate="appliesToExpatriateText" />
+            <div :class="cls.field" class="mt-4">
+              <label :class="cls.fieldLabel">Entité concernée</label>
+              <select v-model="organizationUnitIdText" :class="cls.fieldSelect">
+                <option value="">Toutes les entités</option>
+                <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
+              </select>
             </div>
           </FormSection>
 

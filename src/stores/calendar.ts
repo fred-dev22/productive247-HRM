@@ -46,6 +46,8 @@ interface BackendHoliday {
   IsRecurring: boolean
   HolidayType: HolidayScope
   OrganizationUnitId: string | null
+  AppliesToGender: string | null
+  AppliesToExpatriate: boolean | null
   CreatedBy: string
   CreatedAt: string
 }
@@ -134,6 +136,8 @@ function mapHoliday(raw: BackendHoliday): Holiday {
     isRecurring: raw.IsRecurring,
     holidayType: raw.HolidayType,
     organizationUnitId: raw.OrganizationUnitId ?? undefined,
+    appliesToGender: (raw.AppliesToGender as 'M' | 'F' | null) ?? undefined,
+    appliesToExpatriate: raw.AppliesToExpatriate ?? undefined,
   }
 }
 
@@ -437,6 +441,8 @@ export const useCalendarStore = defineStore('calendar', () => {
           IsRecurring: holiday.isRecurring,
           HolidayType: holiday.holidayType,
           OrganizationUnitId: holiday.organizationUnitId ?? undefined,
+          AppliesToGender: holiday.appliesToGender ?? undefined,
+          AppliesToExpatriate: holiday.appliesToExpatriate ?? undefined,
         })
         const mapped = mapHoliday(data)
         holidays.value.push(mapped)
@@ -471,6 +477,8 @@ export const useCalendarStore = defineStore('calendar', () => {
         if (data.isRecurring !== undefined) body.IsRecurring = data.isRecurring
         if (data.holidayType !== undefined) body.HolidayType = data.holidayType
         if (data.organizationUnitId !== undefined) body.OrganizationUnitId = data.organizationUnitId
+        if (data.appliesToGender !== undefined) body.AppliesToGender = data.appliesToGender
+        if (data.appliesToExpatriate !== undefined) body.AppliesToExpatriate = data.appliesToExpatriate
         const { data: updated } = await api.patch<BackendHoliday>(`/holidays/${id}`, body)
         const mapped = mapHoliday(updated)
         const idx = holidays.value.findIndex(h => h.id === id)

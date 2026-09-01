@@ -316,6 +316,12 @@
               </div>
             </div>
           </FormSection>
+          <FormSection title="Éligibilité">
+            <p class="text-[11px] text-muted-foreground -mt-0.5 mb-3">
+              Restreint ce jour férié à une partie des employés. Laissez sur "Tous" pour qu'il s'applique à tout le monde, comme aujourd'hui.
+            </p>
+            <EligibilityFields v-model:gender="appliesToGenderText" v-model:expatriate="appliesToExpatriateText" />
+          </FormSection>
         </div>
       </div>
     </template>
@@ -346,6 +352,12 @@
               </label>
             </div>
           </FormSection>
+          <FormSection title="Éligibilité">
+            <p class="text-[11px] text-muted-foreground -mt-0.5 mb-3">
+              Restreint ce jour férié à une partie des employés. Laissez sur "Tous" pour qu'il s'applique à tout le monde, comme aujourd'hui.
+            </p>
+            <EligibilityFields v-model:gender="appliesToGenderText" v-model:expatriate="appliesToExpatriateText" />
+          </FormSection>
         </div>
       </div>
     </template>
@@ -363,6 +375,7 @@ import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModa
 import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import EligibilityFields from '../../components/ui/form-field/EligibilityFields.vue'
 import { SkeletonLoader } from '../../components'
 import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
 import { buildHolidayImportConfig } from '../../components/shared/import/configs/holidayImportConfig'
@@ -370,7 +383,6 @@ import { buildLeaveTypeImportConfig } from '../../components/shared/import/confi
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { confirmDialog } from '../../lib/confirm'
-import { useAuthStore }       from '../../stores/auth'
 import { useCalendarStore }   from '../../stores/calendar'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
@@ -378,7 +390,6 @@ import { useCompanySettingsStore }  from '../../stores/companySettings'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import type { Holiday } from '../../types'
 
-const auth            = useAuthStore()
 const calendarStore   = useCalendarStore()
 const leaveTypesStore = useLeaveTypesStore()
 const leaveTransactionStore = useLeaveTransactionStore()
@@ -645,16 +656,24 @@ const MONTHS = [
 const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2,'0'))
 const hForm = reactive({ name: '', month: '01', day: '01', fullDate: '' })
 const holidayError = ref('')
+// Ciblage d'eligibilite (voir EligibilityFields.vue), partage par les deux
+// modales (annuel/ponctuel) comme le reste de hForm.
+const appliesToGenderText = ref('')
+const appliesToExpatriateText = ref('')
 
 function openAddModal(type: 'annual' | 'ponctual') {
   editingHoliday.value = null
   hForm.name = ''; hForm.month = '01'; hForm.day = '01'; hForm.fullDate = ''
+  appliesToGenderText.value = ''
+  appliesToExpatriateText.value = ''
   holidayError.value = ''
   showModal.value = type
 }
 function openEditModal(h: Holiday) {
   editingHoliday.value = h
   hForm.name = h.name
+  appliesToGenderText.value = h.appliesToGender ?? ''
+  appliesToExpatriateText.value = h.appliesToExpatriate === undefined || h.appliesToExpatriate === null ? '' : String(h.appliesToExpatriate)
   holidayError.value = ''
   if (h.isRecurring) {
     const p = h.date.split('-')
@@ -673,12 +692,14 @@ async function saveAnnualHoliday() {
   // Annee de reference arbitraire — seuls mois/jour comptent pour un ferie
   // recurrent (le backend remappe sur l'annee demandee via /holidays/year/:year).
   const date = `2000-${hForm.month}-${hForm.day}`
+  const appliesToGender = appliesToGenderText.value ? (appliesToGenderText.value as 'M' | 'F') : undefined
+  const appliesToExpatriate = appliesToExpatriateText.value === '' ? undefined : appliesToExpatriateText.value === 'true'
   holidayError.value = ''
   try {
     if (editingHoliday.value) {
-      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date })
+      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date, appliesToGender, appliesToExpatriate })
     } else {
-      await calendarStore.addHoliday({ name: hForm.name, date, isRecurring: true, holidayType: 'National' })
+      await calendarStore.addHoliday({ name: hForm.name, date, isRecurring: true, holidayType: 'National', appliesToGender, appliesToExpatriate })
     }
     closeModal()
   } catch {
@@ -689,12 +710,14 @@ async function saveAnnualHoliday() {
 async function savePonctualHoliday() {
   if (!hForm.name.trim()) { holidayError.value = 'Le nom est obligatoire'; return }
   if (!hForm.fullDate) { holidayError.value = 'La date est obligatoire'; return }
+  const appliesToGender = appliesToGenderText.value ? (appliesToGenderText.value as 'M' | 'F') : undefined
+  const appliesToExpatriate = appliesToExpatriateText.value === '' ? undefined : appliesToExpatriateText.value === 'true'
   holidayError.value = ''
   try {
     if (editingHoliday.value) {
-      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate })
+      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate, appliesToGender, appliesToExpatriate })
     } else {
-      await calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, isRecurring: false, holidayType: 'National' })
+      await calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, isRecurring: false, holidayType: 'National', appliesToGender, appliesToExpatriate })
     }
     closeModal()
   } catch {
