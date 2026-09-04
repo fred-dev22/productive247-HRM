@@ -49,6 +49,16 @@ export function buildLeaveTypeImportConfig(): ImportConfig {
     // poste — ils ne recevaient ce type qu'à la prochaine génération
     // automatique. Même comportement par défaut que la création manuelle
     // (voir LeaveTypeFormModal.vue, case pré-cochée).
-    transformPayload: (row, payload) => ({ ...payload, CreditExistingEmployees: true }),
+    //
+    // DaysPerMonth n'est pas une colonne du CSV (pas plus qu'un champ saisi
+    // dans le formulaire manuel, voir LeaveTypeFormModal.vue) — calculé ici
+    // pour rester cohérent avec "Jours par an" dès que "Acquisition
+    // mensuelle" vaut oui, plutôt que de laisser un type à accumulation
+    // mensuelle sans valeur mensuelle en base.
+    transformPayload: (row, payload) => ({
+      ...payload,
+      CreditExistingEmployees: true,
+      DaysPerMonth: payload.MonthlyAccrual ? Math.round((Number(payload.DaysPerYear) / 12) * 100) / 100 : undefined,
+    }),
   }
 }
