@@ -212,9 +212,26 @@ const kpiIcon = 'w-10 h-10 rounded-[10px] flex items-center justify-center shrin
 const kpiVal = 'text-[22px] font-bold text-foreground leading-none'
 const kpiLabel = 'text-[11px] text-muted-foreground mt-0.5'
 
-// Colonnes dérivées des types de congé réellement présents dans les soldes
-// (tous les types actifs, chaque employé porte la même liste).
-const TYPE_COLS = computed(() => balanceStore.allBalances[0]?.balances ?? [])
+// Colonnes dérivées des types de congé réellement présents dans les soldes —
+// UNION sur tous les employés, pas juste le premier de la liste : depuis le
+// ciblage d'éligibilité (genre/expatrié/entité, demande client 01/09),
+// balanceStore.allBalances[i].balances ne porte plus forcément la même
+// liste pour tout le monde (un type "pour femme" n'apparaît que chez les
+// employées éligibles, voir leave-transaction.service.ts:getAllBalances).
+// Prendre seulement le premier employé faisait disparaître purement et
+// simplement la colonne d'un type dès que CET employé-là n'y était pas
+// éligible — même pour les employés qui l'étaient. cellFor() affiche déjà
+// "—" pour un employé sans entrée pour une colonne donnée, donc il suffit
+// que la colonne existe quelque part.
+const TYPE_COLS = computed(() => {
+  const seen = new Map<string, LeaveBalance>()
+  for (const emp of balanceStore.allBalances) {
+    for (const b of emp.balances) {
+      if (!seen.has(b.leaveTypeId)) seen.set(b.leaveTypeId, b)
+    }
+  }
+  return [...seen.values()]
+})
 
 // Les 3 cartes KPI reprennent les 3 premiers types réels (par leaveTypeId,
 // jamais par code) — un code fixe ('ANNUAL'/'RECOVERY'/'REMOTE') ne
