@@ -91,10 +91,12 @@
                   <label :class="cls.fieldLabel">{{ t('employee.field_id_number') }}</label>
                   <input v-model="form.idNumber" :class="cls.fieldInput" :placeholder="t('employee.placeholder_id_number')" />
                 </div>
-                <label class="flex items-center gap-2 col-span-full text-[13px] text-foreground cursor-pointer">
-                  <input type="checkbox" v-model="form.isExpatriate" class="accent-primary" />
-                  Employé expatrié
-                  <span class="text-[11px] text-muted-foreground">(régime de congés différent : le week-end n'est jamais décompté ; les jours fériés restent exclus dans les deux cas)</span>
+                <label class="flex items-start gap-2 col-span-full text-[13px] text-foreground cursor-pointer">
+                  <input type="checkbox" v-model="form.isExpatriate" class="accent-primary mt-0.5" />
+                  <span>
+                    Employé expatrié
+                    <span class="block text-[11px] text-muted-foreground mt-0.5">(régime de congés différent : le week-end n'est jamais décompté ; les jours fériés restent exclus dans les deux cas)</span>
+                  </span>
                 </label>
               </div>
             </div>
@@ -220,7 +222,6 @@ import type { LookupFetchParams } from '../../components/ui/table-lookup/TableLo
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { todayIso } from '../../lib/date'
-import { useAuthStore }     from '../../stores/auth'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEntityStore }   from '../../stores/entities'
 import { usePositionStore } from '../../stores/positions'
@@ -228,7 +229,6 @@ import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import type { ContractType, EmployeeStatus, Gender, MaritalStatus, IdDocumentType } from '../../types'
 
 const { t }       = useI18n()
-const auth        = useAuthStore()
 const store       = useEmployeeStore()
 const entityStore = useEntityStore()
 const positionStore = usePositionStore()
