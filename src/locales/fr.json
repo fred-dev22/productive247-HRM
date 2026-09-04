@@ -175,7 +175,7 @@
     "section_position": "Poste & Affectation",
     "section_manager": "Manager direct (N+1)",
     "manager_desc": "Le manager qui valide les demandes de cet employé.",
-    "col_code": "Code",
+    "col_code": "Matricule",
     "col_employee": "Employé",
     "col_job_title": "Poste",
     "col_entity": "Entité",

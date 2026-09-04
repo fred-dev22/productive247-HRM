@@ -175,7 +175,7 @@
     "section_position": "Position & Assignment",
     "section_manager": "Direct Manager (N+1)",
     "manager_desc": "The manager who validates this employee's requests.",
-    "col_code": "Code",
+    "col_code": "Employee #",
     "col_employee": "Employee",
     "col_job_title": "Position",
     "col_entity": "Entity",

@@ -321,6 +321,13 @@
               Restreint ce jour férié à une partie des employés. Laissez sur "Tous" pour qu'il s'applique à tout le monde, comme aujourd'hui.
             </p>
             <EligibilityFields v-model:gender="appliesToGenderText" v-model:expatriate="appliesToExpatriateText" />
+            <div :class="cls.field" class="mt-4">
+              <label :class="cls.fieldLabel">Entité concernée</label>
+              <select v-model="organizationUnitIdText" :class="cls.fieldSelect">
+                <option value="">Toutes les entités</option>
+                <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
+              </select>
+            </div>
           </FormSection>
         </div>
       </div>
@@ -357,6 +364,13 @@
               Restreint ce jour férié à une partie des employés. Laissez sur "Tous" pour qu'il s'applique à tout le monde, comme aujourd'hui.
             </p>
             <EligibilityFields v-model:gender="appliesToGenderText" v-model:expatriate="appliesToExpatriateText" />
+            <div :class="cls.field" class="mt-4">
+              <label :class="cls.fieldLabel">Entité concernée</label>
+              <select v-model="organizationUnitIdText" :class="cls.fieldSelect">
+                <option value="">Toutes les entités</option>
+                <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
+              </select>
+            </div>
           </FormSection>
         </div>
       </div>
@@ -388,6 +402,7 @@ import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useCompanySettingsStore }  from '../../stores/companySettings'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import { useEntityStore } from '../../stores/entities'
 import type { Holiday } from '../../types'
 
 const calendarStore   = useCalendarStore()
@@ -395,6 +410,8 @@ const leaveTypesStore = useLeaveTypesStore()
 const leaveTransactionStore = useLeaveTransactionStore()
 const companySettingsStore  = useCompanySettingsStore()
 const categoryStore    = useEmployeeCategoryStore()
+const entityStore      = useEntityStore()
+if (entityStore.entities.length === 0) entityStore.fetchAll()
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
 
 const pageLoading = computed(() => calendarStore.loading || leaveTypesStore.loading)
@@ -660,12 +677,16 @@ const holidayError = ref('')
 // modales (annuel/ponctuel) comme le reste de hForm.
 const appliesToGenderText = ref('')
 const appliesToExpatriateText = ref('')
+// Entite concernee — vide = National (s'applique a toute l'entreprise, comme
+// avant), une entite choisie => Local (voir saveAnnualHoliday/savePonctualHoliday).
+const organizationUnitIdText = ref('')
 
 function openAddModal(type: 'annual' | 'ponctual') {
   editingHoliday.value = null
   hForm.name = ''; hForm.month = '01'; hForm.day = '01'; hForm.fullDate = ''
   appliesToGenderText.value = ''
   appliesToExpatriateText.value = ''
+  organizationUnitIdText.value = ''
   holidayError.value = ''
   showModal.value = type
 }
@@ -674,6 +695,7 @@ function openEditModal(h: Holiday) {
   hForm.name = h.name
   appliesToGenderText.value = h.appliesToGender ?? ''
   appliesToExpatriateText.value = h.appliesToExpatriate === undefined || h.appliesToExpatriate === null ? '' : String(h.appliesToExpatriate)
+  organizationUnitIdText.value = h.organizationUnitId ?? ''
   holidayError.value = ''
   if (h.isRecurring) {
     const p = h.date.split('-')
@@ -694,12 +716,14 @@ async function saveAnnualHoliday() {
   const date = `2000-${hForm.month}-${hForm.day}`
   const appliesToGender = appliesToGenderText.value ? (appliesToGenderText.value as 'M' | 'F') : undefined
   const appliesToExpatriate = appliesToExpatriateText.value === '' ? undefined : appliesToExpatriateText.value === 'true'
+  const organizationUnitId = organizationUnitIdText.value || undefined
+  const holidayType = organizationUnitId ? 'Local' : 'National'
   holidayError.value = ''
   try {
     if (editingHoliday.value) {
-      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date, appliesToGender, appliesToExpatriate })
+      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date, holidayType, organizationUnitId, appliesToGender, appliesToExpatriate })
     } else {
-      await calendarStore.addHoliday({ name: hForm.name, date, isRecurring: true, holidayType: 'National', appliesToGender, appliesToExpatriate })
+      await calendarStore.addHoliday({ name: hForm.name, date, isRecurring: true, holidayType, organizationUnitId, appliesToGender, appliesToExpatriate })
     }
     closeModal()
   } catch {
@@ -712,12 +736,14 @@ async function savePonctualHoliday() {
   if (!hForm.fullDate) { holidayError.value = 'La date est obligatoire'; return }
   const appliesToGender = appliesToGenderText.value ? (appliesToGenderText.value as 'M' | 'F') : undefined
   const appliesToExpatriate = appliesToExpatriateText.value === '' ? undefined : appliesToExpatriateText.value === 'true'
+  const organizationUnitId = organizationUnitIdText.value || undefined
+  const holidayType = organizationUnitId ? 'Local' : 'National'
   holidayError.value = ''
   try {
     if (editingHoliday.value) {
-      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate, appliesToGender, appliesToExpatriate })
+      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate, holidayType, organizationUnitId, appliesToGender, appliesToExpatriate })
     } else {
-      await calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, isRecurring: false, holidayType: 'National', appliesToGender, appliesToExpatriate })
+      await calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, isRecurring: false, holidayType, organizationUnitId, appliesToGender, appliesToExpatriate })
     }
     closeModal()
   } catch {

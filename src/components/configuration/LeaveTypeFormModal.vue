@@ -33,7 +33,7 @@ const form = reactive({
   name:             '',
   code:             '',
   daysPerYear:      0,
-  daysPerMonth:     undefined as number | undefined,
+  monthlyAccrual:   false,
   noticeDays:       0,
   documentRequired: false,
   documentDeadlineDays: undefined as number | undefined,
@@ -56,6 +56,12 @@ const creditExisting = ref(true)
 
 const errors = reactive({ name: '', code: '' })
 
+// Calculee, jamais saisie : evite qu'une valeur incoherente avec Jours
+// alloues / an ne soit renseignee a la main, et evite aussi le champ nombre
+// vide (chaine vide via v-model.number) qui faisait echouer la validation
+// backend (DaysPerMonth optionnel mais pas accepte comme chaine vide).
+const monthlyAccrualDays = computed(() => Math.round((form.daysPerYear / 12) * 100) / 100)
+
 function autoCode() {
   if (!isEdit.value) {
     form.code = form.name
@@ -73,7 +79,7 @@ function populate() {
       form.name             = lt.name
       form.code             = lt.code
       form.daysPerYear      = lt.daysPerYear
-      form.daysPerMonth     = lt.daysPerMonth
+      form.monthlyAccrual   = lt.monthlyAccrual ?? false
       form.noticeDays       = lt.noticeDays
       form.documentRequired = lt.documentRequired
       form.documentDeadlineDays = lt.documentDeadlineDays
@@ -87,7 +93,7 @@ function populate() {
     }
   } else {
     Object.assign(form, {
-      name:'', code:'', daysPerYear:0, daysPerMonth:undefined,
+      name:'', code:'', daysPerYear:0, monthlyAccrual:false,
       noticeDays:0, documentRequired:false, documentDeadlineDays:undefined, workflowType:'Standard',
       isActive:true, isSystem:false, color:'#006B3C',
     })
@@ -117,7 +123,8 @@ async function handleSave() {
     name:             form.name,
     code:             form.code.toUpperCase(),
     daysPerYear:      form.daysPerYear,
-    daysPerMonth:     form.daysPerMonth,
+    monthlyAccrual:   form.monthlyAccrual,
+    daysPerMonth:     form.monthlyAccrual ? monthlyAccrualDays.value : undefined,
     noticeDays:       form.noticeDays,
     documentRequired: form.documentRequired,
     documentDeadlineDays: form.documentRequired ? form.documentDeadlineDays : undefined,
@@ -222,9 +229,18 @@ async function handleSave() {
                 <label :class="cls.fieldLabel">Jours alloués / an</label>
                 <input type="number" min="0" v-model.number="form.daysPerYear" :class="cls.fieldInput" />
               </div>
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Accumulation mensuelle (j/mois)</label>
-                <input type="number" min="0" step="0.5" v-model.number="form.daysPerMonth" :class="cls.fieldInput" />
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <span :class="cls.fieldLabel">Accumulation mensuelle</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer" v-model="form.monthlyAccrual" />
+                    <span class="w-9 h-5 rounded-full bg-foreground/20 transition-colors peer-checked:bg-primary relative after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:w-3.5 after:h-3.5 after:bg-white after:rounded-full after:shadow after:transition-all peer-checked:after:left-[19px]"></span>
+                  </label>
+                </div>
+                <p class="text-[11px] text-muted-foreground">
+                  <template v-if="form.monthlyAccrual">{{ monthlyAccrualDays }} j crédités chaque mois ({{ form.daysPerYear }} j/an ÷ 12).</template>
+                  <template v-else>Sans cette option, les {{ form.daysPerYear }} j/an sont crédités en une fois (dotation annuelle).</template>
+                </p>
               </div>
               <div :class="cls.field">
                 <label :class="cls.fieldLabel">Préavis minimum (jours)</label>

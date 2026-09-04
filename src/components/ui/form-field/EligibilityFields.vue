@@ -30,7 +30,7 @@ const expatriate = defineModel<string>('expatriate', { default: '' })
       <select v-model="expatriate" :class="cls.fieldSelect">
         <option value="">Tous</option>
         <option value="true">Expatriés uniquement</option>
-        <option value="false">Non-expatriés uniquement</option>
+        <option value="false">Locaux uniquement</option>
       </select>
     </div>
   </div>
