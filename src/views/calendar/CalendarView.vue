@@ -209,8 +209,17 @@
                         @change="leaveTypesStore.updateLeaveType(lt.id, { daysPerYear: +($event.target as HTMLInputElement).value })" />
                     </td>
                     <td :class="[td, 'text-center']">
-                      <input type="number" min="0" step="0.5" :class="ruleInput" :value="lt.daysPerMonth"
-                        @change="leaveTypesStore.updateLeaveType(lt.id, { daysPerMonth: +($event.target as HTMLInputElement).value })" />
+                      <div class="flex flex-col items-center gap-0.5">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" class="sr-only peer" :checked="lt.monthlyAccrual"
+                            @change="leaveTypesStore.updateLeaveType(lt.id, {
+                              monthlyAccrual: ($event.target as HTMLInputElement).checked,
+                              daysPerMonth: ($event.target as HTMLInputElement).checked ? monthlyAccrualDays(lt.daysPerYear) : undefined,
+                            })" />
+                          <span :class="toggleTrack"></span>
+                        </label>
+                        <span v-if="lt.monthlyAccrual" class="text-[10px] text-muted-foreground whitespace-nowrap">{{ monthlyAccrualDays(lt.daysPerYear) }} j</span>
+                      </div>
                     </td>
                     <td :class="[td, 'text-center']">
                       <input type="number" min="0" :class="ruleInput" :value="lt.noticeDays"
@@ -652,6 +661,15 @@ const TABS: { id: 'working-days' | 'holidays' | 'leave-rules'; label: string; ic
 // pas de calque "LeaveRule" séparé qui ne persisterait nulle part). Chaque
 // champ s'enregistre immédiatement au blur (@change) — leaveTypesStore
 // affiche déjà son propre toast via withToast(), pas besoin d'un état local.
+//
+// Accum./mois n'est plus un nombre saisi ici non plus (voir
+// LeaveTypeFormModal.vue) — juste une case a cocher, la valeur est toujours
+// derivee de Jours/an. Formule dupliquee ici plutot que partagee avec le
+// modal : deux composants independants, pas besoin d'un import croise pour
+// un calcul aussi court.
+function monthlyAccrualDays(daysPerYear: number): number {
+  return Math.round((daysPerYear / 12) * 100) / 100
+}
 
 // ── Display helpers ───────────────────────────────────────────
 // Holiday.date est toujours une date complete "YYYY-MM-DD" (backend) — pour
