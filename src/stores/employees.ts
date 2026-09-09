@@ -70,6 +70,7 @@ interface BackendEmployee {
   UserId: string | null
   Status: string
   IsExpatriate: boolean
+  DirectValidatorId: string | null
 }
 
 function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
@@ -108,6 +109,7 @@ function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
     hasAccount:   raw.UserId != null,
     userId:       raw.UserId ?? undefined,
     isExpatriate: raw.IsExpatriate,
+    directValidatorId: raw.DirectValidatorId ?? undefined,
   }
 }
 
@@ -186,6 +188,10 @@ function toBackendPayload(payload: Partial<Employee>): Record<string, unknown> {
   if (payload.employeeCategoryId !== undefined) body.EmployeeCategoryId = payload.employeeCategoryId || null
   if (payload.status !== undefined) body.Status = STATUS_TO_BACKEND[payload.status]
   if (payload.isExpatriate !== undefined) body.IsExpatriate = payload.isExpatriate
+  // '' (sentinel "aucun validateur direct" côté formulaire) -> null, pour
+  // permettre de repasser au pool par entité par défaut (voir PositionId
+  // ci-dessus, même pattern de désassignation explicite).
+  if (payload.directValidatorId !== undefined) body.DirectValidatorId = payload.directValidatorId || null
   return body
 }
 
