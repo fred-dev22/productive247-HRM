@@ -4,13 +4,7 @@ import { api, getApiErrorMessage } from '../lib/api'
 import { withToast } from '../lib/withToast'
 import { useEntityStore } from './entities'
 import { usePositionStore } from './positions'
-import { useEmployeeCategoryStore } from './employeeCategories'
 import type { Employee, ContractType, EmployeeStatus } from '../types'
-
-// Permissions considérées comme "capacité de valider" pour le KPI Managers/RH
-// — un employé compte comme validateur potentiel si la catégorie de son
-// compte accorde au moins un de ces droits (voir stores/employeeCategories.ts).
-const VALIDATOR_PERMISSION_CODES = new Set(['CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER'])
 
 const PALETTE = [
   { bg: '#B5D4F4', text: '#0C447C' },
@@ -70,6 +64,10 @@ interface BackendEmployee {
   UserId: string | null
   Status: string
   IsExpatriate: boolean
+  DirectValidatorId: string | null
+  // Droits de validation effectivement accordes au compte (voir type Employee
+  // ci-dessus / findAll() backend). Absent des reponses allegees (directory).
+  ValidatorPermissions?: string[]
 }
 
 function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
@@ -108,6 +106,8 @@ function mapEmployee(raw: BackendEmployee, paletteIndex: number): Employee {
     hasAccount:   raw.UserId != null,
     userId:       raw.UserId ?? undefined,
     isExpatriate: raw.IsExpatriate,
+    directValidatorId: raw.DirectValidatorId ?? undefined,
+    validatorPermissions: raw.ValidatorPermissions ?? [],
   }
 }
 
@@ -126,12 +126,17 @@ interface BackendDirectoryEmployee {
   EmployeeCategoryId: string | null
   Status: string
   IsExpatriate: boolean
+  // Necessaire au filtrage des types de conge/jours feries restreints par
+  // genre (voir lib/eligibility.ts) — pas une donnee sensible au meme titre
+  // que les autres champs qu'omet cette reponse allegee (voir sa doc).
+  Gender: string
 }
 
 // Complete les champs absents de la reponse allegee par des valeurs neutres
 // — jamais lus par les ecrans qui consomment ce mapping (selecteurs), donc
 // sans consequence, contrairement a mapEmployee() qui alimente aussi les
-// fiches employe completes.
+// fiches employe completes. Exception : gender/isExpatriate ci-dessous, bien
+// reels (pas neutres), necessaires au filtrage d'eligibilite.
 function mapDirectoryEmployee(raw: BackendDirectoryEmployee, paletteIndex: number): Employee {
   const entity = useEntityStore().getEntityById(raw.OrganizationUnitId)
   const c = p(paletteIndex)
@@ -151,13 +156,16 @@ function mapDirectoryEmployee(raw: BackendDirectoryEmployee, paletteIndex: numbe
     contractType: 'CDI',
     status:       STATUS_FROM_BACKEND[raw.Status] ?? 'active',
     managerId:    entity?.managerId ?? undefined,
-    gender:        'M',
+    gender:        raw.Gender === 'F' ? 'F' : 'M',
     birthDate:     '',
     maritalStatus: 'Single',
     idType:        'NationalId',
     employeeCategoryId: raw.EmployeeCategoryId ?? undefined,
     hasAccount:   false,
     isExpatriate: raw.IsExpatriate,
+    // L'annuaire allege ne porte pas les droits du compte — les selecteurs de
+    // validateur travaillent sur la liste complete (fetchAll), pas sur celle-ci.
+    validatorPermissions: [],
   }
 }
 
@@ -181,6 +189,10 @@ function toBackendPayload(payload: Partial<Employee>): Record<string, unknown> {
   if (payload.employeeCategoryId !== undefined) body.EmployeeCategoryId = payload.employeeCategoryId || null
   if (payload.status !== undefined) body.Status = STATUS_TO_BACKEND[payload.status]
   if (payload.isExpatriate !== undefined) body.IsExpatriate = payload.isExpatriate
+  // '' (sentinel "aucun validateur direct" côté formulaire) -> null, pour
+  // permettre de repasser au pool par entité par défaut (voir PositionId
+  // ci-dessus, même pattern de désassignation explicite).
+  if (payload.directValidatorId !== undefined) body.DirectValidatorId = payload.directValidatorId || null
   return body
 }
 
@@ -211,15 +223,12 @@ export const useEmployeeStore = defineStore('employees', () => {
 
   const activeEmployees   = computed(() => employees.value.filter(e => e.status === 'active'))
   const trialEmployees    = computed(() => employees.value.filter(e => e.status === 'trial'))
-  // Approximation via le gabarit de permissions de la catégorie (pas les
-  // droits individuels réels du compte, potentiellement ajustés au cas par
-  // cas — voir stores/users.ts) : suffisant pour ce KPI/filtre, pas pour une
-  // décision de sécurité.
-  const validatorEmployees = computed(() => employees.value.filter((e) => {
-    if (!e.hasAccount || !e.employeeCategoryId) return false
-    const category = useEmployeeCategoryStore().categories.find(c => c.id === e.employeeCategoryId)
-    return !!category?.permissions.some(p => VALIDATOR_PERMISSION_CODES.has(p.code))
-  }))
+  // Droits de validation RÉELS du compte (validatorPermissions, calculé côté
+  // backend depuis les UserPermission effectives — voir findAll()), et non
+  // plus le gabarit de la catégorie qui peut avoir divergé (retour du 10/09).
+  const validatorEmployees = computed(() =>
+    employees.value.filter(e => e.validatorPermissions.length > 0),
+  )
 
   // Genere cote serveur (voir employee.service.ts:generateEmployeeNumber) —
   // evite les collisions qu'avait le calcul cote client (base sur la liste
@@ -318,7 +327,7 @@ export const useEmployeeStore = defineStore('employees', () => {
     }
   }
 
-  async function createEmployee(payload: Omit<Employee, 'id' | 'code' | 'name' | 'initials' | 'avatarBg' | 'avatarText'> & { code?: string }) {
+  async function createEmployee(payload: Omit<Employee, 'id' | 'code' | 'name' | 'initials' | 'avatarBg' | 'avatarText' | 'validatorPermissions'> & { code?: string }) {
     error.value = null
     return withToast("Création de l'employé en cours…", async () => {
       try {
@@ -412,9 +421,23 @@ export const useEmployeeStore = defineStore('employees', () => {
     if (idx !== -1) employees.value[idx] = { ...employees.value[idx]!, hasAccount: true, userId }
   }
 
+  // Recale validatorPermissions d'un employé après un grant/revoke de
+  // permission sur son compte (EmployeeCard.vue toggleUserPermission), à
+  // partir de la liste effective renvoyée par l'API — sans ça le sélecteur de
+  // validateur (qui lit `employees`) ne voyait le nouveau droit qu'après un
+  // rechargement complet de la page (retour du 10/09).
+  const VALIDATOR_CODES = ['CONGE_VALIDER', 'MISSION_VALIDER', 'FRAIS_VALIDER']
+  function applyEffectivePermissions(employeeId: string, effectiveCodes: string[]) {
+    const next = VALIDATOR_CODES.filter(c => effectiveCodes.includes(c))
+    for (const list of [employees.value, team.value]) {
+      const idx = list.findIndex(e => e.id === employeeId)
+      if (idx !== -1) list[idx] = { ...list[idx]!, validatorPermissions: next }
+    }
+  }
+
   return {
     employees, directory, team, loading, error,
     activeEmployees, trialEmployees, validatorEmployees, fetchNextNumber,
-    getById, getByEntityId, fetchAll, fetchTeam, fetchDirectory, fetchOne, createEmployee, updateEmployee, deactivateEmployee, reactivateEmployee, deleteEmployeePermanently, markHasAccount,
+    getById, getByEntityId, fetchAll, fetchTeam, fetchDirectory, fetchOne, createEmployee, updateEmployee, deactivateEmployee, reactivateEmployee, deleteEmployeePermanently, markHasAccount, applyEffectivePermissions,
   }
 })

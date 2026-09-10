@@ -13,6 +13,17 @@ export interface AuthUser {
   entityId?:       string
   entityName?:     string
   validatorLevel?: 1 | 2 | 3 | 4
+  // Ciblage d'eligibilite (demande client, 01/09) — necessaires pour filtrer
+  // les types de conge/jours feries sur le calendrier personnel de
+  // l'utilisateur connecte (voir lib/eligibility.ts, DashboardEmployee.vue).
+  gender?:         'M' | 'F'
+  isExpatriate?:   boolean
+  // Compte d'amorçage cree par le seed (ex: "Admin Galana"), pas un vrai
+  // membre du personnel — voir Employee.IsSystem (schema.prisma). N'a ni
+  // solde de conges ni existence RH reelle : ne doit jamais pouvoir soumettre
+  // une demande (conge/mission/note de frais) "pour lui-meme", uniquement
+  // "pour un employe" (voir ForWhomSelector.vue hideSelfOption).
+  isSystem?:       boolean
 }
 
 // Statut de LeaveRequest — reprend tel quel l'enum backend (voir
@@ -278,6 +289,20 @@ export interface Employee {
   // décompté de son solde — pas un "expatrié". Voir utils/calendar.ts et
   // computeWorkingDays côté backend.
   isExpatriate: boolean
+  // Validateur direct (retour client, 08/09) : bascule le workflow de
+  // validation de congé de cet employé sur UN validateur unique, à la place
+  // du pool par entité — undefined/absent = comportement par défaut inchangé
+  // (pool par entité). Voir leave-request.service.ts (backend) routeToApproval/
+  // routeToDirectValidator.
+  directValidatorId?: string
+  // Droits de validation RÉELLEMENT accordés au compte (CONGE_VALIDER /
+  // MISSION_VALIDER / FRAIS_VALIDER effectivement présents dans ses
+  // UserPermission), calculés côté backend dans findAll(). À utiliser pour
+  // savoir si cet employé peut être choisi comme validateur, PAS le gabarit
+  // de permissions de sa catégorie (qui peut avoir divergé depuis la création
+  // du compte — retour du 10/09, un droit ajouté individuellement n'apparaissait
+  // jamais dans les sélecteurs). Vide si pas de compte actif.
+  validatorPermissions: string[]
 }
 
 export interface Entity {
@@ -302,6 +327,13 @@ export interface Entity {
   responsibleName?: string
   headcount:        number
   children?:        Entity[]
+  // Mecanisme de validation des conges pour les employes de cette entite
+  // (retour client du 09/09) — mutuellement exclusif avec le pool par entite
+  // (ApprovalPool) : 'Pool' (par defaut) = comportement historique inchange,
+  // 'DirectValidator' = chaque employe de l'entite a son propre validateur
+  // fixe (Employee.directValidatorId), le pool de l'entite est ignore. Voir
+  // ApprovalPoolConfig.vue et leave-request.service.ts routeToApproval.
+  leaveApprovalMode: 'Pool' | 'DirectValidator'
 }
 
 // ── Calendar ──────────────────────────────────────────────────
@@ -343,6 +375,11 @@ export interface Holiday {
   isRecurring:         boolean       // true = annuel, false = ponctuel
   holidayType:         HolidayScope
   organizationUnitId?: string | null // requis si holidayType = 'Local'
+  // Ciblage d'eligibilite (demande client, 01/09) — absent/null sur un
+  // critere = s'applique a tout le monde sur ce critere. Meme mecanisme que
+  // sur LeaveType (voir stores/leaveTypes.ts).
+  appliesToGender?:     'M' | 'F' | null
+  appliesToExpatriate?: boolean | null
 }
 
 export interface CompanyCalendar {

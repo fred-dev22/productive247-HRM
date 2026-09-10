@@ -25,6 +25,8 @@ import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useAuthStore } from '../../stores/auth'
 import { calculateEndDate, getWorkingDaysBetween, getChargedDaysBetween, getResumeDate, isWorkingDay } from '../../utils/calendar'
+import { isEligible } from '../../lib/eligibility'
+import type { LeaveBalance } from '../../types'
 
 const props = defineProps<{ initialLeaveTypeId?: string }>()
 const emit = defineEmits<{ close: []; created: [] }>()
@@ -48,13 +50,17 @@ if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 // accessible à tout compte authentifié et suffit pour ce sélecteur.
 if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
-const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
+// Un compte système (Employee.IsSystem, ex. "Admin Galana") n'a pas
+// d'existence RH réelle — jamais de solde, jamais éligible à un congé pour
+// lui-même — donc toujours "pour un employé" dès le départ, jamais "pour
+// moi-même" (voir ForWhomSelector.vue hideSelfOption, retour du 09/09).
+const forWhom = ref<BeneficiaryValue>({ mode: auth.user?.isSystem ? 'for-employee' : 'self', employeeId: '' })
 // On exclut soi-même : "Pour moi-même" est déjà l'option dédiée à ce cas,
 // pas besoin de se retrouver aussi dans la liste "Pour un employé".
 const employeeItems = computed(() =>
   employeeStore.directory
     .filter(e => e.id !== auth.user?.id)
-    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, initials: e.avatarText, avatarColor: e.avatarBg, status: e.status })),
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, code: e.code, initials: e.avatarText, avatarColor: e.avatarBg, status: e.status })),
 )
 
 // Carte "bénéficiaire" en lecture seule quand ForWhomSelector n'affiche pas
@@ -84,6 +90,32 @@ const beneficiaryId = computed(() => forWhom.value.mode === 'for-employee' ? for
 // écran précédent n'était jamais rafraîchi, la validation utilisait alors le
 // mauvais calendrier).
 watch(beneficiaryId, (id) => { if (id) calendarStore.fetchCalendar(id) }, { immediate: true })
+
+// Solde du BÉNÉFICIAIRE quand on soumet "pour un employé" — myBalances
+// (fetchMyBalances plus haut) ne représente que le solde du demandeur
+// connecté, jamais celui du bénéficiaire choisi ici s'il diffère (voir déjà
+// isBalanceInsufficient plus bas, qui se neutralise à raison dans ce cas) ;
+// le badge "Solde" utilisait quand même à tort myBalance, affichant le
+// solde du demandeur comme si c'était celui du bénéficiaire (souvent 0 pour
+// un compte RH/admin qui ne cotise jamais lui-même, retour du 09/09).
+// GET /leave-transactions/balance/:employeeId est protégé par
+// CONGE_VOIR_TOUT (contrairement à "n'importe qui peut soumettre pour
+// n'importe qui", décision du 01/08, qui elle ne l'est pas) — un simple
+// employé sans ce droit n'a donc pas accès au solde exact d'un collègue ;
+// dans ce cas on retombe sur l'allocation générale (j/an) plutôt que
+// d'afficher un chiffre faux ou de risquer un 403.
+const beneficiaryBalances = ref<LeaveBalance[] | null>(null)
+watch(beneficiaryId, async (id) => {
+  if (forWhom.value.mode !== 'for-employee' || !id || !auth.hasPermission('CONGE_VOIR_TOUT')) {
+    beneficiaryBalances.value = null
+    return
+  }
+  try {
+    beneficiaryBalances.value = await leaveTransactionStore.fetchBalancesFor(id)
+  } catch {
+    beneficiaryBalances.value = null
+  }
+}, { immediate: true })
 // Seul le bénéficiaire est exclu : il ne peut pas être son propre
 // intérimaire. Quand on crée pour quelqu'un d'autre, le demandeur (soi-même)
 // reste un intérimaire valide ; quand on crée pour soi-même, ce filtre
@@ -98,8 +130,22 @@ const interimItems = computed(() =>
     })),
 )
 
+// Ciblage d'eligibilite (demande client, 01/09) — un type de conge restreint
+// a un genre/statut expatrie/entite n'est meme pas propose si le beneficiaire
+// n'y est pas eligible. Tant que l'employe correspondant n'est pas identifie
+// (repertoire pas encore charge), on ne filtre rien plutot que de risquer de
+// masquer a tort un type valide (voir stores/employees.ts:getById).
+const beneficiaryEligibility = computed(() => {
+  const id = beneficiaryId.value
+  if (!id) return null
+  const emp = employeeStore.getById(id)
+  if (!emp) return null
+  return { gender: emp.gender, isExpatriate: emp.isExpatriate, entityId: emp.entityId }
+})
 const leaveTypeItems = computed(() =>
-  leaveTypesStore.activeTypes.map(lt => ({ id: lt.id, label: lt.name })),
+  leaveTypesStore.activeTypes
+    .filter(lt => !beneficiaryEligibility.value || isEligible(lt, beneficiaryEligibility.value))
+    .map(lt => ({ id: lt.id, label: lt.name })),
 )
 
 const form = reactive({
@@ -111,6 +157,15 @@ const form = reactive({
   endPeriod:        'full' as 'full' | 'am' | 'pm',
   interimEmployeeId: '',
   comment:          '',
+})
+// Le type deja selectionne peut devenir non eligible quand on change de
+// beneficiaire (ex: type "Femme uniquement" choisi puis beneficiaire changé
+// pour un homme) — mieux vaut le vider explicitement que de soumettre une
+// demande sur un type que le beneficiaire ne devrait pas voir.
+watch(leaveTypeItems, (items) => {
+  if (form.leaveTypeId && !items.some(i => i.id === form.leaveTypeId)) {
+    form.leaveTypeId = ''
+  }
 })
 const error = ref('')
 const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDays: '' })
@@ -131,6 +186,19 @@ const beneficiaryIsExpatriate = computed(() => {
 })
 const chargedDaysCount = ref<number | null>(null)
 
+// Ciblage d'eligibilite (demande client, 01/09) — calendarStore.holidays est
+// un cache global partage par plusieurs ecrans (voir stores/calendar.ts:
+// calendar), donc filtré ici localement plutôt que muté dans le store : un
+// jour ferie non applicable au beneficiaire ne doit pas etre traite comme
+// ferie pour le decompte de SA demande, sans affecter les autres ecrans qui
+// lisent la meme liste (ex: Configuration > Calendrier, qui doit rester
+// exhaustive).
+const effectiveCalendar = computed(() => {
+  const rule = beneficiaryEligibility.value
+  if (!rule) return calendarStore.calendar
+  return { ...calendarStore.calendar, holidays: calendarStore.calendar.holidays.filter(h => isEligible(h, rule)) }
+})
+
 const currentType = computed(() => leaveTypesStore.leaveTypes.find(lt => lt.id === form.leaveTypeId) ?? null)
 const isMedicalType = computed(() => currentType.value?.workflowType === 'Medical')
 
@@ -144,12 +212,23 @@ const isPastDate = computed(() => {
 const isNotWorkingDay = computed(() => {
   if (!form.startDate) return false
   const p = form.startDate.split('-').map(Number)
-  return !isWorkingDay(new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1), calendarStore.calendar)
+  return !isWorkingDay(new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1), effectiveCalendar.value)
 })
 
 const myBalance = computed(() => {
   if (!form.leaveTypeId) return null
   return leaveTransactionStore.myBalances.find(b => b.leaveTypeId === form.leaveTypeId) ?? null
+})
+
+// Solde à AFFICHER dans le badge (voir beneficiaryBalances plus haut) —
+// celui du bénéficiaire réel si "pour un employé" et visible, sinon celui du
+// demandeur (myBalance, self mode). Distinct de myBalance : isBalanceInsufficient
+// ci-dessous reste volontairement basé sur myBalance/self uniquement (aucun
+// changement de la logique d'avertissement, seulement de l'affichage).
+const displayedBalance = computed(() => {
+  if (!form.leaveTypeId) return null
+  const source = forWhom.value.mode === 'for-employee' ? beneficiaryBalances.value : leaveTransactionStore.myBalances
+  return source?.find(b => b.leaveTypeId === form.leaveTypeId) ?? null
 })
 
 const isBalanceInsufficient = computed(() => {
@@ -176,13 +255,13 @@ const isNoticePeriodViolated = computed(() => {
 // sans ça, remplir le formulaire avant que la réponse arrive calculait la
 // reprise contre un calendrier vide, jamais recalculée ensuite).
 watch(
-  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value] as const,
-  ([start, days, period, , isExpat]) => {
+  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value, effectiveCalendar.value.holidays, currentType.value?.countCalendarDays] as const,
+  ([start, days, period, , isExpat, , countCalendarDays]) => {
     if (calculating || daysMode.value !== 'from-days') return
     if (!start || !days || days <= 0) { resumeDate.value = ''; chargedDaysCount.value = null; return }
     calculating = true
     try {
-      const result      = calculateEndDate(start, days, calendarStore.calendar, period, isExpat)
+      const result      = calculateEndDate(start, days, effectiveCalendar.value, period, isExpat, countCalendarDays ?? false)
       form.endDate       = result.endDate
       form.endPeriod      = result.endPeriod
       resumeDate.value   = result.resumeDate
@@ -205,14 +284,14 @@ function onEndDateChange() {
   daysMode.value = 'from-date'
   calculating = true
   try {
-    const days = getWorkingDaysBetween(form.startDate, form.endDate, calendarStore.calendar, form.startPeriod, form.endPeriod)
+    const days = getWorkingDaysBetween(form.startDate, form.endDate, effectiveCalendar.value, form.startPeriod, form.endPeriod, currentType.value?.countCalendarDays ?? false)
     form.workingDaysCount = days
     if (days > 0) {
       chargedDaysCount.value = getChargedDaysBetween(
-        form.startDate, form.endDate, calendarStore.calendar,
-        form.startPeriod, form.endPeriod, beneficiaryIsExpatriate.value,
+        form.startDate, form.endDate, effectiveCalendar.value,
+        form.startPeriod, form.endPeriod, beneficiaryIsExpatriate.value, currentType.value?.countCalendarDays ?? false,
       )
-      resumeDate.value = getResumeDate(form.endDate, calendarStore.calendar)
+      resumeDate.value = getResumeDate(form.endDate, effectiveCalendar.value)
     } else {
       chargedDaysCount.value = null
       resumeDate.value = ''
@@ -298,7 +377,7 @@ async function saveDraft() {
       <div class="flex-1 overflow-auto px-6 py-5">
         <div class="max-w-3xl mx-auto">
           <FormSection title="Bénéficiaire">
-          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :error-employee="errors.employee" />
+          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :error-employee="errors.employee" :hide-self-option="!!auth.user?.isSystem" />
           <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 px-3.5 py-2.5 bg-background border border-border rounded-lg">
             <UserAvatar :name="selectedEmployee.name" size="sm" />
             <div>
@@ -322,7 +401,7 @@ async function saveDraft() {
               <div v-if="errors.leaveType" :class="cls.fieldError">{{ errors.leaveType }}</div>
 
               <div v-if="currentType" class="flex flex-wrap gap-1.5 mt-1.5">
-                <span :class="cls.hintChipNeutral"><Calendar class="w-3 h-3" /> Solde : {{ myBalance ? `${myBalance.balance} j` : `${currentType.daysPerYear} j/an` }}</span>
+                <span :class="cls.hintChipNeutral"><Calendar class="w-3 h-3" /> Solde : {{ displayedBalance ? `${displayedBalance.balance} j` : `${currentType.daysPerYear} j/an` }}</span>
                 <span v-if="currentType.noticeDays > 0 && !isMedicalType" :class="cls.hintChipInfo"><Clock class="w-3 h-3" /> Préavis : {{ currentType.noticeDays }} jour(s)</span>
                 <span :class="currentType.documentRequired ? cls.hintChipWarning : cls.hintChipNeutral">
                   <Paperclip class="w-3 h-3" /> Justificatif : {{ currentType.documentRequired ? 'Requis' : 'Non requis' }}
@@ -370,7 +449,7 @@ async function saveDraft() {
                   v-if="form.endDate && form.workingDaysCount"
                   class="inline-flex items-center text-[11px] font-semibold rounded-md px-2 py-[3px] mt-1 w-fit"
                   :class="isBalanceInsufficient ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'"
-                >{{ form.workingDaysCount }} j ouvrables<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template></span>
+                >{{ form.workingDaysCount }} {{ currentType?.countCalendarDays ? 'j calendaires' : 'j ouvrables' }}<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template></span>
               </div>
             </div>
 

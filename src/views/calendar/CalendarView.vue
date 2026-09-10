@@ -209,8 +209,17 @@
                         @change="leaveTypesStore.updateLeaveType(lt.id, { daysPerYear: +($event.target as HTMLInputElement).value })" />
                     </td>
                     <td :class="[td, 'text-center']">
-                      <input type="number" min="0" step="0.5" :class="ruleInput" :value="lt.daysPerMonth"
-                        @change="leaveTypesStore.updateLeaveType(lt.id, { daysPerMonth: +($event.target as HTMLInputElement).value })" />
+                      <div class="flex flex-col items-center gap-0.5">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" class="sr-only peer" :checked="lt.monthlyAccrual"
+                            @change="leaveTypesStore.updateLeaveType(lt.id, {
+                              monthlyAccrual: ($event.target as HTMLInputElement).checked,
+                              daysPerMonth: ($event.target as HTMLInputElement).checked ? monthlyAccrualDays(lt.daysPerYear) : undefined,
+                            })" />
+                          <span :class="toggleTrack"></span>
+                        </label>
+                        <span v-if="lt.monthlyAccrual" class="text-[10px] text-muted-foreground whitespace-nowrap">{{ monthlyAccrualDays(lt.daysPerYear) }} j</span>
+                      </div>
                     </td>
                     <td :class="[td, 'text-center']">
                       <input type="number" min="0" :class="ruleInput" :value="lt.noticeDays"
@@ -316,6 +325,19 @@
               </div>
             </div>
           </FormSection>
+          <FormSection title="Éligibilité">
+            <p class="text-[11px] text-muted-foreground -mt-0.5 mb-3">
+              Restreint ce jour férié à une partie des employés. Laissez sur "Tous" pour qu'il s'applique à tout le monde, comme aujourd'hui.
+            </p>
+            <EligibilityFields v-model:gender="appliesToGenderText" v-model:expatriate="appliesToExpatriateText" />
+            <div :class="cls.field" class="mt-4">
+              <label :class="cls.fieldLabel">Entité concernée</label>
+              <select v-model="organizationUnitIdText" :class="cls.fieldSelect">
+                <option value="">Toutes les entités</option>
+                <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
+              </select>
+            </div>
+          </FormSection>
         </div>
       </div>
     </template>
@@ -346,6 +368,19 @@
               </label>
             </div>
           </FormSection>
+          <FormSection title="Éligibilité">
+            <p class="text-[11px] text-muted-foreground -mt-0.5 mb-3">
+              Restreint ce jour férié à une partie des employés. Laissez sur "Tous" pour qu'il s'applique à tout le monde, comme aujourd'hui.
+            </p>
+            <EligibilityFields v-model:gender="appliesToGenderText" v-model:expatriate="appliesToExpatriateText" />
+            <div :class="cls.field" class="mt-4">
+              <label :class="cls.fieldLabel">Entité concernée</label>
+              <select v-model="organizationUnitIdText" :class="cls.fieldSelect">
+                <option value="">Toutes les entités</option>
+                <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
+              </select>
+            </div>
+          </FormSection>
         </div>
       </div>
     </template>
@@ -363,6 +398,7 @@ import LeaveTypeFormModal from '../../components/configuration/LeaveTypeFormModa
 import WorkingDaysConfig  from '../../components/calendar/WorkingDaysConfig.vue'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import EligibilityFields from '../../components/ui/form-field/EligibilityFields.vue'
 import { SkeletonLoader } from '../../components'
 import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
 import { buildHolidayImportConfig } from '../../components/shared/import/configs/holidayImportConfig'
@@ -370,20 +406,21 @@ import { buildLeaveTypeImportConfig } from '../../components/shared/import/confi
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { confirmDialog } from '../../lib/confirm'
-import { useAuthStore }       from '../../stores/auth'
 import { useCalendarStore }   from '../../stores/calendar'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useCompanySettingsStore }  from '../../stores/companySettings'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
+import { useEntityStore } from '../../stores/entities'
 import type { Holiday } from '../../types'
 
-const auth            = useAuthStore()
 const calendarStore   = useCalendarStore()
 const leaveTypesStore = useLeaveTypesStore()
 const leaveTransactionStore = useLeaveTransactionStore()
 const companySettingsStore  = useCompanySettingsStore()
 const categoryStore    = useEmployeeCategoryStore()
+const entityStore      = useEntityStore()
+if (entityStore.entities.length === 0) entityStore.fetchAll()
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
 
 const pageLoading = computed(() => calendarStore.loading || leaveTypesStore.loading)
@@ -624,6 +661,15 @@ const TABS: { id: 'working-days' | 'holidays' | 'leave-rules'; label: string; ic
 // pas de calque "LeaveRule" séparé qui ne persisterait nulle part). Chaque
 // champ s'enregistre immédiatement au blur (@change) — leaveTypesStore
 // affiche déjà son propre toast via withToast(), pas besoin d'un état local.
+//
+// Accum./mois n'est plus un nombre saisi ici non plus (voir
+// LeaveTypeFormModal.vue) — juste une case a cocher, la valeur est toujours
+// derivee de Jours/an. Formule dupliquee ici plutot que partagee avec le
+// modal : deux composants independants, pas besoin d'un import croise pour
+// un calcul aussi court.
+function monthlyAccrualDays(daysPerYear: number): number {
+  return Math.round((daysPerYear / 12) * 100) / 100
+}
 
 // ── Display helpers ───────────────────────────────────────────
 // Holiday.date est toujours une date complete "YYYY-MM-DD" (backend) — pour
@@ -645,16 +691,29 @@ const MONTHS = [
 const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2,'0'))
 const hForm = reactive({ name: '', month: '01', day: '01', fullDate: '' })
 const holidayError = ref('')
+// Ciblage d'eligibilite (voir EligibilityFields.vue), partage par les deux
+// modales (annuel/ponctuel) comme le reste de hForm.
+const appliesToGenderText = ref('')
+const appliesToExpatriateText = ref('')
+// Entite concernee — vide = National (s'applique a toute l'entreprise, comme
+// avant), une entite choisie => Local (voir saveAnnualHoliday/savePonctualHoliday).
+const organizationUnitIdText = ref('')
 
 function openAddModal(type: 'annual' | 'ponctual') {
   editingHoliday.value = null
   hForm.name = ''; hForm.month = '01'; hForm.day = '01'; hForm.fullDate = ''
+  appliesToGenderText.value = ''
+  appliesToExpatriateText.value = ''
+  organizationUnitIdText.value = ''
   holidayError.value = ''
   showModal.value = type
 }
 function openEditModal(h: Holiday) {
   editingHoliday.value = h
   hForm.name = h.name
+  appliesToGenderText.value = h.appliesToGender ?? ''
+  appliesToExpatriateText.value = h.appliesToExpatriate === undefined || h.appliesToExpatriate === null ? '' : String(h.appliesToExpatriate)
+  organizationUnitIdText.value = h.organizationUnitId ?? ''
   holidayError.value = ''
   if (h.isRecurring) {
     const p = h.date.split('-')
@@ -673,12 +732,16 @@ async function saveAnnualHoliday() {
   // Annee de reference arbitraire — seuls mois/jour comptent pour un ferie
   // recurrent (le backend remappe sur l'annee demandee via /holidays/year/:year).
   const date = `2000-${hForm.month}-${hForm.day}`
+  const appliesToGender = appliesToGenderText.value ? (appliesToGenderText.value as 'M' | 'F') : undefined
+  const appliesToExpatriate = appliesToExpatriateText.value === '' ? undefined : appliesToExpatriateText.value === 'true'
+  const organizationUnitId = organizationUnitIdText.value || undefined
+  const holidayType = organizationUnitId ? 'Local' : 'National'
   holidayError.value = ''
   try {
     if (editingHoliday.value) {
-      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date })
+      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date, holidayType, organizationUnitId, appliesToGender, appliesToExpatriate })
     } else {
-      await calendarStore.addHoliday({ name: hForm.name, date, isRecurring: true, holidayType: 'National' })
+      await calendarStore.addHoliday({ name: hForm.name, date, isRecurring: true, holidayType, organizationUnitId, appliesToGender, appliesToExpatriate })
     }
     closeModal()
   } catch {
@@ -689,12 +752,16 @@ async function saveAnnualHoliday() {
 async function savePonctualHoliday() {
   if (!hForm.name.trim()) { holidayError.value = 'Le nom est obligatoire'; return }
   if (!hForm.fullDate) { holidayError.value = 'La date est obligatoire'; return }
+  const appliesToGender = appliesToGenderText.value ? (appliesToGenderText.value as 'M' | 'F') : undefined
+  const appliesToExpatriate = appliesToExpatriateText.value === '' ? undefined : appliesToExpatriateText.value === 'true'
+  const organizationUnitId = organizationUnitIdText.value || undefined
+  const holidayType = organizationUnitId ? 'Local' : 'National'
   holidayError.value = ''
   try {
     if (editingHoliday.value) {
-      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate })
+      await calendarStore.updateHoliday(editingHoliday.value.id, { name: hForm.name, date: hForm.fullDate, holidayType, organizationUnitId, appliesToGender, appliesToExpatriate })
     } else {
-      await calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, isRecurring: false, holidayType: 'National' })
+      await calendarStore.addHoliday({ name: hForm.name, date: hForm.fullDate, isRecurring: false, holidayType, organizationUnitId, appliesToGender, appliesToExpatriate })
     }
     closeModal()
   } catch {

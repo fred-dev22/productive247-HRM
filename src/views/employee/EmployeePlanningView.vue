@@ -144,6 +144,7 @@ import { useCalendarStore } from '../../stores/calendar'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { generateWeekPlanning } from '../../utils/calendar'
+import { isEligible } from '../../lib/eligibility'
 import type { DayPlanning, WorkingHours } from '../../types'
 
 const auth          = useAuthStore()
@@ -260,11 +261,25 @@ const monthYearLabel = computed(() => {
   return `${m.charAt(0).toUpperCase() + m.slice(1)} ${d.getFullYear()}`
 })
 
+// Ciblage d'eligibilite (demande client, 01/09) — meme filtre local que
+// DashboardEmployee.vue : un jour ferie non applicable a l'utilisateur
+// connecte ne doit pas apparaitre comme ferie sur SON planning.
+const myEligibility = computed(() => {
+  const u = auth.user
+  if (!u || u.gender === undefined || u.isExpatriate === undefined) return null
+  return { gender: u.gender, isExpatriate: u.isExpatriate, entityId: u.entityId ?? null }
+})
+const effectiveCalendar = computed(() => {
+  const rule = myEligibility.value
+  if (!rule) return calendarStore.calendar
+  return { ...calendarStore.calendar, holidays: calendarStore.calendar.holidays.filter(h => isEligible(h, rule)) }
+})
+
 // ── Planning data ─────────────────────────────────────────────
 const weekDays = computed<DayPlanning[]>(() =>
   generateWeekPlanning(
     currentWeekStart.value,
-    calendarStore.calendar,
+    effectiveCalendar.value,
     leaveStore.mine.map(l => ({
       startDate: l.startDate,
       endDate:   l.endDate,

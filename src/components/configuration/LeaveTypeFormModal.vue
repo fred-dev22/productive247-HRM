@@ -3,9 +3,11 @@ import { reactive, computed, watch, ref } from 'vue'
 import { Check, Pipette } from 'lucide-vue-next'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
+import EligibilityFields from '../ui/form-field/EligibilityFields.vue'
 import * as cls from '../../lib/formClasses'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import type { LeaveTypeConfig } from '../../stores/leaveTypes'
+import { useEntityStore } from '../../stores/entities'
 
 const props = defineProps<{
   editId?: string
@@ -17,6 +19,8 @@ const emit = defineEmits<{
 }>()
 
 const store  = useLeaveTypesStore()
+const entityStore = useEntityStore()
+if (entityStore.entities.length === 0) entityStore.fetchAll()
 const isEdit = computed(() => !!props.editId)
 const error  = ref('')
 
@@ -29,7 +33,7 @@ const form = reactive({
   name:             '',
   code:             '',
   daysPerYear:      0,
-  daysPerMonth:     undefined as number | undefined,
+  monthlyAccrual:   false,
   noticeDays:       0,
   documentRequired: false,
   documentDeadlineDays: undefined as number | undefined,
@@ -37,7 +41,14 @@ const form = reactive({
   isActive:         true,
   isSystem:         false,
   color:            '#006B3C',
+  countCalendarDays: false,
 })
+// Ciblage d'eligibilite (voir EligibilityFields.vue) : champs texte ('',
+// 'M'/'F', 'true'/'false', id d'entite) comme tout autre select optionnel de
+// l'appli, convertis en valeurs typees au moment de construire le payload.
+const appliesToGenderText = ref('')
+const appliesToExpatriateText = ref('')
+const organizationUnitIdText = ref('')
 // Uniquement à la création — n'a pas de sens sur un type déjà existant.
 // Pré-cochée par défaut (décision du 31/07) : le cas courant est de vouloir
 // que les employés déjà présents en bénéficient tout de suite plutôt que
@@ -45,6 +56,12 @@ const form = reactive({
 const creditExisting = ref(true)
 
 const errors = reactive({ name: '', code: '' })
+
+// Calculee, jamais saisie : evite qu'une valeur incoherente avec Jours
+// alloues / an ne soit renseignee a la main, et evite aussi le champ nombre
+// vide (chaine vide via v-model.number) qui faisait echouer la validation
+// backend (DaysPerMonth optionnel mais pas accepte comme chaine vide).
+const monthlyAccrualDays = computed(() => Math.round((form.daysPerYear / 12) * 100) / 100)
 
 function autoCode() {
   if (!isEdit.value) {
@@ -63,7 +80,7 @@ function populate() {
       form.name             = lt.name
       form.code             = lt.code
       form.daysPerYear      = lt.daysPerYear
-      form.daysPerMonth     = lt.daysPerMonth
+      form.monthlyAccrual   = lt.monthlyAccrual ?? false
       form.noticeDays       = lt.noticeDays
       form.documentRequired = lt.documentRequired
       form.documentDeadlineDays = lt.documentDeadlineDays
@@ -71,13 +88,20 @@ function populate() {
       form.isActive         = lt.isActive
       form.isSystem         = lt.isSystem
       form.color            = lt.color
+      form.countCalendarDays = lt.countCalendarDays ?? false
+      appliesToGenderText.value = lt.appliesToGender ?? ''
+      appliesToExpatriateText.value = lt.appliesToExpatriate === undefined || lt.appliesToExpatriate === null ? '' : String(lt.appliesToExpatriate)
+      organizationUnitIdText.value = lt.organizationUnitId ?? ''
     }
   } else {
     Object.assign(form, {
-      name:'', code:'', daysPerYear:0, daysPerMonth:undefined,
+      name:'', code:'', daysPerYear:0, monthlyAccrual:false,
       noticeDays:0, documentRequired:false, documentDeadlineDays:undefined, workflowType:'Standard',
-      isActive:true, isSystem:false, color:'#006B3C',
+      isActive:true, isSystem:false, color:'#006B3C', countCalendarDays:false,
     })
+    appliesToGenderText.value = ''
+    appliesToExpatriateText.value = ''
+    organizationUnitIdText.value = ''
   }
   errors.name = ''
   errors.code = ''
@@ -101,7 +125,8 @@ async function handleSave() {
     name:             form.name,
     code:             form.code.toUpperCase(),
     daysPerYear:      form.daysPerYear,
-    daysPerMonth:     form.daysPerMonth,
+    monthlyAccrual:   form.monthlyAccrual,
+    daysPerMonth:     form.monthlyAccrual ? monthlyAccrualDays.value : undefined,
     noticeDays:       form.noticeDays,
     documentRequired: form.documentRequired,
     documentDeadlineDays: form.documentRequired ? form.documentDeadlineDays : undefined,
@@ -109,6 +134,10 @@ async function handleSave() {
     isActive:         form.isActive,
     isSystem:         form.isSystem,
     color:            form.color,
+    countCalendarDays: form.countCalendarDays,
+    appliesToGender:     appliesToGenderText.value ? (appliesToGenderText.value as 'M' | 'F') : undefined,
+    appliesToExpatriate: appliesToExpatriateText.value === '' ? undefined : appliesToExpatriateText.value === 'true',
+    organizationUnitId:  organizationUnitIdText.value || undefined,
   }
   try {
     if (isEdit.value && props.editId) {
@@ -155,6 +184,19 @@ async function handleSave() {
                   <option value="Standard">Standard (approbation)</option>
                   <option value="Medical">Médical (enregistrement)</option>
                 </select>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <span :class="cls.fieldLabel">Décompte calendaire</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer" v-model="form.countCalendarDays" />
+                    <span class="w-9 h-5 rounded-full bg-foreground/20 transition-colors peer-checked:bg-primary relative after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:w-3.5 after:h-3.5 after:bg-white after:rounded-full after:shadow after:transition-all peer-checked:after:left-[19px]"></span>
+                  </label>
+                </div>
+                <p class="text-[11px] text-muted-foreground">
+                  <template v-if="form.countCalendarDays">Tous les jours du calendrier comptent (week-ends et fériés inclus), ex: Convalescence Maladie.</template>
+                  <template v-else>Seuls les jours ouvrés comptent (week-ends et fériés exclus) - comportement standard.</template>
+                </p>
               </div>
               <div :class="[cls.field, 'col-span-2 max-sm:col-span-1']">
                 <label :class="cls.fieldLabel">Couleur dans le calendrier</label>
@@ -203,9 +245,18 @@ async function handleSave() {
                 <label :class="cls.fieldLabel">Jours alloués / an</label>
                 <input type="number" min="0" v-model.number="form.daysPerYear" :class="cls.fieldInput" />
               </div>
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Accumulation mensuelle (j/mois)</label>
-                <input type="number" min="0" step="0.5" v-model.number="form.daysPerMonth" :class="cls.fieldInput" />
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <span :class="cls.fieldLabel">Accumulation mensuelle</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer" v-model="form.monthlyAccrual" />
+                    <span class="w-9 h-5 rounded-full bg-foreground/20 transition-colors peer-checked:bg-primary relative after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:w-3.5 after:h-3.5 after:bg-white after:rounded-full after:shadow after:transition-all peer-checked:after:left-[19px]"></span>
+                  </label>
+                </div>
+                <p class="text-[11px] text-muted-foreground">
+                  <template v-if="form.monthlyAccrual">{{ monthlyAccrualDays }} j crédités chaque mois ({{ form.daysPerYear }} j/an ÷ 12).</template>
+                  <template v-else>Sans cette option, les {{ form.daysPerYear }} j/an sont crédités en une fois (dotation annuelle).</template>
+                </p>
               </div>
               <div :class="cls.field">
                 <label :class="cls.fieldLabel">Préavis minimum (jours)</label>
@@ -232,6 +283,20 @@ async function handleSave() {
                   </span>
                 </label>
               </div>
+            </div>
+          </FormSection>
+
+          <FormSection title="Éligibilité">
+            <p class="text-[11px] text-muted-foreground -mt-0.5 mb-3">
+              Restreint ce type de congé à une partie des employés. Laissez sur "Tous" pour qu'il s'applique à tout le monde, comme aujourd'hui.
+            </p>
+            <EligibilityFields v-model:gender="appliesToGenderText" v-model:expatriate="appliesToExpatriateText" />
+            <div :class="cls.field" class="mt-4">
+              <label :class="cls.fieldLabel">Entité concernée</label>
+              <select v-model="organizationUnitIdText" :class="cls.fieldSelect">
+                <option value="">Toutes les entités</option>
+                <option v-for="e in entityStore.approvedEntities" :key="e.id" :value="e.id">{{ e.code }} · {{ e.name }}</option>
+              </select>
             </div>
           </FormSection>
 

@@ -18,6 +18,7 @@
     <template #header-actions>
       <div class="flex items-center gap-2">
         <button :class="L.btnOutline" @click="openCredit"><PlusCircle class="w-4 h-4" /> Ajuster un solde</button>
+        <button :class="L.btnOutline" @click="showImport = true"><Upload class="w-4 h-4" /> Importer des soldes</button>
         <button :class="L.btnOutline" @click="() => {}"><FileDown class="w-4 h-4" /> Exporter</button>
       </div>
     </template>
@@ -70,7 +71,7 @@
         <div class="h-1 bg-border rounded-sm overflow-hidden mb-[3px]"><div class="h-full rounded-sm" :style="barStyle(cellFor(item, c.leaveTypeId)!)"></div></div>
         <div class="text-[10px] text-muted-foreground">{{ cellFor(item, c.leaveTypeId)!.balance }}j / {{ cellFor(item, c.leaveTypeId)!.daysPerYear }}j</div>
       </template>
-      <span v-else class="text-[13px] text-muted-foreground">—</span>
+      <span v-else class="text-[13px] text-muted-foreground">-</span>
     </template>
 
     <!-- Aperçu rapide -->
@@ -145,14 +146,18 @@
       </div>
     </template>
   </CreateModalShell>
+
+  <ImportWizardModal v-if="showImport" :open="showImport" :config="leaveBalanceImportConfig" @close="showImport = false" @imported="balanceStore.fetchAllBalances()" />
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { FileDown, Users, Sun, RefreshCw, Home, PlusCircle } from 'lucide-vue-next'
+import { FileDown, Users, Sun, RefreshCw, Home, PlusCircle, Upload } from 'lucide-vue-next'
 import { UserAvatar, ListPageLayout } from '../../components'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
+import { buildLeaveBalanceImportConfig } from '../../components/shared/import/configs/leaveBalanceImportConfig'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import * as L from '../../lib/listClasses'
 import * as fcls from '../../lib/formClasses'
@@ -163,6 +168,12 @@ import type { LeaveBalance } from '../../types'
 
 const balanceStore = useLeaveTransactionStore()
 const entityStore  = useEntityStore()
+
+// Import des soldes de conges initiaux (demande client, voir
+// leaveBalanceImportConfig.ts) — meme placement que "Ajuster un solde",
+// juste a cote, puisque les deux touchent le meme concept.
+const showImport = ref(false)
+const leaveBalanceImportConfig = computed(() => buildLeaveBalanceImportConfig())
 
 onMounted(() => {
   balanceStore.fetchAllBalances()
@@ -201,9 +212,26 @@ const kpiIcon = 'w-10 h-10 rounded-[10px] flex items-center justify-center shrin
 const kpiVal = 'text-[22px] font-bold text-foreground leading-none'
 const kpiLabel = 'text-[11px] text-muted-foreground mt-0.5'
 
-// Colonnes dérivées des types de congé réellement présents dans les soldes
-// (tous les types actifs, chaque employé porte la même liste).
-const TYPE_COLS = computed(() => balanceStore.allBalances[0]?.balances ?? [])
+// Colonnes dérivées des types de congé réellement présents dans les soldes —
+// UNION sur tous les employés, pas juste le premier de la liste : depuis le
+// ciblage d'éligibilité (genre/expatrié/entité, demande client 01/09),
+// balanceStore.allBalances[i].balances ne porte plus forcément la même
+// liste pour tout le monde (un type "pour femme" n'apparaît que chez les
+// employées éligibles, voir leave-transaction.service.ts:getAllBalances).
+// Prendre seulement le premier employé faisait disparaître purement et
+// simplement la colonne d'un type dès que CET employé-là n'y était pas
+// éligible — même pour les employés qui l'étaient. cellFor() affiche déjà
+// "—" pour un employé sans entrée pour une colonne donnée, donc il suffit
+// que la colonne existe quelque part.
+const TYPE_COLS = computed(() => {
+  const seen = new Map<string, LeaveBalance>()
+  for (const emp of balanceStore.allBalances) {
+    for (const b of emp.balances) {
+      if (!seen.has(b.leaveTypeId)) seen.set(b.leaveTypeId, b)
+    }
+  }
+  return [...seen.values()]
+})
 
 // Les 3 cartes KPI reprennent les 3 premiers types réels (par leaveTypeId,
 // jamais par code) — un code fixe ('ANNUAL'/'RECOVERY'/'REMOTE') ne

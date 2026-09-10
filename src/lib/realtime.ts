@@ -5,8 +5,9 @@ import { useLeaveRequestStore } from '../stores/leaveRequests'
 import { useMissionStore } from '../stores/missions'
 import { useExpenseStore } from '../stores/expenses'
 import { useEmployeeStore } from '../stores/employees'
+import { useLeaveTypesStore } from '../stores/leaveTypes'
 
-type DataDomain = 'leave' | 'mission' | 'expense' | 'employee'
+type DataDomain = 'leave' | 'mission' | 'expense' | 'employee' | 'leaveType'
 
 // Permissions *_VOIR_EQUIPE / *_VOIR_TOUT / *_VALIDER — memes codes que les
 // @RequirePermission cote backend (leave/mission/expense controllers). On se
@@ -18,6 +19,7 @@ const PERMISSIONS: Record<DataDomain, { team: string; all: string; validate: str
   mission: { team: 'MISSION_VOIR_EQUIPE', all: 'MISSION_VOIR_TOUT', validate: 'MISSION_VALIDER' },
   expense: { team: 'FRAIS_VOIR_EQUIPE', all: 'FRAIS_VOIR_TOUT', validate: 'FRAIS_VALIDER' },
   employee: null,
+  leaveType: null,
 }
 
 // mine n'a aucune permission dediee cote backend (juste "les miennes") —
@@ -48,6 +50,13 @@ function refreshDomain(domain: DataDomain) {
     if (auth.hasPermission('EMPLOYE_VOIR_EQUIPE')) useEmployeeStore().fetchTeam()
     if (auth.hasPermission('EMPLOYE_VOIR_TOUT')) useEmployeeStore().fetchAll()
   }
+  // GET /leave-types n'est gardee par aucune permission (voir controller) —
+  // pas de branchement par droit necessaire, contrairement aux domaines
+  // ci-dessus. Sans ce refresh, un employe avec le formulaire "Nouvelle
+  // demande d'absence" deja ouvert ne voyait jamais un type de conge cree/
+  // modifie/desactive entre temps (retour client du 09/09) — leaveTypesStore
+  // ne se recharge sinon qu'une seule fois par session (voir AbsenceCreate.vue).
+  if (domain === 'leaveType') useLeaveTypesStore().fetchAll()
 }
 
 let subscribed = false
