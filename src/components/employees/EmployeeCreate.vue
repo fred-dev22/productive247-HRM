@@ -94,18 +94,18 @@ const error = ref('')
 // validateur direct ; sinon le pool de l'entité s'applique automatiquement.
 const showDirectValidatorSection = computed(() => !!form.entityId && entityStore.getEntityById(form.entityId)?.leaveApprovalMode === 'DirectValidator')
 
-// Seul un employé avec un compte actif ET la permission CONGE_VALIDER peut
-// effectivement traiter une demande "à valider" (même règle que le
-// sélecteur de pool, voir ApprovalPoolConfig.vue canValidate).
-function canValidateLeave(e: { employeeCategoryId?: string }): boolean {
-  const category = categoryStore.categories.find(c => c.id === e.employeeCategoryId)
-  return !!category?.permissions.some(p => p.code === 'CONGE_VALIDER')
+// Éligibilité validateur = compte actif ET permission CONGE_VALIDER
+// RÉELLEMENT accordée (validatorPermissions, calculé backend depuis les
+// UserPermission effectives, pas le gabarit de la catégorie — retour du
+// 10/09, voir EmployeeCard.vue).
+function canValidateLeave(e: { validatorPermissions?: string[] }): boolean {
+  return !!e.validatorPermissions?.includes('CONGE_VALIDER')
 }
 const validatorColumns = [{ key: 'code', label: 'Matricule', width: '90px' }, { key: 'label', label: 'Nom' }]
 function fetchValidatorCandidates({ searchQuery }: LookupFetchParams) {
   let items = store.employees.map(e => ({
     id: e.id, label: e.name, code: e.code, sublabel: e.entityName,
-    status: e.status, hasAccount: e.hasAccount, employeeCategoryId: e.employeeCategoryId,
+    status: e.status, hasAccount: e.hasAccount, validatorPermissions: e.validatorPermissions,
   }))
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
@@ -113,10 +113,10 @@ function fetchValidatorCandidates({ searchQuery }: LookupFetchParams) {
   }
   return { items, total: items.length }
 }
-function isValidatorDisabled(item: { status?: string; hasAccount?: boolean; employeeCategoryId?: string }): boolean {
+function isValidatorDisabled(item: { status?: string; hasAccount?: boolean; validatorPermissions?: string[] }): boolean {
   return item.status !== 'active' || !item.hasAccount || !canValidateLeave(item)
 }
-function validatorDisabledReason(item: { status?: string; hasAccount?: boolean; employeeCategoryId?: string }): string {
+function validatorDisabledReason(item: { status?: string; hasAccount?: boolean; validatorPermissions?: string[] }): string {
   if (item.status !== 'active') return 'compte désactivé'
   if (!item.hasAccount) return "n'a pas de compte utilisateur"
   if (!canValidateLeave(item)) return 'permission de validation des congés manquante'

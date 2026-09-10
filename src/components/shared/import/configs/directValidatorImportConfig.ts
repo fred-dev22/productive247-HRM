@@ -1,5 +1,4 @@
 import { useEmployeeStore } from '../../../../stores/employees'
-import { useEmployeeCategoryStore } from '../../../../stores/employeeCategories'
 import type { ImportConfig } from '../importTypes'
 
 // Assignation en masse des validateurs directs par employé (demande client,
@@ -14,26 +13,22 @@ import type { ImportConfig } from '../importTypes'
 // POST une fois par ligne, jamais un PATCH paramétré par id.
 export function buildDirectValidatorImportConfig(): ImportConfig {
   const employeeStore = useEmployeeStore()
-  const categoryStore = useEmployeeCategoryStore()
   // employees (liste complète, pas directory) : necessaire pour filtrer les
-  // options du validateur aux seuls employes ayant un compte (voir
-  // options() de la colonne DirectValidatorId ci-dessous) — directory
-  // n'expose jamais hasAccount (reponse allegee, voir stores/employees.ts).
+  // options du validateur aux seuls employes ayant un compte + le droit de
+  // validation reel (voir options() de la colonne DirectValidatorId
+  // ci-dessous) — directory n'expose ni hasAccount ni validatorPermissions
+  // (reponse allegee, voir stores/employees.ts).
   if (employeeStore.employees.length === 0) employeeStore.fetchAll()
-  if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 
-  // Seul un employé avec un compte actif ET la permission CONGE_VALIDER peut
-  // effectivement traiter une demande "à valider" (même règle que le
-  // sélecteur de pool, ApprovalPoolConfig.vue canValidate, et la fiche
-  // employé) — pré-filtre côté import pour guider la saisie ; l'enforcement
-  // réel (contre les droits individuels réels du compte, pas seulement le
-  // gabarit de la catégorie) reste côté serveur, voir
-  // EmployeeService.assertValidDirectValidator, qui rejette la ligne avec un
-  // message clair si une valeur invalide est quand même soumise (fichier
-  // modifié à la main, catégorie changée entre le chargement et l'import…).
-  function canValidateLeave(e: { employeeCategoryId?: string }): boolean {
-    const category = categoryStore.categories.find(c => c.id === e.employeeCategoryId)
-    return !!category?.permissions.some(p => p.code === 'CONGE_VALIDER')
+  // Seul un employé avec un compte actif ET la permission CONGE_VALIDER
+  // RÉELLEMENT accordée (validatorPermissions, calculé backend depuis les
+  // UserPermission effectives — pas le gabarit de la catégorie qui peut avoir
+  // divergé, retour du 10/09) peut effectivement traiter une demande « à
+  // valider ». Pré-filtre côté import ; l'enforcement réel reste côté serveur
+  // (EmployeeService.assertValidDirectValidator), qui rejette la ligne avec un
+  // message clair si une valeur invalide est quand même soumise.
+  function canValidateLeave(e: { validatorPermissions?: string[] }): boolean {
+    return !!e.validatorPermissions?.includes('CONGE_VALIDER')
   }
 
   return {

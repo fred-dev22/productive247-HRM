@@ -295,6 +295,14 @@ export interface Employee {
   // (pool par entité). Voir leave-request.service.ts (backend) routeToApproval/
   // routeToDirectValidator.
   directValidatorId?: string
+  // Droits de validation RÉELLEMENT accordés au compte (CONGE_VALIDER /
+  // MISSION_VALIDER / FRAIS_VALIDER effectivement présents dans ses
+  // UserPermission), calculés côté backend dans findAll(). À utiliser pour
+  // savoir si cet employé peut être choisi comme validateur, PAS le gabarit
+  // de permissions de sa catégorie (qui peut avoir divergé depuis la création
+  // du compte — retour du 10/09, un droit ajouté individuellement n'apparaissait
+  // jamais dans les sélecteurs). Vide si pas de compte actif.
+  validatorPermissions: string[]
 }
 
 export interface Entity {

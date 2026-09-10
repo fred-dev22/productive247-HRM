@@ -131,21 +131,20 @@ const relevantEntityId = computed(() => (isEditMode.value ? form.value.entityId 
 const relevantEntityLeaveMode = computed(() => relevantEntityId.value ? entityStore.getEntityById(relevantEntityId.value)?.leaveApprovalMode : undefined)
 const showDirectValidatorSection = computed(() => relevantEntityLeaveMode.value === 'DirectValidator')
 
-// Seul un employé avec un compte actif ET la permission CONGE_VALIDER peut
-// effectivement traiter une demande "à valider" (même règle que le
-// sélecteur de pool, voir ApprovalPoolConfig.vue canValidate — approximation
-// via le gabarit de la catégorie, cohérente avec ce même écran ; l'enforcement
-// réel contre les droits individuels réels du compte se fait côté serveur,
-// voir EmployeeService.assertValidDirectValidator).
-function canValidateLeave(e: { employeeCategoryId?: string }): boolean {
-  const category = categoryStore.categories.find(c => c.id === e.employeeCategoryId)
-  return !!category?.permissions.some(p => p.code === 'CONGE_VALIDER')
+// Un employé n'est éligible comme validateur direct que si son compte est
+// actif ET porte RÉELLEMENT la permission CONGE_VALIDER (validatorPermissions,
+// calculé côté backend depuis les UserPermission effectives — voir findAll()).
+// Avant on regardait le gabarit de sa catégorie : un droit ajouté
+// individuellement à quelqu'un dont la catégorie ne l'a pas n'apparaissait
+// jamais ici, alors que le backend l'aurait accepté (retour du 10/09).
+function canValidateLeave(e: { validatorPermissions?: string[] }): boolean {
+  return !!e.validatorPermissions?.includes('CONGE_VALIDER')
 }
 const validatorColumns = [{ key: 'code', label: 'Matricule', width: '90px' }, { key: 'label', label: 'Nom' }]
 function fetchValidatorCandidates({ searchQuery }: LookupFetchParams) {
   let items = store.employees.map(e => ({
     id: e.id, label: e.name, code: e.code, sublabel: e.entityName,
-    status: e.status, hasAccount: e.hasAccount, employeeCategoryId: e.employeeCategoryId,
+    status: e.status, hasAccount: e.hasAccount, validatorPermissions: e.validatorPermissions,
   }))
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
@@ -153,10 +152,10 @@ function fetchValidatorCandidates({ searchQuery }: LookupFetchParams) {
   }
   return { items, total: items.length }
 }
-function isValidatorDisabled(item: { status?: string; hasAccount?: boolean; employeeCategoryId?: string }): boolean {
+function isValidatorDisabled(item: { status?: string; hasAccount?: boolean; validatorPermissions?: string[] }): boolean {
   return item.status !== 'active' || !item.hasAccount || !canValidateLeave(item)
 }
-function validatorDisabledReason(item: { status?: string; hasAccount?: boolean; employeeCategoryId?: string }): string {
+function validatorDisabledReason(item: { status?: string; hasAccount?: boolean; validatorPermissions?: string[] }): string {
   if (item.status !== 'active') return 'compte désactivé'
   if (!item.hasAccount) return "n'a pas de compte utilisateur"
   if (!canValidateLeave(item)) return 'permission de validation des congés manquante'
@@ -277,6 +276,10 @@ async function toggleUserPermission(permissionId: string, checked: boolean) {
       ? await userStore.grantUserPermission(current.value.userId, permissionId)
       : await userStore.revokeUserPermission(current.value.userId, permissionId)
     userPermissions.value = data.individualGrants
+    // Recale validatorPermissions dans le store employé pour que le sélecteur
+    // de validateur direct reflète le changement immédiatement, sans recharger
+    // la page (retour du 10/09).
+    if (current.value) store.applyEffectivePermissions(current.value.id, data.permissions)
   } catch {
     // userStore.error porte le message pour l'UI (toast)
   }

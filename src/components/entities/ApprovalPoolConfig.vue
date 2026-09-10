@@ -106,10 +106,13 @@ const VALIDER_PERMISSION: Record<ApprovalObjectType, string> = {
   Mission: 'MISSION_VALIDER',
   ExpenseReport: 'FRAIS_VALIDER',
 }
-function canValidate(e: { employeeCategoryId?: string }): boolean {
-  const code = VALIDER_PERMISSION[activeType.value]
-  const category = categoryStore.categories.find(c => c.id === e.employeeCategoryId)
-  return !!category?.permissions.some(p => p.code === code)
+// Droits de validation RÉELS du compte (validatorPermissions, calculé backend
+// depuis les UserPermission effectives — voir stores/employees.ts / findAll()),
+// pas le gabarit de la catégorie qui peut avoir divergé : un droit accordé
+// individuellement doit rendre la personne sélectionnable ici aussi (retour
+// du 10/09, même correctif que le sélecteur de validateur direct).
+function canValidate(e: { validatorPermissions?: string[] }): boolean {
+  return !!e.validatorPermissions?.includes(VALIDER_PERMISSION[activeType.value])
 }
 
 function memberAt(level: 1 | 2 | 3 | 4, type: ApprovalObjectType = activeType.value) {
