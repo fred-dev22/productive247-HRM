@@ -51,9 +51,10 @@ const CONFIG: Record<string, PillConfig> = {
   Done:             { label: 'Effectué',   class: 'bg-success-bg text-success' },
   Regularized:      { label: 'Régularisé', class: 'bg-neutral-bg text-neutral' },
 
-  // Module Recrutement (design uniquement, voir src/stores/recruitment) —
-  // les statuts communs (Draft/PendingApproval/Approved/Rejected/Returned/
-  // Cancelled) sont deja couverts ci-dessus.
+  // Module Recrutement (branche dev-recrutement-module) — aucun circuit de
+  // validation : les statuts communs (Draft/Cancelled) sont deja couverts
+  // ci-dessus.
+  Open:               { label: 'Exprimée',           class: 'bg-info-bg text-info'        },
   Published:          { label: 'Publiée',            class: 'bg-success-bg text-success' },
   Closed:             { label: 'Clôturée',           class: 'bg-neutral-bg text-neutral'  },
   New:                { label: 'Nouvelle',           class: 'bg-info-bg text-info'        },
@@ -61,12 +62,13 @@ const CONFIG: Record<string, PillConfig> = {
   InterviewScheduled: { label: 'Entretien planifié', class: 'bg-warning-bg text-warning'  },
   Retained:           { label: 'Retenue',            class: 'bg-success-bg text-success'  },
   Scheduled:          { label: 'Planifié',           class: 'bg-warning-bg text-warning'  },
-  SentToCandidate:    { label: 'Envoyé au candidat',  class: 'bg-info-bg text-info'        },
-  AcceptedByCandidate:{ label: 'Accepté',             class: 'bg-success-bg text-success'  },
-  RefusedByCandidate: { label: 'Refusé par candidat', class: 'bg-danger-bg text-danger'    },
+  Sent:               { label: 'Envoyée au candidat', class: 'bg-info-bg text-info'       },
+  Negotiating:        { label: 'En négociation',     class: 'bg-warning-bg text-warning'  },
+  Accepted:           { label: 'Acceptée',           class: 'bg-success-bg text-success'  },
+  Refused:            { label: 'Refusée',            class: 'bg-danger-bg text-danger'    },
   OnTrial:            { label: 'En période d\'essai', class: 'bg-warning-bg text-warning'  },
   Extended:           { label: 'Prolongée',          class: 'bg-warning-bg text-warning'  },
-  Converted:          { label: 'Convertie en CDI',   class: 'bg-success-bg text-success'  },
+  Converted:          { label: 'Confirmé',           class: 'bg-success-bg text-success'  },
 }
 
 const cfg = computed<PillConfig>(() =>
