@@ -169,7 +169,10 @@ function validate(): boolean {
   if (!form.idType) { error.value = "Type de pièce d'identité requis"; return false }
   if (!form.email.trim()) { error.value = 'Email requis'; return false }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { error.value = 'Format email invalide'; return false }
-  if (showDirectValidatorSection.value && !form.directValidatorId) { error.value = 'Validateur requis'; return false }
+  // Validateur direct volontairement non bloquant a la creation (retour du
+  // 10/09, voir EmployeeCard.vue save()) : on peut creer l'employe puis lui
+  // assigner un validateur ensuite. Le blocage se fait a la soumission d'une
+  // demande de conge cote backend, la ou le message a du sens.
   error.value = ''
   return true
 }
@@ -368,7 +371,7 @@ async function create() {
               Cette entité utilise un validateur direct par employé. Sans validateur assigné ici, les demandes de congé de cet employé seront bloquées à la soumission.
             </p>
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Validateur <span class="text-danger">*</span></label>
+              <label :class="cls.fieldLabel">Validateur</label>
               <TableLookupField
                 :code="validatorCode" :name="form.directValidatorName"
                 value-key="id" name-key="label"

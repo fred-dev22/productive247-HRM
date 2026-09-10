@@ -198,10 +198,13 @@ function onPositionSelect(item: Record<string, unknown>) {
 }
 async function save() {
   if (!current.value) return
-  if (showDirectValidatorSection.value && !form.value.directValidatorId) {
-    saveError.value = 'Validateur requis'
-    return
-  }
+  // Le validateur direct n'est volontairement PAS bloquant a l'enregistrement
+  // de la fiche (retour du 10/09) : on doit pouvoir modifier les autres
+  // champs — permissions, contrat, statut — sans etre force d'assigner un
+  // validateur au passage. L'absence de validateur est un etat connu et
+  // signale (bandeau ci-dessous en lecture, texte d'aide en edition) ; le
+  // vrai blocage se fait a la soumission d'une demande de conge cote backend
+  // (routeToApproval), la ou le message a du sens.
   try {
     await store.updateEmployee(current.value.id, { ...form.value, jobTitle: form.value.positionTitle, positionId: form.value.positionId || undefined })
     isEditMode.value = false
@@ -502,7 +505,7 @@ async function deletePermanently() {
           </p>
           <template v-if="isEditMode">
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Validateur <span class="text-danger">*</span></label>
+              <label :class="cls.fieldLabel">Validateur</label>
               <TableLookupField
                 :code="validatorCode" :name="directValidatorDisplayName"
                 value-key="id" name-key="label"

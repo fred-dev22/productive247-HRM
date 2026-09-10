@@ -207,17 +207,15 @@
               <div :class="sectionTitle"><UserRoundCog class="w-4 h-4 text-primary" /> Validation des congés</div>
               <p class="text-xs text-muted-foreground -mt-2">Cette entité utilise un validateur direct par employé. Sans validateur assigné ici, les demandes de congé de cet employé seront bloquées à la soumission.</p>
               <div :class="cls.field">
-                <label :class="cls.fieldLabel">Validateur <span class="text-danger">*</span></label>
+                <label :class="cls.fieldLabel">Validateur</label>
                 <TableLookupField
                   :code="validatorCode" :name="form.directValidatorName"
                   value-key="id" name-key="label"
                   :columns="validatorColumns" :fetch-fn="fetchValidatorCandidates"
                   :is-item-disabled="isValidatorDisabled" :item-disabled-reason="validatorDisabledReason"
-                  :invalid="!!err.directValidatorId"
                   modal-title="Sélectionner un validateur" placeholder="Code employé"
                   @update:code="validatorCode = $event" @update:name="form.directValidatorName = $event" @select="onValidatorSelect"
                 />
-                <div v-if="err.directValidatorId" :class="cls.fieldError">{{ err.directValidatorId }}</div>
                 <span v-if="form.directValidatorId && form.directValidatorId === empId" class="flex items-center gap-1 text-[11px] text-warning mt-1">
                   <Info class="w-3 h-3" /> Cet employé est son propre validateur : ses demandes seront auto-approuvées, sans validation humaine.
                 </span>
@@ -462,9 +460,10 @@ function validate(): boolean {
   if (!form.idType)               { err.idType        = t('employee.err_id_type');    ok = false }
   if (!form.email.trim()) { err.email = t('employee.err_email_required'); ok = false }
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { err.email = t('employee.err_email'); ok = false }
-  if (showDirectValidatorSection.value && !form.directValidatorId) {
-    err.directValidatorId = 'Validateur requis'; ok = false
-  }
+  // Validateur direct volontairement non bloquant (retour du 10/09) : voir
+  // meme commentaire dans EmployeeCard.vue save(). L'absence de validateur est
+  // signalee (texte d'aide ci-dessus) et bloquee au bon endroit — la
+  // soumission d'une demande de conge cote backend.
   return ok
 }
 
