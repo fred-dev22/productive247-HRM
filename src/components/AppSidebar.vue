@@ -41,6 +41,7 @@
           <SidebarItem v-if="MISSIONS_EXPENSES_ENABLED && auth.hasAnyPermission(['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE'])"  :icon="Plane"    :label="t('sidebar.missions')"  :to="{ name: 'hr-missions' }" />
           <SidebarItem v-if="MISSIONS_EXPENSES_ENABLED && auth.hasAnyPermission(['FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE'])"      :icon="Receipt"  :label="t('sidebar.expenses')"  :to="{ name: 'hr-expenses' }" />
           <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"                                    :icon="Network"  :label="t('sidebar.org_chart')" :to="{ name: 'hr-org-chart' }" />
+          <SidebarItem v-if="auth.hasAnyPermission(['RECRUTEMENT_BESOIN_VOIR', 'RECRUTEMENT_ACCES'])" :icon="FilePlus" :label="t('sidebar.hiring_needs')" :to="{ name: 'hr-besoins' }" />
         </SidebarSection>
 
         <SidebarSection v-if="canSeeConfigSection" :label="t('sidebar.configuration')" data-tour="config">
@@ -51,7 +52,7 @@
       </template>
 
       <!-- MODULE : Recrutement -->
-      <template v-else-if="navStore.activeModule === 'recruitment'">
+      <template v-else-if="navStore.activeModule === 'recruitment' && auth.hasPermission('RECRUTEMENT_ACCES')">
         <SidebarSection :label="t('nav.recruitment')">
           <SidebarItem :icon="LayoutDashboard" :label="t('sidebar.dashboard')"    :to="{ name: 'hr-recruitment' }" />
           <SidebarItem :icon="Briefcase"       :label="t('sidebar.job_offers')"   :to="{ name: 'hr-recruitment-positions' }" />
@@ -64,9 +65,10 @@
           <SidebarItem :icon="Inbox"    :label="t('sidebar.spontaneous_apps')" :to="{ name: 'hr-recruitment-spontaneous' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.hr_admin_section')">
-          <SidebarItem :icon="FilePlus" :label="t('sidebar.needs')"                 :to="{ name: 'hr-recruitment-needs' }" />
-          <SidebarItem :icon="FileText" :label="t('sidebar.contracts_to_generate')" :to="{ name: 'hr-recruitment-contracts' }" />
-          <SidebarItem :icon="Clock"    :label="t('sidebar.trial_periods')"         :to="{ name: 'hr-recruitment-trial' }" />
+          <SidebarItem :icon="FilePlus"       :label="t('sidebar.needs')"                 :to="{ name: 'hr-recruitment-needs' }" />
+          <SidebarItem :icon="ClipboardCheck" :label="t('sidebar.eval_grids')"            :to="{ name: 'hr-recruitment-eval-templates' }" />
+          <SidebarItem :icon="FileText"       :label="t('sidebar.contracts_to_generate')" :to="{ name: 'hr-recruitment-contracts' }" />
+          <SidebarItem :icon="Clock"          :label="t('sidebar.trial_periods')"         :to="{ name: 'hr-recruitment-trial' }" />
         </SidebarSection>
       </template>
 
@@ -221,6 +223,7 @@ const myPendingCount = computed(() => leaveStore.mine.filter(l => MINE_PENDING.h
 
 const canSeeManagementSection = computed(() => auth.hasAnyPermission([
   'EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE', 'ENTITE_VOIR',
+  'RECRUTEMENT_BESOIN_VOIR', 'RECRUTEMENT_ACCES',
   ...(MISSIONS_EXPENSES_ENABLED ? ['MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE', 'FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE'] : []),
 ]))
 const canSeeConfigSection = computed(() => auth.hasAnyPermission([

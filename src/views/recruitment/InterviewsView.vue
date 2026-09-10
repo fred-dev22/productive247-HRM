@@ -191,7 +191,7 @@
  * ListPageLayout + boutons de workflow dans InterviewWorkflowActions.vue,
  * fiche complète dans InterviewCard.vue.
  */
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { Plus, CalendarClock, Clock, CheckCircle2, CalendarDays, MapPin, Video, X } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -203,6 +203,7 @@ import InterviewCard from '../../components/recruitment/InterviewCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { todayIso } from '../../lib/date'
+import { getApiErrorMessage } from '../../lib/api'
 import { useInterviewStore, useApplicationStore } from '../../stores/recruitment'
 import type { Interview, InterviewMode, InterviewParticipant } from '../../stores/recruitment'
 import { useEmployeeStore } from '../../stores/employees'
@@ -212,8 +213,14 @@ const applicationStore = useApplicationStore()
 const employeeStore = useEmployeeStore()
 // Annuaire léger, deja utilise pour ce genre de picker ailleurs dans l'appli
 // (MissionCreate.vue, AbsenceCreate.vue…) : accessible sans permission
-// elevee, mais n'expose pas l'email (voir InterviewParticipant.email).
+// elevee, l'email est complété côté backend depuis le compte employé.
 if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
+
+onMounted(() => {
+  interviewStore.fetchAll()
+  interviewStore.fetchTemplates()
+  applicationStore.fetchAll()
+})
 
 /* ── Styles (KPI) ───────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
@@ -363,12 +370,8 @@ function validate(): boolean {
 }
 
 function buildPayload() {
-  const app = applicationStore.items.find(a => a.id === form.applicationId)
   return {
     applicationId: form.applicationId,
-    candidateName: app?.candidateName ?? '',
-    candidateEmail: app?.candidateEmail ?? '',
-    jobOfferTitle: app?.jobOfferTitle ?? 'Candidature spontanée',
     scheduledAt: form.scheduledAt,
     mode: form.mode,
     location: form.mode === 'InPerson' ? form.location.trim() : undefined,
@@ -377,11 +380,15 @@ function buildPayload() {
   }
 }
 
-function create() {
+async function create() {
   if (!validate()) return
-  interviewStore.schedule(buildPayload())
-  showCreate.value = false
-  resetForm()
+  try {
+    await interviewStore.schedule(buildPayload())
+    showCreate.value = false
+    resetForm()
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'Planification impossible')
+  }
 }
 
 /* ── Fiche complète (double-clic sur une ligne ou bouton "Ouvrir la

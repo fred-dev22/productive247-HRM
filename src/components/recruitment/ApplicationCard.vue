@@ -17,7 +17,6 @@ import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
 import { useApplicationStore } from '../../stores/recruitment'
 import type { Application } from '../../stores/recruitment'
-import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps<{
   /** Candidatures de la liste (déjà filtrée) courante, pour la navigation N° */
@@ -29,7 +28,6 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const applicationStore = useApplicationStore()
-const auth = useAuthStore()
 
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
 
@@ -57,10 +55,10 @@ const pageTitle = computed(() => current.value?.candidateName ?? '')
 /* ── Notes ──────────────────────────────────────────────────── */
 const noteDraft = ref('')
 watch(currentId, () => { noteDraft.value = '' })
-function addNote() {
+async function addNote() {
   const text = noteDraft.value.trim()
   if (!text || !current.value) return
-  applicationStore.addNote(current.value.id, auth.user?.name ?? '', text)
+  await applicationStore.addNote(current.value.id, text)
   noteDraft.value = ''
 }
 </script>
@@ -107,7 +105,7 @@ function addNote() {
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Téléphone</label>
-              <div :class="readBox">{{ current.candidatePhone || '—' }}</div>
+              <div :class="readBox">{{ current.candidatePhone || '-' }}</div>
             </div>
           </div>
         </FormSection>

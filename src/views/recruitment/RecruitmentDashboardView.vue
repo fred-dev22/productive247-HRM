@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { Briefcase, Users, CalendarClock, FileSignature } from 'lucide-vue-next'
 import { StatusPill } from '../../components'
 import * as L from '../../lib/listClasses'
@@ -84,6 +84,13 @@ const jobOfferStore = useJobOfferStore()
 const applicationStore = useApplicationStore()
 const interviewStore = useInterviewStore()
 const contractStore = useContractStore()
+
+onMounted(() => {
+  jobOfferStore.fetchAll()
+  applicationStore.fetchAll()
+  interviewStore.fetchAll()
+  contractStore.fetchAll()
+})
 
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
 const kpiIcon = 'w-9 h-9 rounded-lg flex items-center justify-center shrink-0'
@@ -102,7 +109,7 @@ const upcomingInterviewsCount = computed(() =>
   interviewStore.items.filter(i => i.status === 'Scheduled').length,
 )
 
-const CONTRACT_NOT_IN_PROGRESS = new Set(['Draft', 'Cancelled', 'RefusedByCandidate'])
+const CONTRACT_NOT_IN_PROGRESS = new Set(['Draft', 'Cancelled', 'Refused'])
 const contractsInProgressCount = computed(() =>
   contractStore.items.filter(c => !CONTRACT_NOT_IN_PROGRESS.has(c.status)).length,
 )

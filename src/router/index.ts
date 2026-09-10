@@ -52,6 +52,21 @@ function moduleForPath(path: string): string {
 // encore en placeholder (recrutement, formation, paie...) n'ont pas de code
 // dédié et restent ouverts à tout l'espace RH, comme aujourd'hui.
 const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
+  // Module Recrutement : une seule permission ouvre tout (RECRUTEMENT_ACCES,
+  // decision client du 05/09). L'expression de besoin, exposee aussi cote
+  // Administration, a ses propres codes.
+  'hr-recruitment':              'RECRUTEMENT_ACCES',
+  'hr-recruitment-positions':    'RECRUTEMENT_ACCES',
+  'hr-recruitment-applications': 'RECRUTEMENT_ACCES',
+  'hr-recruitment-interviews':   'RECRUTEMENT_ACCES',
+  'hr-recruitment-pipeline':     'RECRUTEMENT_ACCES',
+  'hr-recruitment-cv-library':   'RECRUTEMENT_ACCES',
+  'hr-recruitment-spontaneous':  'RECRUTEMENT_ACCES',
+  'hr-recruitment-needs':        'RECRUTEMENT_ACCES',
+  'hr-recruitment-eval-templates': 'RECRUTEMENT_ACCES',
+  'hr-recruitment-contracts':    'RECRUTEMENT_ACCES',
+  'hr-recruitment-trial':        'RECRUTEMENT_ACCES',
+  'hr-besoins':                  ['RECRUTEMENT_BESOIN_VOIR', 'RECRUTEMENT_ACCES'],
   'hr-employees':        ['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE'],
   'hr-employee-create':  'EMPLOYE_CREER',
   'hr-employee-edit':    'EMPLOYE_MODIFIER',
@@ -219,8 +234,14 @@ const router = createRouter({
     { path: '/hr/recruitment/cv-library',   name: 'hr-recruitment-cv-library',   component: () => import('../views/recruitment/TalentPoolView.vue'),             meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/spontaneous',  name: 'hr-recruitment-spontaneous',  component: () => import('../views/recruitment/SpontaneousApplicationsView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/needs',        name: 'hr-recruitment-needs',        component: () => import('../views/recruitment/HiringRequestsView.vue'),         meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/eval-templates', name: 'hr-recruitment-eval-templates', component: () => import('../views/recruitment/InterviewEvalTemplatesView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/contracts',    name: 'hr-recruitment-contracts',    component: () => import('../views/recruitment/ContractsView.vue'),              meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/trial',        name: 'hr-recruitment-trial',        component: () => import('../views/recruitment/TrialPeriodsView.vue'),           meta: { requiresAuth: true, layout: 'dashboard' } },
+
+    // Expression des besoins de recrutement — exposee cote espace
+    // Administration (memes ecrans que /hr/recruitment/needs), pour les
+    // managers/departements qui expriment un besoin sans acces au module.
+    { path: '/hr/besoins',                  name: 'hr-besoins',                  component: () => import('../views/recruitment/HiringRequestsView.vue'),         meta: { requiresAuth: true, layout: 'dashboard' } },
 
     // ── Module Formation ─────────────────────────────────────────
     { path: '/hr/training',             name: 'hr-training',             component: PH, meta: { requiresAuth: true, title: 'Tableau de bord Formation' } },

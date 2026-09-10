@@ -20,7 +20,7 @@
     @open-card="openCard"
   >
     <template #header-actions>
-      <button :class="L.btnPrimary" @click="showCreate = true">
+      <button v-if="canExpress" :class="L.btnPrimary" @click="showCreate = true">
         <Plus class="w-4 h-4" /> Nouvelle demande
       </button>
     </template>
@@ -34,11 +34,11 @@
         </div>
         <div :class="kpiItem">
           <div :class="kpiIcon" class="bg-warning-bg"><Clock class="w-[18px] h-[18px] text-warning" /></div>
-          <div><div :class="kpiVal">{{ pendingCount }}</div><div :class="kpiLbl">En attente de validation</div></div>
+          <div><div :class="kpiVal">{{ pendingCount }}</div><div :class="kpiLbl">Brouillons</div></div>
         </div>
         <div :class="kpiItem">
           <div :class="kpiIcon" class="bg-success-bg"><CheckCircle2 class="w-[18px] h-[18px] text-success" /></div>
-          <div><div :class="kpiVal">{{ approvedCount }}</div><div :class="kpiLbl">Approuvées</div></div>
+          <div><div :class="kpiVal">{{ approvedCount }}</div><div :class="kpiLbl">Exprimées</div></div>
         </div>
       </div>
     </template>
@@ -76,7 +76,6 @@
           <div class="text-[11px] text-muted-foreground truncate">{{ item.entityName }}</div>
         </div>
         <div><StatusPill :status="item.status" /></div>
-        <div v-if="item.rejectionReason" :class="cls.fieldErrorBlock">{{ item.rejectionReason }}</div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
           <div><div class="text-muted-foreground text-[11px]">Effectif</div>{{ item.headcount }}</div>
           <div><div class="text-muted-foreground text-[11px]">Date</div>{{ formatDate(item.requestedAt) }}</div>
@@ -159,7 +158,7 @@
  * fiche plein écran (HiringRequestCard) + actions de workflow réutilisables
  * (HiringRequestWorkflowActions), même pattern que le module Missions.
  */
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { Plus, Briefcase, Clock, CheckCircle2 } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -169,6 +168,7 @@ import HiringRequestWorkflowActions from '../../components/recruitment/HiringReq
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
+import { getApiErrorMessage } from '../../lib/api'
 import { useHiringRequestStore } from '../../stores/recruitment'
 import type { HiringRequest } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
@@ -178,6 +178,11 @@ const hiringRequestStore = useHiringRequestStore()
 const entityStore = useEntityStore()
 const auth = useAuthStore()
 if (entityStore.entities.length === 0) entityStore.fetchAll()
+
+// Exprimer un besoin : permission dédiée (espace Administration) ou accès module.
+const canExpress = computed(() => auth.hasAnyPermission(['RECRUTEMENT_BESOIN_EXPRIMER', 'RECRUTEMENT_ACCES']))
+
+onMounted(() => hiringRequestStore.fetchAll())
 
 /* ── Styles KPI ─────────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
@@ -200,8 +205,8 @@ const columns: ListColumn[] = [
 ]
 
 /* ── KPIs ───────────────────────────────────────────────────── */
-const pendingCount = computed(() => hiringRequestStore.items.filter(r => r.status === 'PendingApproval').length)
-const approvedCount = computed(() => hiringRequestStore.items.filter(r => r.status === 'Approved').length)
+const pendingCount = computed(() => hiringRequestStore.items.filter(r => r.status === 'Draft').length)
+const approvedCount = computed(() => hiringRequestStore.items.filter(r => r.status === 'Open').length)
 
 /* ── Scope / recherche / tri / pagination ──────────────────────
    Même pattern que EmployeeListView.vue : la vue calcule elle-même
@@ -209,10 +214,8 @@ const approvedCount = computed(() => hiringRequestStore.items.filter(r => r.stat
 const scopeOptions = [
   { value: '', label: 'Toutes' },
   { value: 'Draft', label: 'Brouillon' },
-  { value: 'PendingApproval', label: 'En attente' },
-  { value: 'Approved', label: 'Approuvée' },
-  { value: 'Rejected', label: 'Refusée' },
-  { value: 'Returned', label: 'Retournée' },
+  { value: 'Open', label: 'Exprimée' },
+  { value: 'Closed', label: 'Clôturée' },
   { value: 'Cancelled', label: 'Annulée' },
 ]
 const activeScope = ref('')
@@ -290,23 +293,29 @@ function buildPayload() {
     entityName: entity?.name ?? '',
     headcount: form.headcount,
     profile: form.profile.trim(),
-    requestedByName: form.requestedByName,
   }
 }
 
-function create() {
+async function create() {
   if (!validate()) return
-  hiringRequestStore.create(buildPayload())
-  const created = hiringRequestStore.items[0]
-  if (created) hiringRequestStore.submit(created.id)
-  showCreate.value = false
-  resetForm()
+  try {
+    const created = await hiringRequestStore.create(buildPayload())
+    await hiringRequestStore.submit(created.id)
+    showCreate.value = false
+    resetForm()
+  } catch (e) {
+    error.value = getApiErrorMessage(e, "Enregistrement impossible")
+  }
 }
 
-function saveDraft() {
+async function saveDraft() {
   if (!validate()) return
-  hiringRequestStore.create(buildPayload())
-  showCreate.value = false
-  resetForm()
+  try {
+    await hiringRequestStore.create(buildPayload())
+    showCreate.value = false
+    resetForm()
+  } catch (e) {
+    error.value = getApiErrorMessage(e, "Enregistrement impossible")
+  }
 }
 </script>

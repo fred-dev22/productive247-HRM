@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-primary/10 flex flex-col items-center py-10 px-4">
     <div class="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.1)] mb-6">
-      <img src="/galana.webp" alt="Galana" class="h-9 w-auto" />
+      <img src="/galana.webp" alt="HV" class="h-9 w-auto" />
     </div>
 
     <!-- Offre introuvable / non publiee -->
@@ -118,19 +118,27 @@
  * module). Zone de glisser-deposer calquee sur celle d'ImportWizardModal.vue
  * pour rester coherente avec le reste de l'app.
  */
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   CircleAlert, CheckCircle2, ArrowLeft, Briefcase, Building2, MapPin,
   UserRound, Mail, Phone, FileText, UploadCloud, FileCheck2,
 } from 'lucide-vue-next'
-import { useJobOfferStore, useApplicationStore } from '../../stores/recruitment'
+import { usePublicCareersStore } from '../../stores/recruitment'
+import type { PublicJobOffer } from '../../stores/recruitment'
 
 const route = useRoute()
-const jobOfferStore = useJobOfferStore()
-const applicationStore = useApplicationStore()
+const careersStore = usePublicCareersStore()
 
-const offer = computed(() => jobOfferStore.items.find(o => o.id === route.params.id && o.status === 'Published') ?? null)
+const token = String(route.params.id)
+const offer = ref<PublicJobOffer | null>(null)
+onMounted(async () => {
+  try {
+    offer.value = await careersStore.fetchByToken(token)
+  } catch {
+    offer.value = null
+  }
+})
 
 const labelClass = 'flex items-center gap-1.5 text-[13px] font-medium text-foreground mb-1.5'
 const inputClass = 'w-full h-11 px-3 border border-border rounded-lg text-sm bg-background text-foreground outline-none transition-colors focus:border-primary'
@@ -147,7 +155,7 @@ function setFile(file: File | undefined) {
 function onFileInput(e: Event) { setFile((e.target as HTMLInputElement).files?.[0]) }
 function onDrop(e: DragEvent) { dragOver.value = false; setFile(e.dataTransfer?.files?.[0]) }
 
-function submit() {
+async function submit() {
   if (!form.candidateName.trim() || !form.candidateEmail.trim() || !form.candidatePhone.trim()) {
     error.value = 'Merci de remplir tous les champs obligatoires.'
     return
@@ -158,11 +166,16 @@ function submit() {
   }
   if (!offer.value) return
   error.value = ''
-  applicationStore.apply({
-    jobOfferId: offer.value.id, jobOfferTitle: offer.value.title,
-    candidateName: form.candidateName.trim(), candidateEmail: form.candidateEmail.trim(),
-    candidatePhone: form.candidatePhone.trim(), cvFileName: form.cvFileName,
-  })
-  done.value = true
+  try {
+    await careersStore.apply(token, {
+      candidateName: form.candidateName.trim(),
+      candidateEmail: form.candidateEmail.trim(),
+      candidatePhone: form.candidatePhone.trim(),
+      cvFileName: form.cvFileName,
+    })
+    done.value = true
+  } catch {
+    error.value = "L'envoi a échoué, merci de réessayer."
+  }
 }
 </script>

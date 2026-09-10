@@ -105,7 +105,7 @@
  * plein écran (TrialEmployeeCard) + actions de workflow réutilisables
  * (TrialEmployeeWorkflowActions), même pattern que le module Missions.
  */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Users, Clock, CalendarClock, UserCheck } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -120,6 +120,7 @@ import { useEntityStore } from '../../stores/entities'
 const trialStore = useTrialStore()
 const entityStore = useEntityStore()
 if (entityStore.entities.length === 0) entityStore.fetchAll()
+onMounted(() => trialStore.fetchAll())
 
 /* ── Styles KPI ─────────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'

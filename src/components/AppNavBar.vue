@@ -123,7 +123,7 @@ const hrNavItems = computed(() => [
     'CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE',
     'CONFIG_CALENDRIER', 'CONFIG_FRAIS_MISSION',
   ]) },
-  { key: 'recruitment', label: t('nav.recruitment'), visible: RECRUITMENT_MODULE_ENABLED },
+  { key: 'recruitment', label: t('nav.recruitment'), visible: RECRUITMENT_MODULE_ENABLED && auth.hasPermission('RECRUTEMENT_ACCES') },
   { key: 'training',    label: t('nav.training'),    visible: PLACEHOLDER_MODULES_ENABLED },
   { key: 'payroll',     label: t('nav.payroll'),      visible: PLACEHOLDER_MODULES_ENABLED },
   { key: 'reports', label: t('nav.reports'), visible: PLACEHOLDER_MODULES_ENABLED && auth.hasAnyPermission(['RAPPORT_VOIR', 'ENTITE_VOIR']) },

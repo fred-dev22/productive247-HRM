@@ -152,7 +152,7 @@
  * src/stores/recruitment). Calquée sur ApplicationsView.vue, sans colonne
  * "offre liée" (toujours vide par définition pour cette source).
  */
-import { ref, reactive, watch, computed } from 'vue'
+import { ref, reactive, watch, computed, onMounted } from 'vue'
 import { Users, UserPlus, Clock, FileText, Plus, UploadCloud, FileCheck2 } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
@@ -162,10 +162,12 @@ import ApplicationWorkflowActions from '../../components/recruitment/Application
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
+import { getApiErrorMessage } from '../../lib/api'
 import { useApplicationStore } from '../../stores/recruitment'
 import type { Application } from '../../stores/recruitment'
 
 const applicationStore = useApplicationStore()
+onMounted(() => applicationStore.fetchAll())
 
 /* ── Fiche plein écran ──────────────────────────────────────── */
 const openCardId = ref<string | null>(null)
@@ -271,13 +273,20 @@ function validate(): boolean {
   return true
 }
 
-function create() {
+async function create() {
   if (!validate()) return
-  applicationStore.applySpontaneous({
-    candidateName: form.candidateName.trim(), candidateEmail: form.candidateEmail.trim(),
-    candidatePhone: form.candidatePhone.trim(), cvFileName: form.cvFileName,
-  })
-  showCreate.value = false
-  resetForm()
+  try {
+    await applicationStore.create({
+      source: 'Spontaneous',
+      candidateName: form.candidateName.trim(),
+      candidateEmail: form.candidateEmail.trim(),
+      candidatePhone: form.candidatePhone.trim(),
+      cvFileName: form.cvFileName,
+    })
+    showCreate.value = false
+    resetForm()
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'Enregistrement impossible')
+  }
 }
 </script>

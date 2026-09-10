@@ -62,7 +62,7 @@ function documentInput(item: Contract) {
     : ''
   return {
     candidateName: item.candidateName, jobTitle: item.jobTitle, entityName: item.entityName,
-    templateName: item.templateName, resolvedContent,
+    templateName: item.templateName ?? 'Proposition d\'embauche', resolvedContent,
   }
 }
 
@@ -131,7 +131,11 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Modèle</label>
-              <div :class="readBox">{{ current.templateName }}</div>
+              <div :class="readBox">{{ current.templateName || 'Aucun modèle' }}</div>
+            </div>
+            <div :class="cls.field">
+              <label :class="cls.fieldLabel">Référence</label>
+              <div :class="readBox" class="font-mono text-xs">{{ current.referenceCode }}</div>
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Date de début</label>
@@ -150,7 +154,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
         </FormSection>
 
         <!-- Section Conversion en employé (simulation, voir BACKLOG.md) -->
-        <FormSection v-if="current.status === 'AcceptedByCandidate'" title="Conversion en employé">
+        <FormSection v-if="current.status === 'Accepted'" title="Conversion en employé">
           <div v-if="current.employeeProfileCreated" class="flex items-center gap-2 text-success text-[13px] font-medium">
             <CheckCircle2 class="w-4 h-4" /> Profil employé créé (simulation)
           </div>
@@ -165,6 +169,22 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           </template>
         </FormSection>
 
+        <!-- Section Négociation -->
+        <FormSection v-if="current.negotiationRounds.length > 0" title="Négociation" :recaps="[`${current.negotiationRounds.length} tour(s)`]">
+          <div class="flex flex-col gap-2">
+            <div v-for="r in current.negotiationRounds" :key="r.roundNo" class="text-[13px] bg-background rounded-md px-3 py-2 flex flex-col gap-0.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-medium text-foreground text-xs">
+                  Tour {{ r.roundNo }} · {{ r.fromParty === 'HR' ? 'RH' : 'Candidat' }}
+                  <span v-if="r.amount != null" class="text-primary">· {{ formatSalary(r.amount) }}</span>
+                </span>
+                <span class="text-[11px] text-muted-foreground shrink-0">{{ formatDate(r.date) }}</span>
+              </div>
+              <p class="text-foreground whitespace-pre-line">{{ r.comment }}</p>
+            </div>
+          </div>
+        </FormSection>
+
         <!-- Section Document du contrat -->
         <FormSection title="Document du contrat">
           <div class="border border-border rounded-lg overflow-hidden h-[560px] bg-muted">
@@ -174,7 +194,7 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
             <Download class="w-4 h-4" /> Télécharger le PDF
           </button>
           <p class="text-[11px] text-muted-foreground mt-1.5">
-            Ouvre le document dans un nouvel onglet et lance l'impression — choisissez "Enregistrer au format PDF" comme destination pour le télécharger.
+            Ouvre le document dans un nouvel onglet et lance l'impression : choisissez "Enregistrer au format PDF" comme destination pour le télécharger.
           </p>
         </FormSection>
       </div>

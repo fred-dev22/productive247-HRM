@@ -13,14 +13,13 @@ import { Trash2, ClipboardCheck, Lock, LockOpen } from 'lucide-vue-next'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
+import { withToast } from '../../lib/withToast'
 import { useTalentPoolStore } from '../../stores/recruitment'
 import type { TalentPoolEntry } from '../../stores/recruitment'
-import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps<{ item: TalentPoolEntry }>()
 const emit = defineEmits<{ removed: [] }>()
 const talentPoolStore = useTalentPoolStore()
-const auth = useAuthStore()
 
 const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
 const removeCls = btn + ' bg-danger-bg text-danger hover:brightness-95'
@@ -29,26 +28,27 @@ const neutralCls = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
 
 async function remove() {
   if (await confirmDialog('Retirer ce profil du vivier de talents ?')) {
-    talentPoolStore.remove(props.item.id)
+    await withToast('Retrait…', () => talentPoolStore.remove(props.item.id), () => 'Retrait impossible')
     emit('removed')
   }
 }
-function toggleStatus() {
-  if (props.item.status === 'Open') talentPoolStore.close(props.item.id)
-  else talentPoolStore.reopen(props.item.id)
+async function toggleStatus() {
+  const action = props.item.status === 'Open' ? () => talentPoolStore.close(props.item.id) : () => talentPoolStore.reopen(props.item.id)
+  await withToast('Mise à jour…', action, () => 'Action impossible')
 }
 
 /* ── Modale Évaluer ─────────────────────────────────────────── */
-const evaluateModal = reactive({ open: false, score: 5, comment: '', evaluatedByName: '', error: '' })
+const evaluateModal = reactive({ open: false, score: 5, comment: '', error: '' })
 function openEvaluate() {
-  Object.assign(evaluateModal, { open: true, score: 5, comment: '', evaluatedByName: auth.user?.name ?? '', error: '' })
+  Object.assign(evaluateModal, { open: true, score: 5, comment: '', error: '' })
 }
-function confirmEvaluate() {
+async function confirmEvaluate() {
   if (evaluateModal.comment.trim().length === 0) { evaluateModal.error = 'Le commentaire est requis'; return }
-  if (!evaluateModal.evaluatedByName.trim()) { evaluateModal.error = "Le nom de l'évaluateur est requis"; return }
-  talentPoolStore.addEvaluation(props.item.id, {
-    score: evaluateModal.score, comment: evaluateModal.comment.trim(), evaluatedByName: evaluateModal.evaluatedByName.trim(),
-  })
+  await withToast(
+    'Enregistrement…',
+    () => talentPoolStore.addEvaluation(props.item.id, { score: evaluateModal.score, comment: evaluateModal.comment.trim() }),
+    () => "Enregistrement impossible",
+  )
   evaluateModal.open = false
 }
 </script>
@@ -74,10 +74,6 @@ function confirmEvaluate() {
     <div :class="cls.field">
       <label :class="cls.fieldLabel">Commentaire *</label>
       <textarea v-model="evaluateModal.comment" :class="cls.fieldTextarea" placeholder="Impressions, points forts, réserves…" rows="4"></textarea>
-    </div>
-    <div :class="cls.field">
-      <label :class="cls.fieldLabel">Évaluateur *</label>
-      <input v-model="evaluateModal.evaluatedByName" :class="cls.fieldInput" placeholder="Nom de l'évaluateur" />
     </div>
     <div v-if="evaluateModal.error" :class="cls.fieldError">{{ evaluateModal.error }}</div>
     <template #footer>

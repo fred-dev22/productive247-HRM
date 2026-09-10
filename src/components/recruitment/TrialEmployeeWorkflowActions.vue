@@ -11,13 +11,12 @@ import { ClipboardCheck, UserCheck, CalendarClock, Ban } from 'lucide-vue-next'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
+import { withToast } from '../../lib/withToast'
 import { useTrialStore } from '../../stores/recruitment'
 import type { TrialEmployee } from '../../stores/recruitment'
-import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps<{ item: TrialEmployee }>()
 const trialStore = useTrialStore()
-const auth = useAuthStore()
 
 const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
 const approveCls = btn + ' bg-success-bg text-success hover:brightness-95'
@@ -28,25 +27,28 @@ const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
 const ACTIONABLE: TrialEmployee['status'][] = ['OnTrial', 'Extended']
 
 async function convertTrial() {
-  if (await confirmDialog("Convertir cette période d'essai en CDI ?")) trialStore.convert(props.item.id)
+  if (await confirmDialog("Confirmer cet employé à l'issue de la période d'essai ?")) {
+    await withToast('Confirmation…', () => trialStore.convert(props.item.id), () => 'Action impossible')
+  }
 }
 async function cancelTrial() {
-  if (await confirmDialog("Annuler cette période d'essai ?")) trialStore.cancel(props.item.id)
+  if (await confirmDialog("Annuler cette période d'essai ?")) {
+    await withToast('Annulation…', () => trialStore.cancel(props.item.id), () => 'Annulation impossible')
+  }
 }
 
 /* ── Modale Évaluer ─────────────────────────────────────────── */
-const evaluateModal = reactive({ open: false, score: 5, comment: '', evaluatedByName: '', error: '' })
+const evaluateModal = reactive({ open: false, score: 5, comment: '', error: '' })
 function openEvaluate() {
-  Object.assign(evaluateModal, { open: true, score: 5, comment: '', evaluatedByName: auth.user?.name ?? '', error: '' })
+  Object.assign(evaluateModal, { open: true, score: 5, comment: '', error: '' })
 }
-function confirmEvaluate() {
+async function confirmEvaluate() {
   if (evaluateModal.comment.trim().length === 0) { evaluateModal.error = 'Le commentaire est requis'; return }
-  if (!evaluateModal.evaluatedByName.trim()) { evaluateModal.error = "Le nom de l'évaluateur est requis"; return }
-  trialStore.evaluate(props.item.id, {
-    score: evaluateModal.score,
-    comment: evaluateModal.comment.trim(),
-    evaluatedByName: evaluateModal.evaluatedByName.trim(),
-  })
+  await withToast(
+    'Enregistrement…',
+    () => trialStore.evaluate(props.item.id, { score: evaluateModal.score, comment: evaluateModal.comment.trim() }),
+    () => "Enregistrement impossible",
+  )
   evaluateModal.open = false
 }
 
@@ -55,9 +57,9 @@ const extendModal = reactive({ open: false, newEndDate: '', error: '' })
 function openExtend() {
   Object.assign(extendModal, { open: true, newEndDate: props.item.trialEndDate, error: '' })
 }
-function confirmExtend() {
+async function confirmExtend() {
   if (!extendModal.newEndDate) { extendModal.error = 'La nouvelle date de fin est requise'; return }
-  trialStore.extend(props.item.id, extendModal.newEndDate)
+  await withToast('Prolongation…', () => trialStore.extend(props.item.id, extendModal.newEndDate), () => 'Prolongation impossible')
   extendModal.open = false
 }
 </script>
@@ -84,10 +86,6 @@ function confirmExtend() {
     <div :class="cls.field">
       <label :class="cls.fieldLabel">Commentaire *</label>
       <textarea v-model="evaluateModal.comment" :class="cls.fieldTextarea" placeholder="Impressions, points forts, réserves…" rows="4"></textarea>
-    </div>
-    <div :class="cls.field">
-      <label :class="cls.fieldLabel">Évaluateur *</label>
-      <input v-model="evaluateModal.evaluatedByName" :class="cls.fieldInput" placeholder="Nom de l'évaluateur" />
     </div>
     <div v-if="evaluateModal.error" :class="cls.fieldError">{{ evaluateModal.error }}</div>
     <template #footer>
