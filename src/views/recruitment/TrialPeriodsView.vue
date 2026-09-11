@@ -4,6 +4,7 @@
     :subtitle="`${trialStore.items.length} période(s) d'essai`"
     :columns="columns"
     :items="pageItems"
+    :loading="trialStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} période(s) d'essai`"
     search-placeholder="Rechercher un employé, un poste, une entité…"

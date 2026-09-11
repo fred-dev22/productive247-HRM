@@ -4,6 +4,7 @@
     :subtitle="`${filtered.length} candidature(s) liée(s) à une offre`"
     :columns="columns"
     :items="pageItems"
+    :loading="applicationStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} candidature(s)`"
     search-placeholder="Rechercher un candidat, un email…"
