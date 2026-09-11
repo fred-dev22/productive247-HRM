@@ -66,8 +66,10 @@ const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   'hr-recruitment-eval-templates': 'RECRUTEMENT_ACCES',
   'hr-recruitment-contracts':    'RECRUTEMENT_ACCES',
   'hr-recruitment-trial':        'RECRUTEMENT_ACCES',
+  'hr-recruitment-distribution': 'RECRUTEMENT_ACCES',
   'hr-besoins':                  ['RECRUTEMENT_BESOIN_VOIR', 'RECRUTEMENT_ACCES'],
   'hr-employees':        ['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE'],
+  'hr-deadlines':        ['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE'],
   'hr-employee-create':  'EMPLOYE_CREER',
   'hr-employee-edit':    'EMPLOYE_MODIFIER',
   'hr-entities':         'ENTITE_VOIR',
@@ -98,6 +100,12 @@ const router = createRouter({
     // anglais comme demande (toutes les routes frontend doivent l'etre a
     // terme, voir Lot K).
     { path: '/approval/:token', name: 'public-approval', component: PublicApprovalView },
+
+    // Reponse a une invitation d'entretien (RSVP) via jeton opaque, sans
+    // connexion — clic direct depuis le mail. Le chemin /entretien-rsvp/:token
+    // est celui emis par le backend (recruitment-notify.service.ts), a ne pas
+    // renommer sans changer les deux cotes.
+    { path: '/entretien-rsvp/:token', name: 'public-interview-rsvp', component: () => import('../views/recruitment/PublicInterviewRsvpView.vue') },
 
     // Portail carriere public (module Recrutement) — accessible sans compte,
     // depuis un lien partage d'une offre publiee (voir JobOfferCard.vue).
@@ -166,6 +174,13 @@ const router = createRouter({
     },
     { path: '/hr/planning', name: 'hr-planning',
       component: () => import('../views/employee/EmployeePlanningView.vue'),
+      meta: { requiresAuth: true, layout: 'dashboard' },
+    },
+    // Echeances a venir (backlog "Rappels d'echeances") — fins de CDD / stage /
+    // periode d'essai / contrat, anniversaires. Perimetre entreprise
+    // (EMPLOYE_VOIR_TOUT) ou equipe (EMPLOYE_VOIR_EQUIPE), controle cote serveur.
+    { path: '/hr/deadlines', name: 'hr-deadlines',
+      component: () => import('../views/rh/HrDeadlinesView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
     },
 
@@ -237,6 +252,7 @@ const router = createRouter({
     { path: '/hr/recruitment/eval-templates', name: 'hr-recruitment-eval-templates', component: () => import('../views/recruitment/InterviewEvalTemplatesView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/contracts',    name: 'hr-recruitment-contracts',    component: () => import('../views/recruitment/ContractsView.vue'),              meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/trial',        name: 'hr-recruitment-trial',        component: () => import('../views/recruitment/TrialPeriodsView.vue'),           meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr/recruitment/distribution', name: 'hr-recruitment-distribution', component: () => import('../views/recruitment/DistributionChannelsView.vue'),    meta: { requiresAuth: true, layout: 'dashboard' } },
 
     // Expression des besoins de recrutement — exposee cote espace
     // Administration (memes ecrans que /hr/recruitment/needs), pour les

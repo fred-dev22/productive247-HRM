@@ -16,7 +16,8 @@ import type {
   HiringRequest, JobOffer, Application, ApplicationNote, ApplicationStatus,
   Interview, InterviewEvaluation, InterviewEvaluationTemplate, InterviewParticipant,
   TalentPoolEntry, TalentPoolEvaluation, Contract, ContractNegotiationRound, ContractTemplate,
-  TrialEmployee, PublicJobOffer,
+  TrialEmployee, PublicJobOffer, RecruitmentDocument, RsvpResponse,
+  DistributionChannel, JobOfferDistribution, ShareContent,
 } from './types'
 
 export * from './types'
@@ -60,6 +61,50 @@ function mapJobOffer(r: Row): JobOffer {
     evaluationTemplateId: r.InterviewEvaluationTemplateId ?? undefined,
     evaluationTemplateName: r.evaluationTemplate?.Name ?? undefined,
     recruitmentCost: r.RecruitmentCost != null ? num(r.RecruitmentCost) : undefined,
+    excludeFromFeed: !!r.ExcludeFromFeed,
+    salaryText: r.SalaryText ?? undefined,
+  }
+}
+
+function mapDocument(r: Row): RecruitmentDocument {
+  return {
+    id: r.id ?? r.Id,
+    fileName: r.fileName ?? r.FileName,
+    fileUrl: r.fileUrl ?? r.FileUrl,
+    fileSize: num(r.fileSize ?? r.FileSize),
+    mimeType: r.mimeType ?? r.MimeType,
+    createdAt: iso(r.createdAt ?? r.CreatedAt),
+    isPrimaryCv: !!(r.isPrimaryCv ?? r.IsPrimaryCv),
+  }
+}
+
+function mapDistributionChannel(r: Row): DistributionChannel {
+  return {
+    id: r.Id,
+    name: r.Name,
+    kind: r.Kind,
+    targetUrl: r.TargetUrl ?? undefined,
+    targetEmail: r.TargetEmail ?? undefined,
+    hasSecret: !!(r.hasSecret ?? r.HasSecret),
+    isActive: !!r.IsActive,
+  }
+}
+
+function mapJobOfferDistribution(r: Row): JobOfferDistribution {
+  return {
+    id: r.Id,
+    jobOfferId: r.JobOfferId,
+    channelId: r.ChannelId,
+    channelName: r.ChannelName,
+    channelKind: r.ChannelKind,
+    status: r.Status,
+    trigger: r.Trigger,
+    externalUrl: r.ExternalUrl ?? undefined,
+    attempts: num(r.Attempts),
+    httpStatus: r.HttpStatus != null ? num(r.HttpStatus) : undefined,
+    responseSnippet: r.ResponseSnippet ?? undefined,
+    lastAttemptAt: r.LastAttemptAt ? iso(r.LastAttemptAt) : undefined,
+    postedAt: r.PostedAt ? iso(r.PostedAt) : undefined,
   }
 }
 
@@ -87,7 +132,15 @@ function mapApplication(r: Row): Application {
 }
 
 function mapParticipant(r: Row): InterviewParticipant {
-  return { employeeId: r.EmployeeId ?? undefined, name: r.Name, email: r.Email ?? undefined }
+  return {
+    participantId: r.Id ?? undefined,
+    employeeId: r.EmployeeId ?? undefined,
+    name: r.Name,
+    email: r.Email ?? undefined,
+    rsvp: (r.Rsvp ?? undefined) as RsvpResponse | undefined,
+    rsvpAt: r.RsvpAt ? iso(r.RsvpAt) : undefined,
+    rsvpSource: r.RsvpSource ?? undefined,
+  }
 }
 
 function mapInterviewEvaluation(r: Row | null | undefined): InterviewEvaluation | undefined {
@@ -116,6 +169,9 @@ function mapInterview(r: Row): Interview {
     participants: (r.participants ?? []).map(mapParticipant),
     status: r.Status,
     evaluation: mapInterviewEvaluation(r.evaluation),
+    candidateRsvp: (r.CandidateRsvp ?? undefined) as RsvpResponse | undefined,
+    candidateRsvpAt: r.CandidateRsvpAt ? iso(r.CandidateRsvpAt) : undefined,
+    candidateRsvpSource: r.CandidateRsvpSource ?? undefined,
   }
 }
 
@@ -168,6 +224,9 @@ function mapContract(r: Row): Contract {
     referenceCode: r.ReferenceCode,
     applicationId: r.ApplicationId,
     candidateName: r.CandidateName,
+    candidateEmail: r.application?.CandidateEmail ?? undefined,
+    candidatePhone: r.application?.CandidatePhone ?? undefined,
+    createdEmployeeId: r.CreatedEmployeeId ?? undefined,
     templateId: r.TemplateId ?? undefined,
     templateName: r.TemplateName ?? undefined,
     jobTitle: r.JobTitle,
@@ -194,6 +253,7 @@ function mapTrialEmployee(r: Row): TrialEmployee {
     startDate: day(r.StartDate),
     trialEndDate: day(r.TrialEndDate),
     status: r.Status,
+    createdEmployeeId: r.CreatedEmployeeId ?? undefined,
     evaluation: hasEval
       ? {
           score: num(r.EvalScore),
@@ -290,7 +350,8 @@ export const useJobOfferStore = defineStore('recruitment-job-offers', {
     },
     async create(payload: {
       hiringRequestId?: string; title: string; entityName: string; contractType: string;
-      location: string; description: string; evaluationTemplateId?: string
+      location: string; description: string; evaluationTemplateId?: string;
+      excludeFromFeed?: boolean; salaryText?: string
     }) {
       const { data } = await api.post<Row>('/recruitment/job-offers', {
         HiringRequestId: payload.hiringRequestId,
@@ -300,13 +361,16 @@ export const useJobOfferStore = defineStore('recruitment-job-offers', {
         Location: payload.location,
         Description: payload.description,
         InterviewEvaluationTemplateId: payload.evaluationTemplateId,
+        ExcludeFromFeed: payload.excludeFromFeed,
+        SalaryText: payload.salaryText || undefined,
       })
       upsert(this.items, mapJobOffer(data))
       return mapJobOffer(data)
     },
     async update(id: string, payload: Partial<{
       hiringRequestId: string | null; title: string; entityName: string; contractType: string;
-      location: string; description: string; evaluationTemplateId: string | null
+      location: string; description: string; evaluationTemplateId: string | null;
+      excludeFromFeed: boolean; salaryText: string
     }>) {
       const { data } = await api.patch<Row>(`/recruitment/job-offers/${id}`, {
         HiringRequestId: payload.hiringRequestId,
@@ -316,8 +380,21 @@ export const useJobOfferStore = defineStore('recruitment-job-offers', {
         Location: payload.location,
         Description: payload.description,
         InterviewEvaluationTemplateId: payload.evaluationTemplateId,
+        ExcludeFromFeed: payload.excludeFromFeed,
+        SalaryText: payload.salaryText,
       })
       upsert(this.items, mapJobOffer(data))
+    },
+    // Contenu pret-a-coller pour diffusion manuelle (backlog "Diffusion").
+    async fetchShareContent(id: string): Promise<ShareContent> {
+      const { data } = await api.get<Row>(`/recruitment/job-offers/${id}/share-content`)
+      return {
+        plainText: data.plainText ?? '',
+        markdown: data.markdown ?? '',
+        linkedinPost: data.linkedinPost ?? '',
+        twitterShort: data.twitterShort ?? '',
+        publicUrl: data.publicUrl ?? '',
+      }
     },
     async publish(id: string) {
       const { data } = await api.post<Row>(`/recruitment/job-offers/${id}/publish`)
@@ -334,6 +411,19 @@ export const useJobOfferStore = defineStore('recruitment-job-offers', {
     applicationsCount(id: string): number {
       return this.items.find((o) => o.id === id)?.applicationsCount ?? 0
     },
+    // Pieces jointes d'une offre (PDF d'annonce, grille imprimee...).
+    async fetchDocuments(id: string): Promise<RecruitmentDocument[]> {
+      const { data } = await api.get<Row[]>(`/recruitment/job-offers/${id}/documents`)
+      return data.map(mapDocument)
+    },
+    async uploadDocument(id: string, file: File) {
+      const form = new FormData()
+      form.append('file', file)
+      await api.post(`/recruitment/job-offers/${id}/documents`, form)
+    },
+    async deleteDocument(id: string, attachmentId: string) {
+      await api.delete(`/recruitment/job-offers/${id}/documents/${attachmentId}`)
+    },
   },
 })
 
@@ -347,6 +437,8 @@ export const useApplicationStore = defineStore('recruitment-applications', {
     // Offres publiées visibles depuis l'espace employé (US12) — version
     // allégée servie sans permission recrutement.
     openInternalOffers: [] as { id: string; referenceCode: string; title: string; entityName: string; contractType: string; location: string; description: string }[],
+    // Pieces jointes reelles par candidature (backlog "Depot de CV reel").
+    documentsByApplication: {} as Record<string, RecruitmentDocument[]>,
     loading: false,
     error: null as string | null,
   }),
@@ -368,21 +460,54 @@ export const useApplicationStore = defineStore('recruitment-applications', {
         this.loading = false
       }
     },
-    // Enregistrement d'une candidature cote RH (CV recu par un autre canal...).
+    // Enregistrement d'une candidature cote RH. Si un fichier CV est fourni,
+    // envoi en multipart (upload SharePoint cote backend) ; sinon JSON.
     async create(payload: {
       jobOfferId?: string; candidateName: string; candidateEmail: string;
-      candidatePhone: string; source: 'Offer' | 'Spontaneous' | 'Internal'; cvFileName?: string
-    }) {
-      const { data } = await api.post<Row>('/recruitment/applications', {
-        JobOfferId: payload.jobOfferId,
-        CandidateName: payload.candidateName,
-        CandidateEmail: payload.candidateEmail,
-        CandidatePhone: payload.candidatePhone,
-        Source: payload.source,
-        CvFileName: payload.cvFileName,
-      })
+      candidatePhone: string; source: 'Offer' | 'Spontaneous' | 'Internal'
+    }, cv?: File) {
+      let data: Row
+      if (cv) {
+        const form = new FormData()
+        if (payload.jobOfferId) form.append('JobOfferId', payload.jobOfferId)
+        form.append('CandidateName', payload.candidateName)
+        form.append('CandidateEmail', payload.candidateEmail)
+        form.append('CandidatePhone', payload.candidatePhone)
+        form.append('Source', payload.source)
+        form.append('cv', cv)
+        ;({ data } = await api.post<Row>('/recruitment/applications', form))
+      } else {
+        ;({ data } = await api.post<Row>('/recruitment/applications', {
+          JobOfferId: payload.jobOfferId,
+          CandidateName: payload.candidateName,
+          CandidateEmail: payload.candidateEmail,
+          CandidatePhone: payload.candidatePhone,
+          Source: payload.source,
+        }))
+      }
       upsert(this.items, mapApplication(data))
       return mapApplication(data)
+    },
+    // ── Pieces jointes reelles (CV + documents annexes) ──
+    async fetchDocuments(id: string) {
+      const { data } = await api.get<Row[]>(`/recruitment/applications/${id}/documents`)
+      this.documentsByApplication[id] = data.map(mapDocument)
+      return this.documentsByApplication[id]
+    },
+    async uploadDocument(id: string, file: File, setPrimaryCv = false) {
+      const form = new FormData()
+      form.append('file', file)
+      if (setPrimaryCv) form.append('setPrimaryCv', 'true')
+      await api.post(`/recruitment/applications/${id}/documents`, form)
+      await this.fetchDocuments(id)
+      const fresh = this.items.find((a) => a.id === id)
+      if (fresh) { const { data } = await api.get<Row>(`/recruitment/applications/${id}`); upsert(this.items, mapApplication(data)) }
+    },
+    async deleteDocument(id: string, attachmentId: string) {
+      await api.delete(`/recruitment/applications/${id}/documents/${attachmentId}`)
+      await this.fetchDocuments(id)
+      const { data } = await api.get<Row>(`/recruitment/applications/${id}`)
+      upsert(this.items, mapApplication(data))
     },
     async setStatus(id: string, status: ApplicationStatus) {
       const { data } = await api.patch<Row>(`/recruitment/applications/${id}/status`, { Status: status })
@@ -505,6 +630,15 @@ export const useInterviewStore = defineStore('recruitment-interviews', {
         InterviewerName: evaluation.interviewerName,
         TemplateId: evaluation.templateId,
         CriteriaScores: evaluation.criteriaScores?.map((c) => ({ Label: c.label, Score: c.score })),
+      })
+      upsert(this.items, mapInterview(data))
+    },
+    // Correction manuelle d'une reponse RSVP (backlog "Suivi des reponses").
+    // target : 'candidate' ou l'id d'une ligne participant.
+    async setRsvp(id: string, target: 'candidate' | string, response: RsvpResponse) {
+      const { data } = await api.post<Row>(`/recruitment/interviews/${id}/rsvp`, {
+        Target: target,
+        Response: response,
       })
       upsert(this.items, mapInterview(data))
     },
@@ -730,9 +864,13 @@ export const useContractStore = defineStore('recruitment-contracts', {
       const { data } = await api.post<Row>(`/recruitment/contracts/${id}/cancel`)
       upsert(this.items, mapContract(data))
     },
-    async markEmployeeProfileCreated(id: string) {
-      const { data } = await api.post<Row>(`/recruitment/contracts/${id}/employee-profile`)
+    // Conversion en vrai compte Employe (backlog "Inclusion d'un Potentiel").
+    // Le corps porte les champs Employe non deduits du recrutement (etat
+    // civil, piece d'identite, entite reelle...). Voir ConvertToEmployeeModal.
+    async convertToEmployee(id: string, payload: Record<string, unknown>) {
+      const { data } = await api.post<Row>(`/recruitment/contracts/${id}/convert-to-employee`, payload)
       upsert(this.items, mapContract(data))
+      return mapContract(data)
     },
   },
 })
@@ -765,8 +903,11 @@ export const useTrialStore = defineStore('recruitment-trial', {
       const { data } = await api.post<Row>(`/recruitment/trial-employees/${id}/extend`, { NewEndDate: newEndDate })
       upsert(this.items, mapTrialEmployee(data))
     },
-    async convert(id: string) {
-      const { data } = await api.post<Row>(`/recruitment/trial-employees/${id}/convert`)
+    // Confirmation de la periode d'essai. Corps vide si un compte Employe est
+    // deja rattache (simple passage OnTrial -> Active) ; sinon la modale de
+    // conversion fournit les champs Employe (backlog "Conversion candidat").
+    async convert(id: string, payload: Record<string, unknown> = {}) {
+      const { data } = await api.post<Row>(`/recruitment/trial-employees/${id}/convert`, payload)
       upsert(this.items, mapTrialEmployee(data))
     },
     async cancel(id: string) {
@@ -779,23 +920,44 @@ export const useTrialStore = defineStore('recruitment-trial', {
 // ═══════════════════════════════════════════════════════════════
 // Portail carriere public (sans connexion)
 // ═══════════════════════════════════════════════════════════════
+function mapPublicOffer(o: Row): PublicJobOffer {
+  return {
+    token: o.token,
+    title: o.title,
+    entityName: o.entityName,
+    contractType: o.contractType,
+    location: o.location,
+    description: o.description,
+    salaryText: o.salaryText ?? undefined,
+    publishedAt: o.publishedAt ? day(o.publishedAt) : undefined,
+    views: num(o.views),
+  }
+}
+
+interface PublicApplyPayload {
+  candidateName: string
+  candidateEmail: string
+  candidatePhone: string
+  cvFile: File
+  // Pot-de-miel (invisible) + jeton anti-robot Turnstile — remplis par la vue.
+  honeypot?: { website?: string; fax?: string }
+  captchaToken?: string
+}
+
 export const usePublicCareersStore = defineStore('recruitment-public-careers', {
-  state: () => ({ offers: [] as PublicJobOffer[], loading: false, error: null as string | null }),
+  state: () => ({
+    offers: [] as PublicJobOffer[],
+    // Jeton de formulaire anti-spam (usage unique, re-recupere apres chaque envoi).
+    formToken: null as string | null,
+    loading: false,
+    error: null as string | null,
+  }),
   actions: {
     async fetchPublished() {
       this.loading = true
       try {
         const { data } = await api.get<Row[]>('/public/careers')
-        this.offers = data.map((o: Row) => ({
-          token: o.token,
-          title: o.title,
-          entityName: o.entityName,
-          contractType: o.contractType,
-          location: o.location,
-          description: o.description,
-          publishedAt: o.publishedAt ? day(o.publishedAt) : undefined,
-          views: num(o.views),
-        }))
+        this.offers = data.map(mapPublicOffer)
         this.error = null
       } catch (e) {
         this.error = getApiErrorMessage(e, 'Chargement des offres impossible')
@@ -805,34 +967,121 @@ export const usePublicCareersStore = defineStore('recruitment-public-careers', {
     },
     async fetchByToken(token: string): Promise<PublicJobOffer> {
       const { data } = await api.get<Row>(`/public/careers/${token}`)
-      return {
-        token: data.token,
-        title: data.title,
-        entityName: data.entityName,
-        contractType: data.contractType,
-        location: data.location,
-        description: data.description,
-        publishedAt: data.publishedAt ? day(data.publishedAt) : undefined,
-        views: num(data.views),
+      // La page d'une offre embarque un jeton de formulaire (evite un aller-retour).
+      if (data.formToken) this.formToken = data.formToken as string
+      return mapPublicOffer(data)
+    },
+    // Recupere un jeton de formulaire si on n'en a pas (page spontanee).
+    async ensureFormToken() {
+      if (this.formToken) return
+      try {
+        const { data } = await api.get<Row>('/public/careers/form-token')
+        this.formToken = (data.formToken ?? null) as string | null
+      } catch {
+        this.formToken = null
       }
     },
-    async apply(token: string, payload: { candidateName: string; candidateEmail: string; candidatePhone: string; cvFileName?: string }) {
-      const { data } = await api.post(`/public/careers/${token}/apply`, {
-        CandidateName: payload.candidateName,
-        CandidateEmail: payload.candidateEmail,
-        CandidatePhone: payload.candidatePhone,
-        CvFileName: payload.cvFileName,
-      })
-      return data as { ok: boolean; referenceCode: string }
+    _buildForm(p: PublicApplyPayload): FormData {
+      const form = new FormData()
+      form.append('CandidateName', p.candidateName)
+      form.append('CandidateEmail', p.candidateEmail)
+      form.append('CandidatePhone', p.candidatePhone)
+      form.append('cv', p.cvFile)
+      form.append('Website', p.honeypot?.website ?? '')
+      form.append('Fax', p.honeypot?.fax ?? '')
+      if (this.formToken) form.append('FormToken', this.formToken)
+      if (p.captchaToken) form.append('CaptchaToken', p.captchaToken)
+      return form
     },
-    async applySpontaneous(payload: { candidateName: string; candidateEmail: string; candidatePhone: string; cvFileName?: string }) {
-      const { data } = await api.post('/public/careers/spontaneous', {
-        CandidateName: payload.candidateName,
-        CandidateEmail: payload.candidateEmail,
-        CandidatePhone: payload.candidatePhone,
-        CvFileName: payload.cvFileName,
-      })
-      return data as { ok: boolean; referenceCode: string }
+    async apply(token: string, p: PublicApplyPayload) {
+      try {
+        const { data } = await api.post(`/public/careers/${token}/apply`, this._buildForm(p))
+        return data as { ok: boolean; referenceCode: string }
+      } finally {
+        this.formToken = null // usage unique
+      }
+    },
+    async applySpontaneous(p: PublicApplyPayload) {
+      try {
+        const { data } = await api.post('/public/careers/spontaneous', this._buildForm(p))
+        return data as { ok: boolean; referenceCode: string }
+      } finally {
+        this.formToken = null
+      }
     },
   },
 })
+
+// ═══════════════════════════════════════════════════════════════
+// Diffusion multi-plateformes des offres (backlog)
+// ═══════════════════════════════════════════════════════════════
+export const useDistributionStore = defineStore('recruitment-distribution', {
+  state: () => ({
+    channels: [] as DistributionChannel[],
+    byOffer: {} as Record<string, JobOfferDistribution[]>,
+    loading: false,
+    error: null as string | null,
+  }),
+  actions: {
+    async fetchChannels() {
+      this.loading = true
+      try {
+        const { data } = await api.get<Row[]>('/recruitment/distribution-channels')
+        this.channels = data.map(mapDistributionChannel)
+        this.error = null
+      } catch (e) {
+        this.error = getApiErrorMessage(e, 'Chargement des canaux impossible')
+      } finally {
+        this.loading = false
+      }
+    },
+    async createChannel(payload: { name: string; kind: string; targetUrl?: string; targetEmail?: string; secret?: string; isActive?: boolean }) {
+      const { data } = await api.post<Row>('/recruitment/distribution-channels', {
+        Name: payload.name, Kind: payload.kind, TargetUrl: payload.targetUrl || undefined,
+        TargetEmail: payload.targetEmail || undefined, Secret: payload.secret || undefined,
+        IsActive: payload.isActive,
+      })
+      upsertBy(this.channels, mapDistributionChannel(data))
+    },
+    async updateChannel(id: string, patch: Record<string, unknown>) {
+      const body: Row = {}
+      if (patch.name !== undefined) body.Name = patch.name
+      if (patch.kind !== undefined) body.Kind = patch.kind
+      if (patch.targetUrl !== undefined) body.TargetUrl = patch.targetUrl
+      if (patch.targetEmail !== undefined) body.TargetEmail = patch.targetEmail
+      if (patch.secret !== undefined) body.Secret = patch.secret
+      if (patch.isActive !== undefined) body.IsActive = patch.isActive
+      const { data } = await api.patch<Row>(`/recruitment/distribution-channels/${id}`, body)
+      upsertBy(this.channels, mapDistributionChannel(data))
+    },
+    async removeChannel(id: string) {
+      await api.delete(`/recruitment/distribution-channels/${id}`)
+      this.channels = this.channels.filter((c) => c.id !== id)
+    },
+    async testChannel(id: string) {
+      const { data } = await api.post(`/recruitment/distribution-channels/${id}/test`)
+      return data as { ok: boolean; httpStatus?: number; snippet?: string }
+    },
+    async fetchForOffer(offerId: string) {
+      const { data } = await api.get<Row[]>(`/recruitment/job-offers/${offerId}/distributions`)
+      this.byOffer[offerId] = data.map(mapJobOfferDistribution)
+      return this.byOffer[offerId]
+    },
+    async retryDistribution(offerId: string, distId: string) {
+      await api.post(`/recruitment/job-offers/${offerId}/distributions/${distId}/retry`)
+      await this.fetchForOffer(offerId)
+    },
+    async markPosted(offerId: string, distId: string, externalUrl: string) {
+      await api.patch(`/recruitment/job-offers/${offerId}/distributions/${distId}`, {
+        ExternalUrl: externalUrl, Status: 'Posted',
+      })
+      await this.fetchForOffer(offerId)
+    },
+  },
+})
+
+function upsertBy<T extends { id: string }>(list: T[], row: T) {
+  const i = list.findIndex((x) => x.id === row.id)
+  if (i >= 0) list[i] = row
+  else list.push(row)
+}

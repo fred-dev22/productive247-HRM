@@ -175,6 +175,18 @@
               </div>
             </FormSection>
 
+            <FormSection title="Diffusion">
+              <div :class="cls.field">
+                <label :class="cls.fieldLabel">Rémunération affichée <span :class="cls.fieldOptional">(optionnel)</span></label>
+                <input v-model="form.salaryText" :class="cls.fieldInput" placeholder="ex : Selon profil, à partir de 1 500 000 MGA / mois…" />
+                <p class="text-[11px] text-muted-foreground mt-1">Texte libre repris tel quel sur le portail public et dans les contenus à partager. Laisser vide pour ne rien afficher.</p>
+              </div>
+              <label class="flex items-center gap-2 text-[13px] text-foreground mt-3">
+                <input v-model="form.excludeFromFeed" type="checkbox" />
+                Ne pas inclure dans les flux publics (feed.json / feed.xml) ni les webhooks
+              </label>
+            </FormSection>
+
           </div>
         </div>
       </template>
@@ -313,10 +325,14 @@ const showCreate = ref(false)
 const error = ref<string | null>(null)
 const form = reactive({
   title: '', entityId: '', contractType: 'CDI', location: '', description: '', hiringRequestId: '', evaluationTemplateId: '',
+  salaryText: '', excludeFromFeed: false,
 })
 
 function resetForm() {
-  Object.assign(form, { title: '', entityId: '', contractType: 'CDI', location: '', description: '', hiringRequestId: '', evaluationTemplateId: '' })
+  Object.assign(form, {
+    title: '', entityId: '', contractType: 'CDI', location: '', description: '', hiringRequestId: '', evaluationTemplateId: '',
+    salaryText: '', excludeFromFeed: false,
+  })
   error.value = null
 }
 
@@ -354,6 +370,8 @@ function buildPayload() {
     description: form.description.trim(),
     hiringRequestId: form.hiringRequestId || undefined,
     evaluationTemplateId: form.evaluationTemplateId || undefined,
+    salaryText: form.salaryText.trim() || undefined,
+    excludeFromFeed: form.excludeFromFeed || undefined,
   }
 }
 

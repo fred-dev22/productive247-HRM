@@ -6,15 +6,17 @@
  * recruteur depuis cette fiche.
  */
 import { ref, computed, watch } from 'vue'
-import { Eye, Users, Link2, Check, Coins, ClipboardCheck } from 'lucide-vue-next'
+import { Eye, Users, Link2, Check, Coins, ClipboardCheck, Megaphone, Copy } from 'lucide-vue-next'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
+import ModalShell from '../ui/ModalShell.vue'
 import JobOfferWorkflowActions from './JobOfferWorkflowActions.vue'
+import JobOfferDistributionPanel from './JobOfferDistributionPanel.vue'
 import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
 import { useJobOfferStore } from '../../stores/recruitment'
-import type { JobOffer } from '../../stores/recruitment'
+import type { JobOffer, ShareContent } from '../../stores/recruitment'
 
 const props = defineProps<{
   /** Offres de la liste courante (déjà filtrée par la vue), pour la navigation N° */
@@ -59,6 +61,40 @@ async function copyPublicUrl() {
   copied.value = true
   setTimeout(() => { copied.value = false }, 2000)
 }
+
+// Section Diffusion : visible des que l'offre n'est plus un brouillon.
+const showDistribution = computed(() => current.value?.status === 'Published' || current.value?.status === 'Closed')
+
+// Contenu pret a coller (LinkedIn, X, intranet, e-mail cabinet).
+const shareModal = ref(false)
+const shareLoading = ref(false)
+const shareContent = ref<ShareContent | null>(null)
+const copiedKey = ref('')
+async function openShare() {
+  if (!current.value) return
+  shareModal.value = true
+  if (shareContent.value) return
+  shareLoading.value = true
+  try {
+    shareContent.value = await jobOfferStore.fetchShareContent(current.value.id)
+  } finally {
+    shareLoading.value = false
+  }
+}
+async function copyShare(key: string, text: string) {
+  await navigator.clipboard.writeText(text)
+  copiedKey.value = key
+  setTimeout(() => { if (copiedKey.value === key) copiedKey.value = '' }, 2000)
+}
+const SHARE_BLOCKS: { key: keyof ShareContent; label: string }[] = [
+  { key: 'plainText', label: 'Texte simple' },
+  { key: 'markdown', label: 'Markdown' },
+  { key: 'linkedinPost', label: 'Post LinkedIn' },
+  { key: 'twitterShort', label: 'Post court (X)' },
+]
+
+// Re-charger le contenu si on change d'offre pendant la navigation N°.
+watch(currentId, () => { shareContent.value = null })
 </script>
 
 <template>
@@ -111,6 +147,12 @@ async function copyPublicUrl() {
               <label :class="cls.fieldLabel">Lieu</label>
               <div :class="readBox">{{ current.location }}</div>
             </div>
+            <div v-if="current.salaryText" :class="cls.field">
+              <label :class="cls.fieldLabel">Rémunération affichée</label>
+              <div :class="readBox">
+                <Coins class="w-3.5 h-3.5 text-primary mr-1.5 shrink-0" /> {{ current.salaryText }}
+              </div>
+            </div>
             <div v-if="current.publishedAt" :class="cls.field">
               <label :class="cls.fieldLabel">Publiée le</label>
               <div :class="readBox">{{ formatDate(current.publishedAt) }}</div>
@@ -139,6 +181,16 @@ async function copyPublicUrl() {
         <!-- Section Description -->
         <FormSection title="Description">
           <p class="text-[13px] text-foreground whitespace-pre-line">{{ current.description }}</p>
+        </FormSection>
+
+        <!-- Section Diffusion (backlog "Diffusion multi-plateformes") -->
+        <FormSection v-if="showDistribution" title="Diffusion">
+          <div class="mb-3">
+            <button type="button" :class="cls.btnOutline" @click="openShare">
+              <Megaphone class="w-4 h-4" /> Contenu à partager
+            </button>
+          </div>
+          <JobOfferDistributionPanel :offer-id="current.id" />
         </FormSection>
 
         <!-- Section Statistiques -->
@@ -170,4 +222,28 @@ async function copyPublicUrl() {
       </div>
     </template>
   </CardModalShell>
+
+  <!-- Contenu pret a coller pour diffusion manuelle -->
+  <ModalShell :open="shareModal" title="Contenu à partager" max-width="max-w-[640px]" @close="shareModal = false">
+    <div v-if="shareLoading" class="text-[13px] text-muted-foreground py-6 text-center">Chargement...</div>
+    <div v-else-if="shareContent" class="flex flex-col gap-4">
+      <p class="text-[12px] text-muted-foreground">
+        Textes prêts à coller sur LinkedIn, X, l'intranet ou dans un e-mail à un cabinet. Le lien de candidature du portail public y est déjà inséré.
+      </p>
+      <div v-for="b in SHARE_BLOCKS" :key="b.key" :class="cls.field">
+        <div class="flex items-center justify-between">
+          <label :class="cls.fieldLabel">{{ b.label }}</label>
+          <button type="button" class="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline" @click="copyShare(b.key, shareContent[b.key])">
+            <Check v-if="copiedKey === b.key" class="w-3 h-3 text-success" />
+            <Copy v-else class="w-3 h-3" />
+            {{ copiedKey === b.key ? 'Copié' : 'Copier' }}
+          </button>
+        </div>
+        <textarea :value="shareContent[b.key]" readonly rows="4" :class="cls.fieldTextarea" class="font-mono text-[11px]"></textarea>
+      </div>
+    </div>
+    <template #footer>
+      <button :class="cls.btnOutline" @click="shareModal = false">Fermer</button>
+    </template>
+  </ModalShell>
 </template>

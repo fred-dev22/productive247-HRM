@@ -6,14 +6,16 @@
  */
 import { ref, computed, watch } from 'vue'
 import { Download, UserPlus, CheckCircle2 } from 'lucide-vue-next'
+import { RouterLink } from 'vue-router'
 import CardModalShell from '../shared/CardModalShell.vue'
 import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import ContractWorkflowActions from './ContractWorkflowActions.vue'
+import ConvertToEmployeeModal from './ConvertToEmployeeModal.vue'
 import * as cls from '../../lib/formClasses'
-import { confirmDialog } from '../../lib/confirm'
 import { formatDate } from '../../lib/date'
 import { resolveContractContent, buildContractHtml, downloadContractPdf } from '../../lib/contractDocument'
+import { useAuthStore } from '../../stores/auth'
 import { useContractStore } from '../../stores/recruitment'
 import type { Contract } from '../../stores/recruitment'
 
@@ -69,19 +71,13 @@ function documentInput(item: Contract) {
 const documentHtml = computed(() => (current.value ? buildContractHtml(documentInput(current.value)) : ''))
 function downloadPdf() { if (current.value) downloadContractPdf(documentInput(current.value)) }
 
-/* ── Créer le profil employé (simulation) ────────────────────────────
-   Voir Contract.employeeProfileCreated et BACKLOG.md, "Conversion candidat
-   -> employe" : ne cree rien dans le vrai module Employes, faute de
-   backend sur ce module. Sert a visualiser/valider le point d'entree. */
-async function createEmployeeProfile() {
-  if (!current.value) return
-  if (await confirmDialog(
-    "Simuler la création du profil employé de " + current.value.candidateName + " ? " +
-    "Ceci ne crée aucun compte réel dans le module Employés (ce module n'a pas encore de backend).",
-  )) {
-    contractStore.markEmployeeProfileCreated(current.value.id)
-  }
-}
+/* ── Conversion candidat -> employe (backlog "Inclusion d'un Potentiel") ──
+   Cree un vrai compte dans le module Employes via
+   contractStore.convertToEmployee (voir ConvertToEmployeeModal). Reserve aux
+   comptes disposant de EMPLOYE_CREER, verifie aussi cote serveur. */
+const auth = useAuthStore()
+const canCreateEmployee = computed(() => auth.hasPermission('EMPLOYE_CREER'))
+const showConvert = ref(false)
 
 const pageTitle = computed(() => current.value?.candidateName ?? '')
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
@@ -153,20 +149,26 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
           <div v-if="current.rejectionReason" :class="cls.fieldErrorBlock" class="mt-3">{{ current.rejectionReason }}</div>
         </FormSection>
 
-        <!-- Section Conversion en employé (simulation, voir BACKLOG.md) -->
+        <!-- Section Conversion en employé (backlog "Inclusion d'un Potentiel") -->
         <FormSection v-if="current.status === 'Accepted'" title="Conversion en employé">
-          <div v-if="current.employeeProfileCreated" class="flex items-center gap-2 text-success text-[13px] font-medium">
-            <CheckCircle2 class="w-4 h-4" /> Profil employé créé (simulation)
+          <div v-if="current.createdEmployeeId" class="flex items-center gap-2 text-success text-[13px] font-medium">
+            <CheckCircle2 class="w-4 h-4" /> Profil employé créé
+            <RouterLink :to="{ name: 'hr-employee-edit', params: { id: current.createdEmployeeId } }" class="text-primary hover:underline ml-1">
+              Ouvrir la fiche employé
+            </RouterLink>
           </div>
-          <template v-else>
-            <button type="button" :class="cls.btnPrimary" @click="createEmployeeProfile">
+          <template v-else-if="canCreateEmployee">
+            <button type="button" :class="cls.btnPrimary" @click="showConvert = true">
               <UserPlus class="w-4 h-4" /> Créer le profil employé
             </button>
             <p class="text-[11px] text-muted-foreground mt-1.5">
-              Simulation uniquement : ce module n'a pas encore de backend, ce bouton ne crée aucun compte réel dans le module Employés.
+              Crée un vrai compte dans le module Employés à partir de cette proposition d'embauche.
               À déclencher une fois le contrat signé physiquement et reçu par les RH.
             </p>
           </template>
+          <p v-else class="text-[11px] text-muted-foreground italic">
+            La création d'un profil employé requiert la permission de créer un employé.
+          </p>
         </FormSection>
 
         <!-- Section Négociation -->
@@ -200,4 +202,13 @@ const readBox = 'text-[13px] text-foreground bg-background border border-border 
       </div>
     </template>
   </CardModalShell>
+
+  <ConvertToEmployeeModal
+    v-if="current"
+    :open="showConvert"
+    :contract="current"
+    mode="contract"
+    @close="showConvert = false"
+    @done="showConvert = false"
+  />
 </template>

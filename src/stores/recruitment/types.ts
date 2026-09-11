@@ -48,6 +48,20 @@ export interface JobOffer {
   evaluationTemplateName?: string
   // Renseigné à la clôture — coût total de la campagne (MGA).
   recruitmentCost?: number
+  // Diffusion multi-plateformes (backlog) : retirer des flux publics + salaire affiché.
+  excludeFromFeed?: boolean
+  salaryText?: string
+}
+
+// Piece jointe reelle (CV, PDF d'annonce...) stockee sur SharePoint.
+export interface RecruitmentDocument {
+  id: string
+  fileName: string
+  fileUrl: string
+  fileSize: number
+  mimeType: string
+  createdAt: string
+  isPrimaryCv?: boolean
 }
 
 // ── Candidatures ───────────────────────────────────────────────
@@ -104,10 +118,18 @@ export interface InterviewEvaluation {
   criteriaScores?: InterviewCriterionScore[]
 }
 
+// Reponse a une invitation calendrier (backlog "Suivi des reponses").
+export type RsvpResponse = 'Pending' | 'Accepted' | 'Declined' | 'Tentative'
+
 export interface InterviewParticipant {
+  // Id de la ligne participant — necessaire pour la correction manuelle RH.
+  participantId?: string
   employeeId?: string
   name: string
   email?: string
+  rsvp?: RsvpResponse
+  rsvpAt?: string
+  rsvpSource?: 'Link' | 'Manual' | 'IcsReply'
 }
 
 export interface Interview {
@@ -124,6 +146,10 @@ export interface Interview {
   participants: InterviewParticipant[]
   status: InterviewStatus
   evaluation?: InterviewEvaluation
+  // Reponse du candidat a l'invitation calendrier.
+  candidateRsvp?: RsvpResponse
+  candidateRsvpAt?: string
+  candidateRsvpSource?: 'Link' | 'Manual' | 'IcsReply'
 }
 
 // ── Vivier de talents ──────────────────────────────────────────
@@ -176,6 +202,8 @@ export interface Contract {
   referenceCode: string
   applicationId: string
   candidateName: string
+  candidateEmail?: string
+  candidatePhone?: string
   templateId?: string
   templateName?: string
   jobTitle: string
@@ -186,8 +214,10 @@ export interface Contract {
   status: ContractStatus
   rejectionReason?: string
   negotiationRounds: ContractNegotiationRound[]
-  // Simulation uniquement (voir BACKLOG "Conversion candidat -> employé").
+  // Vrai compte Employe cree a partir de ce contrat (backlog "Conversion
+  // candidat -> employe") — non null une fois la conversion faite.
   employeeProfileCreated?: boolean
+  createdEmployeeId?: string
 }
 
 // ── Périodes d'essai ───────────────────────────────────────────
@@ -211,6 +241,8 @@ export interface TrialEmployee {
   trialEndDate: string
   status: TrialStatus
   evaluation?: TrialEvaluation
+  // Vrai compte Employe rattache (backlog "Conversion candidat -> employe").
+  createdEmployeeId?: string
 }
 
 // ── Portail carrière public ────────────────────────────────────
@@ -221,6 +253,45 @@ export interface PublicJobOffer {
   contractType: string
   location: string
   description: string
+  salaryText?: string
   publishedAt?: string
   views: number
+}
+
+// ── Diffusion multi-plateformes des offres (backlog) ───────────
+export type DistributionChannelKind = 'Webhook' | 'RssOnly' | 'Manual' | 'Email'
+export type JobOfferDistributionStatus = 'Pending' | 'Sent' | 'Failed' | 'Posted' | 'Skipped'
+
+export interface DistributionChannel {
+  id: string
+  name: string
+  kind: DistributionChannelKind
+  targetUrl?: string
+  targetEmail?: string
+  hasSecret: boolean
+  isActive: boolean
+}
+
+export interface JobOfferDistribution {
+  id: string
+  jobOfferId: string
+  channelId: string
+  channelName: string
+  channelKind: DistributionChannelKind
+  status: JobOfferDistributionStatus
+  trigger: 'Publish' | 'Close' | 'Manual'
+  externalUrl?: string
+  attempts: number
+  httpStatus?: number
+  responseSnippet?: string
+  lastAttemptAt?: string
+  postedAt?: string
+}
+
+export interface ShareContent {
+  plainText: string
+  markdown: string
+  linkedinPost: string
+  twitterShort: string
+  publicUrl: string
 }

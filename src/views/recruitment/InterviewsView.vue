@@ -65,6 +65,16 @@
       </span>
     </template>
     <template #cell-participants="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.participants.map(p => p.name).join(', ') }}</span></template>
+    <template #cell-rsvp="{ item }">
+      <div class="flex items-center gap-1 flex-wrap">
+        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap" :class="rsvpPillClass(item.candidateRsvp)" :title="`Candidat : ${rsvpLabel(item.candidateRsvp)}`">
+          C · {{ rsvpShort(item.candidateRsvp) }}
+        </span>
+        <span v-if="item.participants.length" class="text-[10px] text-muted-foreground whitespace-nowrap" :title="'Participants ayant accepté'">
+          {{ participantsAccepted(item) }}/{{ item.participants.length }}
+        </span>
+      </div>
+    </template>
     <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
     <!-- Aperçu rapide -->
@@ -205,7 +215,7 @@ import * as L from '../../lib/listClasses'
 import { todayIso } from '../../lib/date'
 import { getApiErrorMessage } from '../../lib/api'
 import { useInterviewStore, useApplicationStore } from '../../stores/recruitment'
-import type { Interview, InterviewMode, InterviewParticipant } from '../../stores/recruitment'
+import type { Interview, InterviewMode, InterviewParticipant, RsvpResponse } from '../../stores/recruitment'
 import { useEmployeeStore } from '../../stores/employees'
 
 const interviewStore = useInterviewStore()
@@ -245,9 +255,27 @@ const columns: ListColumn[] = [
   { key: 'jobOfferTitle', label: 'Offre', sortable: true, width: 180 },
   { key: 'scheduledAt', label: 'Date et heure', sortable: true, width: 150 },
   { key: 'location', label: 'Lieu / Visio', width: 170 },
-  { key: 'participants', label: 'Participants', width: 220 },
+  { key: 'participants', label: 'Participants', width: 200 },
+  { key: 'rsvp', label: 'Réponses', width: 110 },
   { key: 'status', label: 'Statut', width: 130 },
 ]
+
+/* ── Reponses aux invitations (RSVP, backlog "Suivi des reponses") ──── */
+function rsvpLabel(r?: RsvpResponse): string {
+  return r === 'Accepted' ? 'accepté' : r === 'Declined' ? 'refusé' : r === 'Tentative' ? 'peut-être' : 'en attente'
+}
+function rsvpShort(r?: RsvpResponse): string {
+  return r === 'Accepted' ? 'Oui' : r === 'Declined' ? 'Non' : r === 'Tentative' ? '?' : '-'
+}
+function rsvpPillClass(r?: RsvpResponse): string {
+  if (r === 'Accepted') return 'bg-success-bg text-success'
+  if (r === 'Declined') return 'bg-danger-bg text-danger'
+  if (r === 'Tentative') return 'bg-warning-bg text-warning'
+  return 'bg-neutral-bg text-neutral'
+}
+function participantsAccepted(i: Interview): number {
+  return i.participants.filter(p => p.rsvp === 'Accepted').length
+}
 
 /* ── KPIs ───────────────────────────────────────────────────── */
 const scheduledCount = computed(() => interviewStore.items.filter(i => i.status === 'Scheduled').length)

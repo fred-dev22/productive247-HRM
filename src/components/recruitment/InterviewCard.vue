@@ -12,8 +12,10 @@ import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import InterviewWorkflowActions from './InterviewWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
+import { withToast } from '../../lib/withToast'
 import { googleCalendarUrl, outlookCalendarUrl, downloadIcs } from '../../lib/calendarLinks'
-import type { Interview } from '../../stores/recruitment'
+import { useInterviewStore } from '../../stores/recruitment'
+import type { Interview, RsvpResponse } from '../../stores/recruitment'
 
 const props = defineProps<{
   /** Entretiens de la liste courante (déjà filtrée par la vue), pour la navigation N° */
@@ -24,7 +26,36 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [] }>()
 
+const interviewStore = useInterviewStore()
 const readBox = 'text-[13px] text-foreground bg-background border border-border rounded-md px-2.5 h-[38px] flex items-center'
+
+const RSVP_OPTIONS: { value: RsvpResponse; label: string }[] = [
+  { value: 'Pending', label: 'En attente' },
+  { value: 'Accepted', label: 'Accepté' },
+  { value: 'Tentative', label: 'Peut-être' },
+  { value: 'Declined', label: 'Refusé' },
+]
+function rsvpPill(r?: RsvpResponse): string {
+  const base = 'text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap '
+  if (r === 'Accepted') return base + 'bg-success-bg text-success'
+  if (r === 'Declined') return base + 'bg-danger-bg text-danger'
+  if (r === 'Tentative') return base + 'bg-warning-bg text-warning'
+  return base + 'bg-neutral-bg text-neutral'
+}
+function rsvpLabel(r?: RsvpResponse): string {
+  return RSVP_OPTIONS.find(o => o.value === (r ?? 'Pending'))?.label ?? 'En attente'
+}
+async function setRsvp(target: 'candidate' | string, value: RsvpResponse) {
+  if (!current.value) return
+  await withToast('Mise à jour...', () => interviewStore.setRsvp(current.value!.id, target, value), () => 'Mise à jour impossible')
+}
+const rsvpRecap = computed(() => {
+  const i = current.value
+  if (!i) return ''
+  const all = [i.candidateRsvp, ...i.participants.map(p => p.rsvp)]
+  const acc = all.filter(r => r === 'Accepted').length
+  return `${acc}/${all.length} accepté(s)`
+})
 
 const currentId = ref(props.itemId)
 watch(() => props.itemId, (v) => { currentId.value = v })
@@ -149,6 +180,27 @@ function downloadIcsFile() { if (current.value) downloadIcs(calendarEvent(curren
               <button type="button" :class="cls.btnOutline" @click="addToOutlook">Outlook</button>
               <button type="button" :class="cls.btnOutline" @click="downloadIcsFile">Télécharger (.ics)</button>
             </div>
+          </div>
+        </FormSection>
+
+        <!-- Section Réponses aux invitations (RSVP) -->
+        <FormSection title="Réponses" :recaps="[rsvpRecap]">
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2 bg-background border border-border rounded-md px-2.5 h-[38px]">
+              <span class="text-[13px] font-medium text-foreground flex-1 truncate">{{ current.candidateName }} <span class="text-[11px] text-muted-foreground">(candidat)</span></span>
+              <span :class="rsvpPill(current.candidateRsvp)">{{ rsvpLabel(current.candidateRsvp) }}</span>
+              <select :value="current.candidateRsvp ?? 'Pending'" class="h-7 px-1.5 border border-border rounded bg-background text-xs" @change="setRsvp('candidate', ($event.target as HTMLSelectElement).value as RsvpResponse)">
+                <option v-for="o in RSVP_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+            <div v-for="p in current.participants" :key="p.participantId ?? p.name" class="flex items-center gap-2 bg-background border border-border rounded-md px-2.5 h-[38px]">
+              <span class="text-[13px] text-foreground flex-1 truncate">{{ p.name }}<span v-if="!p.email" class="text-[11px] text-muted-foreground"> (sans email)</span></span>
+              <span :class="rsvpPill(p.rsvp)">{{ rsvpLabel(p.rsvp) }}</span>
+              <select v-if="p.participantId" :value="p.rsvp ?? 'Pending'" class="h-7 px-1.5 border border-border rounded bg-background text-xs" @change="setRsvp(p.participantId!, ($event.target as HTMLSelectElement).value as RsvpResponse)">
+                <option v-for="o in RSVP_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+            <p class="text-[11px] text-muted-foreground">Les invités répondent directement depuis l'e-mail d'invitation ; ce tableau permet une correction manuelle.</p>
           </div>
         </FormSection>
 

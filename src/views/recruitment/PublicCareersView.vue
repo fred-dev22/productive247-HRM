@@ -30,6 +30,7 @@
               <div class="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[12px] text-muted-foreground">
                 <span class="inline-flex items-center gap-1"><Building2 class="w-3.5 h-3.5 shrink-0" /> {{ offer.entityName }}</span>
                 <span class="inline-flex items-center gap-1"><MapPin class="w-3.5 h-3.5 shrink-0" /> {{ offer.location }}</span>
+                <span v-if="offer.salaryText" class="inline-flex items-center gap-1"><Coins class="w-3.5 h-3.5 shrink-0" /> {{ offer.salaryText }}</span>
               </div>
             </div>
             <span class="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary whitespace-nowrap">
@@ -66,10 +67,14 @@
  * Published, via l'endpoint public token-only (/public/careers).
  */
 import { computed, onMounted } from 'vue'
-import { Briefcase, ArrowRight, Building2, MapPin } from 'lucide-vue-next'
+import { Briefcase, ArrowRight, Building2, MapPin, Coins } from 'lucide-vue-next'
 import { usePublicCareersStore } from '../../stores/recruitment'
 
 const careersStore = usePublicCareersStore()
-onMounted(() => careersStore.fetchPublished())
+onMounted(() => {
+  careersStore.fetchPublished()
+  // Prechauffe un jeton de formulaire anti-spam pour la page de candidature.
+  careersStore.ensureFormToken()
+})
 const offers = computed(() => careersStore.offers)
 </script>
