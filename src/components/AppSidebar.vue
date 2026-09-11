@@ -66,7 +66,6 @@
           <SidebarItem :icon="Inbox"    :label="t('sidebar.spontaneous_apps')" :to="{ name: 'hr-recruitment-spontaneous' }" />
         </SidebarSection>
         <SidebarSection :label="t('sidebar.hr_admin_section')">
-          <SidebarItem :icon="FilePlus"       :label="t('sidebar.needs')"                 :to="{ name: 'hr-recruitment-needs' }" />
           <SidebarItem :icon="ClipboardCheck" :label="t('sidebar.eval_grids')"            :to="{ name: 'hr-recruitment-eval-templates' }" />
           <SidebarItem :icon="FileText"       :label="t('sidebar.contracts_to_generate')" :to="{ name: 'hr-recruitment-contracts' }" />
           <SidebarItem :icon="Clock"          :label="t('sidebar.trial_periods')"         :to="{ name: 'hr-recruitment-trial' }" />

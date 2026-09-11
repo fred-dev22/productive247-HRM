@@ -62,7 +62,6 @@ const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   'hr-recruitment-pipeline':     'RECRUTEMENT_ACCES',
   'hr-recruitment-cv-library':   'RECRUTEMENT_ACCES',
   'hr-recruitment-spontaneous':  'RECRUTEMENT_ACCES',
-  'hr-recruitment-needs':        'RECRUTEMENT_ACCES',
   'hr-recruitment-eval-templates': 'RECRUTEMENT_ACCES',
   'hr-recruitment-contracts':    'RECRUTEMENT_ACCES',
   'hr-recruitment-trial':        'RECRUTEMENT_ACCES',
@@ -248,15 +247,15 @@ const router = createRouter({
     { path: '/hr/recruitment/pipeline',     name: 'hr-recruitment-pipeline',     component: () => import('../views/recruitment/PipelineView.vue'),               meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/cv-library',   name: 'hr-recruitment-cv-library',   component: () => import('../views/recruitment/TalentPoolView.vue'),             meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/spontaneous',  name: 'hr-recruitment-spontaneous',  component: () => import('../views/recruitment/SpontaneousApplicationsView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
-    { path: '/hr/recruitment/needs',        name: 'hr-recruitment-needs',        component: () => import('../views/recruitment/HiringRequestsView.vue'),         meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/eval-templates', name: 'hr-recruitment-eval-templates', component: () => import('../views/recruitment/InterviewEvalTemplatesView.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/contracts',    name: 'hr-recruitment-contracts',    component: () => import('../views/recruitment/ContractsView.vue'),              meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/trial',        name: 'hr-recruitment-trial',        component: () => import('../views/recruitment/TrialPeriodsView.vue'),           meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/recruitment/distribution', name: 'hr-recruitment-distribution', component: () => import('../views/recruitment/DistributionChannelsView.vue'),    meta: { requiresAuth: true, layout: 'dashboard' } },
 
-    // Expression des besoins de recrutement — exposee cote espace
-    // Administration (memes ecrans que /hr/recruitment/needs), pour les
-    // managers/departements qui expriment un besoin sans acces au module.
+    // Expression des besoins de recrutement — uniquement cote espace
+    // Administration (decision du 11/09 : pas de doublon dans le module
+    // Recrutement), pour les managers/departements qui expriment un besoin
+    // sans acces au module.
     { path: '/hr/besoins',                  name: 'hr-besoins',                  component: () => import('../views/recruitment/HiringRequestsView.vue'),         meta: { requiresAuth: true, layout: 'dashboard' } },
 
     // ── Module Formation ─────────────────────────────────────────
