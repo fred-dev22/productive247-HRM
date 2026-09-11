@@ -12,6 +12,7 @@ import StatusPill from '../ui/StatusPill.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import InterviewWorkflowActions from './InterviewWorkflowActions.vue'
 import * as cls from '../../lib/formClasses'
+import { formatInterviewDateTime } from '../../lib/date'
 import { withToast } from '../../lib/withToast'
 import { googleCalendarUrl, outlookCalendarUrl, downloadIcs } from '../../lib/calendarLinks'
 import { useInterviewStore } from '../../stores/recruitment'
@@ -77,14 +78,6 @@ function selectSidebar(no: string) {
   if (i) currentId.value = i.id
 }
 
-/* ── Formatage date et heure (ex : "25/08/2026 10:00") ─────────── */
-function formatDateTime(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
-  if (!m) return iso
-  const [, y, mo, d, h, mi] = m
-  return `${d}/${mo}/${y} ${h}:${mi}`
-}
-
 // Ajout au calendrier — voir lib/calendarLinks.ts : aucun backend ni OAuth
 // necessaire, Google/Outlook exposent une URL publique "ajouter un
 // evenement", et le .ics s'ouvre dans n'importe quelle appli de calendrier.
@@ -133,7 +126,7 @@ function downloadIcsFile() { if (current.value) downloadIcs(calendarEvent(curren
     <template #form>
       <div class="px-6 py-5 max-w-4xl">
         <!-- Section Entretien -->
-        <FormSection title="Entretien" :recaps="[current.jobOfferTitle, formatDateTime(current.scheduledAt)]">
+        <FormSection title="Entretien" :recaps="[current.jobOfferTitle, formatInterviewDateTime(current.scheduledAt)]">
           <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Candidat</label>
@@ -145,7 +138,7 @@ function downloadIcsFile() { if (current.value) downloadIcs(calendarEvent(curren
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Date et heure</label>
-              <div :class="readBox">{{ formatDateTime(current.scheduledAt) }}</div>
+              <div :class="readBox">{{ formatInterviewDateTime(current.scheduledAt) }}</div>
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">{{ current.mode === 'VideoCall' ? 'Visioconférence' : 'Lieu' }}</label>
