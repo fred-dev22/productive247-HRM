@@ -75,8 +75,8 @@
       </label>
       <div v-if="modal.error" :class="cls.fieldError">{{ modal.error }}</div>
       <template #footer>
-        <button :class="cls.btnPrimary" @click="save">{{ modal.id ? 'Enregistrer' : 'Créer' }}</button>
-        <button :class="cls.btnOutline" @click="modal.open = false">Annuler</button>
+        <button :class="cls.btnPrimary" :disabled="submitting" @click="save">{{ modal.id ? 'Enregistrer' : 'Créer' }}</button>
+        <button :class="cls.btnOutline" :disabled="submitting" @click="modal.open = false">Annuler</button>
       </template>
     </ModalShell>
   </div>
@@ -96,6 +96,7 @@ import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { confirmDialog } from '../../lib/confirm'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useToastStore } from '../../stores/toast'
 import { getApiErrorMessage } from '../../lib/api'
 import { useDistributionStore } from '../../stores/recruitment'
@@ -129,6 +130,7 @@ function openEdit(c: DistributionChannel) {
   })
 }
 
+const { submitting, guard } = useSubmitGuard()
 async function save() {
   if (!modal.name.trim()) { modal.error = 'Le nom est requis'; return }
   if (modal.kind === 'Webhook' && !modal.targetUrl.trim()) { modal.error = "L'URL cible est requise"; return }
@@ -141,8 +143,11 @@ async function save() {
       secret: modal.secret.trim() || undefined,
       isActive: modal.isActive,
     }
-    if (modal.id) await store.updateChannel(modal.id, payload)
-    else await store.createChannel(payload)
+    await guard(() => withToast(
+      'Enregistrement...',
+      () => modal.id ? store.updateChannel(modal.id, payload) : store.createChannel(payload),
+      () => 'Enregistrement impossible',
+    ))
     modal.open = false
   } catch (e) {
     modal.error = getApiErrorMessage(e, 'Enregistrement impossible')

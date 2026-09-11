@@ -12,6 +12,7 @@ import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useInterviewStore } from '../../stores/recruitment'
 import type { Interview } from '../../stores/recruitment'
 import { useAuthStore } from '../../stores/auth'
@@ -24,13 +25,14 @@ onMounted(() => {
   if (interviewStore.evaluationTemplates.length === 0) interviewStore.fetchTemplates()
 })
 
-const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
+const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
 const doneCls     = btn + ' bg-success-bg text-success hover:brightness-95'
 const evaluateCls = btn + ' bg-info-bg text-info hover:brightness-95'
 const cancelCls   = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
 
+const { submitting: markingDone, guard: guardMarkDone } = useSubmitGuard()
 async function markDoneItem() {
-  await withToast('Mise à jour…', () => interviewStore.markDone(props.item.id), () => 'Action impossible')
+  await guardMarkDone(() => withToast('Mise à jour…', () => interviewStore.markDone(props.item.id), () => 'Action impossible'))
 }
 
 async function cancelItem() {
@@ -59,11 +61,12 @@ const averageScore = computed(() => {
   const sum = evaluateModal.criteriaScores.reduce((s, c) => s + c.score, 0)
   return Math.round((sum / evaluateModal.criteriaScores.length) * 10) / 10
 })
+const { submitting: submittingEvaluate, guard: guardEvaluate } = useSubmitGuard()
 async function confirmEvaluate() {
   if (evaluateModal.comment.trim().length === 0) { evaluateModal.error = 'Le commentaire est requis'; return }
   if (!evaluateModal.interviewerName.trim()) { evaluateModal.error = "Le nom de l'évaluateur est requis"; return }
   const usesTemplate = evaluateModal.criteriaScores.length > 0
-  await withToast(
+  await guardEvaluate(() => withToast(
     'Enregistrement…',
     () => interviewStore.evaluate(props.item.id, {
       score: usesTemplate ? undefined : evaluateModal.score,
@@ -73,7 +76,7 @@ async function confirmEvaluate() {
       criteriaScores: usesTemplate ? evaluateModal.criteriaScores : undefined,
     }),
     () => "Enregistrement de l'évaluation impossible",
-  )
+  ))
   evaluateModal.open = false
 }
 </script>
@@ -81,7 +84,7 @@ async function confirmEvaluate() {
 <template>
   <div class="flex items-center gap-1.5 flex-wrap">
     <template v-if="item.status === 'Scheduled'">
-      <button :class="doneCls" @click="markDoneItem"><CheckCircle2 class="w-3.5 h-3.5" /> Marquer comme effectué</button>
+      <button :class="doneCls" :disabled="markingDone" @click="markDoneItem"><CheckCircle2 class="w-3.5 h-3.5" /> Marquer comme effectué</button>
       <button :class="evaluateCls" @click="openEvaluate"><Star class="w-3.5 h-3.5" /> Évaluer</button>
       <button :class="cancelCls" @click="cancelItem"><Ban class="w-3.5 h-3.5" /> Annuler</button>
     </template>
@@ -127,8 +130,8 @@ async function confirmEvaluate() {
     </div>
     <div v-if="evaluateModal.error" :class="cls.fieldError">{{ evaluateModal.error }}</div>
     <template #footer>
-      <button :class="cls.btnPrimary" @click="confirmEvaluate"><Star class="w-4 h-4" /> Enregistrer l'évaluation</button>
-      <button :class="cls.btnOutline" @click="evaluateModal.open = false">Annuler</button>
+      <button :class="cls.btnPrimary" :disabled="submittingEvaluate" @click="confirmEvaluate"><Star class="w-4 h-4" /> Enregistrer l'évaluation</button>
+      <button :class="cls.btnOutline" :disabled="submittingEvaluate" @click="evaluateModal.open = false">Annuler</button>
     </template>
   </ModalShell>
 </template>

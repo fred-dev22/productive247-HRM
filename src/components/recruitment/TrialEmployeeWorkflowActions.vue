@@ -13,6 +13,7 @@ import ConvertToEmployeeModal from './ConvertToEmployeeModal.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useAuthStore } from '../../stores/auth'
 import { useTrialStore, useContractStore } from '../../stores/recruitment'
 import type { TrialEmployee } from '../../stores/recruitment'
@@ -64,13 +65,14 @@ const evaluateModal = reactive({ open: false, score: 5, comment: '', error: '' }
 function openEvaluate() {
   Object.assign(evaluateModal, { open: true, score: 5, comment: '', error: '' })
 }
+const { submitting: submittingEvaluate, guard: guardEvaluate } = useSubmitGuard()
 async function confirmEvaluate() {
   if (evaluateModal.comment.trim().length === 0) { evaluateModal.error = 'Le commentaire est requis'; return }
-  await withToast(
+  await guardEvaluate(() => withToast(
     'Enregistrement…',
     () => trialStore.evaluate(props.item.id, { score: evaluateModal.score, comment: evaluateModal.comment.trim() }),
     () => "Enregistrement impossible",
-  )
+  ))
   evaluateModal.open = false
 }
 
@@ -79,9 +81,10 @@ const extendModal = reactive({ open: false, newEndDate: '', error: '' })
 function openExtend() {
   Object.assign(extendModal, { open: true, newEndDate: props.item.trialEndDate, error: '' })
 }
+const { submitting: submittingExtend, guard: guardExtend } = useSubmitGuard()
 async function confirmExtend() {
   if (!extendModal.newEndDate) { extendModal.error = 'La nouvelle date de fin est requise'; return }
-  await withToast('Prolongation…', () => trialStore.extend(props.item.id, extendModal.newEndDate), () => 'Prolongation impossible')
+  await guardExtend(() => withToast('Prolongation…', () => trialStore.extend(props.item.id, extendModal.newEndDate), () => 'Prolongation impossible'))
   extendModal.open = false
 }
 </script>
@@ -111,8 +114,8 @@ async function confirmExtend() {
     </div>
     <div v-if="evaluateModal.error" :class="cls.fieldError">{{ evaluateModal.error }}</div>
     <template #footer>
-      <button :class="cls.btnPrimary" @click="confirmEvaluate"><ClipboardCheck class="w-4 h-4" /> Enregistrer l'évaluation</button>
-      <button :class="cls.btnOutline" @click="evaluateModal.open = false">Annuler</button>
+      <button :class="cls.btnPrimary" :disabled="submittingEvaluate" @click="confirmEvaluate"><ClipboardCheck class="w-4 h-4" /> Enregistrer l'évaluation</button>
+      <button :class="cls.btnOutline" :disabled="submittingEvaluate" @click="evaluateModal.open = false">Annuler</button>
     </template>
   </ModalShell>
 
@@ -124,8 +127,8 @@ async function confirmExtend() {
     </div>
     <div v-if="extendModal.error" :class="cls.fieldError">{{ extendModal.error }}</div>
     <template #footer>
-      <button :class="cls.btnPrimary" @click="confirmExtend"><CalendarClock class="w-4 h-4" /> Prolonger</button>
-      <button :class="cls.btnOutline" @click="extendModal.open = false">Annuler</button>
+      <button :class="cls.btnPrimary" :disabled="submittingExtend" @click="confirmExtend"><CalendarClock class="w-4 h-4" /> Prolonger</button>
+      <button :class="cls.btnOutline" :disabled="submittingExtend" @click="extendModal.open = false">Annuler</button>
     </template>
   </ModalShell>
 

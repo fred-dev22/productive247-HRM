@@ -4,6 +4,7 @@
     :subtitle="`${talentPoolStore.items.length} profil(s)`"
     :columns="columns"
     :items="pageItems"
+    :loading="talentPoolStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} profil(s)`"
     search-placeholder="Rechercher un candidat, un tag…"
@@ -101,6 +102,7 @@
       title="Ajouter un profil"
       banner-label="Nouveau profil au vivier de talents"
       create-label="Ajouter"
+      :is-saving="submitting"
       :save-error="error"
       @close="showCreate = false"
       @create="create"
@@ -166,6 +168,8 @@ import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { getApiErrorMessage } from '../../lib/api'
+import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useTalentPoolStore } from '../../stores/recruitment'
 import type { TalentPoolEntry } from '../../stores/recruitment'
 
@@ -275,10 +279,11 @@ function buildPayload() {
   }
 }
 
+const { submitting, guard } = useSubmitGuard()
 async function create() {
   if (!validate()) return
   try {
-    await talentPoolStore.add(buildPayload())
+    await guard(() => withToast('Ajout...', () => talentPoolStore.add(buildPayload()), () => 'Enregistrement impossible'))
     showCreate.value = false
     resetForm()
   } catch (e) {

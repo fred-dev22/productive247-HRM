@@ -11,6 +11,7 @@ import { ref, reactive, watch } from 'vue'
 import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { getApiErrorMessage } from '../../lib/api'
 import { useEntityStore } from '../../stores/entities'
 import { useContractStore, useTrialStore } from '../../stores/recruitment'
@@ -118,6 +119,7 @@ function buildPayload(): Record<string, unknown> {
   return p
 }
 
+const { submitting, guard } = useSubmitGuard()
 async function submit() {
   if (!form.LastName.trim()) { error.value = 'Le nom est requis'; return }
   if (!form.BirthDate) { error.value = 'La date de naissance est requise'; return }
@@ -125,9 +127,9 @@ async function submit() {
   error.value = ''
   try {
     if (props.mode === 'contract') {
-      await withToast('Création du profil employé...', () => contractStore.convertToEmployee(props.contract.id, buildPayload()), () => 'Conversion impossible')
+      await guard(() => withToast('Création du profil employé...', () => contractStore.convertToEmployee(props.contract.id, buildPayload()), () => 'Conversion impossible'))
     } else {
-      await withToast('Confirmation...', () => trialStore.convert(props.trialId!, buildPayload()), () => 'Confirmation impossible')
+      await guard(() => withToast('Confirmation...', () => trialStore.convert(props.trialId!, buildPayload()), () => 'Confirmation impossible'))
     }
     emit('done')
     emit('close')
@@ -214,8 +216,8 @@ async function submit() {
     <div v-if="error" :class="cls.fieldError" class="mt-2">{{ error }}</div>
 
     <template #footer>
-      <button :class="cls.btnPrimary" @click="submit">Créer le profil employé</button>
-      <button :class="cls.btnOutline" @click="emit('close')">Annuler</button>
+      <button :class="cls.btnPrimary" :disabled="submitting" @click="submit">Créer le profil employé</button>
+      <button :class="cls.btnOutline" :disabled="submitting" @click="emit('close')">Annuler</button>
     </template>
   </ModalShell>
 </template>

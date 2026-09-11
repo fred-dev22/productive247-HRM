@@ -4,6 +4,7 @@
     :subtitle="`${interviewStore.items.length} entretien(s)`"
     :columns="columns"
     :items="pageItems"
+    :loading="interviewStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} entretien(s)`"
     search-placeholder="Rechercher un candidat, une offre, un lieu…"
@@ -55,7 +56,7 @@
     <!-- Cellules -->
     <template #cell-candidateName="{ item }"><span class="font-medium text-foreground text-xs truncate">{{ item.candidateName }}</span></template>
     <template #cell-jobOfferTitle="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.jobOfferTitle }}</span></template>
-    <template #cell-scheduledAt="{ item }"><span class="text-muted-foreground text-xs whitespace-nowrap">{{ formatDateTime(item.scheduledAt) }}</span></template>
+    <template #cell-scheduledAt="{ item }"><span class="text-muted-foreground text-xs whitespace-nowrap">{{ formatInterviewDateTime(item.scheduledAt) }}</span></template>
     <template #cell-location="{ item }">
       <a v-if="item.mode === 'VideoCall'" :href="item.meetingLink" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-primary text-xs truncate hover:underline" @click.stop>
         <Video class="w-3.5 h-3.5 shrink-0" /> Visioconférence
@@ -86,7 +87,7 @@
         </div>
         <div><StatusPill :status="item.status" /></div>
         <div class="grid grid-cols-2 gap-2 text-[12px]">
-          <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Date et heure</div>{{ formatDateTime(item.scheduledAt) }}</div>
+          <div class="col-span-2"><div class="text-muted-foreground text-[11px]">Date et heure</div>{{ formatInterviewDateTime(item.scheduledAt) }}</div>
           <div class="col-span-2">
             <div class="text-muted-foreground text-[11px]">{{ item.mode === 'VideoCall' ? 'Visioconférence' : 'Lieu' }}</div>
             <a v-if="item.mode === 'VideoCall'" :href="item.meetingLink" target="_blank" rel="noopener" class="text-primary hover:underline break-all">{{ item.meetingLink }}</a>
@@ -111,6 +112,7 @@
       title="Planifier un entretien"
       banner-label="Nouvel entretien"
       create-label="Planifier"
+      :is-saving="submitting"
       :save-error="error"
       @close="showCreate = false"
       @create="create"
@@ -212,8 +214,10 @@ import InterviewWorkflowActions from '../../components/recruitment/InterviewWork
 import InterviewCard from '../../components/recruitment/InterviewCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
-import { todayIso } from '../../lib/date'
+import { todayIso, formatInterviewDateTime } from '../../lib/date'
 import { getApiErrorMessage } from '../../lib/api'
+import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useInterviewStore, useApplicationStore } from '../../stores/recruitment'
 import type { Interview, InterviewMode, InterviewParticipant, RsvpResponse } from '../../stores/recruitment'
 import { useEmployeeStore } from '../../stores/employees'
@@ -241,13 +245,6 @@ const kpiLbl = 'text-xs text-muted-foreground mt-0.5'
 const modeBtn = 'flex-1 h-[38px] px-2.5 rounded-md border border-border bg-background text-muted-foreground text-[13px] font-medium cursor-pointer inline-flex items-center justify-center gap-1.5 transition-colors hover:text-foreground'
 const modeBtnActive = '!bg-primary/10 !text-primary !border-primary/30'
 
-/* ── Formatage date et heure (ex : "25/08/2026 10:00") ─────────── */
-function formatDateTime(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
-  if (!m) return iso
-  const [, y, mo, d, h, mi] = m
-  return `${d}/${mo}/${y} ${h}:${mi}`
-}
 
 /* ── Colonnes ───────────────────────────────────────────────── */
 const columns: ListColumn[] = [
@@ -408,10 +405,11 @@ function buildPayload() {
   }
 }
 
+const { submitting, guard } = useSubmitGuard()
 async function create() {
   if (!validate()) return
   try {
-    await interviewStore.schedule(buildPayload())
+    await guard(() => withToast('Planification...', () => interviewStore.schedule(buildPayload()), () => 'Planification impossible'))
     showCreate.value = false
     resetForm()
   } catch (e) {

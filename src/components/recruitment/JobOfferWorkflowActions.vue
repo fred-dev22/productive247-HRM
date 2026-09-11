@@ -11,6 +11,7 @@ import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useJobOfferStore } from '../../stores/recruitment'
 import type { JobOffer } from '../../stores/recruitment'
 
@@ -36,14 +37,15 @@ async function removeOffer() {
 /* ── Modale Clôturer ─────────────────────────────────────────── */
 const closeModal = reactive({ open: false, cost: '' as string })
 function openClose() { Object.assign(closeModal, { open: true, cost: '' }) }
+const { submitting: submittingClose, guard: guardClose } = useSubmitGuard()
 async function confirmClose() {
   const trimmed = closeModal.cost.trim()
   const cost = trimmed ? Number(trimmed) : undefined
-  await withToast(
+  await guardClose(() => withToast(
     'Clôture…',
     () => jobOfferStore.close(props.item.id, cost !== undefined && !Number.isNaN(cost) ? cost : undefined),
     () => 'Clôture impossible',
-  )
+  ))
   closeModal.open = false
 }
 </script>
@@ -62,8 +64,8 @@ async function confirmClose() {
     <input type="number" min="0" v-model="closeModal.cost" :class="cls.fieldInput" placeholder="ex : 450000" />
     <p class="text-[11px] text-muted-foreground mt-1">Annonces, cabinet de recrutement, etc. Sert au calcul du coût moyen par recrutement (page Pipeline).</p>
     <template #footer>
-      <button :class="cls.btnPrimary" @click="confirmClose">Confirmer la clôture</button>
-      <button :class="cls.btnOutline" @click="closeModal.open = false">Annuler</button>
+      <button :class="cls.btnPrimary" :disabled="submittingClose" @click="confirmClose">Confirmer la clôture</button>
+      <button :class="cls.btnOutline" :disabled="submittingClose" @click="closeModal.open = false">Annuler</button>
     </template>
   </ModalShell>
 </template>

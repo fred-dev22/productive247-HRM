@@ -17,6 +17,7 @@ import * as cls from '../../lib/formClasses'
 import { formatDate } from '../../lib/date'
 import { confirmDialog } from '../../lib/confirm'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useApplicationStore } from '../../stores/recruitment'
 import type { Application, RecruitmentDocument } from '../../stores/recruitment'
 
@@ -57,10 +58,14 @@ const pageTitle = computed(() => current.value?.candidateName ?? '')
 /* ── Notes ──────────────────────────────────────────────────── */
 const noteDraft = ref('')
 watch(currentId, () => { noteDraft.value = '' })
+const { submitting: addingNote, guard: guardAddNote } = useSubmitGuard()
 async function addNote() {
   const text = noteDraft.value.trim()
   if (!text || !current.value) return
-  await applicationStore.addNote(current.value.id, text)
+  const applicationId = current.value.id
+  await guardAddNote(() =>
+    withToast('Ajout de la note...', () => applicationStore.addNote(applicationId, text), () => 'Ajout de la note impossible'),
+  )
   noteDraft.value = ''
 }
 
@@ -200,7 +205,7 @@ function humanSize(bytes: number): string {
               <label :class="cls.fieldLabel">Ajouter une note</label>
               <textarea v-model="noteDraft" :class="cls.fieldTextarea" rows="3" placeholder="Ajouter une note…"></textarea>
             </div>
-            <button :class="cls.btnOutline" class="self-end" :disabled="!noteDraft.trim()" @click="addNote">
+            <button :class="cls.btnOutline" class="self-end" :disabled="!noteDraft.trim() || addingNote" @click="addNote">
               <Plus class="w-3.5 h-3.5" /> Ajouter
             </button>
           </div>

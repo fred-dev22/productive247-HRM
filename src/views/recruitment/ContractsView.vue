@@ -19,6 +19,7 @@
       :subtitle="`${contractStore.items.length} contrat(s)`"
       :columns="columns"
       :items="pageItems"
+      :loading="contractStore.loading"
       :total="totalCount"
       :total-text="`${totalCount} contrat(s)`"
       search-placeholder="Rechercher un candidat, un poste, une entité…"
@@ -131,6 +132,7 @@
         title="Générer un contrat"
         banner-label="Nouveau contrat"
         create-label="Générer"
+        :is-saving="submitting"
         :save-error="error"
         @close="showCreate = false"
         @create="create"
@@ -229,6 +231,7 @@
         title="Nouveau modèle de contrat"
         banner-label="Nouveau modèle de contrat"
         create-label="Enregistrer"
+        :is-saving="submittingTemplate"
         :save-error="templateModal.error"
         @close="templateModal.open = false"
         @create="confirmTemplate"
@@ -305,6 +308,8 @@ import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { getApiErrorMessage } from '../../lib/api'
+import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { resolveContractContent, buildContractHtml } from '../../lib/contractDocument'
 import { useContractStore, useApplicationStore } from '../../stores/recruitment'
 import type { Contract } from '../../stores/recruitment'
@@ -493,11 +498,14 @@ function buildPayload() {
   }
 }
 
+const { submitting, guard } = useSubmitGuard()
 async function create() {
   if (!validate()) return
   try {
-    await contractStore.generate(buildPayload())
-    await contractStore.fetchEligibleApplications()
+    await guard(() => withToast('Génération...', async () => {
+      await contractStore.generate(buildPayload())
+      await contractStore.fetchEligibleApplications()
+    }, () => 'Génération impossible'))
     showCreate.value = false
     resetForm()
   } catch (e) {
@@ -514,11 +522,16 @@ const templateModal = reactive({ open: false, name: '', contractType: 'CDI', con
 function openNewTemplate() {
   Object.assign(templateModal, { open: true, name: '', contractType: 'CDI', content: '', error: '' })
 }
+const { submitting: submittingTemplate, guard: guardTemplate } = useSubmitGuard()
 async function confirmTemplate() {
   if (!templateModal.name.trim()) { templateModal.error = 'Le nom est requis'; return }
   if (!templateModal.content.trim()) { templateModal.error = 'Le contenu est requis'; return }
   try {
-    await contractStore.createTemplate(templateModal.name.trim(), templateModal.contractType, templateModal.content.trim())
+    await guardTemplate(() => withToast(
+      'Enregistrement...',
+      () => contractStore.createTemplate(templateModal.name.trim(), templateModal.contractType, templateModal.content.trim()),
+      () => 'Enregistrement impossible',
+    ))
     templateModal.open = false
   } catch (e) {
     templateModal.error = getApiErrorMessage(e, 'Enregistrement impossible')

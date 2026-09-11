@@ -4,6 +4,7 @@
     :subtitle="`${filtered.length} candidature(s) spontanée(s)`"
     :columns="columns"
     :items="pageItems"
+    :loading="applicationStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} candidature(s)`"
     search-placeholder="Rechercher un candidat, un email…"
@@ -93,6 +94,7 @@
       title="Nouvelle candidature spontanée"
       banner-label="Candidature spontanée"
       create-label="Enregistrer"
+      :is-saving="submitting"
       :save-error="error"
       @close="showCreate = false"
       @create="create"
@@ -163,6 +165,8 @@ import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { getApiErrorMessage } from '../../lib/api'
+import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useApplicationStore } from '../../stores/recruitment'
 import type { Application } from '../../stores/recruitment'
 
@@ -282,15 +286,16 @@ function validate(): boolean {
   return true
 }
 
+const { submitting, guard } = useSubmitGuard()
 async function create() {
   if (!validate()) return
   try {
-    await applicationStore.create({
+    await guard(() => withToast('Enregistrement...', () => applicationStore.create({
       source: 'Spontaneous',
       candidateName: form.candidateName.trim(),
       candidateEmail: form.candidateEmail.trim(),
       candidatePhone: form.candidatePhone.trim(),
-    }, cvFile.value ?? undefined)
+    }, cvFile.value ?? undefined), () => 'Enregistrement impossible'))
     showCreate.value = false
     resetForm()
   } catch (e) {

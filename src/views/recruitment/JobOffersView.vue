@@ -4,6 +4,7 @@
     :subtitle="`${jobOfferStore.items.length} offre(s)`"
     :columns="columns"
     :items="pageItems"
+    :loading="jobOfferStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} offre(s)`"
     search-placeholder="Rechercher un titre, une entité, un lieu…"
@@ -111,6 +112,7 @@
       banner-label="Nouvelle offre d'emploi"
       create-label="Publier"
       draft-label="Enregistrer le brouillon"
+      :is-saving="submitting"
       :save-error="error"
       @close="showCreate = false"
       @create="create"
@@ -223,6 +225,8 @@ import JobOfferCard from '../../components/recruitment/JobOfferCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { getApiErrorMessage } from '../../lib/api'
+import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useJobOfferStore, useHiringRequestStore, useEvalTemplateStore } from '../../stores/recruitment'
 import type { JobOffer } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
@@ -382,12 +386,15 @@ function buildPayload() {
   }
 }
 
+const { submitting, guard } = useSubmitGuard()
 // Pas de circuit de validation : "Publier" crée puis publie en une fois.
 async function create() {
   if (!validate()) return
   try {
-    const created = await jobOfferStore.create(buildPayload())
-    await jobOfferStore.publish(created.id)
+    await guard(() => withToast('Publication...', async () => {
+      const created = await jobOfferStore.create(buildPayload())
+      await jobOfferStore.publish(created.id)
+    }, () => 'Enregistrement impossible'))
     showCreate.value = false
     resetForm()
   } catch (e) {
@@ -398,7 +405,7 @@ async function create() {
 async function saveDraft() {
   if (!validate()) return
   try {
-    await jobOfferStore.create(buildPayload())
+    await guard(() => withToast('Enregistrement...', () => jobOfferStore.create(buildPayload()), () => 'Enregistrement impossible'))
     showCreate.value = false
     resetForm()
   } catch (e) {

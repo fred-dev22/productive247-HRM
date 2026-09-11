@@ -9,6 +9,7 @@
 import { Send, Ban, Trash2, Archive } from 'lucide-vue-next'
 import { confirmDialog } from '../../lib/confirm'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useHiringRequestStore } from '../../stores/recruitment'
 import type { HiringRequest } from '../../stores/recruitment'
 import { useAuthStore } from '../../stores/auth'
@@ -20,14 +21,15 @@ const auth = useAuthStore()
 const canExpress = auth.hasAnyPermission(['RECRUTEMENT_BESOIN_EXPRIMER', 'RECRUTEMENT_ACCES'])
 const canManage = auth.hasPermission('RECRUTEMENT_ACCES')
 
-const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors'
+const btn = 'px-2.5 py-[5px] rounded text-xs font-medium cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
 const primaryCls = btn + ' bg-success-bg text-success hover:brightness-95'
 const closeCls   = btn + ' bg-info-bg text-info hover:brightness-95'
 const cancelCls  = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
 const deleteCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 
+const { submitting: expressing, guard: guardExpress } = useSubmitGuard()
 async function express() {
-  await withToast('Envoi…', () => store.submit(props.item.id), () => "Impossible d'exprimer le besoin")
+  await guardExpress(() => withToast('Envoi…', () => store.submit(props.item.id), () => "Impossible d'exprimer le besoin"))
 }
 async function close() {
   if (await confirmDialog('Clôturer cette expression de besoin ?')) {
@@ -48,7 +50,7 @@ async function remove() {
 
 <template>
   <div class="flex items-center gap-1.5 flex-wrap">
-    <button v-if="item.status === 'Draft' && canExpress" :class="primaryCls" @click="express">
+    <button v-if="item.status === 'Draft' && canExpress" :class="primaryCls" :disabled="expressing" @click="express">
       <Send class="w-3.5 h-3.5" /> Exprimer le besoin
     </button>
     <button v-if="item.status === 'Open' && canManage" :class="closeCls" @click="close">

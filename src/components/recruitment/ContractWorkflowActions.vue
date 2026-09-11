@@ -12,6 +12,7 @@ import ModalShell from '../ui/ModalShell.vue'
 import * as cls from '../../lib/formClasses'
 import { confirmDialog } from '../../lib/confirm'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useContractStore } from '../../stores/recruitment'
 import type { Contract } from '../../stores/recruitment'
 
@@ -49,10 +50,11 @@ async function cancel() {
 /* ── Modale Négocier ────────────────────────────────────────── */
 const negoModal = reactive({ open: false, fromParty: 'Candidate' as 'HR' | 'Candidate', amount: '' as string, comment: '', error: '' })
 function openNego() { Object.assign(negoModal, { open: true, fromParty: 'Candidate', amount: '', comment: '', error: '' }) }
+const { submitting: submittingNego, guard: guardNego } = useSubmitGuard()
 async function confirmNego() {
   if (negoModal.comment.trim().length === 0) { negoModal.error = 'Le commentaire est requis'; return }
   const amount = negoModal.amount.trim() ? Number(negoModal.amount) : undefined
-  await withToast(
+  await guardNego(() => withToast(
     'Enregistrement…',
     () => contractStore.negotiate(props.item.id, {
       fromParty: negoModal.fromParty,
@@ -60,16 +62,17 @@ async function confirmNego() {
       comment: negoModal.comment.trim(),
     }),
     () => "Enregistrement de la négociation impossible",
-  )
+  ))
   negoModal.open = false
 }
 
 /* ── Modale Refuser ─────────────────────────────────────────── */
 const refuseModal = reactive({ open: false, reason: '', error: '' })
 function openRefuse() { Object.assign(refuseModal, { open: true, reason: '', error: '' }) }
+const { submitting: submittingRefuse, guard: guardRefuse } = useSubmitGuard()
 async function confirmRefuse() {
   if (refuseModal.reason.trim().length === 0) { refuseModal.error = 'Le motif est requis'; return }
-  await withToast('Enregistrement…', () => contractStore.refuse(props.item.id, refuseModal.reason.trim()), () => 'Action impossible')
+  await guardRefuse(() => withToast('Enregistrement…', () => contractStore.refuse(props.item.id, refuseModal.reason.trim()), () => 'Action impossible'))
   refuseModal.open = false
 }
 </script>
@@ -111,8 +114,8 @@ async function confirmRefuse() {
     </div>
     <div v-if="negoModal.error" :class="cls.fieldError">{{ negoModal.error }}</div>
     <template #footer>
-      <button :class="cls.btnPrimary" @click="confirmNego">Enregistrer le tour</button>
-      <button :class="cls.btnOutline" @click="negoModal.open = false">Annuler</button>
+      <button :class="cls.btnPrimary" :disabled="submittingNego" @click="confirmNego">Enregistrer le tour</button>
+      <button :class="cls.btnOutline" :disabled="submittingNego" @click="negoModal.open = false">Annuler</button>
     </template>
   </ModalShell>
 
@@ -122,8 +125,8 @@ async function confirmRefuse() {
     <textarea v-model="refuseModal.reason" :class="cls.fieldTextarea" placeholder="Motif communiqué par le candidat…" rows="4"></textarea>
     <div v-if="refuseModal.error" :class="cls.fieldError">{{ refuseModal.error }}</div>
     <template #footer>
-      <button :class="cls.btnPrimary" @click="confirmRefuse">Confirmer</button>
-      <button :class="cls.btnOutline" @click="refuseModal.open = false">Annuler</button>
+      <button :class="cls.btnPrimary" :disabled="submittingRefuse" @click="confirmRefuse">Confirmer</button>
+      <button :class="cls.btnOutline" :disabled="submittingRefuse" @click="refuseModal.open = false">Annuler</button>
     </template>
   </ModalShell>
 </template>

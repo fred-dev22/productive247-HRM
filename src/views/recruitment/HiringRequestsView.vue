@@ -4,6 +4,7 @@
     :subtitle="`${hiringRequestStore.items.length} demande(s)`"
     :columns="columns"
     :items="pageItems"
+    :loading="hiringRequestStore.loading"
     :total="totalCount"
     :total-text="`${totalCount} demande(s)`"
     search-placeholder="Rechercher un poste, une entité, un demandeur…"
@@ -97,6 +98,7 @@
       banner-label="Nouvelle demande de recrutement"
       create-label="Soumettre"
       draft-label="Enregistrer le brouillon"
+      :is-saving="submitting"
       :save-error="error"
       @close="showCreate = false"
       @create="create"
@@ -177,6 +179,8 @@ import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
 import { getApiErrorMessage } from '../../lib/api'
+import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { useHiringRequestStore } from '../../stores/recruitment'
 import type { HiringRequest } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
@@ -323,11 +327,14 @@ function buildPayload() {
   }
 }
 
+const { submitting, guard } = useSubmitGuard()
 async function create() {
   if (!validate()) return
   try {
-    const created = await hiringRequestStore.create(buildPayload())
-    await hiringRequestStore.submit(created.id)
+    await guard(() => withToast('Soumission...', async () => {
+      const created = await hiringRequestStore.create(buildPayload())
+      await hiringRequestStore.submit(created.id)
+    }, () => 'Enregistrement impossible'))
     showCreate.value = false
     resetForm()
   } catch (e) {
@@ -338,7 +345,7 @@ async function create() {
 async function saveDraft() {
   if (!validate()) return
   try {
-    await hiringRequestStore.create(buildPayload())
+    await guard(() => withToast('Enregistrement...', () => hiringRequestStore.create(buildPayload()), () => 'Enregistrement impossible'))
     showCreate.value = false
     resetForm()
   } catch (e) {

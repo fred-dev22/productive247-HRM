@@ -58,8 +58,8 @@
       </div>
       <div v-if="modal.error" :class="cls.fieldError">{{ modal.error }}</div>
       <template #footer>
-        <button :class="cls.btnPrimary" @click="save">{{ modal.id ? 'Enregistrer' : 'Créer' }}</button>
-        <button :class="cls.btnOutline" @click="modal.open = false">Annuler</button>
+        <button :class="cls.btnPrimary" :disabled="submitting" @click="save">{{ modal.id ? 'Enregistrer' : 'Créer' }}</button>
+        <button :class="cls.btnOutline" :disabled="submitting" @click="modal.open = false">Annuler</button>
       </template>
     </ModalShell>
   </div>
@@ -79,6 +79,7 @@ import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { confirmDialog } from '../../lib/confirm'
 import { withToast } from '../../lib/withToast'
+import { useSubmitGuard } from '../../lib/submitGuard'
 import { getApiErrorMessage } from '../../lib/api'
 import { useEvalTemplateStore } from '../../stores/recruitment'
 import type { InterviewEvaluationTemplate } from '../../stores/recruitment'
@@ -95,14 +96,18 @@ function openEdit(t: InterviewEvaluationTemplate) {
   Object.assign(modal, { open: true, id: t.id, name: t.name, criteriaText: t.criteria.join('\n'), error: '' })
 }
 
+const { submitting, guard } = useSubmitGuard()
 async function save() {
   const name = modal.name.trim()
   const criteria = modal.criteriaText.split('\n').map(c => c.trim()).filter(Boolean)
   if (!name) { modal.error = 'Le nom est requis'; return }
   if (criteria.length === 0) { modal.error = 'Ajoutez au moins un critère'; return }
   try {
-    if (modal.id) await store.update(modal.id, { name, criteria })
-    else await store.create({ name, criteria })
+    await guard(() => withToast(
+      'Enregistrement...',
+      async () => { if (modal.id) await store.update(modal.id, { name, criteria }); else await store.create({ name, criteria }) },
+      () => 'Enregistrement impossible',
+    ))
     modal.open = false
   } catch (e) {
     modal.error = getApiErrorMessage(e, 'Enregistrement impossible')
