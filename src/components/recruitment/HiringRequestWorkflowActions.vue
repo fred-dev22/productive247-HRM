@@ -32,12 +32,12 @@ async function express() {
   await guardExpress(() => withToast('Envoi…', () => store.submit(props.item.id), () => "Impossible d'exprimer le besoin"))
 }
 async function close() {
-  if (await confirmDialog('Clôturer cette expression de besoin ?')) {
+  if (await confirmDialog('Clôturer cette expression de besoin ?', { danger: false })) {
     await withToast('Clôture…', () => store.close(props.item.id), () => 'Clôture impossible')
   }
 }
 async function cancel() {
-  if (await confirmDialog('Annuler cette expression de besoin ?')) {
+  if (await confirmDialog('Annuler cette expression de besoin ?', { danger: false })) {
     await withToast('Annulation…', () => store.cancel(props.item.id), () => 'Annulation impossible')
   }
 }

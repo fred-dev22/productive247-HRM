@@ -25,7 +25,7 @@ async function onStatusChange(e: Event) {
 }
 
 async function addToPool() {
-  if (await confirmDialog(`Ajouter ${props.item.candidateName} au vivier de talents ?`)) {
+  if (await confirmDialog(`Ajouter ${props.item.candidateName} au vivier de talents ?`, { danger: false })) {
     await withToast(
       'Ajout au vivier…',
       () => applicationStore.addToTalentPool(props.item.id),

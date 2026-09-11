@@ -96,7 +96,7 @@ function alreadyApplied(offerTitle: string): boolean {
 }
 
 async function apply(o: { id: string; title: string }) {
-  if (await confirmDialog(`Postuler en interne à l'offre "${o.title}" ?`)) {
+  if (await confirmDialog(`Postuler en interne à l'offre "${o.title}" ?`, { danger: false })) {
     await withToast('Envoi de la candidature…', () => applicationStore.selfApplyInternal(o.id), () => 'Candidature impossible')
     await applicationStore.fetchMyInternal()
   }
@@ -106,7 +106,7 @@ function canWithdraw(a: Application): boolean {
   return a.status === 'New' || a.status === 'InReview' || a.status === 'InterviewScheduled'
 }
 async function withdraw(a: Application) {
-  if (await confirmDialog(`Vous désister de la candidature pour "${a.jobOfferTitle}" ?`)) {
+  if (await confirmDialog(`Vous désister de la candidature pour "${a.jobOfferTitle}" ?`, { danger: false })) {
     await withToast('Désistement…', () => applicationStore.withdrawInternal(a.id), () => 'Désistement impossible')
   }
 }

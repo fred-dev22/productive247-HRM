@@ -32,17 +32,17 @@ const CANCELLABLE: Contract['status'][] = ['Draft', 'Sent', 'Negotiating']
 
 async function send() {
   const label = props.item.status === 'Draft' ? 'Envoyer cette proposition au candidat ?' : 'Renvoyer la proposition au candidat ?'
-  if (await confirmDialog(label)) {
+  if (await confirmDialog(label, { danger: false })) {
     await withToast('Envoi…', () => contractStore.send(props.item.id), () => 'Envoi impossible')
   }
 }
 async function accept() {
-  if (await confirmDialog('Le candidat accepte cette proposition ? Une période d\'essai sera ouverte.')) {
+  if (await confirmDialog('Le candidat accepte cette proposition ? Une période d\'essai sera ouverte.', { danger: false })) {
     await withToast('Enregistrement…', () => contractStore.accept(props.item.id), () => 'Action impossible')
   }
 }
 async function cancel() {
-  if (await confirmDialog('Annuler cette proposition ?')) {
+  if (await confirmDialog('Annuler cette proposition ?', { danger: false })) {
     await withToast('Annulation…', () => contractStore.cancel(props.item.id), () => 'Annulation impossible')
   }
 }

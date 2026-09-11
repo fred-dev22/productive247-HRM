@@ -36,7 +36,7 @@ async function markDoneItem() {
 }
 
 async function cancelItem() {
-  if (await confirmDialog('Annuler cet entretien ? Une annulation sera envoyée aux participants.')) {
+  if (await confirmDialog('Annuler cet entretien ? Une annulation sera envoyée aux participants.', { danger: false })) {
     await withToast('Annulation…', () => interviewStore.cancel(props.item.id), () => 'Annulation impossible')
   }
 }

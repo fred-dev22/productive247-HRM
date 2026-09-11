@@ -39,7 +39,7 @@ async function convertTrial() {
   // Cas 1 : un employe reel est deja rattache (conversion du contrat faite) ->
   // simple confirmation OnTrial -> Active, corps vide.
   if (props.item.createdEmployeeId || linkedContract.value?.createdEmployeeId) {
-    if (await confirmDialog("Confirmer cet employé à l'issue de la période d'essai ?")) {
+    if (await confirmDialog("Confirmer cet employé à l'issue de la période d'essai ?", { danger: false })) {
       await withToast('Confirmation…', () => trialStore.convert(props.item.id), () => 'Action impossible')
     }
     return
@@ -48,6 +48,7 @@ async function convertTrial() {
   if (!auth.hasPermission('EMPLOYE_CREER')) {
     await confirmDialog(
       "Aucun profil employé n'est encore rattaché. La création d'un profil requiert la permission de créer un employé : demandez au RH.",
+      { danger: false },
     )
     return
   }
@@ -55,7 +56,7 @@ async function convertTrial() {
   showConvert.value = true
 }
 async function cancelTrial() {
-  if (await confirmDialog("Annuler cette période d'essai ?")) {
+  if (await confirmDialog("Annuler cette période d'essai ?", { danger: false })) {
     await withToast('Annulation…', () => trialStore.cancel(props.item.id), () => 'Annulation impossible')
   }
 }

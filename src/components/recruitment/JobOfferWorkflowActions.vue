@@ -24,7 +24,7 @@ const closeCls   = btn + ' bg-neutral-bg text-neutral hover:brightness-95'
 const deleteCls  = btn + ' bg-danger-bg text-danger hover:brightness-95'
 
 async function publishOffer() {
-  if (await confirmDialog('Publier cette offre ? Elle sera visible sur le portail carrière.')) {
+  if (await confirmDialog('Publier cette offre ? Elle sera visible sur le portail carrière.', { danger: false })) {
     await withToast('Publication…', () => jobOfferStore.publish(props.item.id), () => 'Publication impossible')
   }
 }
