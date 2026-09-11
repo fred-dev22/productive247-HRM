@@ -181,10 +181,17 @@
                 <input v-model="form.salaryText" :class="cls.fieldInput" placeholder="ex : Selon profil, à partir de 1 500 000 MGA / mois…" />
                 <p class="text-[11px] text-muted-foreground mt-1">Texte libre repris tel quel sur le portail public et dans les contenus à partager. Laisser vide pour ne rien afficher.</p>
               </div>
+              <!-- Case "exclure des flux publics / webhooks" masquee (decision du
+                   11/09) : aucun canal de diffusion configure chez le client et
+                   portail carriere pas encore expose publiquement, donc inutile
+                   pour l'instant. form.excludeFromFeed / buildPayload() restent
+                   inchanges (valeur par defaut false) : reafficher ce bloc suffit
+                   a reactiver la fonctionnalite le jour ou elle sert.
               <label class="flex items-center gap-2 text-[13px] text-foreground mt-3">
                 <input v-model="form.excludeFromFeed" type="checkbox" />
                 Ne pas inclure dans les flux publics (feed.json / feed.xml) ni les webhooks
               </label>
+              -->
             </FormSection>
 
           </div>
