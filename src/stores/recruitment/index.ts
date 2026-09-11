@@ -78,33 +78,38 @@ function mapDocument(r: Row): RecruitmentDocument {
   }
 }
 
+// Les endpoints de diffusion renvoient deja du camelCase (voir
+// DistributionChannelService.shape / JobOfferDistributionService.shape cote
+// backend), contrairement au reste du module qui expose les lignes Prisma
+// brutes en PascalCase. On lit donc le camelCase en priorite, avec repli
+// PascalCase par prudence.
 function mapDistributionChannel(r: Row): DistributionChannel {
   return {
-    id: r.Id,
-    name: r.Name,
-    kind: r.Kind,
-    targetUrl: r.TargetUrl ?? undefined,
-    targetEmail: r.TargetEmail ?? undefined,
+    id: r.id ?? r.Id,
+    name: r.name ?? r.Name,
+    kind: r.kind ?? r.Kind,
+    targetUrl: (r.targetUrl ?? r.TargetUrl) ?? undefined,
+    targetEmail: (r.targetEmail ?? r.TargetEmail) ?? undefined,
     hasSecret: !!(r.hasSecret ?? r.HasSecret),
-    isActive: !!r.IsActive,
+    isActive: !!(r.isActive ?? r.IsActive),
   }
 }
 
 function mapJobOfferDistribution(r: Row): JobOfferDistribution {
   return {
-    id: r.Id,
-    jobOfferId: r.JobOfferId,
-    channelId: r.ChannelId,
-    channelName: r.ChannelName,
-    channelKind: r.ChannelKind,
-    status: r.Status,
-    trigger: r.Trigger,
-    externalUrl: r.ExternalUrl ?? undefined,
-    attempts: num(r.Attempts),
-    httpStatus: r.HttpStatus != null ? num(r.HttpStatus) : undefined,
-    responseSnippet: r.ResponseSnippet ?? undefined,
-    lastAttemptAt: r.LastAttemptAt ? iso(r.LastAttemptAt) : undefined,
-    postedAt: r.PostedAt ? iso(r.PostedAt) : undefined,
+    id: r.id ?? r.Id,
+    jobOfferId: r.jobOfferId ?? r.JobOfferId,
+    channelId: r.channelId ?? r.ChannelId,
+    channelName: r.channelName ?? r.ChannelName,
+    channelKind: r.channelKind ?? r.ChannelKind,
+    status: r.status ?? r.Status,
+    trigger: r.trigger ?? r.Trigger,
+    externalUrl: (r.externalUrl ?? r.ExternalUrl) ?? undefined,
+    attempts: num(r.attempts ?? r.Attempts),
+    httpStatus: (r.httpStatus ?? r.HttpStatus) != null ? num(r.httpStatus ?? r.HttpStatus) : undefined,
+    responseSnippet: (r.responseSnippet ?? r.ResponseSnippet) ?? undefined,
+    lastAttemptAt: (r.lastAttemptAt ?? r.LastAttemptAt) ? iso(r.lastAttemptAt ?? r.LastAttemptAt) : undefined,
+    postedAt: (r.postedAt ?? r.PostedAt) ? iso(r.postedAt ?? r.PostedAt) : undefined,
   }
 }
 
