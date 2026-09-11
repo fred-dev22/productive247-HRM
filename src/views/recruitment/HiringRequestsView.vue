@@ -108,9 +108,17 @@
 
             <FormSection title="Poste">
               <div class="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
-                <div :class="cls.field" class="col-span-2">
-                  <label :class="cls.fieldLabel">Poste <span class="text-danger">*</span></label>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">Intitulé du poste <span class="text-danger">*</span></label>
                   <input v-model="form.positionTitle" :class="cls.fieldInput" placeholder="ex : Comptable, Chauffeur poids lourd…" />
+                </div>
+                <div :class="cls.field">
+                  <label :class="cls.fieldLabel">Poste existant <span :class="cls.fieldOptional">(optionnel)</span></label>
+                  <select v-model="pickedPositionId" :class="cls.fieldSelect" @change="onPositionPicked">
+                    <option value="">Sélectionner dans le référentiel des postes…</option>
+                    <option v-for="p in positionStore.positions" :key="p.id" :value="p.id">{{ p.code }} · {{ p.title }}</option>
+                  </select>
+                  <p class="text-[11px] text-muted-foreground mt-1">Pré-remplit l'intitulé ci-dessus et l'entité ci-dessous, modifiables ensuite.</p>
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">Entité <span class="text-danger">*</span></label>
@@ -172,12 +180,15 @@ import { getApiErrorMessage } from '../../lib/api'
 import { useHiringRequestStore } from '../../stores/recruitment'
 import type { HiringRequest } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
+import { usePositionStore } from '../../stores/positions'
 import { useAuthStore } from '../../stores/auth'
 
 const hiringRequestStore = useHiringRequestStore()
 const entityStore = useEntityStore()
+const positionStore = usePositionStore()
 const auth = useAuthStore()
 if (entityStore.entities.length === 0) entityStore.fetchAll()
+if (positionStore.positions.length === 0) positionStore.fetchAll()
 
 // Exprimer un besoin : permission dédiée (espace Administration) ou accès module.
 const canExpress = computed(() => auth.hasAnyPermission(['RECRUTEMENT_BESOIN_EXPRIMER', 'RECRUTEMENT_ACCES']))
@@ -272,8 +283,24 @@ const form = reactive({
   requestedByName: auth.user?.name ?? '',
 })
 
+// Selecteur "Poste existant" (referentiel Classification) : ne fait pas
+// partie du payload envoye au backend (HiringRequest.positionTitle reste du
+// texte libre, voir types.ts) — sert juste a pre-remplir l'intitule et
+// l'entite depuis un poste deja defini, modifiable ensuite a la main.
+const pickedPositionId = ref('')
+function onPositionPicked() {
+  const position = positionStore.positions.find(p => p.id === pickedPositionId.value)
+  if (!position) return
+  form.positionTitle = position.title
+  if (position.organizationUnitId) {
+    const entity = entityStore.getEntityById(position.organizationUnitId)
+    if (entity) form.entityId = entity.id
+  }
+}
+
 function resetForm() {
   Object.assign(form, { positionTitle: '', entityId: '', headcount: 1, profile: '', requestedByName: auth.user?.name ?? '' })
+  pickedPositionId.value = ''
   error.value = null
 }
 
