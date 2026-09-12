@@ -69,7 +69,9 @@
           <SidebarItem :icon="ClipboardCheck" :label="t('sidebar.eval_grids')"            :to="{ name: 'hr-recruitment-eval-templates' }" />
           <SidebarItem :icon="FileText"       :label="t('sidebar.contracts_to_generate')" :to="{ name: 'hr-recruitment-contracts' }" />
           <SidebarItem :icon="Clock"          :label="t('sidebar.trial_periods')"         :to="{ name: 'hr-recruitment-trial' }" />
-          <SidebarItem :icon="Rss"            :label="t('sidebar.job_distribution')"      :to="{ name: 'hr-recruitment-distribution' }" />
+          <!-- Masque temporairement sur demande (12/09/2026) : fonctionnalite pas encore
+               prete a etre montree. Route et vue restent en place, juste retiree du menu. -->
+          <!-- <SidebarItem :icon="Rss" :label="t('sidebar.job_distribution')" :to="{ name: 'hr-recruitment-distribution' }" /> -->
         </SidebarSection>
       </template>
 
