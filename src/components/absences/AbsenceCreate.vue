@@ -8,7 +8,7 @@
  */
 import { reactive, ref, computed, watch } from 'vue'
 import {
-  Calendar, Clock, Paperclip, TriangleAlert, CircleAlert, CalendarCheck,
+  Calendar, Paperclip, TriangleAlert, CircleAlert, CalendarCheck,
 } from 'lucide-vue-next'
 import UserAvatar from '../ui/UserAvatar.vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
@@ -24,7 +24,7 @@ import { useEmployeeStore } from '../../stores/employees'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useAuthStore } from '../../stores/auth'
-import { calculateEndDate, getWorkingDaysBetween, getChargedDaysBetween, getResumeDate, isWorkingDay } from '../../utils/calendar'
+import { calculateEndDate, isWorkingDay } from '../../utils/calendar'
 import { isEligible } from '../../lib/eligibility'
 import type { LeaveBalance } from '../../types'
 
@@ -50,7 +50,7 @@ if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 // accessible à tout compte authentifié et suffit pour ce sélecteur.
 if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
-// Un compte système (Employee.IsSystem, ex. "Admin Galana") n'a pas
+// Un compte système (Employee.IsSystem, ex. "Admin Congélo") n'a pas
 // d'existence RH réelle — jamais de solde, jamais éligible à un congé pour
 // lui-même — donc toujours "pour un employé" dès le départ, jamais "pour
 // moi-même" (voir ForWhomSelector.vue hideSelfOption, retour du 09/09).
@@ -151,7 +151,9 @@ const leaveTypeItems = computed(() =>
 const form = reactive({
   leaveTypeId:      props.initialLeaveTypeId ?? '',
   startDate:        '',
-  startPeriod:      'full' as 'full' | 'am' | 'pm',
+  // Retour client du 23/09 : "Journée entière" retiré des choix de début,
+  // "Matin" (jour plein) devient le choix par défaut plutôt que "full".
+  startPeriod:      'am' as 'full' | 'am' | 'pm',
   workingDaysCount: null as number | null,
   endDate:          '',
   endPeriod:        'full' as 'full' | 'am' | 'pm',
@@ -168,10 +170,10 @@ watch(leaveTypeItems, (items) => {
   }
 })
 const error = ref('')
-const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDays: '' })
+const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDays: '', interim: '' })
 
-const resumeDate = ref('')
-const daysMode   = ref<'from-days' | 'from-date'>('from-days')
+const resumeDate   = ref('')
+const resumePeriod = ref<'am' | 'pm'>('am')
 let calculating  = false
 
 // Regime de conges du beneficiaire (voir reunion Dominique du 12/06) — un
@@ -241,30 +243,26 @@ const isBalanceInsufficient = computed(() => {
   return (chargedDaysCount.value ?? form.workingDaysCount) > myBalance.value.balance
 })
 
-const isNoticePeriodViolated = computed(() => {
-  if (!form.startDate || !currentType.value || isMedicalType.value || currentType.value.noticeDays === 0) return false
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const p     = form.startDate.split('-').map(Number)
-  const start = new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1)
-  const diffDays = Math.ceil((start.getTime() - today.getTime()) / 86400000)
-  return diffDays < currentType.value.noticeDays
-})
-
-// Auto-calcule la date de fin quand début + nombre de jours changent — aussi
-// quand le calendrier termine son chargement (fetchCalendar() est async ;
-// sans ça, remplir le formulaire avant que la réponse arrive calculait la
-// reprise contre un calendrier vide, jamais recalculée ensuite).
+// Auto-calcule la date de fin (+ periode de fin, reprise) quand debut /
+// nombre de jours / periode de debut changent, aussi quand le calendrier
+// termine son chargement (fetchCalendar() est async ; sans ca, remplir le
+// formulaire avant que la reponse arrive calculait la reprise contre un
+// calendrier vide, jamais recalculee ensuite). Retour client du 23/09 :
+// "Date de fin"/"Periode de fin" ne sont plus des champs saisissables (le
+// nombre de jours suffit a tout calculer), donc plus qu'un seul mode de
+// calcul ici (auparavant "from-days" vs "from-date").
 watch(
   () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value, effectiveCalendar.value.holidays, currentType.value?.countCalendarDays] as const,
   ([start, days, period, , isExpat, , countCalendarDays]) => {
-    if (calculating || daysMode.value !== 'from-days') return
+    if (calculating) return
     if (!start || !days || days <= 0) { resumeDate.value = ''; chargedDaysCount.value = null; return }
     calculating = true
     try {
-      const result      = calculateEndDate(start, days, effectiveCalendar.value, period, isExpat, countCalendarDays ?? false)
-      form.endDate       = result.endDate
-      form.endPeriod      = result.endPeriod
-      resumeDate.value   = result.resumeDate
+      const result       = calculateEndDate(start, days, effectiveCalendar.value, period, isExpat, countCalendarDays ?? false)
+      form.endDate        = result.endDate
+      form.endPeriod       = result.endPeriod
+      resumeDate.value    = result.resumeDate
+      resumePeriod.value  = result.resumePeriod
       chargedDaysCount.value = result.chargedDays
     } finally {
       calculating = false
@@ -272,56 +270,26 @@ watch(
   },
 )
 
-function onDaysInput() { daysMode.value = 'from-days' }
-
-// Recalcule depuis des dates de debut/fin explicites (+ leurs demi-journees
-// eventuelles) — utilise aussi bien quand la date de fin est choisie
-// directement que quand une periode de bord (vendredi/lundi apres-midi…)
-// est modifiee ensuite, voir onEndDateChange/onPeriodChange.
-function onEndDateChange() {
-  if (calculating) return
-  if (!form.startDate || !form.endDate) return
-  daysMode.value = 'from-date'
-  calculating = true
-  try {
-    const days = getWorkingDaysBetween(form.startDate, form.endDate, effectiveCalendar.value, form.startPeriod, form.endPeriod, currentType.value?.countCalendarDays ?? false)
-    form.workingDaysCount = days
-    if (days > 0) {
-      chargedDaysCount.value = getChargedDaysBetween(
-        form.startDate, form.endDate, effectiveCalendar.value,
-        form.startPeriod, form.endPeriod, beneficiaryIsExpatriate.value, currentType.value?.countCalendarDays ?? false,
-      )
-      resumeDate.value = getResumeDate(form.endDate, effectiveCalendar.value)
-    } else {
-      chargedDaysCount.value = null
-      resumeDate.value = ''
-    }
-  } finally {
-    calculating = false
-    daysMode.value = 'from-days'
-  }
-}
-
-// La periode de fin (Matin/Après-midi/Journée entière) n'a d'effet que
-// lorsque la date de fin est choisie explicitement — en mode "nombre de
-// jours", endPeriod est un resultat du calcul (voir watcher plus haut), pas
-// une entree, et est de toute facon recalcule au prochain changement.
-function onEndPeriodChange() { onEndDateChange() }
-
 function formatDateFR(dateStr: string): string {
   const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc']
   const p = dateStr.split('-').map(Number)
   return `${p[2] ?? ''} ${MONTHS_FR[(p[1] ?? 1) - 1] ?? ''} ${p[0] ?? ''}`
 }
 
-function validate(): boolean {
-  errors.employee = ''; errors.leaveType = ''; errors.startDate = ''; errors.workingDays = ''
+// requireInterim : seulement à la soumission (create), pas à l'enregistrement
+// d'un brouillon (saveDraft), un brouillon est par nature incomplet. Retour
+// client du 23/09 : l'intérimaire devient obligatoire pour tout type
+// d'absence (avant, toujours optionnel, aucune condition ne le rendait
+// obligatoire).
+function validate(requireInterim = true): boolean {
+  errors.employee = ''; errors.leaveType = ''; errors.startDate = ''; errors.workingDays = ''; errors.interim = ''
   let ok = true
   if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) { errors.employee = 'Veuillez sélectionner un employé'; ok = false }
   if (!form.leaveTypeId) { errors.leaveType = 'Le type est obligatoire'; ok = false }
   if (!form.startDate) { errors.startDate = 'La date de début est obligatoire'; ok = false }
   if (isNotWorkingDay.value) { errors.startDate = "Ce jour n'est pas un jour ouvrable"; ok = false }
   if (!form.workingDaysCount || form.workingDaysCount <= 0) { errors.workingDays = 'Nombre de jours requis (min. 0.5)'; ok = false }
+  if (requireInterim && !isMedicalType.value && !form.interimEmployeeId) { errors.interim = "L'intérimaire est obligatoire"; ok = false }
   // Solde insuffisant n'est plus bloquant (décision du 04/08, même
   // traitement que le préavis) — un avertissement reste affiché en rouge,
   // le validateur décide en connaissance de cause.
@@ -352,7 +320,7 @@ async function create() {
   }
 }
 async function saveDraft() {
-  if (!validate()) return
+  if (!validate(false)) return
   try {
     await leaveRequestStore.saveDraft(buildPayload())
     emit('created'); emit('close')
@@ -402,7 +370,6 @@ async function saveDraft() {
 
               <div v-if="currentType" class="flex flex-wrap gap-1.5 mt-1.5">
                 <span :class="cls.hintChipNeutral"><Calendar class="w-3 h-3" /> Solde : {{ displayedBalance ? `${displayedBalance.balance} j` : `${currentType.daysPerYear} j/an` }}</span>
-                <span v-if="currentType.noticeDays > 0 && !isMedicalType" :class="cls.hintChipInfo"><Clock class="w-3 h-3" /> Préavis : {{ currentType.noticeDays }} jour(s)</span>
                 <span :class="currentType.documentRequired ? cls.hintChipWarning : cls.hintChipNeutral">
                   <Paperclip class="w-3 h-3" /> Justificatif : {{ currentType.documentRequired ? 'Requis' : 'Non requis' }}
                 </span>
@@ -417,68 +384,58 @@ async function saveDraft() {
               <div v-if="isPastDate && !isMedicalType" :class="cls.fieldWarning"><TriangleAlert class="w-3.5 h-3.5 shrink-0" /> La date est dans le passé, confirmez-vous ?</div>
             </div>
 
+            <!-- Retour client du 23/09 : "Journée entière" retiré, seuls
+                 Matin (jour plein) / Après-midi (demi-journée) restent. -->
             <div :class="cls.field">
               <span :class="cls.fieldLabel">Période de début</span>
               <div :class="cls.radioGroup">
-                <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="full" /><span>Journée entière</span></label>
                 <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="am" /><span>Matin</span></label>
                 <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="pm" /><span>Après-midi</span></label>
               </div>
             </div>
 
-            <div :class="cls.fieldRow">
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Nombre de jours <span class="text-danger">*</span></label>
-                <input
-                  type="number" min="0.5" step="0.5"
-                  v-model.number="form.workingDaysCount"
-                  :class="[cls.fieldInput, errors.workingDays && cls.inputError]"
-                  placeholder="ex: 3.5"
-                  @input="onDaysInput"
-                />
-                <div v-if="errors.workingDays" :class="cls.fieldError">{{ errors.workingDays }}</div>
-              </div>
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Date de fin</label>
-                <input
-                  type="date" v-model="form.endDate"
-                  :class="[cls.fieldInput, daysMode === 'from-days' && 'bg-primary/10 text-primary']"
-                  @change="onEndDateChange"
-                />
-                <span
-                  v-if="form.endDate && form.workingDaysCount"
-                  class="inline-flex items-center text-[11px] font-semibold rounded-md px-2 py-[3px] mt-1 w-fit"
-                  :class="isBalanceInsufficient ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'"
-                >{{ form.workingDaysCount }} {{ currentType?.countCalendarDays ? 'j calendaires' : 'j ouvrables' }}<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template></span>
-              </div>
-            </div>
-
+            <!-- Retour client du 23/09 : "Date de fin"/"Période de fin" ne
+                 sont plus saisissables, le nombre de jours (+ la période de
+                 début) suffit à tout calculer, voir "Reprise prévue" ci-dessous. -->
             <div :class="cls.field">
-              <span :class="cls.fieldLabel">Période de fin</span>
-              <div :class="cls.radioGroup">
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="full" @change="onEndPeriodChange" /><span>Journée entière</span></label>
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="am" @change="onEndPeriodChange" /><span>Matin</span></label>
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="pm" @change="onEndPeriodChange" /><span>Après-midi</span></label>
-              </div>
+              <label :class="cls.fieldLabel">Nombre de jours <span class="text-danger">*</span></label>
+              <input
+                type="number" min="0.5" step="0.5"
+                v-model.number="form.workingDaysCount"
+                :class="[cls.fieldInput, errors.workingDays && cls.inputError]"
+                placeholder="ex: 3.5"
+              />
+              <div v-if="errors.workingDays" :class="cls.fieldError">{{ errors.workingDays }}</div>
+              <span
+                v-if="form.endDate && form.workingDaysCount"
+                class="inline-flex items-center text-[11px] font-semibold rounded-md px-2 py-[3px] mt-1 w-fit"
+                :class="isBalanceInsufficient ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'"
+              >{{ form.workingDaysCount }} {{ currentType?.countCalendarDays ? 'j calendaires' : 'j ouvrables' }}<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template></span>
             </div>
 
+            <!-- Retour client du 23/09 : mention Matin/Après-midi ajoutée
+                 (avant, toujours "le [date]" sans préciser le moment, et le
+                 jour affiché était parfois faux quand la demande se
+                 terminait le matin, voir calculateEndDate/getResumeDate). -->
             <div v-if="resumeDate" class="flex items-center gap-2 text-[13px] text-muted-foreground bg-primary/10 rounded-md px-3 py-2">
               <CalendarCheck class="w-4 h-4 text-primary shrink-0" />
-              <span>Reprise prévue le <strong class="text-primary">{{ formatDateFR(resumeDate) }}</strong></span>
+              <span>Reprise prévue le <strong class="text-primary">{{ formatDateFR(resumeDate) }}</strong> {{ resumePeriod === 'am' ? 'le matin' : "l'après-midi" }}</span>
             </div>
 
             <div v-if="isNotWorkingDay" :class="cls.fieldErrorBlock"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Ce jour n'est pas un jour ouvrable</div>
             <div v-if="isBalanceInsufficient" :class="cls.fieldErrorBlock"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant ({{ myBalance?.balance ?? 0 }} jours disponibles)</div>
-            <div v-if="isNoticePeriodViolated" :class="cls.fieldErrorBlock"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Préavis de {{ currentType?.noticeDays }} jour(s) requis pour ce type</div>
 
+            <!-- Retour client du 23/09 : obligatoire pour tout type d'absence
+                 (sauf déclaration médicale en enregistrement direct). -->
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Intérimaire <span :class="cls.fieldOptional">(optionnel)</span></label>
+              <label :class="cls.fieldLabel">Intérimaire <span v-if="!isMedicalType" class="text-danger">*</span><span v-else :class="cls.fieldOptional">(optionnel)</span></label>
               <SearchableDropdown
                 :items="interimItems"
                 :model-value="form.interimEmployeeId"
                 placeholder="Qui assure votre intérim ?"
                 @update:model-value="form.interimEmployeeId = String($event)"
               />
+              <div v-if="errors.interim" :class="cls.fieldError">{{ errors.interim }}</div>
             </div>
 
             <div :class="cls.field">
