@@ -384,10 +384,12 @@ async function saveDraft() {
               <div v-if="isPastDate && !isMedicalType" :class="cls.fieldWarning"><TriangleAlert class="w-3.5 h-3.5 shrink-0" /> La date est dans le passé, confirmez-vous ?</div>
             </div>
 
-            <!-- Retour client du 23/09 : "Journée entière" retiré, seuls
-                 Matin (jour plein) / Après-midi (demi-journée) restent. -->
+            <!-- Retour client du 23/09 : "Période de début" renommé "Début
+                 absence" (point manqué au premier passage), et "Journée
+                 entière" retiré, seuls Matin (jour plein) / Après-midi
+                 (demi-journée) restent. -->
             <div :class="cls.field">
-              <span :class="cls.fieldLabel">Période de début</span>
+              <span :class="cls.fieldLabel">Début absence</span>
               <div :class="cls.radioGroup">
                 <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="am" /><span>Matin</span></label>
                 <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="pm" /><span>Après-midi</span></label>

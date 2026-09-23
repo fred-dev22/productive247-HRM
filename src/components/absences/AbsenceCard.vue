@@ -59,17 +59,8 @@ const APPROVED_LINEAGE: LeaveRequest['status'][] = [
   'Approved', 'Registered', 'Done', 'Regularized', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4',
 ]
 
-// Le préavis minimum n'est plus bloquant à la soumission (decision du
-// 01/08) — avertissement visible sur la fiche pour le validateur.
-function noticeWarning(l: LeaveRequest): string | null {
-  const type = leaveTypesStore.leaveTypes.find(t => t.id === l.leaveTypeId)
-  if (!type || type.noticeDays <= 0) return null
-  const submitted = new Date(l.createdAt); submitted.setHours(0, 0, 0, 0)
-  const start = new Date(l.startDate)
-  const diffDays = Math.ceil((start.getTime() - submitted.getTime()) / 86400000)
-  if (diffDays >= type.noticeDays) return null
-  return `Préavis de ${type.noticeDays} jour(s) non respecté (soumis ${diffDays} jour(s) avant le début)`
-}
+// Retour client du 23/09 : plus d'avertissement de préavis nulle part,
+// noticeWarning()/formNoticeWarning() supprimées (elles l'affichaient ici).
 
 const currentId = ref(props.requestId)
 watch(() => props.requestId, (v) => { currentId.value = v; isEditMode.value = false })
@@ -221,18 +212,6 @@ const formIsBalanceInsufficient = computed(() => {
   return formWorkingDaysCount.value > myBalance.value.balance
 })
 
-// Préavis : recalculé depuis form.startDate — current.createdAt (date de
-// soumission initiale) ne change pas en édition, seule la date de début
-// bouge, voir noticeWarning() ci-dessus pour l'équivalent lecture seule.
-const formNoticeWarning = computed(() => {
-  if (!current.value || !form.value.startDate || !currentType.value || currentType.value.noticeDays <= 0) return null
-  const submitted = new Date(current.value.createdAt); submitted.setHours(0, 0, 0, 0)
-  const p = form.value.startDate.split('-').map(Number)
-  const start = new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1)
-  const diffDays = Math.ceil((start.getTime() - submitted.getTime()) / 86400000)
-  if (diffDays >= currentType.value.noticeDays) return null
-  return `Préavis de ${currentType.value.noticeDays} jour(s) non respecté (soumis ${diffDays} jour(s) avant le début)`
-})
 async function save() {
   if (!current.value || !form.value.leaveTypeId) return
   try {
@@ -407,12 +386,6 @@ async function deletePermanently() {
             <label :class="cls.fieldLabel">Motif</label>
             <textarea v-if="isEditMode" v-model="form.reason" :class="cls.fieldTextarea" rows="3" placeholder="Motif de la demande…"></textarea>
             <div v-else :class="[readBox, 'min-h-[38px] h-auto py-2']">{{ current.reason || '-' }}</div>
-          </div>
-
-          <!-- Préavis insuffisant : avertissement non bloquant. En édition,
-               recalculé en direct depuis form.startDate (voir formNoticeWarning). -->
-          <div v-if="isEditMode ? formNoticeWarning : noticeWarning(current)" class="flex items-center gap-2 text-[13px] text-warning bg-warning-bg rounded-md px-2.5 py-2 col-span-full">
-            <TriangleAlert class="w-4 h-4 shrink-0" /> {{ isEditMode ? formNoticeWarning : noticeWarning(current) }}
           </div>
 
           <!-- Solde insuffisant : avertissement non bloquant, le validateur décide.
