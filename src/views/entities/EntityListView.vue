@@ -193,17 +193,24 @@ const entityImportConfig = computed(() => buildEntityImportConfig())
 const openCardId = ref<string | null>(null)
 function openCard(id: string) { openCardId.value = id }
 
-// Aperçu rapide (retour client du 22/09) : cliquer une entité depuis l'arbre
-// ou l'organigramme ouvre d'abord ce panneau léger (responsable + employés),
-// pas directement la fiche complète.
+// Aperçu rapide (retour client du 22/09) : cliquer une entité depuis
+// l'organigramme graphique ouvre d'abord ce panneau léger (responsable +
+// employés), pas directement la fiche complète. Retour client du 23/09 :
+// ne concerne QUE l'organigramme graphique, pas la vue arbre (OrgNode),
+// voir 'open-entity-card' plus bas.
 const quickPeekId = ref<string | null>(null)
 function onViewFullFromPeek(id: string) {
   quickPeekId.value = null
   openCard(id)
 }
 
-// Le clic sur un nœud (arbre/organigramme) ouvre la fiche modale
+// Le clic sur un nœud de l'organigramme graphique ouvre l'aperçu rapide
 provide('navigate-to-detail', (id: string) => { quickPeekId.value = id })
+// Ferme l'aperçu rapide au clic ailleurs que sur un nœud (fond du canevas)
+provide('close-entity-peek', () => { quickPeekId.value = null })
+// Voir/Modifier dans la vue arbre (OrgNode.vue) ouvrent directement la
+// fiche complète, jamais l'aperçu rapide (retour client du 23/09).
+provide('open-entity-card', (id: string) => openCard(id))
 
 // Hauteur du panneau d'aperçu calée sur celle du contenu à gauche (arbre,
 // organigramme, liste...) : pas une valeur fixe devinée, la vraie hauteur
