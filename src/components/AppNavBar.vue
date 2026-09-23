@@ -2,7 +2,7 @@
   <!-- ── BARRE 2 : NavBar (blanche) ── -->
   <div class="bg-nav h-12 px-5 border-b border-black/10 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center shrink-0">
     <div class="flex items-center shrink-0">
-      <img src="/galana.webp" class="h-7 object-contain" alt="Logo" />
+      <img src="/congelo-icon.webp" class="h-7 object-contain" alt="Congélo" />
       <div :class="[navDividerClass, 'hidden md:block']"></div>
       <span class="hidden md:block text-[15px] font-bold text-foreground tracking-[0.05em] whitespace-nowrap">{{ t('nav.company') }}</span>
     </div>
@@ -149,9 +149,9 @@ const empNavItems = computed<NavItem[]>(() => [
 ])
 
 const contextLabel = computed(() => {
-  if (auth.isHRDirector) return 'DIRECTEUR RH · GALANA'
+  if (auth.isHRDirector) return 'DIRECTEUR RH · CONGÉLO'
   if (auth.isHRAdmin)    return t('nav.context_rh')
-  if (auth.isValidator)  return 'MANAGER · GALANA'
+  if (auth.isValidator)  return 'MANAGER · CONGÉLO'
   return t('nav.context_employee')
 })
 

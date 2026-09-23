@@ -1,7 +1,7 @@
 {
   "nav": {
     "app_name": "Productive 247 HRM",
-    "company": "GALANA",
+    "company": "CONGÉLO",
     "admin": "Administration",
     "recruitment": "Recruitment",
     "training": "Training",
@@ -11,8 +11,8 @@
     "my_absences": "My Absences",
     "my_missions": "My Missions",
     "my_documents": "My Documents",
-    "context_rh": "HR · GALANA",
-    "context_employee": "EMPLOYEE · GALANA"
+    "context_rh": "HR · CONGÉLO",
+    "context_employee": "EMPLOYEE · CONGÉLO"
   },
   "topbar": {
     "search_placeholder": "Search...",

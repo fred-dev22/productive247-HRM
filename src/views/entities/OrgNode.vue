@@ -115,23 +115,23 @@ const typeIcon = computed(() => {
   return map[props.entity.type] ?? Building
 })
 
-// Accent bordure gauche selon le niveau (couleurs organigramme Galana)
+// Accent bordure gauche selon le niveau (couleurs organigramme, identité ex-Galana)
 const cardBorder = computed(() => {
   const map: Record<string, string> = {
-    Direction:  '4px solid var(--galana-direction-bg)',
-    Department: '3px solid var(--galana-department-bg)',
-    Service:    '2px solid var(--galana-service-border)',
+    Direction:  '4px solid var(--congelo-direction-bg)',
+    Department: '3px solid var(--congelo-department-bg)',
+    Service:    '2px solid var(--congelo-service-border)',
   }
   return { borderLeft: map[props.entity.type] ?? '2px solid var(--color-border)' }
 })
 
 const typeColor = computed(() => {
   const map: Record<string, { background: string; color: string }> = {
-    Direction:  { background: 'var(--galana-red-light)',   color: 'var(--galana-red)' },
-    Department: { background: 'var(--galana-green-light)', color: 'var(--galana-green)' },
-    Service:    { background: 'var(--galana-green-light)', color: 'var(--galana-green)' },
+    Direction:  { background: 'var(--congelo-red-light)',   color: 'var(--congelo-red)' },
+    Department: { background: 'var(--congelo-green-light)', color: 'var(--congelo-green)' },
+    Service:    { background: 'var(--congelo-green-light)', color: 'var(--congelo-green)' },
   }
-  return map[props.entity.type] ?? { background: 'var(--galana-green-light)', color: 'var(--galana-green)' }
+  return map[props.entity.type] ?? { background: 'var(--congelo-green-light)', color: 'var(--congelo-green)' }
 })
 
 // ── Status helpers ────────────────────────────────────────────
@@ -164,7 +164,7 @@ function approveEntity() { store.approveEntity(props.entity.id) }
 .org-children {
   margin-left: 32px;
   padding-left: 22px;
-  border-left: 2px solid var(--galana-green-mid);
+  border-left: 2px solid var(--congelo-green-mid);
   margin-top: 6px;
   padding-bottom: 2px;
 }
@@ -179,7 +179,7 @@ function approveEntity() { store.approveEntity(props.entity.id) }
   top: 22px;
   width: 22px;
   height: 2px;
-  background: var(--galana-green-mid);
+  background: var(--congelo-green-mid);
 }
 .org-child:last-child::after {
   content: '';

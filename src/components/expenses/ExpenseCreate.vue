@@ -43,7 +43,7 @@ if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
 function fmt(n: number) { return n.toLocaleString('fr-FR') }
 
-// Un compte système (Employee.IsSystem, ex. "Admin Galana") n'a pas
+// Un compte système (Employee.IsSystem, ex. "Admin Congélo") n'a pas
 // d'existence RH réelle — jamais "pour lui-même", toujours "pour un employé"
 // dès le départ (voir ForWhomSelector.vue hideSelfOption, retour du 09/09),
 // quel que soit props.mode.

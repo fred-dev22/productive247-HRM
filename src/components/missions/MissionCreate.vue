@@ -48,7 +48,7 @@ const MISSION_CATEGORIES: { value: MissionCategory; label: string }[] = [
   { value: 'International', label: 'Internationale' },
 ]
 
-// Un compte système (Employee.IsSystem, ex. "Admin Galana") n'a pas
+// Un compte système (Employee.IsSystem, ex. "Admin Congélo") n'a pas
 // d'existence RH réelle — jamais "pour lui-même", toujours "pour un employé"
 // dès le départ (voir ForWhomSelector.vue hideSelfOption, retour du 09/09),
 // quel que soit props.mode.
