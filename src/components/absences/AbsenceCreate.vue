@@ -8,7 +8,7 @@
  */
 import { reactive, ref, computed, watch } from 'vue'
 import {
-  Calendar, Paperclip, TriangleAlert, CircleAlert, CalendarCheck,
+  Calendar, Paperclip, TriangleAlert, CircleAlert, CalendarCheck, Upload, Trash2,
 } from 'lucide-vue-next'
 import UserAvatar from '../ui/UserAvatar.vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
@@ -18,6 +18,7 @@ import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
 import * as cls from '../../lib/formClasses'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
+import { MAX_ATTACHMENT_BYTES, ATTACHMENT_TOO_LARGE_MESSAGE } from '../../stores/attachments'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useCalendarStore } from '../../stores/calendar'
 import { useEmployeeStore } from '../../stores/employees'
@@ -170,7 +171,7 @@ watch(leaveTypeItems, (items) => {
   }
 })
 const error = ref('')
-const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDays: '', interim: '' })
+const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDays: '', interim: '', justificatif: '' })
 
 const resumeDate   = ref('')
 const resumePeriod = ref<'am' | 'pm'>('am')
@@ -203,6 +204,39 @@ const effectiveCalendar = computed(() => {
 
 const currentType = computed(() => leaveTypesStore.leaveTypes.find(lt => lt.id === form.leaveTypeId) ?? null)
 const isMedicalType = computed(() => currentType.value?.workflowType === 'Medical')
+
+// Justificatif (piece jointe) : facultatif par defaut, obligatoire quand le
+// type d'absence l'exige (Configuration > Types d'absence > "Justificatif
+// obligatoire", retour client du 28/09). Pour un type medical, la declaration
+// est enregistree tout de suite (le certificat arrive souvent apres) : le
+// justificatif n'y est exige qu'a la regularisation, pas a la soumission.
+const justificatifRequired = computed(() => !!currentType.value?.documentRequired)
+const justificatifMandatoryNow = computed(() => justificatifRequired.value && !isMedicalType.value)
+
+// La demande n'a pas encore d'Id : les fichiers restent en memoire et ne
+// partent qu'apres la creation du brouillon (voir leaveRequestStore).
+const pendingFiles = ref<File[]>([])
+// Creation + envoi des fichiers + soumission durent plusieurs secondes : sans
+// ce verrou, un double clic creait deux demandes (ou deux brouillons), et
+// fermer la fenetre pendant l'envoi laissait l'operation orpheline.
+const saving = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+function triggerFileUpload() { fileInput.value?.click() }
+function onFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (file.size > MAX_ATTACHMENT_BYTES) { errors.justificatif = ATTACHMENT_TOO_LARGE_MESSAGE; return }
+  errors.justificatif = ''
+  pendingFiles.value.push(file)
+}
+function removePendingFile(i: number) { pendingFiles.value.splice(i, 1) }
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
 
 const isPastDate = computed(() => {
   if (!form.startDate) return false
@@ -276,20 +310,22 @@ function formatDateFR(dateStr: string): string {
   return `${p[2] ?? ''} ${MONTHS_FR[(p[1] ?? 1) - 1] ?? ''} ${p[0] ?? ''}`
 }
 
-// requireInterim : seulement à la soumission (create), pas à l'enregistrement
+// forSubmission : seulement à la soumission (create), pas à l'enregistrement
 // d'un brouillon (saveDraft), un brouillon est par nature incomplet. Retour
 // client du 23/09 : l'intérimaire devient obligatoire pour tout type
 // d'absence (avant, toujours optionnel, aucune condition ne le rendait
-// obligatoire).
-function validate(requireInterim = true): boolean {
-  errors.employee = ''; errors.leaveType = ''; errors.startDate = ''; errors.workingDays = ''; errors.interim = ''
+// obligatoire). Meme logique pour le justificatif (retour du 28/09) quand le
+// type l'exige.
+function validate(forSubmission = true): boolean {
+  errors.employee = ''; errors.leaveType = ''; errors.startDate = ''; errors.workingDays = ''; errors.interim = ''; errors.justificatif = ''
   let ok = true
   if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) { errors.employee = 'Veuillez sélectionner un employé'; ok = false }
   if (!form.leaveTypeId) { errors.leaveType = 'Le type est obligatoire'; ok = false }
   if (!form.startDate) { errors.startDate = 'La date de début est obligatoire'; ok = false }
   if (isNotWorkingDay.value) { errors.startDate = "Ce jour n'est pas un jour ouvrable"; ok = false }
   if (!form.workingDaysCount || form.workingDaysCount <= 0) { errors.workingDays = 'Nombre de jours requis (min. 0.5)'; ok = false }
-  if (requireInterim && !isMedicalType.value && !form.interimEmployeeId) { errors.interim = "L'intérimaire est obligatoire"; ok = false }
+  if (forSubmission && !isMedicalType.value && !form.interimEmployeeId) { errors.interim = "L'intérimaire est obligatoire"; ok = false }
+  if (forSubmission && justificatifMandatoryNow.value && pendingFiles.value.length === 0) { errors.justificatif = "Le justificatif est obligatoire pour ce type d'absence"; ok = false }
   // Solde insuffisant n'est plus bloquant (décision du 04/08, même
   // traitement que le préavis) — un avertissement reste affiché en rouge,
   // le validateur décide en connaissance de cause.
@@ -311,23 +347,31 @@ function buildPayload() {
 }
 
 async function create() {
-  if (!validate()) return
+  if (saving.value || !validate()) return
+  saving.value = true
   try {
-    await leaveRequestStore.createAndSubmit(buildPayload())
+    await leaveRequestStore.createAndSubmit(buildPayload(), [...pendingFiles.value])
     emit('created'); emit('close')
   } catch {
     error.value = leaveRequestStore.error ?? "La soumission a échoué. Veuillez réessayer."
+  } finally {
+    saving.value = false
   }
 }
 async function saveDraft() {
-  if (!validate(false)) return
+  if (saving.value || !validate(false)) return
+  saving.value = true
   try {
-    await leaveRequestStore.saveDraft(buildPayload())
+    await leaveRequestStore.saveDraft(buildPayload(), [...pendingFiles.value])
     emit('created'); emit('close')
   } catch {
     error.value = leaveRequestStore.error ?? "L'enregistrement a échoué. Veuillez réessayer."
+  } finally {
+    saving.value = false
   }
 }
+// Pas de fermeture (Echap, fond, fleche) pendant la creation/l'envoi.
+function onClose() { if (!saving.value) emit('close') }
 </script>
 
 <template>
@@ -337,7 +381,8 @@ async function saveDraft() {
     :create-label="isMedicalType ? 'Enregistrer la déclaration' : 'Soumettre la demande'"
     draft-label="Enregistrer le brouillon"
     :save-error="error"
-    @close="emit('close')"
+    :is-saving="saving"
+    @close="onClose"
     @create="create"
     @save-draft="saveDraft"
   >
@@ -371,7 +416,7 @@ async function saveDraft() {
               <div v-if="currentType" class="flex flex-wrap gap-1.5 mt-1.5">
                 <span :class="cls.hintChipNeutral"><Calendar class="w-3 h-3" /> Solde : {{ displayedBalance ? `${displayedBalance.balance} j` : `${currentType.daysPerYear} j/an` }}</span>
                 <span :class="currentType.documentRequired ? cls.hintChipWarning : cls.hintChipNeutral">
-                  <Paperclip class="w-3 h-3" /> Justificatif : {{ currentType.documentRequired ? 'Requis' : 'Non requis' }}
+                  <Paperclip class="w-3 h-3" /> Justificatif : {{ !currentType.documentRequired ? 'Non requis' : isMedicalType ? 'à fournir avant la régularisation' : 'Requis' }}
                 </span>
                 <span v-if="isMedicalType" :class="cls.hintChipInfo">Enregistrement direct, sans validation préalable</span>
               </div>
@@ -443,6 +488,36 @@ async function saveDraft() {
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Motif <span :class="cls.fieldOptional">(optionnel)</span></label>
               <textarea v-model="form.comment" :class="cls.fieldTextarea" rows="3" placeholder="Précisez si nécessaire…"></textarea>
+            </div>
+
+            <!-- Retour client du 28/09 : pièce jointe justificative, facultative
+                 par défaut, obligatoire si le type d'absence le demande (sauf
+                 déclaration médicale, exigée à la régularisation). -->
+            <div :class="cls.field">
+              <label :class="cls.fieldLabel">Justificatif <span v-if="justificatifMandatoryNow" class="text-danger">*</span><span v-else-if="isMedicalType && justificatifRequired" :class="cls.fieldOptional">(à fournir avant la régularisation)</span><span v-else :class="cls.fieldOptional">(optionnel)</span></label>
+              <input ref="fileInput" type="file" class="hidden" accept=".pdf,image/*,.doc,.docx" @change="onFileSelected" />
+              <div>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 px-3 py-[5px] rounded-md bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="saving"
+                  @click="triggerFileUpload"
+                >
+                  <Upload class="w-3.5 h-3.5" /> {{ pendingFiles.length === 0 ? 'Joindre un fichier' : 'Ajouter un autre fichier' }}
+                </button>
+              </div>
+              <ul v-if="pendingFiles.length > 0" class="flex flex-col gap-1.5 mt-1">
+                <li v-for="(f, i) in pendingFiles" :key="i" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-background border border-border text-[13px]">
+                  <Paperclip class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span class="flex-1 truncate text-foreground" :title="f.name">{{ f.name }}</span>
+                  <span class="text-[11px] text-muted-foreground shrink-0">{{ formatFileSize(f.size) }}</span>
+                  <button type="button" class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-danger shrink-0 disabled:opacity-50" title="Retirer" :disabled="saving" @click="removePendingFile(i)">
+                    <Trash2 class="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              </ul>
+              <div v-else-if="isMedicalType && justificatifRequired" class="text-[11px] text-muted-foreground">Le justificatif (ex : certificat médical) pourra être joint après la déclaration, il est requis pour la régularisation.</div>
+              <div v-if="errors.justificatif" :class="cls.fieldError">{{ errors.justificatif }}</div>
             </div>
           </div>
           </FormSection>
