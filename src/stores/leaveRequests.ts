@@ -11,7 +11,7 @@ interface BackendLeaveTypeRef { Id: string; Name: string; Color: string; Workflo
 interface BackendDecision {
   Id: string
   StepOrder: number
-  Decision: 'Pending' | 'Approved' | 'Rejected' | 'Returned'
+  Decision: 'Pending' | 'Approved' | 'Rejected' | 'Returned' | 'Cancelled'
   Comment: string | null
   DecidedAt: string | null
   CreatedAt: string
@@ -93,7 +93,7 @@ function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
     rejectionReason: raw.RejectionReason ?? undefined,
     createdAt: raw.CreatedAt,
     modifiedAt: raw.ModifiedAt ?? undefined,
-    validationHistory: raw.decisions ? raw.decisions.map(mapDecision) : undefined,
+    validationHistory: raw.decisions ? raw.decisions.filter(d => d.Decision !== 'Cancelled').map(mapDecision) : undefined,
     insufficientBalance: raw.InsufficientBalance ?? false,
   }
 }
