@@ -51,6 +51,18 @@ export function isWorkingDay(date: Date, calendar: CompanyCalendar): boolean {
   return !isHoliday(date, calendar).isHoliday
 }
 
+// Jour de la semaine normalement travaille, SANS tenir compte des jours
+// feries (contrairement a isWorkingDay). Retour client du 29/09 : un ferie
+// ne doit jamais repousser la date de fin/reprise d'un conge, seulement
+// faire baisser le nombre de jours decomptes (voir calculateEndDate). Utilise
+// uniquement pour positionner la date de fin ; chargedWorkingDays/getResumeDate
+// continuent d'utiliser isWorkingDay (un ferie reste bien exclu du decompte,
+// et on ne peut evidemment pas reprendre le travail un jour ferie).
+export function isWeeklyWorkDay(date: Date, calendar: CompanyCalendar): boolean {
+  const dayKey = DAY_KEYS[date.getDay()] as keyof WorkingDays
+  return calendar.workingDays[dayKey].enabled
+}
+
 // Moment de reprise apres `dateStr` (dernier jour de l'absence) : un dernier
 // jour "am" (matinee seule consommee) rend l'apres-midi du meme jour si
 // c'est un jour ouvre, tout le reste (journee entiere consommee) rend le
@@ -154,10 +166,13 @@ export function calculateEndDate(
   actualWorkingDays: number
   chargedDays:       number
 } {
-  // Decompte calendaire (LeaveType.countCalendarDays) : tout jour compte,
-  // isWorkingDay n'est jamais consulte — seule la notion de demi-journee de
-  // bord (startPeriod) subsiste.
-  const countsDay = (d: Date) => countCalendarDays || isWorkingDay(d, calendar)
+  // Decompte calendaire (LeaveType.countCalendarDays) : tout jour compte.
+  // Sinon, isWeeklyWorkDay (pas isWorkingDay) : un jour ferie occupe quand
+  // meme sa place dans le decompte des jours demandes (retour client du
+  // 29/09), sinon un ferie repousserait la date de fin/reprise au lieu de
+  // simplement faire baisser le nombre de jours reellement factures (voir
+  // chargedWorkingDays, qui lui continue d'exclure les feries du total).
+  const countsDay = (d: Date) => countCalendarDays || isWeeklyWorkDay(d, calendar)
 
   // Compte en demi-journees (unites de 0.5) plutot qu'en jours flottants :
   // "Matin" au debut vaut une journee PLEINE (2 unites), "Apres-midi" une

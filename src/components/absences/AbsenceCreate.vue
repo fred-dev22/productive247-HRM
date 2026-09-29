@@ -457,7 +457,7 @@ function onClose() { if (!saving.value) emit('close') }
                 v-if="form.endDate && form.workingDaysCount"
                 class="inline-flex items-center text-[11px] font-semibold rounded-md px-2 py-[3px] mt-1 w-fit"
                 :class="isBalanceInsufficient ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'"
-              >{{ form.workingDaysCount }} {{ currentType?.countCalendarDays ? 'j calendaires' : 'j ouvrables' }}<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template></span>
+              >{{ form.workingDaysCount }} {{ currentType?.countCalendarDays ? 'j calendaires' : 'j ouvrables' }}<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template><template v-else-if="chargedDaysCount && chargedDaysCount < form.workingDaysCount"> (jour(s) férié(s) inclus = {{ chargedDaysCount }} j décomptés)</template></span>
             </div>
 
             <!-- Retour client du 23/09 : mention Matin/Après-midi ajoutée
