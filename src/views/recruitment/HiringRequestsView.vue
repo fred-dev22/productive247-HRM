@@ -64,8 +64,18 @@
     <!-- Cellules -->
     <template #cell-positionTitle="{ item }"><span class="font-medium text-foreground text-xs truncate">{{ item.positionTitle }}</span></template>
     <template #cell-entityName="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.entityName }}</span></template>
-    <template #cell-headcount="{ item }"><span class="text-xs font-semibold">{{ item.headcount }}</span></template>
-    <template #cell-requestedByName="{ item }"><span class="text-muted-foreground text-xs truncate">{{ item.requestedByName }}</span></template>
+    <template #cell-headcount="{ item }">
+      <span class="text-xs font-semibold inline-flex items-center gap-1" :class="item.capacityWarning ? 'text-warning' : ''" :title="item.capacityWarning ? warningTextOf(item) : undefined">
+        {{ item.headcount }}
+        <TriangleAlert v-if="item.capacityWarning" class="w-3.5 h-3.5" />
+      </span>
+    </template>
+    <template #cell-requestedByName="{ item }">
+      <div class="min-w-0">
+        <div class="text-foreground text-xs truncate">{{ item.requestedForName ?? item.requestedByName }}</div>
+        <div v-if="item.requestedForName" class="text-[10px] text-muted-foreground truncate">Rempli par {{ item.requestedByName }}</div>
+      </div>
+    </template>
     <template #cell-requestedAt="{ item }"><span class="text-muted-foreground text-xs">{{ formatDate(item.requestedAt) }}</span></template>
     <template #cell-status="{ item }"><StatusPill :status="item.status" /></template>
 
@@ -81,6 +91,7 @@
           <div><div class="text-muted-foreground text-[11px]">Effectif</div>{{ item.headcount }}</div>
           <div><div class="text-muted-foreground text-[11px]">Date</div>{{ formatDate(item.requestedAt) }}</div>
         </div>
+        <div v-if="item.capacityWarning" :class="cls.fieldWarningBlock"><TriangleAlert class="w-3.5 h-3.5 shrink-0" /> {{ warningTextOf(item) }}</div>
         <button :class="L.btnPrimary" class="w-full justify-center" @click="openCard(item)">Ouvrir la fiche</button>
         <HiringRequestWorkflowActions :item="item" />
       </div>
@@ -131,7 +142,13 @@
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">Effectif <span class="text-danger">*</span></label>
-                  <input type="number" min="1" v-model.number="form.headcount" :class="cls.fieldInput" placeholder="1" />
+                  <input type="number" min="1" v-model.number="form.headcount" :class="[cls.fieldInput, headcountExceeds && cls.inputWarning]" placeholder="1" />
+                  <!-- Non bloquant : la demande reste possible, l'alerte est
+                       reaffichee sur la liste, l'apercu et la fiche. -->
+                  <p v-if="headcountExceeds && pickedPosition" :class="cls.fieldWarning">
+                    <TriangleAlert class="w-3 h-3 shrink-0" /> {{ capacityWarningText(Number(form.headcount), pickedAvailable ?? 0, pickedPosition.capacity) }}
+                  </p>
+                  <p v-else-if="pickedPosition" class="text-[11px] text-muted-foreground">{{ availableSlotsHint(pickedAvailable ?? 0, pickedPosition.capacity) }}</p>
                 </div>
               </div>
             </FormSection>
@@ -145,9 +162,13 @@
 
             <FormSection title="Demandeur">
               <div :class="cls.field">
-                <label :class="cls.fieldLabel">Demandé par</label>
+                <label :class="cls.fieldLabel">Rempli par</label>
                 <input :value="form.requestedByName" :class="cls.fieldInput" disabled />
               </div>
+              <!-- Retour client du 19/09 : un assistant doit pouvoir exprimer
+                   le besoin pour son directeur, meme principe que le
+                   beneficiaire d'une demande de conge. -->
+              <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" />
             </FormSection>
 
           </div>
@@ -169,15 +190,18 @@
  * (HiringRequestWorkflowActions), même pattern que le module Missions.
  */
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { Plus, Briefcase, Clock, CheckCircle2 } from 'lucide-vue-next'
+import { Plus, Briefcase, Clock, CheckCircle2, TriangleAlert } from 'lucide-vue-next'
 import { ListPageLayout, StatusPill, CreateModalShell } from '../../components'
 import type { ListColumn } from '../../components/shared/ListPageLayout.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
 import HiringRequestCard from '../../components/recruitment/HiringRequestCard.vue'
 import HiringRequestWorkflowActions from '../../components/recruitment/HiringRequestWorkflowActions.vue'
+import ForWhomSelector from '../../components/ui/ForWhomSelector.vue'
+import type { BeneficiaryValue } from '../../components/ui/ForWhomSelector.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { formatDate } from '../../lib/date'
+import { availableSlotsHint, capacityWarningText } from '../../lib/hiringCapacity'
 import { getApiErrorMessage } from '../../lib/api'
 import { withToast } from '../../lib/withToast'
 import { useSubmitGuard } from '../../lib/submitGuard'
@@ -185,19 +209,38 @@ import { useHiringRequestStore } from '../../stores/recruitment'
 import type { HiringRequest } from '../../stores/recruitment'
 import { useEntityStore } from '../../stores/entities'
 import { usePositionStore } from '../../stores/positions'
+import { useEmployeeStore } from '../../stores/employees'
 import { useAuthStore } from '../../stores/auth'
 
 const hiringRequestStore = useHiringRequestStore()
 const entityStore = useEntityStore()
 const positionStore = usePositionStore()
+const employeeStore = useEmployeeStore()
 const auth = useAuthStore()
 if (entityStore.entities.length === 0) entityStore.fetchAll()
-if (positionStore.positions.length === 0) positionStore.fetchAll()
+if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
+
+// Bénéficiaire réel de la demande, distinct de la personne qui remplit le
+// formulaire (voir ForWhomSelector.vue). Exclut soi-même de la liste "Pour
+// un employé", "Pour moi-même" couvre déjà ce cas.
+const forWhom = ref<BeneficiaryValue>({ mode: 'self', employeeId: '' })
+const employeeItems = computed(() =>
+  employeeStore.directory
+    .filter(e => e.id !== auth.user?.id)
+    .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, code: e.code, status: e.status })),
+)
 
 // Exprimer un besoin : permission dédiée (espace Administration) ou accès module.
 const canExpress = computed(() => auth.hasAnyPermission(['RECRUTEMENT_BESOIN_EXPRIMER', 'RECRUTEMENT_ACCES']))
 
-onMounted(() => hiringRequestStore.fetchAll())
+// Postes rafraichis a chaque ouverture de la vue et du formulaire (pas de
+// garde sur .length) : les places restantes d'un poste changent a chaque
+// creation/suppression d'employe, une liste deja chargee serait perimee et
+// l'alerte "effectif > places" ignorerait les titulaires recents.
+onMounted(() => {
+  hiringRequestStore.fetchAll()
+  positionStore.fetchAll()
+})
 
 /* ── Styles KPI ─────────────────────────────────────────────── */
 const kpiItem = 'bg-card border border-border rounded-lg px-3.5 py-3 flex items-center gap-3'
@@ -281,6 +324,7 @@ const pageItems = computed(() => {
 
 /* ── Création ───────────────────────────────────────────────── */
 const showCreate = ref(false)
+watch(showCreate, (open) => { if (open) positionStore.fetchAll() })
 const error = ref<string | null>(null)
 const form = reactive({
   positionTitle: '', entityId: '', headcount: 1, profile: '',
@@ -292,6 +336,14 @@ const form = reactive({
 // texte libre, voir types.ts) — sert juste a pre-remplir l'intitule et
 // l'entite depuis un poste deja defini, modifiable ensuite a la main.
 const pickedPositionId = ref('')
+// Places restantes du poste choisi (sieges - occupes) : sert a signaler, sans
+// jamais bloquer, un effectif superieur (voir capacityWarning cote backend).
+const pickedPosition = computed(() => positionStore.positions.find(p => p.id === pickedPositionId.value))
+const pickedAvailable = computed(() => pickedPosition.value ? Math.max(0, pickedPosition.value.capacity - pickedPosition.value.occupiedCount) : null)
+const headcountExceeds = computed(() => pickedAvailable.value !== null && Number(form.headcount) > pickedAvailable.value)
+function warningTextOf(r: HiringRequest): string {
+  return capacityWarningText(r.headcount, r.positionAvailable ?? 0, r.positionCapacity ?? 0)
+}
 function onPositionPicked() {
   const position = positionStore.positions.find(p => p.id === pickedPositionId.value)
   if (!position) return
@@ -305,6 +357,7 @@ function onPositionPicked() {
 function resetForm() {
   Object.assign(form, { positionTitle: '', entityId: '', headcount: 1, profile: '', requestedByName: auth.user?.name ?? '' })
   pickedPositionId.value = ''
+  forWhom.value = { mode: 'self', employeeId: '' }
   error.value = null
 }
 
@@ -313,6 +366,7 @@ function validate(): boolean {
   if (!form.entityId) { error.value = "L'entité est requise"; return false }
   if (!form.headcount || form.headcount < 1) { error.value = "L'effectif doit être d'au moins 1"; return false }
   if (!form.profile.trim()) { error.value = 'Le profil recherché est requis'; return false }
+  if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) { error.value = 'Veuillez sélectionner un employé'; return false }
   error.value = null
   return true
 }
@@ -324,6 +378,8 @@ function buildPayload() {
     entityName: entity?.name ?? '',
     headcount: form.headcount,
     profile: form.profile.trim(),
+    positionId: pickedPositionId.value || undefined,
+    requestedForEmployeeId: forWhom.value.mode === 'for-employee' ? forWhom.value.employeeId : undefined,
   }
 }
 

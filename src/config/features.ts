@@ -6,15 +6,29 @@ export const MISSIONS_EXPENSES_ENABLED: boolean = false
 
 // Modules encore à l'état de placeholder (aucune fonctionnalité réelle
 // derrière — voir router/index.ts, tous sur le composant PlaceholderView) :
-// Formation, Paie, Rapports (l'onglet du haut, distinct de la section
-// "Rapports" du sidebar Administration qui elle est réelle). Masqués tant
-// qu'ils ne sont pas construits, pas pour une raison budgétaire.
+// Paie, Rapports (l'onglet du haut, distinct de la section "Rapports" du
+// sidebar Administration qui elle est réelle). Masqués tant qu'ils ne sont
+// pas construits, pas pour une raison budgétaire.
 export const PLACEHOLDER_MODULES_ENABLED: boolean = false
 
 // Module Recrutement : a son propre flag, distinct de PLACEHOLDER_MODULES_ENABLED
 // ci-dessus, car il a de vrais écrans sur cette branche (design + données
-// fictives, voir src/views/recruitment/) alors que Formation/Paie/Rapports
-// restent de simples coquilles vides. A true UNIQUEMENT sur la branche
+// fictives, voir src/views/recruitment/) alors que Paie/Rapports restent de
+// simples coquilles vides. A true UNIQUEMENT sur la branche
 // dev-recrutement-module, pour prévisualiser le module avant validation
 // client. Remettre à false avant toute fusion vers qa/main.
 export const RECRUITMENT_MODULE_ENABLED: boolean = true
+
+// Module Formation : meme principe que RECRUITMENT_MODULE_ENABLED ci-dessus
+// (vrais ecrans, design + donnees fictives, voir src/views/training/), sorti
+// de PLACEHOLDER_MODULES_ENABLED des que construit. Paie/Rapports restent de
+// simples coquilles vides tant qu'ils ne sont pas a leur tour construits.
+export const FORMATION_MODULE_ENABLED: boolean = true
+
+// Diffusion des offres (canaux, flux publics feed.json/feed.xml, "Contenu a
+// partager") : section "Diffusion" de la fiche d'une offre d'emploi ET entree
+// "Diffusion des offres" du menu Recrutement, masquees temporairement sur
+// demande (19/09/2026) : fonctionnalite pas encore prete a etre montree, il
+// reste des choses a faire dessus. Rien n'est supprime (route, code, donnees) :
+// remettre a true pour tout reafficher.
+export const JOB_DISTRIBUTION_UI_ENABLED: boolean = false

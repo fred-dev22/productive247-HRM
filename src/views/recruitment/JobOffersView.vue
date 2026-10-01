@@ -127,8 +127,9 @@
                 <label :class="cls.fieldLabel">Rattacher à une demande approuvée <span :class="cls.fieldOptional">(optionnel)</span></label>
                 <select v-model="form.hiringRequestId" :class="cls.fieldSelect">
                   <option value="">Aucune</option>
-                  <option v-for="r in approvedHiringRequests" :key="r.id" :value="r.id">{{ r.positionTitle }} · {{ r.entityName }}</option>
+                  <option v-for="r in approvedHiringRequests" :key="r.id" :value="r.id">{{ r.positionTitle }} · {{ r.entityName }}{{ r.capacityWarning ? ' · ⚠ effectif > places' : '' }}</option>
                 </select>
+                <p v-if="selectedRequestWarning" :class="cls.fieldError">{{ selectedRequestWarning }}</p>
                 <p class="text-[11px] text-muted-foreground mt-1">En sélectionnant une demande, le titre, l'entité et la description ci-dessous se pré-remplissent.</p>
               </div>
             </FormSection>
@@ -175,6 +176,18 @@
                 </select>
                 <p class="text-[11px] text-muted-foreground mt-1">Proposée par défaut lors de l'évaluation des entretiens de cette offre. Gérez les grilles dans « Grilles d'évaluation ».</p>
               </div>
+            </FormSection>
+
+            <FormSection title="Période d'essai">
+              <label class="flex items-center gap-2 text-[13px] text-foreground">
+                <input v-model="form.trialPeriodEnabled" type="checkbox" />
+                Ce poste comporte une période d'essai
+              </label>
+              <div v-if="form.trialPeriodEnabled" :class="cls.field" class="mt-2.5 max-w-[160px]">
+                <label :class="cls.fieldLabel">Durée (mois) <span class="text-danger">*</span></label>
+                <input type="number" min="1" max="24" v-model.number="form.trialPeriodMonths" :class="cls.fieldInput" />
+              </div>
+              <p class="text-[11px] text-muted-foreground mt-2">Reprise automatiquement dans le contrat généré pour ce poste, modifiable au cas par cas à l'acceptation.</p>
             </FormSection>
 
             <FormSection title="Diffusion">
@@ -225,6 +238,7 @@ import JobOfferCard from '../../components/recruitment/JobOfferCard.vue'
 import * as cls from '../../lib/formClasses'
 import * as L from '../../lib/listClasses'
 import { getApiErrorMessage } from '../../lib/api'
+import { capacityWarningText } from '../../lib/hiringCapacity'
 import { withToast } from '../../lib/withToast'
 import { useSubmitGuard } from '../../lib/submitGuard'
 import { useJobOfferStore, useHiringRequestStore, useEvalTemplateStore } from '../../stores/recruitment'
@@ -331,18 +345,23 @@ const pageItems = computed(() => {
 /* ── Création ───────────────────────────────────────────────── */
 // Expressions de besoin exprimées (non encore clôturées) — rattachables.
 const approvedHiringRequests = computed(() => hiringRequestStore.items.filter(r => r.status === 'Open'))
+// Alerte non bloquante de la demande choisie (effectif > places du poste).
+const selectedRequestWarning = computed(() => {
+  const r = hiringRequestStore.items.find(x => x.id === form.hiringRequestId)
+  return r?.capacityWarning ? capacityWarningText(r.headcount, r.positionAvailable ?? 0, r.positionCapacity ?? 0) : ''
+})
 
 const showCreate = ref(false)
 const error = ref<string | null>(null)
 const form = reactive({
   title: '', entityId: '', contractType: 'CDI', location: '', description: '', hiringRequestId: '', evaluationTemplateId: '',
-  salaryText: '', excludeFromFeed: false,
+  salaryText: '', excludeFromFeed: false, trialPeriodEnabled: false, trialPeriodMonths: 2,
 })
 
 function resetForm() {
   Object.assign(form, {
     title: '', entityId: '', contractType: 'CDI', location: '', description: '', hiringRequestId: '', evaluationTemplateId: '',
-    salaryText: '', excludeFromFeed: false,
+    salaryText: '', excludeFromFeed: false, trialPeriodEnabled: false, trialPeriodMonths: 2,
   })
   error.value = null
 }
@@ -367,6 +386,10 @@ function validate(): boolean {
   if (!form.entityId) { error.value = "L'entité est requise"; return false }
   if (!form.location.trim()) { error.value = 'Le lieu est requis'; return false }
   if (!form.description.trim()) { error.value = 'La description est requise'; return false }
+  if (form.trialPeriodEnabled && (!form.trialPeriodMonths || form.trialPeriodMonths < 1)) {
+    error.value = "La durée de la période d'essai doit être d'au moins 1 mois"
+    return false
+  }
   error.value = null
   return true
 }
@@ -383,6 +406,8 @@ function buildPayload() {
     evaluationTemplateId: form.evaluationTemplateId || undefined,
     salaryText: form.salaryText.trim() || undefined,
     excludeFromFeed: form.excludeFromFeed || undefined,
+    trialPeriodEnabled: form.trialPeriodEnabled,
+    trialPeriodMonths: form.trialPeriodEnabled ? form.trialPeriodMonths : undefined,
   }
 }
 
