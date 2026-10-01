@@ -50,13 +50,13 @@ const OrgChartNode: any = defineComponent({
       const isDept    = node.type === 'Department'
 
       const cardStyle: Record<string, string> = isService
-        ? { background: 'var(--galana-red-light)', color: 'var(--galana-red)', border: '1px solid rgba(200,16,46,0.3)' }
+        ? { background: 'var(--congelo-red-light)', color: 'var(--congelo-red)', border: '1px solid rgba(200,16,46,0.3)' }
         : isDept
-          ? { background: 'var(--galana-green-dark)', color: 'white' }
-          : { background: 'var(--galana-green)', color: 'white' }
+          ? { background: 'var(--congelo-green-dark)', color: 'white' }
+          : { background: 'var(--congelo-green)', color: 'white' }
 
       const badgeStyle: Record<string, string> = isService
-        ? { background: 'rgba(200,16,46,0.12)', color: 'var(--galana-red)' }
+        ? { background: 'rgba(200,16,46,0.12)', color: 'var(--congelo-red)' }
         : { background: 'rgba(255,255,255,0.18)', color: 'white' }
 
       const metaStyle: Record<string, string> = {
@@ -103,9 +103,9 @@ const OrgChartNode: any = defineComponent({
                 position: 'absolute', bottom: '-9px', left: '50%',
                 transform: 'translateX(-50%)',
                 width: '18px', height: '18px', borderRadius: '50%',
-                border: `1px solid ${isService ? 'var(--galana-red)' : 'rgba(255,255,255,0.6)'}`,
+                border: `1px solid ${isService ? 'var(--congelo-red)' : 'rgba(255,255,255,0.6)'}`,
                 background: 'white',
-                color: isService ? 'var(--galana-red)' : 'var(--galana-green)',
+                color: isService ? 'var(--congelo-red)' : 'var(--congelo-green)',
                 fontSize: '10px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: '10', padding: '0', lineHeight: '1',

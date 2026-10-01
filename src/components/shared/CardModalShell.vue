@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Coquille générique de fiche (Card) en lecture/édition — portée du frontdesk
- * (P247_FD_LWL_APP/src/components/shared/CardModalShell.vue), tokens verts Galana.
+ * (P247_FD_LWL_APP/src/components/shared/CardModalShell.vue), tokens verts (Congélo).
  *
  * Fournit : overlay téléporté dans #below-topbar, bannière, navigateur de N°
  * redimensionnable à gauche, barre de titre (Edit/Save/Cancel/＋/⋮), barre

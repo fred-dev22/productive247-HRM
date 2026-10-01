@@ -2,7 +2,7 @@
 /**
  * ListPageLayout — contenu de page liste partagé du HRM (rendu DANS le
  * DashboardLayout). Calqué sur le `ListPageLayout` du frontdesk
- * (P247_FD_LWL_APP), tokens Galana.
+ * (P247_FD_LWL_APP), tokens Congélo.
  *
  * Toolbar style frontdesk : `sous-liste | recherche (collapsible) | actions
  * contextuelles | filtre/aperçu/colonnes`, séparée par des traits verticaux.
@@ -516,8 +516,8 @@ const sep = 'w-px h-5 bg-border shrink-0'
 <style scoped>
 /* Fond des cellules épinglées (sticky) synchronisé avec l'état de la ligne */
 .lpl-sticky { background: var(--color-card); }
-tr:hover .lpl-sticky { background: var(--galana-green-light); }
-.lpl-sticky-selected { background: var(--galana-green-light); }
-.lpl-sticky-th { background: var(--galana-green-light); }
+tr:hover .lpl-sticky { background: var(--congelo-green-light); }
+.lpl-sticky-selected { background: var(--congelo-green-light); }
+.lpl-sticky-th { background: var(--congelo-green-light); }
 .lpl-scrolled .lpl-sticky-last { box-shadow: 2px 0 6px rgba(0, 0, 0, 0.08); }
 </style>

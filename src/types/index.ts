@@ -18,7 +18,7 @@ export interface AuthUser {
   // l'utilisateur connecte (voir lib/eligibility.ts, DashboardEmployee.vue).
   gender?:         'M' | 'F'
   isExpatriate?:   boolean
-  // Compte d'amorçage cree par le seed (ex: "Admin Galana"), pas un vrai
+  // Compte d'amorçage cree par le seed (ex: "Admin Congélo"), pas un vrai
   // membre du personnel — voir Employee.IsSystem (schema.prisma). N'a ni
   // solde de conges ni existence RH reelle : ne doit jamais pouvoir soumettre
   // une demande (conge/mission/note de frais) "pour lui-meme", uniquement

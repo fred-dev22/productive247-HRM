@@ -8,7 +8,7 @@
  */
 import { reactive, ref, computed, watch } from 'vue'
 import {
-  Calendar, Clock, Paperclip, TriangleAlert, CircleAlert, CalendarCheck,
+  Calendar, Paperclip, TriangleAlert, CircleAlert, CalendarCheck, Upload, Trash2,
 } from 'lucide-vue-next'
 import UserAvatar from '../ui/UserAvatar.vue'
 import CreateModalShell from '../shared/CreateModalShell.vue'
@@ -18,13 +18,14 @@ import ForWhomSelector from '../ui/ForWhomSelector.vue'
 import type { BeneficiaryValue } from '../ui/ForWhomSelector.vue'
 import * as cls from '../../lib/formClasses'
 import { useLeaveRequestStore } from '../../stores/leaveRequests'
+import { MAX_ATTACHMENT_BYTES, ATTACHMENT_TOO_LARGE_MESSAGE } from '../../stores/attachments'
 import { useLeaveTransactionStore } from '../../stores/leaveTransactions'
 import { useCalendarStore } from '../../stores/calendar'
 import { useEmployeeStore } from '../../stores/employees'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useLeaveTypesStore } from '../../stores/leaveTypes'
 import { useAuthStore } from '../../stores/auth'
-import { calculateEndDate, getWorkingDaysBetween, getChargedDaysBetween, getResumeDate, isWorkingDay } from '../../utils/calendar'
+import { calculateEndDate, isWorkingDay } from '../../utils/calendar'
 import { isEligible } from '../../lib/eligibility'
 import type { LeaveBalance } from '../../types'
 
@@ -50,7 +51,7 @@ if (categoryStore.categories.length === 0) categoryStore.fetchAll()
 // accessible à tout compte authentifié et suffit pour ce sélecteur.
 if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 
-// Un compte système (Employee.IsSystem, ex. "Admin Galana") n'a pas
+// Un compte système (Employee.IsSystem, ex. "Admin Congélo") n'a pas
 // d'existence RH réelle — jamais de solde, jamais éligible à un congé pour
 // lui-même — donc toujours "pour un employé" dès le départ, jamais "pour
 // moi-même" (voir ForWhomSelector.vue hideSelfOption, retour du 09/09).
@@ -151,7 +152,9 @@ const leaveTypeItems = computed(() =>
 const form = reactive({
   leaveTypeId:      props.initialLeaveTypeId ?? '',
   startDate:        '',
-  startPeriod:      'full' as 'full' | 'am' | 'pm',
+  // Retour client du 23/09 : "Journée entière" retiré des choix de début,
+  // "Matin" (jour plein) devient le choix par défaut plutôt que "full".
+  startPeriod:      'am' as 'full' | 'am' | 'pm',
   workingDaysCount: null as number | null,
   endDate:          '',
   endPeriod:        'full' as 'full' | 'am' | 'pm',
@@ -168,10 +171,10 @@ watch(leaveTypeItems, (items) => {
   }
 })
 const error = ref('')
-const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDays: '' })
+const errors = reactive({ employee: '', leaveType: '', startDate: '', workingDays: '', interim: '', justificatif: '' })
 
-const resumeDate = ref('')
-const daysMode   = ref<'from-days' | 'from-date'>('from-days')
+const resumeDate   = ref('')
+const resumePeriod = ref<'am' | 'pm'>('am')
 let calculating  = false
 
 // Regime de conges du beneficiaire (voir reunion Dominique du 12/06) — un
@@ -201,6 +204,39 @@ const effectiveCalendar = computed(() => {
 
 const currentType = computed(() => leaveTypesStore.leaveTypes.find(lt => lt.id === form.leaveTypeId) ?? null)
 const isMedicalType = computed(() => currentType.value?.workflowType === 'Medical')
+
+// Justificatif (piece jointe) : facultatif par defaut, obligatoire quand le
+// type d'absence l'exige (Configuration > Types d'absence > "Justificatif
+// obligatoire", retour client du 28/09). Pour un type medical, la declaration
+// est enregistree tout de suite (le certificat arrive souvent apres) : le
+// justificatif n'y est exige qu'a la regularisation, pas a la soumission.
+const justificatifRequired = computed(() => !!currentType.value?.documentRequired)
+const justificatifMandatoryNow = computed(() => justificatifRequired.value && !isMedicalType.value)
+
+// La demande n'a pas encore d'Id : les fichiers restent en memoire et ne
+// partent qu'apres la creation du brouillon (voir leaveRequestStore).
+const pendingFiles = ref<File[]>([])
+// Creation + envoi des fichiers + soumission durent plusieurs secondes : sans
+// ce verrou, un double clic creait deux demandes (ou deux brouillons), et
+// fermer la fenetre pendant l'envoi laissait l'operation orpheline.
+const saving = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+function triggerFileUpload() { fileInput.value?.click() }
+function onFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (file.size > MAX_ATTACHMENT_BYTES) { errors.justificatif = ATTACHMENT_TOO_LARGE_MESSAGE; return }
+  errors.justificatif = ''
+  pendingFiles.value.push(file)
+}
+function removePendingFile(i: number) { pendingFiles.value.splice(i, 1) }
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
 
 const isPastDate = computed(() => {
   if (!form.startDate) return false
@@ -241,30 +277,26 @@ const isBalanceInsufficient = computed(() => {
   return (chargedDaysCount.value ?? form.workingDaysCount) > myBalance.value.balance
 })
 
-const isNoticePeriodViolated = computed(() => {
-  if (!form.startDate || !currentType.value || isMedicalType.value || currentType.value.noticeDays === 0) return false
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const p     = form.startDate.split('-').map(Number)
-  const start = new Date(p[0] ?? 0, (p[1] ?? 1) - 1, p[2] ?? 1)
-  const diffDays = Math.ceil((start.getTime() - today.getTime()) / 86400000)
-  return diffDays < currentType.value.noticeDays
-})
-
-// Auto-calcule la date de fin quand début + nombre de jours changent — aussi
-// quand le calendrier termine son chargement (fetchCalendar() est async ;
-// sans ça, remplir le formulaire avant que la réponse arrive calculait la
-// reprise contre un calendrier vide, jamais recalculée ensuite).
+// Auto-calcule la date de fin (+ periode de fin, reprise) quand debut /
+// nombre de jours / periode de debut changent, aussi quand le calendrier
+// termine son chargement (fetchCalendar() est async ; sans ca, remplir le
+// formulaire avant que la reponse arrive calculait la reprise contre un
+// calendrier vide, jamais recalculee ensuite). Retour client du 23/09 :
+// "Date de fin"/"Periode de fin" ne sont plus des champs saisissables (le
+// nombre de jours suffit a tout calculer), donc plus qu'un seul mode de
+// calcul ici (auparavant "from-days" vs "from-date").
 watch(
   () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value, effectiveCalendar.value.holidays, currentType.value?.countCalendarDays] as const,
   ([start, days, period, , isExpat, , countCalendarDays]) => {
-    if (calculating || daysMode.value !== 'from-days') return
+    if (calculating) return
     if (!start || !days || days <= 0) { resumeDate.value = ''; chargedDaysCount.value = null; return }
     calculating = true
     try {
-      const result      = calculateEndDate(start, days, effectiveCalendar.value, period, isExpat, countCalendarDays ?? false)
-      form.endDate       = result.endDate
-      form.endPeriod      = result.endPeriod
-      resumeDate.value   = result.resumeDate
+      const result       = calculateEndDate(start, days, effectiveCalendar.value, period, isExpat, countCalendarDays ?? false)
+      form.endDate        = result.endDate
+      form.endPeriod       = result.endPeriod
+      resumeDate.value    = result.resumeDate
+      resumePeriod.value  = result.resumePeriod
       chargedDaysCount.value = result.chargedDays
     } finally {
       calculating = false
@@ -272,56 +304,28 @@ watch(
   },
 )
 
-function onDaysInput() { daysMode.value = 'from-days' }
-
-// Recalcule depuis des dates de debut/fin explicites (+ leurs demi-journees
-// eventuelles) — utilise aussi bien quand la date de fin est choisie
-// directement que quand une periode de bord (vendredi/lundi apres-midi…)
-// est modifiee ensuite, voir onEndDateChange/onPeriodChange.
-function onEndDateChange() {
-  if (calculating) return
-  if (!form.startDate || !form.endDate) return
-  daysMode.value = 'from-date'
-  calculating = true
-  try {
-    const days = getWorkingDaysBetween(form.startDate, form.endDate, effectiveCalendar.value, form.startPeriod, form.endPeriod, currentType.value?.countCalendarDays ?? false)
-    form.workingDaysCount = days
-    if (days > 0) {
-      chargedDaysCount.value = getChargedDaysBetween(
-        form.startDate, form.endDate, effectiveCalendar.value,
-        form.startPeriod, form.endPeriod, beneficiaryIsExpatriate.value, currentType.value?.countCalendarDays ?? false,
-      )
-      resumeDate.value = getResumeDate(form.endDate, effectiveCalendar.value)
-    } else {
-      chargedDaysCount.value = null
-      resumeDate.value = ''
-    }
-  } finally {
-    calculating = false
-    daysMode.value = 'from-days'
-  }
-}
-
-// La periode de fin (Matin/Après-midi/Journée entière) n'a d'effet que
-// lorsque la date de fin est choisie explicitement — en mode "nombre de
-// jours", endPeriod est un resultat du calcul (voir watcher plus haut), pas
-// une entree, et est de toute facon recalcule au prochain changement.
-function onEndPeriodChange() { onEndDateChange() }
-
 function formatDateFR(dateStr: string): string {
   const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc']
   const p = dateStr.split('-').map(Number)
   return `${p[2] ?? ''} ${MONTHS_FR[(p[1] ?? 1) - 1] ?? ''} ${p[0] ?? ''}`
 }
 
-function validate(): boolean {
-  errors.employee = ''; errors.leaveType = ''; errors.startDate = ''; errors.workingDays = ''
+// forSubmission : seulement à la soumission (create), pas à l'enregistrement
+// d'un brouillon (saveDraft), un brouillon est par nature incomplet. Retour
+// client du 23/09 : l'intérimaire devient obligatoire pour tout type
+// d'absence (avant, toujours optionnel, aucune condition ne le rendait
+// obligatoire). Meme logique pour le justificatif (retour du 28/09) quand le
+// type l'exige.
+function validate(forSubmission = true): boolean {
+  errors.employee = ''; errors.leaveType = ''; errors.startDate = ''; errors.workingDays = ''; errors.interim = ''; errors.justificatif = ''
   let ok = true
   if (forWhom.value.mode === 'for-employee' && !forWhom.value.employeeId) { errors.employee = 'Veuillez sélectionner un employé'; ok = false }
   if (!form.leaveTypeId) { errors.leaveType = 'Le type est obligatoire'; ok = false }
   if (!form.startDate) { errors.startDate = 'La date de début est obligatoire'; ok = false }
   if (isNotWorkingDay.value) { errors.startDate = "Ce jour n'est pas un jour ouvrable"; ok = false }
   if (!form.workingDaysCount || form.workingDaysCount <= 0) { errors.workingDays = 'Nombre de jours requis (min. 0.5)'; ok = false }
+  if (forSubmission && !isMedicalType.value && !form.interimEmployeeId) { errors.interim = "L'intérimaire est obligatoire"; ok = false }
+  if (forSubmission && justificatifMandatoryNow.value && pendingFiles.value.length === 0) { errors.justificatif = "Le justificatif est obligatoire pour ce type d'absence"; ok = false }
   // Solde insuffisant n'est plus bloquant (décision du 04/08, même
   // traitement que le préavis) — un avertissement reste affiché en rouge,
   // le validateur décide en connaissance de cause.
@@ -343,23 +347,31 @@ function buildPayload() {
 }
 
 async function create() {
-  if (!validate()) return
+  if (saving.value || !validate()) return
+  saving.value = true
   try {
-    await leaveRequestStore.createAndSubmit(buildPayload())
+    await leaveRequestStore.createAndSubmit(buildPayload(), [...pendingFiles.value])
     emit('created'); emit('close')
   } catch {
     error.value = leaveRequestStore.error ?? "La soumission a échoué. Veuillez réessayer."
+  } finally {
+    saving.value = false
   }
 }
 async function saveDraft() {
-  if (!validate()) return
+  if (saving.value || !validate(false)) return
+  saving.value = true
   try {
-    await leaveRequestStore.saveDraft(buildPayload())
+    await leaveRequestStore.saveDraft(buildPayload(), [...pendingFiles.value])
     emit('created'); emit('close')
   } catch {
     error.value = leaveRequestStore.error ?? "L'enregistrement a échoué. Veuillez réessayer."
+  } finally {
+    saving.value = false
   }
 }
+// Pas de fermeture (Echap, fond, fleche) pendant la creation/l'envoi.
+function onClose() { if (!saving.value) emit('close') }
 </script>
 
 <template>
@@ -369,7 +381,8 @@ async function saveDraft() {
     :create-label="isMedicalType ? 'Enregistrer la déclaration' : 'Soumettre la demande'"
     draft-label="Enregistrer le brouillon"
     :save-error="error"
-    @close="emit('close')"
+    :is-saving="saving"
+    @close="onClose"
     @create="create"
     @save-draft="saveDraft"
   >
@@ -402,9 +415,8 @@ async function saveDraft() {
 
               <div v-if="currentType" class="flex flex-wrap gap-1.5 mt-1.5">
                 <span :class="cls.hintChipNeutral"><Calendar class="w-3 h-3" /> Solde : {{ displayedBalance ? `${displayedBalance.balance} j` : `${currentType.daysPerYear} j/an` }}</span>
-                <span v-if="currentType.noticeDays > 0 && !isMedicalType" :class="cls.hintChipInfo"><Clock class="w-3 h-3" /> Préavis : {{ currentType.noticeDays }} jour(s)</span>
                 <span :class="currentType.documentRequired ? cls.hintChipWarning : cls.hintChipNeutral">
-                  <Paperclip class="w-3 h-3" /> Justificatif : {{ currentType.documentRequired ? 'Requis' : 'Non requis' }}
+                  <Paperclip class="w-3 h-3" /> Justificatif : {{ !currentType.documentRequired ? 'Non requis' : isMedicalType ? 'à fournir avant la régularisation' : 'Requis' }}
                 </span>
                 <span v-if="isMedicalType" :class="cls.hintChipInfo">Enregistrement direct, sans validation préalable</span>
               </div>
@@ -417,73 +429,95 @@ async function saveDraft() {
               <div v-if="isPastDate && !isMedicalType" :class="cls.fieldWarning"><TriangleAlert class="w-3.5 h-3.5 shrink-0" /> La date est dans le passé, confirmez-vous ?</div>
             </div>
 
+            <!-- Retour client du 23/09 : "Période de début" renommé "Début
+                 absence" (point manqué au premier passage), et "Journée
+                 entière" retiré, seuls Matin (jour plein) / Après-midi
+                 (demi-journée) restent. -->
             <div :class="cls.field">
-              <span :class="cls.fieldLabel">Période de début</span>
+              <span :class="cls.fieldLabel">Début absence</span>
               <div :class="cls.radioGroup">
-                <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="full" /><span>Journée entière</span></label>
                 <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="am" /><span>Matin</span></label>
                 <label :class="cls.radioItem"><input type="radio" v-model="form.startPeriod" value="pm" /><span>Après-midi</span></label>
               </div>
             </div>
 
-            <div :class="cls.fieldRow">
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Nombre de jours <span class="text-danger">*</span></label>
-                <input
-                  type="number" min="0.5" step="0.5"
-                  v-model.number="form.workingDaysCount"
-                  :class="[cls.fieldInput, errors.workingDays && cls.inputError]"
-                  placeholder="ex: 3.5"
-                  @input="onDaysInput"
-                />
-                <div v-if="errors.workingDays" :class="cls.fieldError">{{ errors.workingDays }}</div>
-              </div>
-              <div :class="cls.field">
-                <label :class="cls.fieldLabel">Date de fin</label>
-                <input
-                  type="date" v-model="form.endDate"
-                  :class="[cls.fieldInput, daysMode === 'from-days' && 'bg-primary/10 text-primary']"
-                  @change="onEndDateChange"
-                />
-                <span
-                  v-if="form.endDate && form.workingDaysCount"
-                  class="inline-flex items-center text-[11px] font-semibold rounded-md px-2 py-[3px] mt-1 w-fit"
-                  :class="isBalanceInsufficient ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'"
-                >{{ form.workingDaysCount }} {{ currentType?.countCalendarDays ? 'j calendaires' : 'j ouvrables' }}<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template></span>
-              </div>
-            </div>
-
+            <!-- Retour client du 23/09 : "Date de fin"/"Période de fin" ne
+                 sont plus saisissables, le nombre de jours (+ la période de
+                 début) suffit à tout calculer, voir "Reprise prévue" ci-dessous. -->
             <div :class="cls.field">
-              <span :class="cls.fieldLabel">Période de fin</span>
-              <div :class="cls.radioGroup">
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="full" @change="onEndPeriodChange" /><span>Journée entière</span></label>
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="am" @change="onEndPeriodChange" /><span>Matin</span></label>
-                <label :class="cls.radioItem"><input type="radio" v-model="form.endPeriod" value="pm" @change="onEndPeriodChange" /><span>Après-midi</span></label>
-              </div>
+              <label :class="cls.fieldLabel">Nombre de jours <span class="text-danger">*</span></label>
+              <input
+                type="number" min="0.5" step="0.5"
+                v-model.number="form.workingDaysCount"
+                :class="[cls.fieldInput, errors.workingDays && cls.inputError]"
+                placeholder="ex: 3.5"
+              />
+              <div v-if="errors.workingDays" :class="cls.fieldError">{{ errors.workingDays }}</div>
+              <span
+                v-if="form.endDate && form.workingDaysCount"
+                class="inline-flex items-center text-[11px] font-semibold rounded-md px-2 py-[3px] mt-1 w-fit"
+                :class="isBalanceInsufficient ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'"
+              >{{ form.workingDaysCount }} {{ currentType?.countCalendarDays ? 'j calendaires' : 'j ouvrables' }}<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template><template v-else-if="chargedDaysCount && chargedDaysCount < form.workingDaysCount"> (jour(s) férié(s) inclus = {{ chargedDaysCount }} j décomptés)</template></span>
             </div>
 
+            <!-- Retour client du 23/09 : mention Matin/Après-midi ajoutée
+                 (avant, toujours "le [date]" sans préciser le moment, et le
+                 jour affiché était parfois faux quand la demande se
+                 terminait le matin, voir calculateEndDate/getResumeDate). -->
             <div v-if="resumeDate" class="flex items-center gap-2 text-[13px] text-muted-foreground bg-primary/10 rounded-md px-3 py-2">
               <CalendarCheck class="w-4 h-4 text-primary shrink-0" />
-              <span>Reprise prévue le <strong class="text-primary">{{ formatDateFR(resumeDate) }}</strong></span>
+              <span>Reprise prévue le <strong class="text-primary">{{ formatDateFR(resumeDate) }}</strong> {{ resumePeriod === 'am' ? 'le matin' : "l'après-midi" }}</span>
             </div>
 
             <div v-if="isNotWorkingDay" :class="cls.fieldErrorBlock"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Ce jour n'est pas un jour ouvrable</div>
             <div v-if="isBalanceInsufficient" :class="cls.fieldErrorBlock"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant ({{ myBalance?.balance ?? 0 }} jours disponibles)</div>
-            <div v-if="isNoticePeriodViolated" :class="cls.fieldErrorBlock"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Préavis de {{ currentType?.noticeDays }} jour(s) requis pour ce type</div>
 
+            <!-- Retour client du 23/09 : obligatoire pour tout type d'absence
+                 (sauf déclaration médicale en enregistrement direct). -->
             <div :class="cls.field">
-              <label :class="cls.fieldLabel">Intérimaire <span :class="cls.fieldOptional">(optionnel)</span></label>
+              <label :class="cls.fieldLabel">Intérimaire <span v-if="!isMedicalType" class="text-danger">*</span><span v-else :class="cls.fieldOptional">(optionnel)</span></label>
               <SearchableDropdown
                 :items="interimItems"
                 :model-value="form.interimEmployeeId"
                 placeholder="Qui assure votre intérim ?"
                 @update:model-value="form.interimEmployeeId = String($event)"
               />
+              <div v-if="errors.interim" :class="cls.fieldError">{{ errors.interim }}</div>
             </div>
 
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Motif <span :class="cls.fieldOptional">(optionnel)</span></label>
               <textarea v-model="form.comment" :class="cls.fieldTextarea" rows="3" placeholder="Précisez si nécessaire…"></textarea>
+            </div>
+
+            <!-- Retour client du 28/09 : pièce jointe justificative, facultative
+                 par défaut, obligatoire si le type d'absence le demande (sauf
+                 déclaration médicale, exigée à la régularisation). -->
+            <div :class="cls.field">
+              <label :class="cls.fieldLabel">Justificatif <span v-if="justificatifMandatoryNow" class="text-danger">*</span><span v-else-if="isMedicalType && justificatifRequired" :class="cls.fieldOptional">(à fournir avant la régularisation)</span><span v-else :class="cls.fieldOptional">(optionnel)</span></label>
+              <input ref="fileInput" type="file" class="hidden" accept=".pdf,image/*,.doc,.docx" @change="onFileSelected" />
+              <div>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 px-3 py-[5px] rounded-md bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="saving"
+                  @click="triggerFileUpload"
+                >
+                  <Upload class="w-3.5 h-3.5" /> {{ pendingFiles.length === 0 ? 'Joindre un fichier' : 'Ajouter un autre fichier' }}
+                </button>
+              </div>
+              <ul v-if="pendingFiles.length > 0" class="flex flex-col gap-1.5 mt-1">
+                <li v-for="(f, i) in pendingFiles" :key="i" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-background border border-border text-[13px]">
+                  <Paperclip class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span class="flex-1 truncate text-foreground" :title="f.name">{{ f.name }}</span>
+                  <span class="text-[11px] text-muted-foreground shrink-0">{{ formatFileSize(f.size) }}</span>
+                  <button type="button" class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-danger shrink-0 disabled:opacity-50" title="Retirer" :disabled="saving" @click="removePendingFile(i)">
+                    <Trash2 class="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              </ul>
+              <div v-else-if="isMedicalType && justificatifRequired" class="text-[11px] text-muted-foreground">Le justificatif (ex : certificat médical) pourra être joint après la déclaration, il est requis pour la régularisation.</div>
+              <div v-if="errors.justificatif" :class="cls.fieldError">{{ errors.justificatif }}</div>
             </div>
           </div>
           </FormSection>

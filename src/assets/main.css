@@ -2,14 +2,14 @@
 
 /*
  * Design system P247 — tokens alignés sur P247_FD_LWL_APP/src/style.css,
- * thème "Vert Galana" (le frontdesk LWL est en orange, seul --color-primary
+ * thème vert (identité ex-Galana, conservée telle quelle — voir --congelo-*
  * et ses dérivés changent — la structure des tokens est identique).
  *
  * `static` : émet tous les tokens même non référencés — indispensable tant
  * que des <style scoped> legacy consomment les variables via var().
  */
 @theme static {
-  /* Green Professional Theme Colors (Galana) */
+  /* Green Professional Theme Colors */
   --color-background: oklch(97.5% 0.005 155);
   --color-foreground: oklch(15% 0.01 155);
 
@@ -19,7 +19,7 @@
   --color-popover: oklch(100% 0 0);
   --color-popover-foreground: oklch(11% 0.02 155);
 
-  /* Primary Green — vert Galana #006B3C */
+  /* Primary Green #006B3C */
   --color-primary: #006b3c;
   --color-primary-foreground: oklch(100% 0 0);
 
@@ -32,7 +32,7 @@
   --color-accent: oklch(93% 0.01 155);
   --color-accent-foreground: oklch(11% 0.02 155);
 
-  /* Destructive — rouge Galana #C8102E */
+  /* Destructive — rouge #C8102E */
   --color-destructive: #c8102e;
   --color-destructive-foreground: oklch(100% 0 0);
 
@@ -150,31 +150,32 @@
 }
 
 /*
- * ── Palette de marque Galana (hors @theme) ──────────────────────────
+ * ── Palette de marque Congélo (hors @theme) ─────────────────────────
  * Couleurs de marque brutes consommées par les composants qui gardent
  * du CSS scoped : l'organigramme (OrgChartView/OrgChartTree/OrgNode),
  * les avatars (UserAvatar) et l'onboarding. Le @theme ci-dessus reste
  * la source des tokens sémantiques ; ce bloc ne porte que l'identité
- * visuelle Galana qui n'a pas d'équivalent token sémantique.
+ * visuelle historique (couleurs Galana conservées) qui n'a pas d'équivalent
+ * token sémantique.
  */
 :root {
-  --galana-green: #006b3c;
-  --galana-green-dark: #00522e;
-  --galana-green-light: #e6f4ed;
-  --galana-green-mid: #cce9d9;
+  --congelo-green: #006b3c;
+  --congelo-green-dark: #00522e;
+  --congelo-green-light: #e6f4ed;
+  --congelo-green-mid: #cce9d9;
 
-  --galana-red: #c8102e;
-  --galana-red-light: #fdecea;
+  --congelo-red: #c8102e;
+  --congelo-red-light: #fdecea;
 
-  --galana-white: #ffffff;
+  --congelo-white: #ffffff;
 
   /* Niveaux organigramme */
-  --galana-direction-bg: #8b0000;
-  --galana-department-bg: #006b3c;
-  --galana-service-border: #006b3c;
+  --congelo-direction-bg: #8b0000;
+  --congelo-department-bg: #006b3c;
+  --congelo-service-border: #006b3c;
 
   /* Vert clair primaire (halos / hovers de l'organigramme & onboarding) */
-  --color-primary-light: var(--galana-green-light);
+  --color-primary-light: var(--congelo-green-light);
 
   /* Lignes de connexion de l'organigramme */
   --color-tree-line: rgba(0, 0, 0, 0.2);

@@ -27,8 +27,8 @@ const SIZES: Record<'sm' | 'md' | 'lg', string> = {
 }
 
 const COLORS = [
-  'var(--galana-green)',
-  'var(--galana-red)',
+  'var(--congelo-green)',
+  'var(--congelo-red)',
   'var(--color-info)',
   '#854F0B',
   '#993556',

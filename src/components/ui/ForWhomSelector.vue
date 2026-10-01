@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col gap-2.5">
     <!-- hideSelfOption : compte systeme (Employee.IsSystem, ex. "Admin
-         Galana") — pas un vrai membre du personnel, "Pour moi-même" n'a
+         Congélo") — pas un vrai membre du personnel, "Pour moi-même" n'a
          aucun sens (aucun solde/existence RH reelle a lui). On saute
          directement au picker ci-dessous, pas de bascule a afficher pour un
          choix qui n'en est plus un. -->

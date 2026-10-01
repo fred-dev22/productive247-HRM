@@ -4,9 +4,9 @@
     <!-- ── En-tête minimal ── -->
     <header class="h-[60px] shrink-0 bg-card border-b border-border shadow-[0_1px_4px_rgba(0,0,0,0.06)] px-10 flex items-center justify-between max-[480px]:px-4">
       <div class="flex items-center">
-        <img src="/galana.webp" alt="Galana" class="h-[34px] block" />
+        <img src="/congelo-icon.webp" alt="Congélo" class="h-[34px] block" />
         <span class="w-px h-5 mx-3.5 bg-border" aria-hidden="true"></span>
-        <span class="text-base font-extrabold tracking-[0.05em] text-foreground">GALANA</span>
+        <span class="text-base font-extrabold tracking-[0.05em] text-foreground">CONGÉLO</span>
       </div>
       <span class="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-[11px] font-semibold">Configuration initiale</span>
     </header>
@@ -271,9 +271,9 @@ const cardFoot = 'px-7 py-4 border-t border-border flex items-center max-md:px-4
 const btnPrimary = 'inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold cursor-pointer border-0 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap max-[480px]:w-full max-[480px]:justify-center'
 const btnOutline = 'inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold cursor-pointer bg-card text-foreground border border-border transition-colors hover:bg-background whitespace-nowrap max-[480px]:w-full max-[480px]:justify-center'
 
-// Dégradé de fond (vert clair → blanc → rouge clair Galana)
+// Dégradé de fond (vert clair → blanc → rouge clair, identité ex-Galana)
 const bgStyle = {
-  background: 'linear-gradient(135deg, var(--galana-green-light) 0%, #ffffff 50%, var(--galana-red-light) 100%)',
+  background: 'linear-gradient(135deg, var(--congelo-green-light) 0%, #ffffff 50%, var(--congelo-red-light) 100%)',
 }
 
 // ── Étapes (suivent exactement les 3 onglets de l'écran Calendrier) ──

@@ -40,9 +40,13 @@
           <span class="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" :class="statusClass">{{ statusText }}</span>
         </div>
 
-        <!-- Actions -->
+        <!-- Actions : Voir/Modifier ouvrent toujours la fiche complète
+             directement (jamais l'aperçu rapide, réservé à l'organigramme
+             graphique, retour client du 23/09), et jamais la page
+             /edit séparée : "Modifier" ouvre la même fiche, l'édition se
+             fait dedans, comme partout ailleurs dans l'app. -->
         <div class="flex gap-1 shrink-0">
-          <button :class="actBtn" @click.stop="navigateToDetail(entity.id)">
+          <button :class="actBtn" @click.stop="openEntityCard(entity.id)">
             Voir →
           </button>
           <button
@@ -55,11 +59,11 @@
             :class="[actBtn, 'bg-success-bg text-success']"
             @click.stop="approveEntity"
           >Approuver</button>
-          <router-link
+          <button
             v-if="entity.status === 'Active'"
-            :to="{ name: 'hr-entity-edit', params: { id: entity.id } }"
             :class="actBtn"
-          >Modifier</router-link>
+            @click.stop="openEntityCard(entity.id)"
+          >Modifier</button>
         </div>
       </div>
     </div>
@@ -93,8 +97,12 @@ const router         = useRouter()
 const store          = useEntityStore()
 const collapsedIds   = inject<Ref<string[]>>('entity-collapsed')!
 const toggleCollapse = inject<(id: string) => void>('entity-toggle')!
-const navigateToDetail = inject<(id: string) => void>(
-  'navigate-to-detail',
+// Distinct de 'navigate-to-detail' (aperçu rapide, utilisé par
+// OrgChartView.vue/organigramme graphique uniquement) : la vue arbre garde
+// son comportement d'origine, Voir/Modifier ouvrent directement la fiche
+// complète (retour client du 23/09).
+const openEntityCard = inject<(id: string) => void>(
+  'open-entity-card',
   (id: string) => router.push({ name: 'hr-entity-detail', params: { id } })
 )
 
@@ -115,23 +123,23 @@ const typeIcon = computed(() => {
   return map[props.entity.type] ?? Building
 })
 
-// Accent bordure gauche selon le niveau (couleurs organigramme Galana)
+// Accent bordure gauche selon le niveau (couleurs organigramme, identité ex-Galana)
 const cardBorder = computed(() => {
   const map: Record<string, string> = {
-    Direction:  '4px solid var(--galana-direction-bg)',
-    Department: '3px solid var(--galana-department-bg)',
-    Service:    '2px solid var(--galana-service-border)',
+    Direction:  '4px solid var(--congelo-direction-bg)',
+    Department: '3px solid var(--congelo-department-bg)',
+    Service:    '2px solid var(--congelo-service-border)',
   }
   return { borderLeft: map[props.entity.type] ?? '2px solid var(--color-border)' }
 })
 
 const typeColor = computed(() => {
   const map: Record<string, { background: string; color: string }> = {
-    Direction:  { background: 'var(--galana-red-light)',   color: 'var(--galana-red)' },
-    Department: { background: 'var(--galana-green-light)', color: 'var(--galana-green)' },
-    Service:    { background: 'var(--galana-green-light)', color: 'var(--galana-green)' },
+    Direction:  { background: 'var(--congelo-red-light)',   color: 'var(--congelo-red)' },
+    Department: { background: 'var(--congelo-green-light)', color: 'var(--congelo-green)' },
+    Service:    { background: 'var(--congelo-green-light)', color: 'var(--congelo-green)' },
   }
-  return map[props.entity.type] ?? { background: 'var(--galana-green-light)', color: 'var(--galana-green)' }
+  return map[props.entity.type] ?? { background: 'var(--congelo-green-light)', color: 'var(--congelo-green)' }
 })
 
 // ── Status helpers ────────────────────────────────────────────
@@ -164,7 +172,7 @@ function approveEntity() { store.approveEntity(props.entity.id) }
 .org-children {
   margin-left: 32px;
   padding-left: 22px;
-  border-left: 2px solid var(--galana-green-mid);
+  border-left: 2px solid var(--congelo-green-mid);
   margin-top: 6px;
   padding-bottom: 2px;
 }
@@ -179,7 +187,7 @@ function approveEntity() { store.approveEntity(props.entity.id) }
   top: 22px;
   width: 22px;
   height: 2px;
-  background: var(--galana-green-mid);
+  background: var(--congelo-green-mid);
 }
 .org-child:last-child::after {
   content: '';

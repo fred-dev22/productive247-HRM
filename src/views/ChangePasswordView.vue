@@ -4,9 +4,9 @@
     <!-- ── En-tête minimal ── -->
     <header class="h-[60px] shrink-0 bg-card border-b border-border shadow-[0_1px_4px_rgba(0,0,0,0.06)] px-10 flex items-center justify-between max-[480px]:px-4">
       <div class="flex items-center">
-        <img src="/galana.webp" alt="Galana" class="h-[34px] block" />
+        <img src="/congelo-icon.webp" alt="Congélo" class="h-[34px] block" />
         <span class="w-px h-5 mx-3.5 bg-border" aria-hidden="true"></span>
-        <span class="text-base font-extrabold tracking-[0.05em] text-foreground">GALANA</span>
+        <span class="text-base font-extrabold tracking-[0.05em] text-foreground">CONGÉLO</span>
       </div>
       <span class="bg-warning/10 text-warning border border-warning/20 px-3 py-1 rounded-full text-[11px] font-semibold">Sécurité du compte</span>
     </header>

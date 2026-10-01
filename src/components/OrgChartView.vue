@@ -7,7 +7,7 @@
       </span>
     </div>
 
-    <div class="orgchart-body">
+    <div class="orgchart-body" @click="closeEntityPeek">
       <Vue3OrgChart v-if="store.orgChartEntities.length" :data="store.orgChartEntities">
         <template #node="{ item, children, open, toggleChildren }">
           <div
@@ -71,7 +71,7 @@ const store   = useEntityStore()
 const navStore = useNavigationStore()
 const router   = useRouter()
 
-// Quand rendu dans EntityListView, ouvre la fiche en MODAL via le provide ;
+// Quand rendu dans EntityListView, ouvre l'aperçu rapide via le provide ;
 // sinon, navigation vers la page de détail (fallback).
 const navigateToDetail = inject<((id: string) => void) | null>('navigate-to-detail', null)
 function onNodeClick(id: string) {
@@ -79,6 +79,12 @@ function onNodeClick(id: string) {
   navStore.setPreviousRoute({ name: 'hr-entities', query: { tab: 'orgchart' } })
   router.push({ name: 'hr-entity-detail', params: { id } })
 }
+
+// Referme l'aperçu rapide au clic ailleurs que sur un nœud (fond du
+// canevas), retour client du 23/09. Les clics sur un nœud font @click.stop
+// (voir template), donc ce handler, posé sur le conteneur, ne se déclenche
+// que pour un clic hors nœud.
+const closeEntityPeek = inject<() => void>('close-entity-peek', () => {})
 </script>
 
 <style scoped>
@@ -137,17 +143,17 @@ function onNodeClick(id: string) {
 }
 
 .org-node--direction {
-  background: var(--galana-green);
-  color: var(--galana-white);
+  background: var(--congelo-green);
+  color: var(--congelo-white);
 }
 .org-node--department {
   background: #1A8A50;
-  color: var(--galana-white);
+  color: var(--congelo-white);
 }
 .org-node--service {
   background: var(--color-card);
   color: var(--color-foreground);
-  border: 1.5px solid var(--galana-red);
+  border: 1.5px solid var(--congelo-red);
 }
 
 .org-node__code-badge {
@@ -163,8 +169,8 @@ function onNodeClick(id: string) {
   color: inherit;
 }
 .org-node--service .org-node__code-badge {
-  background: var(--galana-red-light);
-  color: var(--galana-red);
+  background: var(--congelo-red-light);
+  color: var(--congelo-red);
 }
 
 .org-node__header {
@@ -234,13 +240,13 @@ function onNodeClick(id: string) {
   transition: background 0.12s;
 }
 .org-node--service .org-node__toggle {
-  border-color: var(--galana-red);
-  color: var(--galana-red);
+  border-color: var(--congelo-red);
+  color: var(--congelo-red);
 }
 .org-node__toggle:hover { background: var(--color-primary-light); }
 
 /* Surcharger les lignes de connexion vue3-org-chart */
 :deep(.vue3-org-chart-container) {
-  --vue3-org-chart-line-color: var(--galana-green);
+  --vue3-org-chart-line-color: var(--congelo-green);
 }
 </style>
