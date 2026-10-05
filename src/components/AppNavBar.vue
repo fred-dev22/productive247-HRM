@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- ── BARRE 2 : NavBar (blanche) ── -->
   <div class="bg-nav h-12 px-5 border-b border-black/10 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center shrink-0">
     <div class="flex items-center shrink-0">
@@ -8,7 +8,7 @@
     </div>
 
     <!-- Items HR -->
-    <div class="ml-auto hidden md:flex" v-if="auth.isHRSpace && !isMobileMenuOpen">
+    <div class="ml-auto hidden md:flex" v-if="auth.isHRSpace">
       <div
         v-for="item in hrNavItems"
         :key="item.key"
@@ -18,7 +18,7 @@
     </div>
 
     <!-- Items Employé / Validateur -->
-    <div class="ml-auto hidden md:flex" v-if="auth.isEmployeeSpace && !isMobileMenuOpen">
+    <div class="ml-auto hidden md:flex" v-if="auth.isEmployeeSpace">
       <template v-for="item in empNavItems" :key="item.key">
         <router-link
           v-if="item.to"
@@ -39,44 +39,27 @@
 
     <button
       class="w-8 h-8 rounded-md items-center justify-center cursor-pointer text-muted-foreground transition-colors hover:bg-background flex md:hidden ml-2"
-      @click="isMobileMenuOpen = !isMobileMenuOpen"
+      @click="navStore.toggleMobileMenu()"
     >
-      <X v-if="isMobileMenuOpen" class="w-5 h-5" />
+      <X v-if="navStore.mobileMenuOpen" class="w-5 h-5" />
       <Menu v-else class="w-5 h-5" />
     </button>
   </div>
 
-  <!-- Mobile overlay + menu -->
-  <div v-if="isMobileMenuOpen" class="fixed inset-0 bg-black/30 z-[140] md:hidden" @click="isMobileMenuOpen = false"></div>
-  <div v-if="isMobileMenuOpen" class="fixed top-[92px] inset-x-0 bg-white border-b border-border shadow-lg z-[150] py-2 md:hidden">
-    <template v-if="auth.isHRSpace">
-      <div v-for="item in hrNavItems" :key="item.key"
-        :class="mobileItemClass" @click="handleHRNav(item.key); isMobileMenuOpen = false">
-        {{ item.label }}
-      </div>
-    </template>
-    <template v-else>
-      <template v-for="item in empNavItems" :key="item.key">
-        <router-link v-if="item.to" :to="item.to" :class="mobileItemClass" @click="isMobileMenuOpen = false">
-          {{ item.label }}
-        </router-link>
-        <div v-else :class="[mobileItemClass, 'opacity-40 cursor-not-allowed']">{{ item.label }}</div>
-      </template>
-    </template>
-  </div>
+  <!-- Mobile : voile derriere le tiroir (la barre laterale, voir AppSidebar). -->
+  <div v-if="navStore.mobileMenuOpen" class="fixed inset-0 bg-black/30 z-[140] md:hidden" @click="navStore.closeMobileMenu()"></div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { X, Menu } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
 import { useLeaveRequestStore } from '../stores/leaveRequests'
-import { PLACEHOLDER_MODULES_ENABLED } from '../config/features'
+import { useHrModules } from '../composables/useHrModules'
 
-const router       = useRouter()
 const route        = useRoute()
 const auth         = useAuthStore()
 const navStore     = useNavigationStore()
@@ -107,38 +90,8 @@ const navItemOuterClass =
 // voir binding ternaire dans le template.
 const navItemInnerClass = 'inline-flex items-center gap-1 border-b-2 pb-1 transition-colors'
 const navItemActiveClass = 'text-primary border-primary font-semibold'
-const mobileItemClass =
-  'flex items-center px-5 py-3 text-sm font-medium text-foreground/80 cursor-pointer border-b border-border last:border-0 no-underline hover:bg-background hover:text-primary'
 
-// 'administration' contient des fonctionnalités réelles couvertes par des
-// permissions — masqué si l'utilisateur n'en a aucune. 'recruitment'/
-// 'training'/'payroll'/'reports' restent des modules placeholder (voir
-// PLACEHOLDER_MODULES_ENABLED, src/config/features.ts) — masqués tant
-// qu'ils ne sont pas construits.
-const hrNavItems = computed(() => [
-  { key: 'administration', label: t('nav.admin'), visible: auth.hasAnyPermission([
-    'EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE', 'ENTITE_VOIR',
-    'MISSION_VOIR_TOUT', 'MISSION_VOIR_EQUIPE', 'FRAIS_VOIR_TOUT', 'FRAIS_VOIR_EQUIPE',
-    'CONGE_VOIR_TOUT', 'CONGE_VOIR_EQUIPE',
-    'CONFIG_CALENDRIER', 'CONFIG_FRAIS_MISSION',
-  ]) },
-  { key: 'recruitment', label: t('nav.recruitment'), visible: PLACEHOLDER_MODULES_ENABLED },
-  { key: 'training',    label: t('nav.training'),    visible: PLACEHOLDER_MODULES_ENABLED },
-  { key: 'payroll',     label: t('nav.payroll'),      visible: PLACEHOLDER_MODULES_ENABLED },
-  { key: 'reports', label: t('nav.reports'), visible: PLACEHOLDER_MODULES_ENABLED && auth.hasAnyPermission(['RAPPORT_VOIR', 'ENTITE_VOIR']) },
-].filter((item) => item.visible))
-
-function handleHRNav(key: string) {
-  navStore.setModule(key)
-  const defaults: Record<string, string> = {
-    administration: 'hr-dashboard',
-    recruitment:    'hr-recruitment',
-    training:       'hr-training',
-    payroll:        'hr-payroll',
-    reports:        'hr-reports',
-  }
-  if (defaults[key]) router.push({ name: defaults[key] })
-}
+const { hrNavItems, handleHRNav } = useHrModules()
 
 interface NavItem { key: string; label: string; to?: { name: string }; badge?: number }
 
@@ -154,6 +107,4 @@ const contextLabel = computed(() => {
   if (auth.isValidator)  return 'MANAGER · CONGÉLO'
   return t('nav.context_employee')
 })
-
-const isMobileMenuOpen = ref(false)
 </script>
