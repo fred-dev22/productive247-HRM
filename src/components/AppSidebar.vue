@@ -1,14 +1,14 @@
 ﻿<template>
   <!--
     Grand ecran : barre laterale fixe (reductible). Petit ecran (< md) : masquee,
-    et ouverte en tiroir par le menu burger (navStore.mobileMenuOpen) — sans
+    et ouverte en panneau deroulant par le menu burger (navStore.mobileMenuOpen) — sans
     cela, les sous-onglets etaient inaccessibles sur telephone.
   -->
   <aside
     class="shrink-0 bg-sidebar border-r border-sidebar-border py-2.5 transition-[width] duration-200 ease-in-out"
     :class="[
       navStore.mobileMenuOpen
-        ? 'fixed top-[92px] bottom-0 left-0 z-[150] w-[270px] flex flex-col shadow-xl md:relative md:top-auto md:bottom-auto md:left-auto md:z-auto md:shadow-none'
+        ? 'fixed top-[92px] inset-x-0 z-[150] flex flex-col max-h-[calc(100vh-92px)] shadow-lg !border-r-0 border-b md:relative md:top-auto md:inset-x-auto md:z-auto md:max-h-none md:shadow-none md:!border-r md:border-b-0'
         : 'relative hidden md:flex md:flex-col',
       collapsed ? 'md:w-[60px]' : 'md:w-[220px]',
     ]"
@@ -27,16 +27,6 @@
 
   <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-[5px]">
 
-    <!-- Petit ecran : choix du module (Administration, ...) quand il y en a plusieurs -->
-    <div v-if="auth.isHRSpace && hrNavItems.length > 1" class="md:hidden mb-2 pb-2 border-b border-sidebar-border">
-      <div
-        v-for="item in hrNavItems"
-        :key="item.key"
-        class="px-5 py-2.5 text-[13px] font-semibold cursor-pointer select-none"
-        :class="navStore.activeModule === item.key ? 'text-primary' : 'text-foreground/80'"
-        @click="handleHRNav(item.key)"
-      >{{ item.label }}</div>
-    </div>
     <!-- Session en cours de restauration (rechargement de page) -->
     <SkeletonLoader v-if="auth.isRestoring" type="list" :lines="6" class="px-2" />
 
@@ -44,7 +34,8 @@
     <template v-else-if="auth.isHRSpace">
 
       <!-- MODULE : Administration -->
-      <template v-if="navStore.activeModule === 'administration'">
+      <ModuleHeader module-key="administration" />
+      <template v-if="showModule('administration')">
         <SidebarSection :label="t('sidebar.dashboard')">
           <SidebarItem :icon="LayoutDashboard" :label="t('sidebar.overview')"    :to="{ name: 'hr-dashboard' }" />
           <SidebarItem :icon="CalendarRange"   :label="t('sidebar.my_planning')" :to="{ name: 'hr-planning' }" />
@@ -71,7 +62,8 @@
       </template>
 
       <!-- MODULE : Recrutement -->
-      <template v-else-if="navStore.activeModule === 'recruitment'">
+      <ModuleHeader module-key="recruitment" />
+      <template v-if="showModule('recruitment')">
         <SidebarSection :label="t('nav.recruitment')">
           <SidebarItem :icon="LayoutDashboard" :label="t('sidebar.dashboard')"    :to="{ name: 'hr-recruitment' }" />
           <SidebarItem :icon="Briefcase"       :label="t('sidebar.job_offers')"   :to="{ name: 'hr-recruitment-positions' }" />
@@ -92,7 +84,8 @@
       </template>
 
       <!-- MODULE : Formation -->
-      <template v-else-if="navStore.activeModule === 'training'">
+      <ModuleHeader module-key="training" />
+      <template v-if="showModule('training')">
         <SidebarSection :label="t('nav.training')">
           <SidebarItem :icon="LayoutDashboard" :label="t('sidebar.dashboard')"   :to="{ name: 'hr-training' }" />
           <SidebarItem :icon="Library"         :label="t('sidebar.catalog')"     :to="{ name: 'hr-training-catalog' }" />
@@ -111,7 +104,8 @@
       </template>
 
       <!-- MODULE : Paie -->
-      <template v-else-if="navStore.activeModule === 'payroll'">
+      <ModuleHeader module-key="payroll" />
+      <template v-if="showModule('payroll')">
         <SidebarSection :label="t('nav.payroll')">
           <SidebarItem :icon="LayoutDashboard" :label="t('sidebar.dashboard')"   :to="{ name: 'hr-payroll' }" />
           <SidebarItem :icon="Calendar"        :label="t('sidebar.pay_periods')" :to="{ name: 'hr-payroll-periods' }" />
@@ -137,7 +131,8 @@
       </template>
 
       <!-- MODULE : Rapports -->
-      <template v-else-if="navStore.activeModule === 'reports'">
+      <ModuleHeader module-key="reports" />
+      <template v-if="showModule('reports')">
         <SidebarSection v-if="auth.hasPermission('RAPPORT_VOIR') || auth.hasPermission('ENTITE_VOIR')" :label="t('sidebar.reports')">
           <SidebarItem v-if="auth.hasPermission('RAPPORT_VOIR')" :icon="BarChart3" :label="t('sidebar.statistics')" :to="{ name: 'hr-statistics' }" />
           <SidebarItem v-if="auth.hasPermission('ENTITE_VOIR')"  :icon="Network"   :label="t('sidebar.org_chart')"  :to="{ name: 'hr-org-chart' }" />
@@ -204,7 +199,7 @@ import {
   Inbox, GraduationCap, FilePlus, FileText, Clock, Library, UserPlus, Flame,
   Snowflake, Star, Landmark, ReceiptText, List, Clock3, Upload, AlarmClock, Table,
   TrendingUp, Gift, BarChart3, ArrowLeftRight, Percent, TrendingDown,
-  FileSpreadsheet, Plug, ClipboardCheck, Tags, ChevronLeft, ChevronRight,
+  FileSpreadsheet, Plug, ClipboardCheck, Tags, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
 } from 'lucide-vue-next'
 import { useAuthStore }       from '../stores/auth'
 import { useNavigationStore } from '../stores/navigation'
@@ -264,7 +259,22 @@ desktopQuery.addEventListener('change', onDesktopChange)
 onBeforeUnmount(() => desktopQuery.removeEventListener('change', onDesktopChange))
 const compact = computed(() => collapsed.value && isDesktop.value)
 
-// Le tiroir se referme des qu'on navigue (clic sur un sous-onglet).
+// Petit ecran : chaque module est un menu repliable (on deplie "Administration"
+// pour voir ses sous-menus ; les futurs modules s'afficheront pareil). Grand
+// ecran : seul le module actif est affiche, comme avant.
+const expandedModules = ref<string[]>([navStore.activeModule])
+const isExpanded = (key: string) => expandedModules.value.includes(key)
+function toggleModule(key: string) {
+  expandedModules.value = isExpanded(key)
+    ? expandedModules.value.filter(k => k !== key)
+    : [...expandedModules.value, key]
+}
+function showModule(key: string): boolean {
+  if (isDesktop.value) return navStore.activeModule === key
+  return hrNavItems.value.some(i => i.key === key) && isExpanded(key)
+}
+
+// Le menu se referme des qu'on navigue (clic sur un sous-onglet).
 watch(() => route.fullPath, () => navStore.closeMobileMenu())
 
 // ── Classes du design system (tokens sidebar) ────────────────
@@ -278,6 +288,23 @@ const badgeClass =
 // ── Sub-components définis inline ────────────────────────────
 // Réfèrent `collapsed` par fermeture (même portée que le setup() parent) —
 // pas besoin de le repasser en prop sur chaque usage dans le template.
+const ModuleHeader = defineComponent({
+  props: { moduleKey: { type: String, required: true } },
+  setup(props) {
+    return () => {
+      const item = hrNavItems.value.find(i => i.key === props.moduleKey)
+      if (isDesktop.value || !item) return null
+      const open = isExpanded(props.moduleKey)
+      return h('button', {
+        type: 'button',
+        class: 'w-full flex items-center justify-between px-5 py-3 text-sm font-semibold border-b border-sidebar-border cursor-pointer select-none ' + (open ? 'text-primary' : 'text-foreground/80'),
+        'aria-expanded': String(open),
+        onClick: () => toggleModule(props.moduleKey),
+      }, [h('span', item.label), h(open ? ChevronUp : ChevronDown, { class: 'w-4 h-4 shrink-0', 'aria-hidden': 'true' })])
+    }
+  },
+})
+
 const SidebarSection = defineComponent({
   props: { label: String },
   setup(props, { slots }) {
