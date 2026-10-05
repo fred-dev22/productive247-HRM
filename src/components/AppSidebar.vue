@@ -1,13 +1,23 @@
-<template>
+﻿<template>
+  <!--
+    Grand ecran : barre laterale fixe (reductible). Petit ecran (< md) : masquee,
+    et ouverte en tiroir par le menu burger (navStore.mobileMenuOpen) — sans
+    cela, les sous-onglets etaient inaccessibles sur telephone.
+  -->
   <aside
-    class="relative shrink-0 bg-sidebar border-r border-sidebar-border py-2.5 hidden md:flex md:flex-col transition-[width] duration-200 ease-in-out"
-    :class="collapsed ? 'w-[60px]' : 'w-[220px]'"
+    class="shrink-0 bg-sidebar border-r border-sidebar-border py-2.5 transition-[width] duration-200 ease-in-out"
+    :class="[
+      navStore.mobileMenuOpen
+        ? 'fixed top-[92px] bottom-0 left-0 z-[150] w-[270px] flex flex-col shadow-xl md:relative md:top-auto md:bottom-auto md:left-auto md:z-auto md:shadow-none'
+        : 'relative hidden md:flex md:flex-col',
+      collapsed ? 'md:w-[60px]' : 'md:w-[220px]',
+    ]"
   >
 
   <!-- Réduire / agrandir — bouton flottant au milieu du bord droit -->
   <button
     type="button"
-    class="absolute top-1/2 -right-3 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-card border border-border text-muted-foreground cursor-pointer flex items-center justify-center shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+    class="absolute top-1/2 -right-3 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-card border border-border text-muted-foreground cursor-pointer hidden md:flex items-center justify-center shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     :title="collapsed ? 'Agrandir' : 'Réduire'"
     @click="toggleCollapsed"
   >
@@ -17,6 +27,16 @@
 
   <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-[5px]">
 
+    <!-- Petit ecran : choix du module (Administration, ...) quand il y en a plusieurs -->
+    <div v-if="auth.isHRSpace && hrNavItems.length > 1" class="md:hidden mb-2 pb-2 border-b border-sidebar-border">
+      <div
+        v-for="item in hrNavItems"
+        :key="item.key"
+        class="px-5 py-2.5 text-[13px] font-semibold cursor-pointer select-none"
+        :class="navStore.activeModule === item.key ? 'text-primary' : 'text-foreground/80'"
+        @click="handleHRNav(item.key)"
+      >{{ item.label }}</div>
+    </div>
     <!-- Session en cours de restauration (rechargement de page) -->
     <SkeletonLoader v-if="auth.isRestoring" type="list" :lines="6" class="px-2" />
 
@@ -175,8 +195,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, ref, watch, type Component, type PropType } from 'vue'
-import { RouterLink }         from 'vue-router'
+import { computed, defineComponent, h, onBeforeUnmount, ref, watch, type Component, type PropType } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n }            from 'vue-i18n'
 import {
   LayoutDashboard, CalendarRange, CalendarOff, PieChart, Users, Building, Plane,
@@ -193,8 +213,11 @@ import { useMissionStore } from '../stores/missions'
 import { useExpenseStore } from '../stores/expenses'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
 import { MISSIONS_EXPENSES_ENABLED } from '../config/features'
+import { useHrModules } from '../composables/useHrModules'
 
 const { t }        = useI18n()
+const route         = useRoute()
+const { hrNavItems, handleHRNav } = useHrModules()
 const auth         = useAuthStore()
 const navStore     = useNavigationStore()
 const leaveStore   = useLeaveRequestStore()
@@ -232,6 +255,18 @@ const collapsed = ref(localStorage.getItem(COLLAPSE_KEY) === '1')
 function toggleCollapsed() { collapsed.value = !collapsed.value }
 watch(collapsed, (v) => localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'))
 
+// Le mode "reduit" (icones seules) ne s'applique qu'a la barre fixe des grands
+// ecrans : dans le tiroir mobile on veut toujours les libelles.
+const desktopQuery = window.matchMedia('(min-width: 768px)')
+const isDesktop = ref(desktopQuery.matches)
+const onDesktopChange = (e: MediaQueryListEvent) => { isDesktop.value = e.matches }
+desktopQuery.addEventListener('change', onDesktopChange)
+onBeforeUnmount(() => desktopQuery.removeEventListener('change', onDesktopChange))
+const compact = computed(() => collapsed.value && isDesktop.value)
+
+// Le tiroir se referme des qu'on navigue (clic sur un sous-onglet).
+watch(() => route.fullPath, () => navStore.closeMobileMenu())
+
 // ── Classes du design system (tokens sidebar) ────────────────
 const itemClass =
   'flex items-center gap-2 py-[7px] pr-4 pl-6 text-[13px] text-muted-foreground cursor-pointer transition-colors no-underline select-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
@@ -247,7 +282,7 @@ const SidebarSection = defineComponent({
   props: { label: String },
   setup(props, { slots }) {
     return () => {
-      if (collapsed.value) return h('div', { class: 'mb-1' }, slots.default?.())
+      if (compact.value) return h('div', { class: 'mb-1' }, slots.default?.())
       return h('div', { class: 'mb-1' }, [
         h('div', { class: 'text-[10px] font-bold text-muted-foreground uppercase tracking-[0.07em] pt-2 pb-1 pr-4 pl-5' }, props.label),
         slots.default?.(),
@@ -268,7 +303,7 @@ const SidebarItem = defineComponent({
     return () => {
       const iconEl  = h(props.icon, { class: 'w-4 h-4 shrink-0', 'aria-hidden': 'true' })
 
-      if (collapsed.value) {
+      if (compact.value) {
         // Réduit à un simple point (pas de chiffre, pas de place pour ça) —
         // positionné en absolu, l'item redevient donc position: relative.
         const dotEl = props.badge > 0
