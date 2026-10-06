@@ -70,10 +70,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Eye, EyeOff, ArrowRight } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
+import { getApiErrorMessage } from '../lib/api'
 
 const router = useRouter()
 const auth   = useAuthStore()
@@ -98,9 +100,15 @@ async function handleLogin() {
   loading.value = true
   try {
     await auth.login(email.value, password.value)
-    router.push(auth.isHRSpace ? { name: 'hr-dashboard' } : { name: 'employee-dashboard' })
-  } catch {
-    error.value = t('login.error_invalid')
+    await router.push(auth.isHRSpace ? { name: 'hr-dashboard' } : { name: 'employee-dashboard' })
+  } catch (err) {
+    // Identifiants : uniquement 401 sur le POST login. Toute autre erreur
+    // (hydratation post-login, permissions, etc.) doit afficher le vrai message.
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      error.value = t('login.error_invalid')
+    } else {
+      error.value = getApiErrorMessage(err, t('login.error_session'))
+    }
   } finally {
     loading.value = false
   }

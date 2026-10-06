@@ -31,6 +31,7 @@
     "loading": "Connexion en cours…",
     "error_fields": "Veuillez remplir tous les champs.",
     "error_invalid": "Email ou mot de passe incorrect.",
+    "error_session": "Connexion réussie, mais impossible de charger votre session. Réessayez ou contactez le support.",
     "forgot_password": "Mot de passe oublié ?",
     "forgot_password_message": "Contactez votre administrateur RH pour réinitialiser votre mot de passe."
   },
