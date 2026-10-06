@@ -235,6 +235,7 @@
     "placeholder_last": "e.g. Diallo",
     "placeholder_code": "EMP001",
     "placeholder_email": "first.last@galana.com",
+    "email_account_hint": "This employee has a login account: changing this email also changes their login and the address that receives their emails.",
     "placeholder_phone": "+230 5xx xxxx",
     "placeholder_job": "e.g. HR Assistant",
     "placeholder_position": "Position code",
