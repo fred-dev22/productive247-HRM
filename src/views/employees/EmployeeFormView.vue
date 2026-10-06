@@ -43,6 +43,7 @@
                   <label :class="cls.fieldLabel">{{ t('employee.field_email') }} <span class="text-danger">*</span></label>
                   <input v-model="form.email" type="email" :class="[cls.fieldInput, err.email && cls.inputError]" :placeholder="t('employee.placeholder_email')" />
                   <div v-if="err.email" :class="cls.fieldError">{{ err.email }}</div>
+                  <p v-if="isEdit && editEmp?.hasAccount" class="text-[11px] text-muted-foreground mt-1">{{ t('employee.email_account_hint') }}</p>
                 </div>
                 <div :class="cls.field">
                   <label :class="cls.fieldLabel">{{ t('employee.field_phone') }}</label>

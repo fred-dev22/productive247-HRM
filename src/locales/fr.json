@@ -235,6 +235,7 @@
     "placeholder_last": "ex: Diallo",
     "placeholder_code": "EMP001",
     "placeholder_email": "prenom.nom@galana.com",
+    "email_account_hint": "Cet employé a un compte de connexion : modifier cet email modifie aussi son identifiant de connexion et l'adresse qui reçoit ses mails.",
     "placeholder_phone": "+230 5xx xxxx",
     "placeholder_job": "ex: Assistante RH",
     "placeholder_position": "Code poste",
