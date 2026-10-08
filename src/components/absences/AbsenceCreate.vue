@@ -267,15 +267,26 @@ const displayedBalance = computed(() => {
   return source?.find(b => b.leaveTypeId === form.leaveTypeId) ?? null
 })
 
+// Solde insuffisant : BLOQUE la soumission (retour client du 08/10, qui revient
+// sur la decision du 04/08) — le bouton "Soumettre" est grise et le serveur
+// refuse aussi. Le brouillon reste possible. Le preavis, lui, ne bloque pas.
+// Non applicable aux types sans quota (conge non paye). `isBalanceInsufficient`
+// est l'avertissement (toujours affiche) ; `blocksOnBalance` le blocage, selon l'option du type. Pour "un autre employe", le solde n'est connu que si
+// l'ecran y a acces (beneficiaryBalances) : sinon le serveur tranche.
 const isBalanceInsufficient = computed(() => {
   if (!form.workingDaysCount || !currentType.value) return false
   if (currentType.value.daysPerYear <= 0) return false // illimité
-  if (forWhom.value.mode !== 'self' || !myBalance.value) return false
+  const known = displayedBalance.value
+  if (!known) return false
   // Compare au nombre reellement decompte (inclut le week-end "avale" pour
   // un beneficiaire local, voir chargedDaysCount), pas juste les jours
   // ouvres demandes.
-  return (chargedDaysCount.value ?? form.workingDaysCount) > myBalance.value.balance
+  return (chargedDaysCount.value ?? form.workingDaysCount) > known.balance
 })
+// Le solde insuffisant n'est BLOQUANT que si le type le demande (option
+// LeaveType.blockIfInsufficientBalance, active par defaut, y compris medical) ;
+// sinon l'avertissement reste affiche en rouge mais la demande peut partir.
+const blocksOnBalance = computed(() => isBalanceInsufficient.value && currentType.value?.blockIfInsufficientBalance !== false)
 
 // Auto-calcule la date de fin (+ periode de fin, reprise) quand debut /
 // nombre de jours / periode de debut changent, aussi quand le calendrier
@@ -326,9 +337,12 @@ function validate(forSubmission = true): boolean {
   if (!form.workingDaysCount || form.workingDaysCount <= 0) { errors.workingDays = 'Nombre de jours requis (min. 0.5)'; ok = false }
   if (forSubmission && !isMedicalType.value && !form.interimEmployeeId) { errors.interim = "L'intérimaire est obligatoire"; ok = false }
   if (forSubmission && justificatifMandatoryNow.value && pendingFiles.value.length === 0) { errors.justificatif = "Le justificatif est obligatoire pour ce type d'absence"; ok = false }
-  // Solde insuffisant n'est plus bloquant (décision du 04/08, même
-  // traitement que le préavis) — un avertissement reste affiché en rouge,
-  // le validateur décide en connaissance de cause.
+  // Solde insuffisant : bloque la soumission (pas le brouillon), voir
+  // isBalanceInsufficient. Le préavis minimum, lui, n'est jamais bloquant.
+  if (forSubmission && blocksOnBalance.value) {
+    error.value = 'Solde insuffisant : la demande ne peut pas être soumise. Enregistrez un brouillon, réduisez la durée ou choisissez un congé non payé.'
+    return false
+  }
   error.value = ok ? '' : 'Veuillez corriger les champs en erreur'
   return ok
 }
@@ -382,6 +396,8 @@ function onClose() { if (!saving.value) emit('close') }
     draft-label="Enregistrer le brouillon"
     :save-error="error"
     :is-saving="saving"
+    :create-disabled="blocksOnBalance"
+    create-disabled-reason="Solde insuffisant : vous pouvez enregistrer un brouillon"
     @close="onClose"
     @create="create"
     @save-draft="saveDraft"
@@ -390,7 +406,7 @@ function onClose() { if (!saving.value) emit('close') }
       <div class="flex-1 overflow-auto px-6 py-5">
         <div class="max-w-3xl mx-auto">
           <FormSection title="Bénéficiaire">
-          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :error-employee="errors.employee" :hide-self-option="!!auth.user?.isSystem" />
+          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :error-employee="errors.employee" :hide-self-option="!!auth.user?.isSystem" :can-create-for-others="auth.hasPermission('CONGE_CREER_POUR_AUTRE')" />
           <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 px-3.5 py-2.5 bg-background border border-border rounded-lg">
             <UserAvatar :name="selectedEmployee.name" size="sm" />
             <div>
@@ -456,7 +472,7 @@ function onClose() { if (!saving.value) emit('close') }
               <span
                 v-if="form.endDate && form.workingDaysCount"
                 class="inline-flex items-center text-[11px] font-semibold rounded-md px-2 py-[3px] mt-1 w-fit"
-                :class="isBalanceInsufficient ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'"
+                :class="blocksOnBalance ? 'bg-danger-bg text-danger' : isBalanceInsufficient ? 'bg-warning-bg text-warning' : 'bg-success-bg text-success'"
               >{{ form.workingDaysCount }} {{ currentType?.countCalendarDays ? 'j calendaires' : 'j ouvrables' }}<template v-if="chargedDaysCount && chargedDaysCount > form.workingDaysCount"> (+ week-end = {{ chargedDaysCount }} j décomptés)</template><template v-else-if="chargedDaysCount && chargedDaysCount < form.workingDaysCount"> (jour(s) férié(s) inclus = {{ chargedDaysCount }} j décomptés)</template></span>
             </div>
 
@@ -470,7 +486,7 @@ function onClose() { if (!saving.value) emit('close') }
             </div>
 
             <div v-if="isNotWorkingDay" :class="cls.fieldErrorBlock"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Ce jour n'est pas un jour ouvrable</div>
-            <div v-if="isBalanceInsufficient" :class="cls.fieldErrorBlock"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant ({{ myBalance?.balance ?? 0 }} jours disponibles)</div>
+            <div v-if="isBalanceInsufficient" :class="blocksOnBalance ? cls.fieldErrorBlock : 'text-xs text-warning flex items-center gap-1 bg-warning-bg rounded-md px-2.5 py-2'"><CircleAlert class="w-3.5 h-3.5 shrink-0" /> Solde insuffisant : {{ displayedBalance?.balance ?? 0 }} jour(s) disponible(s) pour {{ chargedDaysCount ?? form.workingDaysCount }} jour(s) décompté(s).<template v-if="blocksOnBalance"> La demande ne peut pas être soumise. Enregistrez un brouillon, réduisez la durée ou choisissez un congé non payé.</template><template v-else> La demande peut être soumise : le validateur en sera averti.</template></div>
 
             <!-- Retour client du 23/09 : obligatoire pour tout type d'absence
                  (sauf déclaration médicale en enregistrement direct). -->

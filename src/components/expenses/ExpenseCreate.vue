@@ -187,7 +187,7 @@ const cellInput = 'w-full h-8 px-2 border border-border rounded bg-card text-xs 
         <div class="max-w-3xl mx-auto">
           <!-- Bénéficiaire -->
           <FormSection title="Général">
-          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :hide-self-option="!!auth.user?.isSystem" />
+          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :hide-self-option="!!auth.user?.isSystem" :can-create-for-others="auth.hasPermission('FRAIS_CREER_POUR_AUTRE')" />
           <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 px-3.5 py-2.5 bg-background border border-border rounded-lg">
             <UserAvatar :name="selectedEmployee.name" size="sm" />
             <div>

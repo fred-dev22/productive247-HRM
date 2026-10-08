@@ -184,7 +184,7 @@ async function saveDraft() {
 
           <!-- Bénéficiaire -->
           <FormSection title="Bénéficiaire">
-          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :hide-self-option="!!auth.user?.isSystem" />
+          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :hide-self-option="!!auth.user?.isSystem" :can-create-for-others="auth.hasPermission('MISSION_CREER_POUR_AUTRE')" />
           <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 mb-4 px-3.5 py-2.5 bg-background border border-border rounded-lg">
             <UserAvatar :name="selectedEmployee.name" size="sm" />
             <div>
