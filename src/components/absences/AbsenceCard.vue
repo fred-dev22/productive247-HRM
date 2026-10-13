@@ -231,7 +231,9 @@ const formWorkingDaysCount = computed(() => {
   const isExpatriate = employeeStore.getById(current.value?.employeeId ?? '')?.isExpatriate ?? false
   return getChargedDaysBetween(
     form.value.startDate, form.value.endDate, calendarStore.calendar,
-    form.value.startPeriod, form.value.endPeriod, isExpatriate, currentType.value?.countCalendarDays ?? false,
+    form.value.startPeriod, form.value.endPeriod,
+    isExpatriate || currentType.value?.countWeekendAfterFriday === false,
+    currentType.value?.countCalendarDays ?? false,
   )
 })
 
@@ -316,7 +318,7 @@ async function deletePermanently() {
     @select-sidebar="selectSidebar"
   >
     <template #title-badges>
-      <StatusPill :status="current.status" />
+      <StatusPill :status="current.status" :end-date="current.endDate" />
     </template>
 
     <!-- Barre d'actions métier (mode lecture) -->

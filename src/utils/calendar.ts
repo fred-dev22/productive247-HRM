@@ -183,6 +183,9 @@ export function calculateEndDate(
   const current        = parseLocal(startDate)
   let lastWorkingDay    = new Date(current)
   let lastDayUnits: 1 | 2 = 2
+  // Ce que le dernier jour compte pouvait fournir : 1 pour une premiere journee
+  // commencee l'apres-midi, 2 sinon.
+  let lastSupply: 1 | 2   = 2
   let first             = true
 
   while (remainingUnits > 0) {
@@ -192,13 +195,18 @@ export function calculateEndDate(
       remainingUnits -= use
       lastWorkingDay   = new Date(current)
       lastDayUnits     = use as 1 | 2
+      lastSupply       = supply as 1 | 2
       first            = false
     }
     if (remainingUnits <= 0) break
     current.setDate(current.getDate() + 1)
   }
 
-  const endPeriod = lastDayUnits === 1 ? 'am' : 'full'
+  // "am" = seule la matinee du dernier jour est absente (reprise l'apres-midi
+  // meme). Une premiere journee commencee l'apres-midi et consommee en entier
+  // (0.5 j) n'est PAS une matinee : l'absence va jusqu'a la fin de la journee,
+  // la reprise est le jour ouvre suivant (retour client du 13/10).
+  const endPeriod = lastDayUnits === 1 && lastSupply === 2 ? 'am' : 'full'
   const chargedDays = chargedWorkingDays(parseLocal(startDate), lastWorkingDay, startPeriod, endPeriod, calendar, isExpatriate, countCalendarDays)
   const resume = getResumeDate(fmt(lastWorkingDay), endPeriod, calendar)
 

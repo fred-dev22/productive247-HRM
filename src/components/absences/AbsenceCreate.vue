@@ -58,9 +58,13 @@ if (employeeStore.directory.length === 0) employeeStore.fetchDirectory()
 const forWhom = ref<BeneficiaryValue>({ mode: auth.user?.isSystem ? 'for-employee' : 'self', employeeId: '' })
 // On exclut soi-même : "Pour moi-même" est déjà l'option dédiée à ce cas,
 // pas besoin de se retrouver aussi dans la liste "Pour un employé".
+// Avec la permission CONGE_CREER_POUR_AUTRE (RH, DRH) : tous les employes. Sans elle :
+// uniquement ceux de sa propre entite (le serveur applique la meme regle).
+const mayPickAnyEmployee = computed(() => auth.hasPermission('CONGE_CREER_POUR_AUTRE'))
 const employeeItems = computed(() =>
   employeeStore.directory
     .filter(e => e.id !== auth.user?.id)
+    .filter(e => mayPickAnyEmployee.value || (!!auth.user?.entityId && e.entityId === auth.user.entityId))
     .map(e => ({ id: e.id, label: e.name, sublabel: e.entityName, code: e.code, initials: e.avatarText, avatarColor: e.avatarBg, status: e.status })),
 )
 
@@ -187,6 +191,10 @@ const beneficiaryIsExpatriate = computed(() => {
   if (!id) return false
   return employeeStore.getById(id)?.isExpatriate ?? false
 })
+// "Compte comme expatrie" pour le decompte : employe expatrie, OU type sans la regle
+// du week-end avale (ex. Off recuperation, voir LeaveType.countWeekendAfterFriday).
+// Miroir de computeWorkingDays cote serveur.
+const skipsWeekendRule = computed(() => beneficiaryIsExpatriate.value || currentType.value?.countWeekendAfterFriday === false)
 const chargedDaysCount = ref<number | null>(null)
 
 // Ciblage d'eligibilite (demande client, 01/09) — calendarStore.holidays est
@@ -297,7 +305,7 @@ const blocksOnBalance = computed(() => isBalanceInsufficient.value && currentTyp
 // nombre de jours suffit a tout calculer), donc plus qu'un seul mode de
 // calcul ici (auparavant "from-days" vs "from-date").
 watch(
-  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, beneficiaryIsExpatriate.value, effectiveCalendar.value.holidays, currentType.value?.countCalendarDays] as const,
+  () => [form.startDate, form.workingDaysCount, form.startPeriod, calendarStore.calendar.workingDays, skipsWeekendRule.value, effectiveCalendar.value.holidays, currentType.value?.countCalendarDays] as const,
   ([start, days, period, , isExpat, , countCalendarDays]) => {
     if (calculating) return
     if (!start || !days || days <= 0) { resumeDate.value = ''; chargedDaysCount.value = null; return }
@@ -406,7 +414,7 @@ function onClose() { if (!saving.value) emit('close') }
       <div class="flex-1 overflow-auto px-6 py-5">
         <div class="max-w-3xl mx-auto">
           <FormSection title="Bénéficiaire">
-          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :error-employee="errors.employee" :hide-self-option="!!auth.user?.isSystem" :can-create-for-others="auth.hasPermission('CONGE_CREER_POUR_AUTRE')" />
+          <ForWhomSelector v-model="forWhom" :available-employees="employeeItems" :error-employee="errors.employee" :hide-self-option="!!auth.user?.isSystem" :can-create-for-others="mayPickAnyEmployee || employeeItems.length > 0" />
           <div v-if="selectedEmployee" class="flex items-center gap-2.5 mt-3 px-3.5 py-2.5 bg-background border border-border rounded-lg">
             <UserAvatar :name="selectedEmployee.name" size="sm" />
             <div>
