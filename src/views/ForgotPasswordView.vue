@@ -18,7 +18,7 @@
             id="email"
             v-model="email"
             type="email"
-            placeholder="prenom.nom@galana.com"
+            placeholder="prenom.nom@galana.mg"
             autocomplete="email"
             class="w-full h-12 px-3 border border-border rounded-lg text-sm bg-primary/10 text-foreground outline-none transition-colors focus:border-primary focus:bg-card"
             @keydown.enter="submit"

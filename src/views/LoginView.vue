@@ -15,7 +15,7 @@
           id="email"
           v-model="email"
           type="email"
-          placeholder="prenom.nom@galana.com"
+          placeholder="prenom.nom@galana.mg"
           autocomplete="email"
           :class="inputClass"
         />
