@@ -120,7 +120,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown, true))
           <div class="flex flex-col gap-3.5">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Nom d'utilisateur *</label>
-              <input v-model="form.username" :class="cls.fieldInput" placeholder="prenom.nom@galana.com" />
+              <input v-model="form.username" :class="cls.fieldInput" placeholder="prenom.nom@galana.mg" />
             </div>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Catégorie *</label>
