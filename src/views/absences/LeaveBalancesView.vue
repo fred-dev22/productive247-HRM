@@ -131,11 +131,30 @@
                   <option v-for="c in TYPE_COLS" :key="c.leaveTypeId" :value="c.leaveTypeId">{{ c.leaveTypeName }}</option>
                 </select>
               </div>
-              <div :class="fcls.field">
-                <label :class="fcls.fieldLabel">Jours *</label>
-                <input v-model.number="creditForm.amount" type="number" step="0.5" :class="fcls.fieldInput" placeholder="ex : 2 (positif = crédit, -2 = décrément)" />
-                <p class="text-[11px] text-muted-foreground mt-1">Positif pour créditer, négatif pour décrémenter (ex : correction d'une erreur de saisie). Le solde ne descend jamais sous 0.</p>
+              <!-- Solde actuel rappele des que l'employe et le type sont choisis. -->
+              <div v-if="creditForm.employeeId && creditForm.leaveTypeId" class="flex items-center justify-between rounded-md bg-background border border-border px-3 py-2">
+                <span class="text-[12px] text-muted-foreground">Solde actuel</span>
+                <span class="text-[15px] font-semibold text-foreground">{{ currentBalance }} j</span>
               </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div :class="fcls.field">
+                  <label :class="fcls.fieldLabel">Nouveau solde (jours) *</label>
+                  <input
+                    v-model.number="creditForm.finalBalance" type="number" step="0.5" min="0"
+                    :class="fcls.fieldInput" placeholder="ex : 15" @input="onFinalInput"
+                  />
+                </div>
+                <div :class="fcls.field">
+                  <label :class="fcls.fieldLabel">Écart</label>
+                  <input
+                    v-model.number="creditForm.amount" type="number" step="0.5"
+                    :class="[fcls.fieldInput, 'bg-muted/40 text-muted-foreground']" placeholder="0" @input="onDeltaInput"
+                  />
+                </div>
+              </div>
+              <p class="text-[11px] text-muted-foreground -mt-1.5">
+                Indiquez le solde final voulu : l'écart se calcule tout seul (ex. solde 18, nouveau solde 15 = écart -3). Vous pouvez aussi saisir l'écart directement. Le solde ne descend jamais sous 0.
+              </p>
               <div :class="fcls.field">
                 <label :class="fcls.fieldLabel">Motif <span :class="fcls.fieldOptional">(optionnel)</span></label>
                 <textarea v-model="creditForm.reason" :class="fcls.fieldTextarea" rows="2" placeholder="ex : régularisation oubli de génération de mai"></textarea>
@@ -211,24 +230,43 @@ onMounted(() => {
 // ── Crédit manuel ────────────────────────────────────────────
 const showCreditModal = ref(false)
 const creditError = ref('')
-const creditForm = reactive({ employeeId: '', leaveTypeId: '', amount: 1, reason: '' })
+const creditForm = reactive({ employeeId: '', leaveTypeId: '', amount: 0, finalBalance: null as number | null, reason: '' })
 
 function openCredit() {
-  Object.assign(creditForm, { employeeId: '', leaveTypeId: '', amount: 1, reason: '' })
+  Object.assign(creditForm, { employeeId: '', leaveTypeId: '', amount: 0, finalBalance: null, reason: '' })
   creditError.value = ''
   showCreditModal.value = true
 }
+// Solde actuel du couple employe / type choisi (0 s'il n'a pas encore de ligne).
+const currentBalance = computed(() => {
+  const emp = balanceStore.allBalances.find(e => e.employeeId === creditForm.employeeId)
+  return emp?.balances.find(b => b.leaveTypeId === creditForm.leaveTypeId)?.balance ?? 0
+})
+const round2 = (n: number) => Math.round(n * 100) / 100
+// Choix de l'employe ou du type : on repart du solde actuel (ecart 0).
+watch(() => [creditForm.employeeId, creditForm.leaveTypeId], () => {
+  creditForm.finalBalance = creditForm.employeeId && creditForm.leaveTypeId ? currentBalance.value : null
+  creditForm.amount = 0
+})
+function onFinalInput() {
+  const f = creditForm.finalBalance
+  creditForm.amount = typeof f === 'number' && !Number.isNaN(f) ? round2(f - currentBalance.value) : 0
+}
+function onDeltaInput() {
+  const d = Number(creditForm.amount) || 0
+  creditForm.finalBalance = Math.max(0, round2(currentBalance.value + d))
+}
+
 async function submitCredit() {
   if (!creditForm.employeeId) { creditError.value = "L'employé est obligatoire"; return }
   if (!creditForm.leaveTypeId) { creditError.value = 'Le type de congé est obligatoire'; return }
-  if (!creditForm.amount) { creditError.value = 'Le nombre de jours ne peut pas être 0'; return }
+  const target = creditForm.finalBalance
+  if (target === null || Number.isNaN(Number(target))) { creditError.value = 'Le nouveau solde est obligatoire'; return }
+  if (target < 0) { creditError.value = 'Le solde ne peut pas être négatif'; return }
+  if (round2(target - currentBalance.value) === 0) { creditError.value = 'Le nouveau solde est identique au solde actuel'; return }
   creditError.value = ''
   try {
-    const result = await balanceStore.creditManual(creditForm.employeeId, creditForm.leaveTypeId, creditForm.amount, creditForm.reason || undefined)
-    if (result.wasClamped) {
-      creditError.value = `Décrément limité au solde disponible, ramené à 0 (au lieu de ${creditForm.amount}j demandé).`
-      return
-    }
+    await balanceStore.setBalance(creditForm.employeeId, creditForm.leaveTypeId, target, creditForm.reason || undefined)
     showCreditModal.value = false
   } catch {
     creditError.value = balanceStore.error ?? "L'ajustement a échoué. Veuillez réessayer."
