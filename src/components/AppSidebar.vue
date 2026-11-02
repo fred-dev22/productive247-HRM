@@ -225,11 +225,11 @@ const expenseStore = useExpenseStore()
 if (auth.hasPermission('CONGE_VALIDER') && leaveStore.pendingForMe.length === 0) leaveStore.fetchPendingForMe()
 if (MISSIONS_EXPENSES_ENABLED && auth.hasPermission('MISSION_VALIDER') && missionStore.pendingForMe.length === 0) missionStore.fetchPendingForMe()
 if (MISSIONS_EXPENSES_ENABLED && auth.hasPermission('FRAIS_VALIDER') && expenseStore.pendingForMe.length === 0) expenseStore.fetchPendingForMe()
-if (leaveStore.mine.length === 0) leaveStore.fetchMine()
+if (!leaveStore.recentWindow) leaveStore.fetchRecent(auth.hasPermission('CONGE_VOIR_TOUT')).catch(() => {})
 
 const MINE_PENDING = new Set(['Pending', 'InApprovalN1', 'InApprovalN2', 'InApprovalN3', 'InApprovalN4'])
 const pendingCount   = computed(() => leaveStore.pendingForMe.length + missionStore.pendingForMe.length + expenseStore.pendingForMe.length)
-const myPendingCount = computed(() => leaveStore.mine.filter(l => MINE_PENDING.has(l.status)).length)
+const myPendingCount = computed(() => leaveStore.recentMine.filter(l => MINE_PENDING.has(l.status)).length)
 
 const canSeeManagementSection = computed(() => auth.hasAnyPermission([
   'EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE', 'ENTITE_VOIR',
