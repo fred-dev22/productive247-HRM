@@ -2,12 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore }       from '../stores/auth'
 import { useCompanySettingsStore } from '../stores/companySettings'
 import LoginView          from '../views/LoginView.vue'
-import ForgotPasswordView from '../views/ForgotPasswordView.vue'
-import ResetPasswordView  from '../views/ResetPasswordView.vue'
-import PublicApprovalView from '../views/PublicApprovalView.vue'
-import DashboardHR       from '../views/DashboardHR.vue'
-import DashboardEmployee from '../views/DashboardEmployee.vue'
-import CalendarView      from '../views/calendar/CalendarView.vue'
 import { MISSIONS_EXPENSES_ENABLED, PLACEHOLDER_MODULES_ENABLED } from '../config/features'
 
 const PH = () => import('../views/placeholders/PlaceholderView.vue')
@@ -57,17 +51,17 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'login', component: LoginView },
-    { path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordView },
-    { path: '/reset-password', name: 'reset-password', component: ResetPasswordView },
+    { path: '/forgot-password', name: 'forgot-password', component: () => import('../views/ForgotPasswordView.vue') },
+    { path: '/reset-password', name: 'reset-password', component: () => import('../views/ResetPasswordView.vue') },
     // Validation par email (clic direct depuis la boite mail, sans connexion)
     // — voir PublicApprovalView.vue / backend PublicApprovalModule. Route en
     // anglais comme demande (toutes les routes frontend doivent l'etre a
     // terme, voir Lot K).
-    { path: '/approval/:token', name: 'public-approval', component: PublicApprovalView },
+    { path: '/approval/:token', name: 'public-approval', component: () => import('../views/PublicApprovalView.vue') },
 
     // ── Dashboards ──────────────────────────────────────────────
-    { path: '/hr',       name: 'hr-dashboard',       component: DashboardHR,       meta: { requiresAuth: true, layout: 'dashboard' } },
-    { path: '/employee', name: 'employee-dashboard', component: DashboardEmployee, meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/hr',       name: 'hr-dashboard',       component: () => import('../views/DashboardHR.vue'),       meta: { requiresAuth: true, layout: 'dashboard' } },
+    { path: '/employee', name: 'employee-dashboard', component: () => import('../views/DashboardEmployee.vue'), meta: { requiresAuth: true, layout: 'dashboard' } },
 
     // ── Onboarding ───────────────────────────────────────────────
     // Pas de requiresAuth — vérification manuelle dans le composant pour éviter les boucles
@@ -130,7 +124,7 @@ const router = createRouter({
     { path: '/hr/config', redirect: '/hr/config/calendar' },
     {
       path: '/hr/config/calendar', name: 'hr-config-calendar',
-      component: CalendarView,
+      component: () => import('../views/calendar/CalendarView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
     },
     { path: '/hr/config/leave-types', name: 'hr-config-leave-types', redirect: '/hr/config/calendar' },
