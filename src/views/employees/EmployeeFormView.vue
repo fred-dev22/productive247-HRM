@@ -223,6 +223,25 @@
               </div>
             </div>
 
+            <!-- ── Intérim comme validateur : porté par la fiche du validateur
+                 (un intérimaire pour tous les employés qu'il valide en direct). ── -->
+            <div v-if="isEdit" class="flex flex-col gap-3.5">
+              <div :class="sectionTitle"><UserRoundCog class="w-4 h-4 text-primary" /> Intérim comme validateur</div>
+              <p class="text-xs text-muted-foreground -mt-2">Si cet employé est validateur direct, son intérimaire reçoit les demandes en même temps que lui et peut les valider. Sans intérimaire, rien ne change.</p>
+              <div :class="cls.field">
+                <label :class="cls.fieldLabel">Intérimaire</label>
+                <TableLookupField
+                  :code="interimValidatorCode" :name="form.validatorInterimName"
+                  value-key="id" name-key="label"
+                  :columns="validatorColumns" :fetch-fn="fetchValidatorCandidates"
+                  :is-item-disabled="isInterimValidatorDisabled" :item-disabled-reason="validatorDisabledReason"
+                  modal-title="Sélectionner un intérimaire" placeholder="Code employé"
+                  @update:code="interimValidatorCode = $event" @update:name="form.validatorInterimName = $event" @select="onInterimValidatorSelect"
+                />
+                <button v-if="form.validatorInterimId" type="button" :class="[cls.btnOutline, '!px-2.5 !py-1 !text-xs mt-2 self-start']" @click="clearInterimValidator">Retirer l'intérimaire</button>
+              </div>
+            </div>
+
             <!-- ── Actions ── -->
             <p v-if="saveError" class="text-xs text-danger bg-danger-bg px-3 py-2 rounded-md">{{ saveError }}</p>
             <div class="flex gap-2 justify-end pt-2 border-t border-border">
@@ -326,6 +345,8 @@ const form = reactive({
   isExpatriate:  false,
   directValidatorId: '' as string,
   directValidatorName: '',
+  validatorInterimId: '' as string,
+  validatorInterimName: '',
 })
 
 const err = reactive({
@@ -378,6 +399,21 @@ function validatorDisabledReason(item: { status?: string; hasAccount?: boolean; 
   return ''
 }
 const validatorCode = ref('')
+const interimValidatorCode = ref('')
+// L'intérimaire est lui-même un validateur potentiel : mêmes conditions, et il ne peut pas être la personne elle-même.
+function isInterimValidatorDisabled(item: { id?: string; status?: string; hasAccount?: boolean; validatorPermissions?: string[] }): boolean {
+  return item.id === empId.value || isValidatorDisabled(item)
+}
+function onInterimValidatorSelect(item: Record<string, unknown>) {
+  form.validatorInterimId = String(item.id)
+  form.validatorInterimName = String(item.label)
+  interimValidatorCode.value = String(item.code)
+}
+function clearInterimValidator() {
+  form.validatorInterimId = ''
+  form.validatorInterimName = ''
+  interimValidatorCode.value = ''
+}
 function onValidatorSelect(item: Record<string, unknown>) {
   form.directValidatorId = String(item.id)
   form.directValidatorName = String(item.label)
@@ -414,6 +450,9 @@ function populateForm(e: NonNullable<typeof editEmp.value>) {
   form.directValidatorId = e.directValidatorId ?? ''
   form.directValidatorName = e.directValidatorId ? (store.getById(e.directValidatorId)?.name ?? '') : ''
   validatorCode.value = e.directValidatorId ? (store.getById(e.directValidatorId)?.code ?? '') : ''
+  form.validatorInterimId = e.validatorInterimId ?? ''
+  form.validatorInterimName = e.validatorInterimId ? (store.getById(e.validatorInterimId)?.name ?? '') : ''
+  interimValidatorCode.value = e.validatorInterimId ? (store.getById(e.validatorInterimId)?.code ?? '') : ''
 }
 
 const formLoading = ref(false)
@@ -494,6 +533,7 @@ async function handleSave() {
     idNumber:      form.idNumber || undefined,
     isExpatriate:  form.isExpatriate,
     directValidatorId: form.directValidatorId,
+    ...(isEdit.value ? { validatorInterimId: form.validatorInterimId } : {}),
   }
 
   try {

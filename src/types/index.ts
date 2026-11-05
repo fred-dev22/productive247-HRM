@@ -295,6 +295,9 @@ export interface Employee {
   // (pool par entité). Voir leave-request.service.ts (backend) routeToApproval/
   // routeToDirectValidator.
   directValidatorId?: string
+  // Intérimaire de cet employé quand il valide comme validateur direct : il reçoit
+  // les demandes en même temps que lui.
+  validatorInterimId?: string
   // Droits de validation RÉELLEMENT accordés au compte (CONGE_VALIDER /
   // MISSION_VALIDER / FRAIS_VALIDER effectivement présents dans ses
   // UserPermission), calculés côté backend dans findAll(). À utiliser pour

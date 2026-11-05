@@ -196,11 +196,9 @@ async function removeValidator(level: 1 | 2 | 3 | 4) {
 }
 
 // ── Intérim ─────────────────────────────────────────────────────
-// Juste la personne substitute — plus de plage de dates à saisir à la
-// main : au moment où une demande arrive à ce niveau, le backend détecte
-// tout seul si ce validateur est en congé approuvé aujourd'hui et route
-// vers son intérimaire le cas échéant (voir LeaveRequestService/
-// MissionOrderService/ExpenseReportService.resolveActualApprover).
+// La personne substitute reçoit chaque demande en même temps que le titulaire, à
+// tout moment (déplacement, réunion, congé) : le premier qui décide la traite
+// (voir approver-resolution.util côté backend).
 const interimOpenFor = ref<number | null>(null)
 const interimForm = ref({ interimEmployeeId: '' })
 
@@ -358,7 +356,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
                 >{{ e.name }}{{ e.status !== 'active' ? ' (compte désactivé)' : '' }}</option>
               </select>
               <p class="text-[11px] text-muted-foreground mt-1">
-                Utilisé automatiquement quand ce validateur a un congé approuvé couvrant le jour où une demande lui arrive, pas besoin de préciser de dates.
+                L'intérimaire reçoit chaque demande en même temps que le titulaire, à tout moment. Le premier qui décide la traite, elle disparaît de la liste de l'autre.
               </p>
             </div>
             <div class="flex gap-2 justify-end">
@@ -367,7 +365,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
             </div>
           </div>
           <div v-else-if="memberAt(level)?.interimEmployeeId" class="text-[11px] text-muted-foreground pl-[calc(2.5rem+8px)]">
-            Intérim : {{ employeeLabel(memberAt(level)!.interimEmployeeId) }}
+            Intérim : {{ employeeLabel(memberAt(level)!.interimEmployeeId) }} (reçoit en même temps que le titulaire)
           </div>
         </div>
       </div>
