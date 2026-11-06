@@ -74,7 +74,7 @@ function fetchPositions({ searchQuery }: LookupFetchParams) {
   // Un poste dont tous les sieges sont occupes ne doit plus etre propose —
   // sauf celui deja affecte a cet employe (sinon on ne pourrait plus
   // voir/reselectionner le sien) (voir Position.Capacity / decision du 30/07,
-  // meme regle que EmployeeCreate.vue / EmployeeFormView.vue).
+  // meme regle que EmployeeCreate.vue).
   let items = positionStore.positions.filter(p => p.occupiedCount < p.capacity || p.id === form.value.positionId)
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
@@ -515,7 +515,7 @@ async function deletePermanently() {
              s'affichent jamais en même temps). -->
         <FormSection v-if="showDirectValidatorSection" title="Validation des congés" :recaps="[currentValidatorName ?? 'Non assigné']">
           <p class="text-[11px] text-muted-foreground -mt-1 mb-2">
-            Cette entité utilise un validateur direct par employé. Sans validateur assigné ici, les demandes de congé de {{ current.name }} seront bloquées à la soumission.
+            Cette entité utilise un validateur direct par employé. Sans validateur assigné ici, les demandes de congé de {{ current.name }} seront bloquées à la soumission. L'intérimaire d'un validateur se règle sur la fiche de l'entité.
           </p>
           <template v-if="isEditMode">
             <div :class="cls.field">

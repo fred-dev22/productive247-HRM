@@ -68,6 +68,46 @@ const entityEmployeesWithValidator = computed(() =>
     })),
 )
 
+// Validateurs directs des employés de cette entité (une ligne par personne) et leur intérimaire.
+// L'intérimaire appartient au validateur (Employee.validatorInterimId) : il reçoit les demandes
+// en même temps que lui, à tout moment, pour tous les employés qu'il valide.
+const directValidators = computed(() => {
+  const counts = new Map<string, number>()
+  for (const e of empStore.employees) {
+    if (e.entityId === props.entityId && e.directValidatorId) counts.set(e.directValidatorId, (counts.get(e.directValidatorId) ?? 0) + 1)
+  }
+  return [...counts].map(([id, count]) => {
+    const v = empStore.getById(id)
+    return { id, name: v?.name ?? '-', count, interimId: v?.validatorInterimId ?? '' }
+  })
+})
+function interimOptionsFor(validatorId: string, currentInterimId: string) {
+  const ok = empStore.employees.filter(e => e.id !== validatorId && e.status === 'active' && e.hasAccount && e.validatorPermissions?.includes('CONGE_VALIDER'))
+  const current = currentInterimId ? empStore.getById(currentInterimId) : undefined
+  return current && !ok.some(e => e.id === current.id) ? [current, ...ok] : ok
+}
+// Validateur direct de chaque employé de l'entité, modifiable ici comme sur la fiche employé : mêmes
+// conditions (compte actif avec la permission CONGE_VALIDER), le serveur vérifie aussi.
+function validatorOptionsFor(currentValidatorId: string | undefined) {
+  const ok = empStore.employees.filter(e => e.status === 'active' && e.hasAccount && e.validatorPermissions?.includes('CONGE_VALIDER'))
+  const current = currentValidatorId ? empStore.getById(currentValidatorId) : undefined
+  return current && !ok.some(e => e.id === current.id) ? [current, ...ok] : ok
+}
+async function setEmployeeValidator(employeeId: string, validatorId: string) {
+  try {
+    await empStore.updateEmployee(employeeId, { directValidatorId: validatorId })
+  } catch {
+    // le store affiche le message d'erreur (toast)
+  }
+}
+async function setValidatorInterim(validatorId: string, interimId: string) {
+  try {
+    await empStore.updateEmployee(validatorId, { validatorInterimId: interimId })
+  } catch {
+    // le store affiche le message d'erreur (toast)
+  }
+}
+
 // Regroupement par catégorie réelle (voir stores/employeeCategories.ts) —
 // remplace les 3 optgroups figés par rôle (Directeur RH/Admin RH/
 // Validateur), qui n'existent plus (voir decision du 29/07). Tout le monde
@@ -267,19 +307,39 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
         Chaque employé de cette entité a son propre validateur, assigné sur sa fiche. La configuration Missions et Notes de frais n'est pas accessible ici tant que ce mode est actif : repassez sur « Pool de l'entité » ci-dessus pour les configurer.
       </p>
       <div class="flex flex-col gap-1.5">
+        <div class="text-[13px] font-medium text-foreground">Validateurs de cette entité et leur intérimaire</div>
+        <div v-if="directValidators.length === 0" class="text-xs text-muted-foreground italic px-1">Aucun validateur assigné pour l'instant.</div>
+        <div
+          v-for="v in directValidators" :key="v.id"
+          class="flex items-center gap-2.5 px-3 py-2 bg-background rounded-lg border border-border flex-wrap"
+        >
+          <span class="flex-1 min-w-[160px] text-[13px]">{{ v.name }} <span class="text-[11px] text-muted-foreground">· {{ v.count }} employé(s)</span></span>
+          <label class="text-[11px] text-muted-foreground">Intérimaire</label>
+          <select :class="cls.fieldSelect" class="!w-auto min-w-[200px]" :value="v.interimId" @change="setValidatorInterim(v.id, ($event.target as HTMLSelectElement).value)">
+            <option value="">-- Aucun --</option>
+            <option v-for="c in interimOptionsFor(v.id, v.interimId)" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+        </div>
+        <p v-if="directValidators.length > 0" class="text-[11px] text-muted-foreground">
+          Chaque validateur a son propre intérimaire. Il reçoit les demandes en même temps que le validateur et peut les valider, pour tous les employés que ce validateur valide.
+        </p>
+        <div class="text-[13px] font-medium text-foreground mt-2">Employés et leur validateur</div>
         <div v-if="entityEmployeesWithValidator.length === 0" class="text-xs text-muted-foreground italic px-1">Aucun employé rattaché à cette entité.</div>
         <div
           v-for="e in entityEmployeesWithValidator" :key="e.id"
           class="flex items-center gap-2.5 px-3 py-2 bg-background rounded-lg border border-border"
         >
-          <span class="flex-1 text-[13px]">{{ e.name }} · {{ e.jobTitle || 'Employé' }}</span>
-          <span v-if="e.validatorName" class="text-[12px] text-foreground">{{ e.validatorName }}</span>
-          <span v-else class="flex items-center gap-1 text-[11px] text-danger bg-danger-bg px-2 py-0.5 rounded-full">
+          <span class="flex-1 min-w-[160px] text-[13px]">{{ e.name }} · {{ e.jobTitle || 'Employé' }}</span>
+          <span v-if="!e.directValidatorId" class="flex items-center gap-1 text-[11px] text-danger bg-danger-bg px-2 py-0.5 rounded-full">
             <Info class="w-3 h-3" /> Aucun validateur : demandes bloquées
           </span>
+          <select :class="cls.fieldSelect" class="!w-auto min-w-[200px]" :value="e.directValidatorId ?? ''" @change="setEmployeeValidator(e.id, ($event.target as HTMLSelectElement).value)">
+            <option value="">-- Aucun validateur --</option>
+            <option v-for="c in validatorOptionsFor(e.directValidatorId)" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
         </div>
         <p class="text-[11px] text-muted-foreground mt-1">
-          Assignez ou changez un validateur direct depuis la fiche de l'employé concerné (section « Validation des congés »).
+          Assignez ou changez le validateur direct de chaque employé ici, ou depuis sa fiche (section « Validation des congés »). L'intérimaire se règle uniquement ici, validateur par validateur.
         </p>
       </div>
     </template>
