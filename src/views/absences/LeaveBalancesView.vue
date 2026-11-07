@@ -119,10 +119,7 @@
             <div class="flex flex-col gap-3.5">
               <div :class="fcls.field">
                 <label :class="fcls.fieldLabel">Employé *</label>
-                <select v-model="creditForm.employeeId" :class="fcls.fieldSelect">
-                  <option value="">-- Choisir --</option>
-                  <option v-for="e in balanceStore.allBalances" :key="e.employeeId" :value="e.employeeId">{{ e.employeeName }}</option>
-                </select>
+                <EmployeePicker v-model="creditForm.employeeId" :employees="creditEmployeeItems" placeholder="Code employé" />
               </div>
               <div :class="fcls.field">
                 <label :class="fcls.fieldLabel">Type de congé *</label>
@@ -210,6 +207,7 @@ import { FileDown, Users, Sun, RefreshCw, Home, PlusCircle, Upload, ArrowRight }
 import { UserAvatar, ListPageLayout } from '../../components'
 import CreateModalShell from '../../components/shared/CreateModalShell.vue'
 import FormSection from '../../components/ui/form-field/FormSection.vue'
+import EmployeePicker from '../../components/ui/EmployeePicker.vue'
 import ImportWizardModal from '../../components/shared/import/ImportWizardModal.vue'
 import ExportConfigModal from '../../components/shared/export/ExportConfigModal.vue'
 import type { ExportSource, ExportColumnConfig } from '../../lib/exportFile'
@@ -239,6 +237,8 @@ onMounted(() => {
 // ── Crédit manuel ────────────────────────────────────────────
 const showCreditModal = ref(false)
 const creditError = ref('')
+// Employé crédité : EmployeePicker, le même choix d'employé partout dans l'application.
+const creditEmployeeItems = computed(() => balanceStore.allBalances.map(e => ({ id: e.employeeId, label: e.employeeName, code: e.employeeNumber, sublabel: e.entityName })))
 const creditForm = reactive({ employeeId: '', leaveTypeId: '', amount: 0, finalBalance: null as number | null, reason: '' })
 
 function openCredit() {
@@ -425,13 +425,19 @@ watch(search, (v) => {
 onBeforeUnmount(() => clearTimeout(searchTimer))
 watch([debouncedSearch, filterEntity], () => { page.value = 1 })
 
+let lastKey = ''
 async function loadPage() {
   const seq = ++pageSeq
-  loadingPage.value = true
   const params: BalancePageParams = { page: page.value, pageSize: pageSize.value, search: debouncedSearch.value, entity: filterEntity.value }
+  // Derniere page gardee pour les memes criteres : affichee tout de suite, sans indicateur de
+  // chargement, puis TOUJOURS relue en arriere-plan (donnees exactes).
+  const key = JSON.stringify(params)
+  const cached = balanceStore.peekBalancePage(params)
+  if (cached) pageData.value = cached
+  loadingPage.value = !cached && key !== lastKey
   try {
     const data = await balanceStore.fetchBalancePage(params)
-    if (seq === pageSeq) pageData.value = data
+    if (seq === pageSeq) { pageData.value = data; lastKey = key }
   } catch {
     // le toast d'erreur reseau est gere par l'intercepteur ; la page precedente reste affichee
   } finally {

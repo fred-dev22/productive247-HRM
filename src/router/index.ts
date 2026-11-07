@@ -28,11 +28,7 @@ const PLACEHOLDER_MODULE_PATH_PREFIXES = ['/hr/recruitment', '/hr/training', '/h
 // dédié et restent ouverts à tout l'espace RH, comme aujourd'hui.
 const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   'hr-employees':        ['EMPLOYE_VOIR_TOUT', 'EMPLOYE_VOIR_EQUIPE'],
-  'hr-employee-create':  'EMPLOYE_CREER',
-  'hr-employee-edit':    'EMPLOYE_MODIFIER',
   'hr-entities':         'ENTITE_VOIR',
-  'hr-entity-create':    'ENTITE_CREER',
-  'hr-entity-edit':      'ENTITE_MODIFIER',
   'hr-entity-detail':    'ENTITE_VOIR',
   'hr-org-chart':        'ENTITE_VOIR',
   'hr-config-calendar':      'CONFIG_CALENDRIER',
@@ -96,16 +92,6 @@ const router = createRouter({
       component: () => import('../views/employees/EmployeeListView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
     },
-    {
-      path: '/hr/employees/new', name: 'hr-employee-create',
-      component: () => import('../views/employees/EmployeeFormView.vue'),
-      meta: { requiresAuth: true, layout: 'dashboard' },
-    },
-    {
-      path: '/hr/employees/:id/edit', name: 'hr-employee-edit',
-      component: () => import('../views/employees/EmployeeFormView.vue'),
-      meta: { requiresAuth: true, layout: 'dashboard' },
-    },
     { path: '/hr/missions',           name: 'hr-missions',   component: () => import('../views/missions/MissionListView.vue'),  meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/expenses',           name: 'hr-expenses',   component: () => import('../views/expenses/ExpenseListView.vue'),   meta: { requiresAuth: true, layout: 'dashboard' } },
     { path: '/hr/contracts',          name: 'hr-contracts',  component: PH, meta: { requiresAuth: true, title: 'Gestion des Contrats' } },
@@ -155,16 +141,6 @@ const router = createRouter({
     {
       path: '/hr/entities', name: 'hr-entities',
       component: () => import('../views/entities/EntityListView.vue'),
-      meta: { requiresAuth: true, layout: 'dashboard' },
-    },
-    {
-      path: '/hr/entities/new', name: 'hr-entity-create',
-      component: () => import('../views/entities/EntityFormView.vue'),
-      meta: { requiresAuth: true, layout: 'dashboard' },
-    },
-    {
-      path: '/hr/entities/:id/edit', name: 'hr-entity-edit',
-      component: () => import('../views/entities/EntityFormView.vue'),
       meta: { requiresAuth: true, layout: 'dashboard' },
     },
     {

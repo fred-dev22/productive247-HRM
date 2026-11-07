@@ -22,6 +22,7 @@ import { useEmployeeStore } from '../../stores/employees'
 import { useEmployeeCategoryStore } from '../../stores/employeeCategories'
 import { useEntityStore } from '../../stores/entities'
 import { confirmDialog } from '../../lib/confirm'
+import EmployeePicker from '../ui/EmployeePicker.vue'
 
 const props = defineProps<{ entityId: string }>()
 
@@ -68,21 +69,52 @@ const entityEmployeesWithValidator = computed(() =>
     })),
 )
 
-// Regroupement par catégorie réelle (voir stores/employeeCategories.ts) —
-// remplace les 3 optgroups figés par rôle (Directeur RH/Admin RH/
-// Validateur), qui n'existent plus (voir decision du 29/07). Tout le monde
-// est listé (pas seulement ceux avec un compte) — voir hasAccount sur
-// chaque option pour le grisage côté template (decision du 30/07 : mieux
-// vaut montrer pourquoi une option est indisponible que la cacher).
-const validatorsByCategory = computed(() => {
-  const groups = new Map<string, typeof empStore.employees>()
+// Validateurs directs des employés de cette entité (une ligne par personne) et leur intérimaire.
+// L'intérimaire appartient au validateur (Employee.validatorInterimId) : il reçoit les demandes
+// en même temps que lui, à tout moment, pour tous les employés qu'il valide.
+const directValidators = computed(() => {
+  const counts = new Map<string, number>()
   for (const e of empStore.employees) {
-    const label = categoryStore.categories.find(c => c.id === e.employeeCategoryId)?.name ?? 'Sans catégorie'
-    if (!groups.has(label)) groups.set(label, [])
-    groups.get(label)!.push(e)
+    if (e.entityId === props.entityId && e.directValidatorId) counts.set(e.directValidatorId, (counts.get(e.directValidatorId) ?? 0) + 1)
   }
-  return [...groups.entries()].map(([label, employees]) => ({ label, employees }))
+  return [...counts].map(([id, count]) => {
+    const v = empStore.getById(id)
+    return { id, name: v?.name ?? '-', count, interimId: v?.validatorInterimId ?? '' }
+  })
 })
+// Intérimaire d'un validateur direct : même éligibilité qu'un validateur, jamais le validateur lui-même.
+function directValidatorBlockedReason(id: string): string {
+  const e = empStore.getById(id)
+  if (!e) return ''
+  if (e.status !== 'active') return 'compte désactivé'
+  if (!e.hasAccount) return "n'a pas de compte utilisateur"
+  if (!e.validatorPermissions?.includes('CONGE_VALIDER')) return 'permission de validation des congés manquante'
+  return ''
+}
+function directInterimBlockedReason(validatorId: string, id: string): string {
+  return id === validatorId ? 'est le validateur lui-même' : directValidatorBlockedReason(id)
+}
+// Validateur direct de chaque employé de l'entité, modifiable ici comme sur la fiche employé : le serveur
+// vérifie aussi que la personne peut valider les congés.
+async function setEmployeeValidator(employeeId: string, validatorId: string) {
+  try {
+    await empStore.updateEmployee(employeeId, { directValidatorId: validatorId })
+  } catch {
+    // le store affiche le message d'erreur (toast)
+  }
+}
+async function setValidatorInterim(validatorId: string, interimId: string) {
+  try {
+    await empStore.updateEmployee(validatorId, { validatorInterimId: interimId })
+  } catch {
+    // le store affiche le message d'erreur (toast)
+  }
+}
+
+// Employés proposés dans les sélecteurs de validateur et d'intérimaire : EmployeePicker, le même choix
+// d'employé partout dans l'application. Tout le monde est listé ; ceux qui ne conviennent pas sont grisés
+// avec le motif (mieux vaut montrer pourquoi une option est indisponible que la cacher).
+const employeeItems = computed(() => empStore.employees.map(e => ({ id: e.id, label: e.name, code: e.code, sublabel: e.entityName, status: e.status })))
 
 function load() { store.fetchByUnit(props.entityId) }
 onMounted(load)
@@ -187,6 +219,32 @@ async function addValidator(level: 1 | 2 | 3 | 4, employeeId: string) {
   }
 }
 
+const pickerResets = ref(0)
+async function pickValidator(level: 1 | 2 | 3 | 4, id: string) {
+  if (!id) return
+  await addValidator(level, id)
+  pickerResets.value++
+}
+function validatorBlockedReason(id: string, level: 1 | 2 | 3 | 4): string {
+  const e = empStore.getById(id)
+  if (!e) return ''
+  if (e.status !== 'active') return 'compte désactivé'
+  if (!e.hasAccount) return "n'a pas de compte utilisateur"
+  if (!canValidate(e)) return 'permission de validation manquante'
+  if (isAssignedAtOtherLevel(e.id, level)) return 'déjà validateur à un autre niveau'
+  return ''
+}
+// Intérimaire d'un niveau du pool : un compte actif de l'entité, jamais le titulaire lui-même.
+function interimBlockedReason(id: string, titularId: string): string {
+  const e = empStore.getById(id)
+  if (!e) return ''
+  if (e.id === titularId) return 'est le titulaire'
+  if (e.status !== 'active') return 'compte désactivé'
+  if (!e.hasAccount) return "n'a pas de compte utilisateur"
+  if (e.entityId !== props.entityId) return "n'est pas dans cette entité"
+  return ''
+}
+
 async function removeValidator(level: 1 | 2 | 3 | 4) {
   if (!(await confirmDialog('Retirer ce validateur ?', { danger: false }))) return
   for (const type of typesToSync.value) {
@@ -196,11 +254,9 @@ async function removeValidator(level: 1 | 2 | 3 | 4) {
 }
 
 // ── Intérim ─────────────────────────────────────────────────────
-// Juste la personne substitute — plus de plage de dates à saisir à la
-// main : au moment où une demande arrive à ce niveau, le backend détecte
-// tout seul si ce validateur est en congé approuvé aujourd'hui et route
-// vers son intérimaire le cas échéant (voir LeaveRequestService/
-// MissionOrderService/ExpenseReportService.resolveActualApprover).
+// La personne substitute reçoit chaque demande en même temps que le titulaire, à
+// tout moment (déplacement, réunion, congé) : le premier qui décide la traite
+// (voir approver-resolution.util côté backend).
 const interimOpenFor = ref<number | null>(null)
 const interimForm = ref({ interimEmployeeId: '' })
 
@@ -269,19 +325,51 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
         Chaque employé de cette entité a son propre validateur, assigné sur sa fiche. La configuration Missions et Notes de frais n'est pas accessible ici tant que ce mode est actif : repassez sur « Pool de l'entité » ci-dessus pour les configurer.
       </p>
       <div class="flex flex-col gap-1.5">
+        <div class="text-[13px] font-medium text-foreground">Validateurs de cette entité et leur intérimaire</div>
+        <div v-if="directValidators.length === 0" class="text-xs text-muted-foreground italic px-1">Aucun validateur assigné pour l'instant.</div>
+        <div
+          v-for="v in directValidators" :key="v.id"
+          class="flex items-center gap-2.5 px-3 py-2 bg-background rounded-lg border border-border flex-wrap"
+        >
+          <span class="flex-1 min-w-[160px] text-[13px]">{{ v.name }} <span class="text-[11px] text-muted-foreground">· {{ v.count }} employé(s)</span></span>
+          <label class="text-[11px] text-muted-foreground">Intérimaire</label>
+          <div class="w-[360px] max-w-full">
+            <EmployeePicker
+              :model-value="v.interimId"
+              :employees="employeeItems"
+              :disabled-reason-of="(id) => directInterimBlockedReason(v.id, id)"
+              placeholder="Intérimaire"
+              modal-title="Sélectionner un intérimaire"
+              @update:model-value="(id) => setValidatorInterim(v.id, id)"
+            />
+          </div>
+        </div>
+        <p v-if="directValidators.length > 0" class="text-[11px] text-muted-foreground">
+          Chaque validateur a son propre intérimaire. Il reçoit les demandes en même temps que le validateur et peut les valider, pour tous les employés que ce validateur valide.
+        </p>
+        <div class="text-[13px] font-medium text-foreground mt-2">Employés et leur validateur</div>
         <div v-if="entityEmployeesWithValidator.length === 0" class="text-xs text-muted-foreground italic px-1">Aucun employé rattaché à cette entité.</div>
         <div
           v-for="e in entityEmployeesWithValidator" :key="e.id"
-          class="flex items-center gap-2.5 px-3 py-2 bg-background rounded-lg border border-border"
+          class="flex items-center flex-wrap gap-2.5 px-3 py-2 bg-background rounded-lg border border-border"
         >
-          <span class="flex-1 text-[13px]">{{ e.name }} · {{ e.jobTitle || 'Employé' }}</span>
-          <span v-if="e.validatorName" class="text-[12px] text-foreground">{{ e.validatorName }}</span>
-          <span v-else class="flex items-center gap-1 text-[11px] text-danger bg-danger-bg px-2 py-0.5 rounded-full">
+          <span class="flex-1 min-w-[160px] text-[13px]">{{ e.name }} · {{ e.jobTitle || 'Employé' }}</span>
+          <span v-if="!e.directValidatorId" class="flex items-center gap-1 text-[11px] text-danger bg-danger-bg px-2 py-0.5 rounded-full">
             <Info class="w-3 h-3" /> Aucun validateur : demandes bloquées
           </span>
+          <div class="w-[360px] max-w-full">
+            <EmployeePicker
+              :model-value="e.directValidatorId ?? ''"
+              :employees="employeeItems"
+              :disabled-reason-of="directValidatorBlockedReason"
+              placeholder="Choisir un validateur"
+              modal-title="Sélectionner un validateur"
+              @update:model-value="(id) => setEmployeeValidator(e.id, id)"
+            />
+          </div>
         </div>
         <p class="text-[11px] text-muted-foreground mt-1">
-          Assignez ou changez un validateur direct depuis la fiche de l'employé concerné (section « Validation des congés »).
+          Assignez ou changez le validateur direct de chaque employé ici, ou depuis sa fiche (section « Validation des congés »). L'intérimaire se règle uniquement ici, validateur par validateur.
         </p>
       </div>
     </template>
@@ -328,20 +416,16 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
               </button>
             </template>
             <template v-else>
-              <select
-                :class="[cls.fieldSelect, 'flex-1']"
-                value=""
-                @change="addValidator(level, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">-- Choisir un validateur --</option>
-                <optgroup v-for="grp in validatorsByCategory" :key="grp.label" :label="grp.label">
-                  <option
-                    v-for="e in grp.employees" :key="e.id" :value="e.id"
-                    :disabled="e.status !== 'active' || !e.hasAccount || !canValidate(e) || isAssignedAtOtherLevel(e.id, level)"
-                    :title="e.status !== 'active' ? 'Ce compte est désactivé.' : !e.hasAccount ? 'Cet employé n\'a pas de compte utilisateur, il ne peut pas se connecter pour approuver.' : !canValidate(e) ? 'La catégorie de cet employé n\'a pas la permission de validation pour ce type de demande, il ne pourra pas voir ni traiter la file « À valider ».' : isAssignedAtOtherLevel(e.id, level) ? 'Déjà validateur à un autre niveau de ce pool.' : ''"
-                  >{{ e.name }} · {{ e.jobTitle }}{{ e.status !== 'active' ? ' (compte désactivé)' : !e.hasAccount ? ' (pas de compte)' : !canValidate(e) ? ' (permission manquante)' : isAssignedAtOtherLevel(e.id, level) ? ' (déjà à un autre niveau)' : '' }}</option>
-                </optgroup>
-              </select>
+              <div class="flex-1">
+                <EmployeePicker
+                  :key="`${level}-${pickerResets}`"
+                  :employees="employeeItems"
+                  :disabled-reason-of="(id) => validatorBlockedReason(id, level)"
+                  placeholder="Choisir un validateur"
+                  modal-title="Choisir un validateur"
+                  @update:model-value="(id) => pickValidator(level, id)"
+                />
+              </div>
             </template>
           </div>
 
@@ -349,16 +433,15 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
           <div v-if="interimOpenFor === level" class="flex flex-col gap-2 mt-1 pt-2 border-t border-border">
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Intérimaire</label>
-              <select v-model="interimForm.interimEmployeeId" :class="cls.fieldSelect">
-                <option value="">-- Aucun --</option>
-                <option
-                  v-for="e in interimCandidates.filter(x => x.id !== memberAt(level)!.employeeId)" :key="e.id" :value="e.id"
-                  :disabled="e.status !== 'active'"
-                  :title="e.status !== 'active' ? 'Ce compte est désactivé.' : ''"
-                >{{ e.name }}{{ e.status !== 'active' ? ' (compte désactivé)' : '' }}</option>
-              </select>
+              <EmployeePicker
+                v-model="interimForm.interimEmployeeId"
+                :employees="employeeItems"
+                :disabled-reason-of="(id) => interimBlockedReason(id, memberAt(level)!.employeeId)"
+                placeholder="Code employé"
+                modal-title="Sélectionner un intérimaire"
+              />
               <p class="text-[11px] text-muted-foreground mt-1">
-                Utilisé automatiquement quand ce validateur a un congé approuvé couvrant le jour où une demande lui arrive, pas besoin de préciser de dates.
+                L'intérimaire reçoit chaque demande en même temps que le titulaire, à tout moment. Le premier qui décide la traite, elle disparaît de la liste de l'autre.
               </p>
             </div>
             <div class="flex gap-2 justify-end">
@@ -367,7 +450,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
             </div>
           </div>
           <div v-else-if="memberAt(level)?.interimEmployeeId" class="text-[11px] text-muted-foreground pl-[calc(2.5rem+8px)]">
-            Intérim : {{ employeeLabel(memberAt(level)!.interimEmployeeId) }}
+            Intérim : {{ employeeLabel(memberAt(level)!.interimEmployeeId) }} (reçoit en même temps que le titulaire)
           </div>
         </div>
       </div>

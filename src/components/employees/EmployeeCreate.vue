@@ -7,6 +7,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Info, Lock } from 'lucide-vue-next'
 import CreateModalShell from '../shared/CreateModalShell.vue'
 import TableLookupField from '../ui/table-lookup/TableLookupField.vue'
+import EmployeePicker from '../ui/EmployeePicker.vue'
 import type { LookupFetchParams } from '../ui/table-lookup/TableLookupField.vue'
 import FormSection from '../ui/form-field/FormSection.vue'
 import * as cls from '../../lib/formClasses'
@@ -84,7 +85,7 @@ const form = reactive({
   gender: '' as Gender | '', birthDate: '', birthPlace: '',
   maritalStatus: '' as MaritalStatus | '', idType: '' as IdDocumentType | '', idNumber: '',
   isExpatriate: false,
-  directValidatorId: '' as string, directValidatorName: '',
+  directValidatorId: '' as string,
 })
 const error = ref('')
 
@@ -101,32 +102,16 @@ const showDirectValidatorSection = computed(() => !!form.entityId && entityStore
 function canValidateLeave(e: { validatorPermissions?: string[] }): boolean {
   return !!e.validatorPermissions?.includes('CONGE_VALIDER')
 }
-const validatorColumns = [{ key: 'code', label: 'Matricule', width: '90px' }, { key: 'label', label: 'Nom' }]
-function fetchValidatorCandidates({ searchQuery }: LookupFetchParams) {
-  let items = store.employees.map(e => ({
-    id: e.id, label: e.name, code: e.code, sublabel: e.entityName,
-    status: e.status, hasAccount: e.hasAccount, validatorPermissions: e.validatorPermissions,
-  }))
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase()
-    items = items.filter(e => e.label.toLowerCase().includes(q) || e.code.toLowerCase().includes(q))
-  }
-  return { items, total: items.length }
-}
-function isValidatorDisabled(item: { status?: string; hasAccount?: boolean; validatorPermissions?: string[] }): boolean {
-  return item.status !== 'active' || !item.hasAccount || !canValidateLeave(item)
-}
-function validatorDisabledReason(item: { status?: string; hasAccount?: boolean; validatorPermissions?: string[] }): string {
-  if (item.status !== 'active') return 'compte désactivé'
-  if (!item.hasAccount) return "n'a pas de compte utilisateur"
-  if (!canValidateLeave(item)) return 'permission de validation des congés manquante'
+// Choix du validateur direct : EmployeePicker, le même choix d'employé partout dans l'application.
+// Les employés qui ne peuvent pas valider restent visibles mais grisés, avec le motif.
+const validatorItems = computed(() => store.employees.map(e => ({ id: e.id, label: e.name, code: e.code, sublabel: e.entityName, status: e.status })))
+function validatorBlockedReason(id: string): string {
+  const e = store.getById(id)
+  if (!e) return ''
+  if (e.status !== 'active') return 'compte désactivé'
+  if (!e.hasAccount) return "n'a pas de compte utilisateur"
+  if (!canValidateLeave(e)) return 'permission de validation des congés manquante'
   return ''
-}
-const validatorCode = ref('')
-function onValidatorSelect(item: Record<string, unknown>) {
-  form.directValidatorId = String(item.id)
-  form.directValidatorName = String(item.label)
-  validatorCode.value = String(item.code)
 }
 
 store.fetchNextNumber().then(n => { form.employeeNumber = n }).catch(() => {})
@@ -372,14 +357,7 @@ async function create() {
             </p>
             <div :class="cls.field">
               <label :class="cls.fieldLabel">Validateur</label>
-              <TableLookupField
-                :code="validatorCode" :name="form.directValidatorName"
-                value-key="id" name-key="label"
-                :columns="validatorColumns" :fetch-fn="fetchValidatorCandidates"
-                :is-item-disabled="isValidatorDisabled" :item-disabled-reason="validatorDisabledReason"
-                modal-title="Sélectionner un validateur" placeholder="Code employé"
-                @update:code="validatorCode = $event" @update:name="form.directValidatorName = $event" @select="onValidatorSelect"
-              />
+              <EmployeePicker v-model="form.directValidatorId" :employees="validatorItems" :disabled-reason-of="validatorBlockedReason" placeholder="Code employé" modal-title="Sélectionner un validateur" />
             </div>
           </FormSection>
         </div>
