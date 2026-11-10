@@ -420,7 +420,7 @@ const leaveTransactionStore = useLeaveTransactionStore()
 const companySettingsStore  = useCompanySettingsStore()
 const categoryStore    = useEmployeeCategoryStore()
 const entityStore      = useEntityStore()
-if (entityStore.entities.length === 0) entityStore.fetchAll()
+entityStore.fetchAll().catch(() => {})
 const { calendar, annualHolidays, ponctualHolidays } = storeToRefs(calendarStore)
 
 const pageLoading = computed(() => calendarStore.loading || leaveTypesStore.loading)
