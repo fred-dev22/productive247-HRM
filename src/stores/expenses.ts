@@ -15,6 +15,7 @@ interface BackendDecision {
   DecidedAt: string | null
   CreatedAt: string
   validatedByEmployee?: BackendEmployeeRef
+  OnBehalfOf?: BackendEmployeeRef | null
 }
 interface BackendExpenseLine {
   Id: string
@@ -45,6 +46,7 @@ interface BackendExpenseReport {
   lines: BackendExpenseLine[]
   TotalAmount?: number
   decisions?: BackendDecision[]
+  ActingAsInterimOf?: BackendEmployeeRef | null
 }
 
 function initialsFromFullName(name: string): string {
@@ -66,6 +68,7 @@ function mapDecision(d: BackendDecision): ValidationStep {
     action: DECISION_ACTION[d.Decision] ?? 'pending',
     date: d.DecidedAt ?? '',
     comment: d.Comment ?? undefined,
+    onBehalfOfName: d.OnBehalfOf?.FullName ?? undefined,
   }
 }
 
@@ -106,6 +109,7 @@ function mapExpenseReport(raw: BackendExpenseReport): ExpenseReport {
     submittedAt: raw.SubmittedAt ?? undefined,
     createdAt: raw.CreatedAt,
     modifiedAt: raw.ModifiedAt ?? undefined,
+    actingAsInterimOfName: raw.ActingAsInterimOf?.FullName ?? undefined,
     validationHistory: raw.decisions ? raw.decisions.filter(d => d.Decision !== 'Cancelled').map(mapDecision) : undefined,
   }
 }

@@ -18,6 +18,7 @@
         <div class="flex items-center gap-2 flex-wrap">
           <UserAvatar :name="s.actorName" size="sm" />
           <span class="text-[13px] font-semibold text-foreground">{{ s.actorName }}</span>
+          <span v-if="s.onBehalfOfName" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning-bg text-warning whitespace-nowrap">Intérimaire de {{ s.onBehalfOfName }}</span>
           <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-neutral-bg text-neutral whitespace-nowrap">{{ levelLabel(s.level) }}</span>
           <span v-if="s.date" class="text-[11px] text-muted-foreground ml-auto whitespace-nowrap">{{ formatDate(s.date) }}</span>
         </div>

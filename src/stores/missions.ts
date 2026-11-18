@@ -25,6 +25,7 @@ interface BackendDecision {
   DecidedAt: string | null
   CreatedAt: string
   validatedByEmployee?: BackendEmployeeRef
+  OnBehalfOf?: BackendEmployeeRef | null
 }
 interface BackendAllowanceLine {
   expenseTypeId: string
@@ -60,6 +61,7 @@ interface BackendMissionOrder {
   createdByEmployee?: BackendEmployeeRef
   EstimatedTotal?: number
   decisions?: BackendDecision[]
+  ActingAsInterimOf?: BackendEmployeeRef | null
   allowance?: { lines: BackendAllowanceLine[]; total: number }
   missionExpenseLines?: BackendMissionExpenseLine[]
   linkedMissionOrder?: { Id: string; ReferenceCode: string; Destination: string; Status: string; employee?: BackendEmployeeRef } | null
@@ -84,6 +86,7 @@ function mapDecision(d: BackendDecision): ValidationStep {
     action: DECISION_ACTION[d.Decision] ?? 'pending',
     date: d.DecidedAt ?? '',
     comment: d.Comment ?? undefined,
+    onBehalfOfName: d.OnBehalfOf?.FullName ?? undefined,
   }
 }
 
@@ -151,6 +154,7 @@ function mapMissionOrder(raw: BackendMissionOrder): MissionOrder {
     linkedMission: raw.linkedMissionOrder ? mapLinkedMission(raw.linkedMissionOrder) : undefined,
     createdAt: raw.CreatedAt,
     modifiedAt: raw.ModifiedAt ?? undefined,
+    actingAsInterimOfName: raw.ActingAsInterimOf?.FullName ?? undefined,
     validationHistory: raw.decisions ? raw.decisions.filter(d => d.Decision !== 'Cancelled').map(mapDecision) : undefined,
   }
 }

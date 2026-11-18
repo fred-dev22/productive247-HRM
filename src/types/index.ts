@@ -45,6 +45,8 @@ export interface ValidationStep {
   action:    'submitted' | 'approved' | 'rejected' | 'returned' | 'pending'
   date:      string       // ISO datetime or ''
   comment?:  string
+  // Etape decidee par un interimaire : nom du validateur prevu.
+  onBehalfOfName?: string
 }
 
 export interface LeaveRequest {
@@ -77,6 +79,8 @@ export interface LeaveRequest {
   createdAt:            string
   modifiedAt?:          string | null
   validationHistory?:   ValidationStep[]
+  // Renseigne dans "A valider" quand je vois la demande en tant qu'interimaire du validateur prevu.
+  actingAsInterimOfName?: string
   // Solde insuffisant au moment de l'affichage — non bloquant (decision du
   // 04/08, même traitement que le préavis), juste un avertissement pour le
   // validateur.
@@ -178,6 +182,8 @@ export interface MissionOrder {
   createdAt:            string
   modifiedAt?:          string | null
   validationHistory?:   ValidationStep[]
+  // Renseigne dans "A valider" quand je vois la demande en tant qu'interimaire du validateur prevu.
+  actingAsInterimOfName?: string
 }
 
 // Statut d'ExpenseReport — reprend tel quel l'enum backend (voir
@@ -227,6 +233,8 @@ export interface ExpenseReport {
   createdAt:            string
   modifiedAt?:          string | null
   validationHistory?:   ValidationStep[]
+  // Renseigne dans "A valider" quand je vois la demande en tant qu'interimaire du validateur prevu.
+  actingAsInterimOfName?: string
 }
 
 // ── Entities ─────────────────────────────────────────────────

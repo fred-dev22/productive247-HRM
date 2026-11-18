@@ -31,6 +31,7 @@
           <div v-if="item.createdByName && item.createdByName !== item.employeeName" class="text-[10px] text-muted-foreground truncate">
             Créé par {{ item.createdByName }}
           </div>
+          <div v-if="item.actingAsInterimOfName" class="text-[10px] font-medium text-warning truncate">Intérimaire de {{ item.actingAsInterimOfName }}</div>
         </div>
       </div>
     </template>
@@ -69,6 +70,9 @@
         </div>
         <div v-if="item.createdByName && item.createdByName !== item.employeeName" class="text-[12px]">
           <div class="text-muted-foreground text-[11px]">Créé par</div>{{ item.createdByName }}
+        </div>
+        <div v-if="item.actingAsInterimOfName" class="text-[12px] text-warning bg-warning-bg rounded-md px-2.5 py-2">
+          Vous validez cette demande en tant qu'intérimaire de {{ item.actingAsInterimOfName }}.
         </div>
         <div><StatusPill :status="item.status" /></div>
 

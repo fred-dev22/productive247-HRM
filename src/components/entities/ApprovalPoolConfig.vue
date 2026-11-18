@@ -258,9 +258,10 @@ async function removeValidator(level: 1 | 2 | 3 | 4) {
 }
 
 // ── Intérim ─────────────────────────────────────────────────────
-// La personne substitute reçoit chaque demande en même temps que le titulaire, à
-// tout moment (déplacement, réunion, congé) : le premier qui décide la traite
-// (voir approver-resolution.util côté backend).
+// La personne substitute voit chaque demande en même temps que le titulaire, à tout
+// moment, avec la mention « en tant qu'intérimaire » : le premier qui décide la traite
+// (voir approver-resolution.util côté backend). Elle n'est prévenue (notification dans
+// l'application, jamais d'email) que si le titulaire est en congé approuvé.
 const interimOpenFor = ref<number | null>(null)
 const interimForm = ref({ interimEmployeeId: '' })
 
@@ -349,7 +350,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
           </div>
         </div>
         <p v-if="directValidators.length > 0" class="text-[11px] text-muted-foreground">
-          Chaque validateur a son propre intérimaire. Il reçoit les demandes en même temps que le validateur et peut les valider, pour tous les employés que ce validateur valide.
+          Chaque validateur a son propre intérimaire. Il voit les demandes en même temps que le validateur et peut les valider, avec la mention « en tant qu'intérimaire ». Il n'est prévenu par notification que si le validateur est en congé (jamais par email).
         </p>
         <div class="text-[13px] font-medium text-foreground mt-2">Employés et leur validateur</div>
         <div v-if="entityEmployeesWithValidator.length === 0" class="text-xs text-muted-foreground italic px-1">Aucun employé rattaché à cette entité.</div>
@@ -445,7 +446,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
                 modal-title="Sélectionner un intérimaire"
               />
               <p class="text-[11px] text-muted-foreground mt-1">
-                L'intérimaire reçoit chaque demande en même temps que le titulaire, à tout moment. Le premier qui décide la traite, elle disparaît de la liste de l'autre.
+                L'intérimaire voit chaque demande en même temps que le titulaire, avec la mention « en tant qu'intérimaire ». Le premier qui décide la traite, elle disparaît de la liste de l'autre. Il n'est prévenu par notification que si le titulaire est en congé (jamais par email).
               </p>
             </div>
             <div class="flex gap-2 justify-end">
@@ -454,7 +455,7 @@ const interimCandidates = computed(() => empStore.employees.filter(x => x.hasAcc
             </div>
           </div>
           <div v-else-if="memberAt(level)?.interimEmployeeId" class="text-[11px] text-muted-foreground pl-[calc(2.5rem+8px)]">
-            Intérim : {{ employeeLabel(memberAt(level)!.interimEmployeeId) }} (reçoit en même temps que le titulaire)
+            Intérim : {{ employeeLabel(memberAt(level)!.interimEmployeeId) }} (voit les demandes en même temps que le titulaire)
           </div>
         </div>
       </div>
