@@ -13,6 +13,9 @@
   --color-background: oklch(97.5% 0.005 155);
   --color-foreground: oklch(15% 0.01 155);
 
+  /* Fond clair de la couleur principale (element ou carte selectionne, pastille d'icone) */
+  --color-tint: var(--color-sidebar-accent);
+
   --color-card: oklch(100% 0 0);
   --color-card-foreground: oklch(11% 0.02 155);
 
@@ -106,6 +109,8 @@
   .dark {
     --color-background: oklch(8% 0.02 155);
     --color-foreground: oklch(98% 0.01 155);
+
+    --color-tint: var(--color-sidebar-accent);
 
     --color-card: oklch(11% 0.02 155);
     --color-card-foreground: oklch(98% 0.01 155);
